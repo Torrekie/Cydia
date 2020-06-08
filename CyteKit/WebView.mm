@@ -405,6 +405,10 @@ static void $UIWebViewWebViewDelegate$_clearUIWebView(UIWebViewWebViewDelegate *
     MSHookIvar<UIWebView *>(self, "uiWebView") = nil;
 }
 
+static BOOL $WAKView$canBecomeFocused(id self) {
+    return true;
+}
+
 __attribute__((__constructor__)) static void $() {
     if (Class $UIWebViewWebViewDelegate = objc_getClass("UIWebViewWebViewDelegate")) {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:addMessageToConsole:), (IMP) &$UIWebViewWebViewDelegate$webView$addMessageToConsole$, "v16@0:4@8@12");
@@ -415,6 +419,10 @@ __attribute__((__constructor__)) static void $() {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:), (IMP) &$UIWebViewWebViewDelegate$webView$resource$willSendRequest$redirectResponse$fromDataSource$, "@28@0:4@8@12@16@20@24");
         class_addMethod($UIWebViewWebViewDelegate, @selector(webViewClose:), (IMP) &$UIWebViewWebViewDelegate$webViewClose$, "v12@0:4@8");
         class_addMethod($UIWebViewWebViewDelegate, @selector(_clearUIWebView), (IMP) &$UIWebViewWebViewDelegate$_clearUIWebView, "v8@0:4");
+    }
+    if (Class $WAKView = objc_getClass("WAKView")) {
+        // iOS13 Crashes calling this for unknown reasons when Accessibility->Keyboards->Full Keybaord Access is enabled
+        class_addMethod($WAKView, @selector(canBecomeFocused), (IMP) &$WAKView$canBecomeFocused, "c@");
     }
 }
 
