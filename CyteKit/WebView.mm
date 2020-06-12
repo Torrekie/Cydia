@@ -409,6 +409,10 @@ static BOOL $WAKView$canBecomeFocused(id self) {
     return true;
 }
 
+static id $WAKView$parentFocusEnvironment(id self) {
+    return nil;
+}
+
 __attribute__((__constructor__)) static void $() {
     if (Class $UIWebViewWebViewDelegate = objc_getClass("UIWebViewWebViewDelegate")) {
         class_addMethod($UIWebViewWebViewDelegate, @selector(webView:addMessageToConsole:), (IMP) &$UIWebViewWebViewDelegate$webView$addMessageToConsole$, "v16@0:4@8@12");
@@ -423,6 +427,7 @@ __attribute__((__constructor__)) static void $() {
     if (Class $WAKView = objc_getClass("WAKView")) {
         // iOS13 Crashes calling this for unknown reasons when Accessibility->Keyboards->Full Keybaord Access is enabled
         class_addMethod($WAKView, @selector(canBecomeFocused), (IMP) &$WAKView$canBecomeFocused, "c@");
+        class_addMethod($WAKView, @selector(parentFocusEnvironment), (IMP) &$WAKView$parentFocusEnvironment, "@@");
     }
 }
 
