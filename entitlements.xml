@@ -16,10 +16,10 @@
 	<true/>
 	<key>com.apple.private.skip-library-validation</key>
 	<true/>
-        <key>com.apple.frontboard.launchapplications</key>
-        <true/>
-        <key>com.apple.frontboard.shutdown</key>
-        <true/>
+	<key>com.apple.frontboard.launchapplications</key>
+	<true/>
+	<key>com.apple.frontboard.shutdown</key>
+	<true/>
 	<key>com.apple.springboard.launchapplications</key>
 	<true/>
 	<key>com.apple.springboard.opensensitiveurl</key>
@@ -29,6 +29,12 @@
 		<string>com.apple.cfnetwork</string>
 		<string>com.apple.identities</string>
 		<string>com.apple.mobilesafari</string>
+	</array>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>AGXDeviceUserClient</string>
+		<string>IOHDIXControllerUserClient</string>
+		<string>IOSurfaceRootUserClient</string>
 	</array>
 	<key>platform-application</key>
 	<true/>
