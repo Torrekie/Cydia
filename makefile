@@ -82,7 +82,6 @@ libs += -framework IOKit
 libs += -framework QuartzCore
 libs += -framework SpringBoardServices
 libs += -framework SystemConfiguration
-libs += -framework WebKit
 
 libs += -framework CFNetwork
 
@@ -92,6 +91,7 @@ libs += -framework WebCore
 libs += -Xarch_armv6 -Wl,-force_load,Objects/libapt32.a
 lapt += Objects/libapt32.a
 endif
+libs += -framework WebKit
 
 libs += -Xarch_$(arch) -Wl,-force_load,Objects/libapt64.a
 lapt += Objects/libapt64.a
@@ -289,6 +289,10 @@ MobileCydia: $(object) entitlements.xml $(lapt)
 	@grep '~' <<<"$(version)" >/dev/null && echo "skipping..." || strip $@
 	@echo "[uikt] $@"
 	@./uikit.sh $@
+	@install_name_tool -add_rpath /System/Library/Frameworks $@
+	@install_name_tool -add_rpath /System/Library/PrivateFrameworks $@
+	@install_name_tool -change /System/Library/Frameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
+	@install_name_tool -change /System/Library/PrivateFrameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
 
 cfversion: cfversion.mm
 	$(cycc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
