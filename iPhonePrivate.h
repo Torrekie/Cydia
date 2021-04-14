@@ -608,7 +608,7 @@ extern CGFloat const UIScrollViewDecelerationRateNormal;
 extern CFStringRef const kGSDisplayIdentifiersCapability;
 extern float const UIWebViewGrowsAndShrinksToFitHeight;
 extern float const UIWebViewScalesToFitScale;
-extern NSString *WebKitErrorDomain;
+extern "C" NSString *WebKitErrorDomain;
 // }}}
 // extern "C" *(); {{{
 extern "C" void *reboot2(uint64_t flags);
