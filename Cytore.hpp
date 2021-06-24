@@ -26,6 +26,7 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -211,6 +212,13 @@ class File {
             Close_();
             _assert(unlink(path) == 0);
             goto open;
+        }
+        // Ensure com.apple.runningboard.can-suspend-locked xattr is present to keep iOS15+ from killing on suspend
+        uint8_t value = 0;
+        int xattrSize = fgetxattr(file_, "com.apple.runningboard.can-suspend-locked", &value, sizeof(value), 0, 0);
+        if (xattrSize == -1 || value == 0) {
+            value = 1;
+            fsetxattr(file_, "com.apple.runningboard.can-suspend-locked", &value, sizeof(value), 0, 0);
         }
     }
 
