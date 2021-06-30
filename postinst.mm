@@ -243,8 +243,16 @@ int main(int argc, const char *argv[]) {
     if (access(OldCache_, F_OK) == 0)
         system("rm -rf " OldCache_);
 
+    NSDictionary<NSFileAttributeKey, id> *attributes = @{
+        NSFileOwnerAccountID: @501,
+        NSFileGroupOwnerAccountID: @501
+    };
     #define NewCache_ "/var/mobile/Library/Caches/com.saurik.Cydia"
-    system("cd /; su -c 'mkdir -p " NewCache_ "' mobile");
+    [[NSFileManager defaultManager] createDirectoryAtPath:@NewCache_
+                              withIntermediateDirectories:YES
+                                               attributes:attributes
+                                                    error:nil
+    ];
     if (access(NewCache_ "/lists", F_OK) != 0 && errno == ENOENT)
         system("cp -at " NewCache_ " /var/lib/apt/lists");
     system("chown -R 501.501 " NewCache_);
@@ -252,7 +260,11 @@ int main(int argc, const char *argv[]) {
     #define OldLibrary_ "/var/lib/cydia"
 
     #define NewLibrary_ "/var/mobile/Library/Cydia"
-    system("cd /; su -c 'mkdir -p " NewLibrary_ "' mobile");
+    [[NSFileManager defaultManager] createDirectoryAtPath:@NewLibrary_
+                              withIntermediateDirectories:YES
+                                               attributes:attributes
+                                                    error:nil
+    ];
 
     #define Cytore_ "/metadata.cb0"
 
