@@ -659,6 +659,22 @@ static CYColor Purplish_;
 static UIColor *InstallingColor_;
 static UIColor *RemovingColor_;
 
+static NSInteger CydiaUserInterfaceStyle;
+static UIColor *whiteIfNotDark(bool white)
+{
+  UIColor *color = (white) ? [UIColor whiteColor] : [UIColor blackkColor];
+  if (CydiaUserInterfaceStyle == UIUserInterfaceStyleDark)
+  {
+    color = (white) ? [UIColor blackkColor] : [UIColor whiteColor];
+  }
+  return color;
+}
+
+static void overrideUserInterfaceStyle(NSInteger style)
+{
+  CydiaUserInterfaceStyle = style;
+}
+
 static NSString *App_;
 
 static BOOL Advanced_;
@@ -5174,7 +5190,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
 
-        [self setPageColor:[UIColor blackColor]];
+        [self setPageColor:whiteIfNotDark(0)];
 
         [[self navigationItem] setHidesBackButton:YES];
 
@@ -5440,7 +5456,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
     placard_ = nil;
 
     if (package == nil)
-        [self.content setBackgroundColor:[UIColor whiteColor]];
+        [self.content setBackgroundColor:whiteIfNotDark(1)];
     else {
         [package parse];
 
@@ -5492,7 +5508,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
                 placard = @"installing";
             }
         } else {
-            color = [UIColor whiteColor];
+            color = whiteIfNotDark(1);
 
             if ([package installed] != nil)
                 placard = @"installed";
@@ -5636,7 +5652,7 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         switch_ = [[[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)] autorelease];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
 
-        [self.content setBackgroundColor:[UIColor whiteColor]];
+        [self.content setBackgroundColor:whiteIfNotDark(1)];
     } return self;
 }
 
@@ -6786,7 +6802,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) viewDidLoad {
     [super viewDidLoad];
-
+    overrideUserInterfaceStyle(self.traitCollection.userInterfaceStyle);
     [[self navigationItem] setTitle:UCLocalize("SECTIONS")];
 }
 
@@ -6971,6 +6987,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) viewDidLoad {
     [super viewDidLoad];
+    overrideUserInterfaceStyle(self.traitCollection.userInterfaceStyle);
     [self setLeftBarButtonItem];
 }
 
@@ -7359,7 +7376,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) viewDidLoad {
     [super viewDidLoad];
-
+    overrideUserInterfaceStyle(self.traitCollection.userInterfaceStyle);
     [[self navigationItem] setTitle:UCLocalize("SETTINGS")];
 }
 
@@ -7603,7 +7620,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
-        [self.content setBackgroundColor:[UIColor whiteColor]];
+        [self.content setBackgroundColor:whiteIfNotDark(1)];
         [self.content setOpaque:YES];
 
         indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGraySmall] autorelease];
@@ -8051,7 +8068,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (void) viewDidLoad {
     [super viewDidLoad];
-
+    overrideUserInterfaceStyle(self.traitCollection.userInterfaceStyle);
     [[self navigationItem] setTitle:UCLocalize("SOURCES")];
     [self updateButtonsForEditingStatusAnimated:NO];
 }
@@ -8184,9 +8201,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
     [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
     [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
-    [caption_ setTextColor:[UIColor whiteColor]];
+    [caption_ setTextColor:whiteIfNotDark(1)];
     [caption_ setBackgroundColor:[UIColor clearColor]];
-    [caption_ setShadowColor:[UIColor blackColor]];
+    [caption_ setShadowColor:whiteIfNotDark(0)];
     [caption_ setTextAlignment:NSTextAlignmentCenter];
     [view addSubview:caption_];
 
@@ -8199,9 +8216,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
     [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
     [status_ setFont:[UIFont systemFontOfSize:16.0f]];
-    [status_ setTextColor:[UIColor whiteColor]];
+    [status_ setTextColor:whiteIfNotDark(1)];
     [status_ setBackgroundColor:[UIColor clearColor]];
-    [status_ setShadowColor:[UIColor blackColor]];
+    [status_ setShadowColor:whiteIfNotDark(0)];
     [status_ setTextAlignment:NSTextAlignmentCenter];
     [view addSubview:status_];
 }
