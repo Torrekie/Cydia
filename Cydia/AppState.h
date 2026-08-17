@@ -32,6 +32,8 @@
 
 /* Values initialized by the application bootstrap and consumed by web code. */
 extern NSString *Cydia_;
+extern const NSString *UI_;
+extern BOOL Advanced_;
 extern _H<NSString> UniqueID_;
 extern NSMutableDictionary *Values_;
 extern _H<NSMutableDictionary> SessionData_;
