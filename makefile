@@ -42,17 +42,13 @@ link += -Wl,-dead_strip
 link += -Wl,-no_dead_strip_inits_and_terms
 
 iapt := 
-iapt += -Iapt32
-iapt += -Iapt32-contrib
-iapt += -Iapt32-deb
+iapt += -Iapt64
+iapt += -Iapt64-contrib
+iapt += -Iapt64-deb
 iapt += -Iapt-extra
-iapt += -IObjects/apt32
+iapt += -IObjects/apt64
 
-ifeq ($(do32),yes)
-flag += $(patsubst %,-Xarch_armv6 %,$(iapt))
-endif
-
-flag += $(patsubst %,-Xarch_$(arch) %,$(subst apt32,apt64,$(iapt)))
+flag += $(patsubst %,-Xarch_$(arch) %,$(iapt))
 
 flag += -I.
 flag += -isystem sysroot/usr/include
@@ -86,11 +82,6 @@ libs += -framework SystemConfiguration
 libs += -framework CFNetwork
 
 libs += -llockdown
-ifeq ($(do32),yes)
-libs += -framework WebCore
-libs += -Xarch_armv6 -Wl,-force_load,Objects/libapt32.a
-lapt += Objects/libapt32.a
-endif
 libs += -framework WebKit
 
 libs += -Xarch_$(arch) -Wl,-force_load,Objects/libapt64.a
@@ -107,7 +98,7 @@ code := $(foreach dir,$(dirs),$(wildcard $(foreach ext,h hpp c cpp m mm,$(dir)/*
 code := $(filter-out SDURLCache/SDURLCacheTests.m,$(code))
 code += MobileCydia.mm Version.mm iPhonePrivate.h Cytore.hpp lookup3.c Sources.h Sources.mm DiskUsage.cpp
 
-code += http.cc
+code += apt64/methods/http.cc
 
 source := $(filter %.m,$(code)) $(filter %.mm,$(code))
 source += $(filter %.c,$(code)) $(filter %.cpp,$(code)) $(filter %.cc,$(code))
@@ -122,14 +113,6 @@ object := $(object:.mm=.o)
 object := $(object:%=Objects/%)
 
 methods := copy file rred gpgv
-
-libapt32 := 
-libapt32 += $(wildcard apt32/apt-pkg/*.cc)
-libapt32 += $(wildcard apt32/apt-pkg/deb/*.cc)
-libapt32 += $(wildcard apt32/apt-pkg/contrib/*.cc)
-libapt32 += apt32/methods/gzip.cc
-libapt32 += $(patsubst %,apt32/methods/%.cc,$(methods))
-libapt32 := $(patsubst %.cc,Objects/%.o,$(libapt32))
 
 libapt64 := 
 libapt64 += $(wildcard apt64/apt-pkg/*.cc)
@@ -147,27 +130,6 @@ link += -Xarch_$(arch) -Wl,-lz
 flag += -DAPT_PKG_EXPOSE_STRING_VIEW
 flag += -Dsighandler_t=sig_t
 
-ifeq ($(do32),yes)
-flag32 := 
-flag32 += -arch armv6
-flag32 += -Xarch_armv6 -miphoneos-version-min=2.0
-flag32 += -Xarch_armv6 -marm # @synchronized
-flag32 += -Xarch_armv6 -mcpu=arm1176jzf-s
-flag32 += -Xarch_armv6 -ffixed-r9
-
-link += -Xarch_armv6 -Wl,-lgcc_s.1
-link += -Xarch_armv6 -Wl,-segalign,4000
-
-apt32 := $(cycc) $(flag32) $(flag)
-apt32 += -Wno-deprecated-register
-apt32 += -Wno-format-security
-apt32 += -Wno-tautological-compare
-apt32 += -Wno-uninitialized
-apt32 += -Wno-unused-private-field
-apt32 += -Wno-unused-variable
-apt32 += -DNDEBUG
-endif
-
 flag64 := 
 flag64 += -arch $(arch)
 flag64 += -Xarch_$(arch) -m$(kind)-version-min=7.0
@@ -182,14 +144,9 @@ apt64 += -DNDEBUG
 eapt := -include apt.h
 apt64 += $(eapt)
 eapt += -D'VERSION="0.7.25.3"'
-apt32 += $(eapt)
 eapt += -Wno-format
 eapt += -Wno-logical-op-parentheses
 iapt += $(eapt)
-
-ifeq ($(do32),yes)
-cycc += $(flag32)
-endif
 
 cycc += $(flag64)
 
@@ -223,11 +180,6 @@ Objects/apt64/apt-pkg/tagfile-keys%h apt64/apt-pkg/tagfile-keys%cc:
             --include "<apt-pkg/tagfile.h>" \
             ../apt64/apt-pkg/tagfile-keys.list
 	sed -i -e 's@typedef char static_assert64@//\\0@' apt64/apt-pkg/tagfile-keys.cc
-
-Objects/apt32/%.o: apt32/%.cc $(header) apt.h apt-extra/*.h
-	@mkdir -p $(dir $@)
-	@echo "[cycc] $<"
-	@$(apt32) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
 
 Objects/apt64/%.o: apt64/%.cc $(header) apt.h apt-extra/*.h
 	@mkdir -p $(dir $@)
@@ -271,10 +223,6 @@ sysroot: sysroot.sh
 	@echo "Your ./sysroot/ is either missing or out of date. Please read compiling.txt for help." 1>&2
 	@echo 1>&2
 	@exit 1
-
-Objects/libapt32.a: $(libapt32)
-	@echo "[arch] $@"
-	@ar -rc $@ $^
 
 Objects/libapt64.a: $(libapt64)
 	@echo "[arch] $@"
