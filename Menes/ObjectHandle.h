@@ -52,7 +52,6 @@ struct MenesObjectHandle_<Type_, 2> {
 template <typename Type_, unsigned Delegate_ = 0>
 class MenesObjectHandle {
   private:
-#if __has_feature(objc_arc)
     Type_ *__strong value_;
 
     _finline void Release_(Type_ *value) {
@@ -95,59 +94,6 @@ class MenesObjectHandle {
     _finline MenesObjectHandle &operator =(const MenesObjectHandle &value) {
         return this->operator =(value.operator Type_ *());
     }
-#else
-    Type_ *value_;
-
-    _finline void Retain_() {
-        if (value_ != nil)
-            CFRetain((CFTypeRef) value_);
-    }
-
-    _finline void Release_(Type_ *value) {
-        if (value != nil) {
-            MenesObjectHandle_<Type_, Delegate_>::Execute(value);
-            CFRelease((CFTypeRef) value);
-        }
-    }
-
-  public:
-    _finline MenesObjectHandle(const MenesObjectHandle &rhs) :
-        value_(rhs.value_ == nil ? nil : (Type_ *) CFRetain((CFTypeRef) rhs.value_))
-    {
-    }
-
-    _finline MenesObjectHandle(Type_ *value = NULL, bool mended = false) :
-        value_(value)
-    {
-        if (!mended)
-            Retain_();
-    }
-
-    _finline ~MenesObjectHandle() {
-        Release_(value_);
-    }
-
-    _finline operator Type_ *() const {
-        return value_;
-    }
-
-    _finline Type_ *operator ->() const {
-        return value_;
-    }
-
-    _finline MenesObjectHandle &operator =(Type_ *value) {
-        if (value_ != value) {
-            Type_ *old(value_);
-            value_ = value;
-            Retain_();
-            Release_(old);
-        } return *this;
-    }
-
-    _finline MenesObjectHandle &operator =(const MenesObjectHandle &value) {
-        return this->operator =(value.operator Type_ *());
-    }
-#endif
 };
 
 #define _H MenesObjectHandle
