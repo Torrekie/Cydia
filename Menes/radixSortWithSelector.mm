@@ -73,7 +73,7 @@ static RadixItem_ *CYRadixSort(struct RadixItem_ *swap, size_t count) {
     return lhs;
 }
 
-void CYRadixSortUsingFunction(id *self, size_t count, MenesRadixSortFunction function, void *argument) {
+void CYRadixSortUsingFunction(id __strong *self, size_t count, MenesRadixSortFunction function, void *argument) {
     struct RadixItem_ *swap(new RadixItem_[count * 2]);
 
     for (size_t i(0); i != count; ++i) {
