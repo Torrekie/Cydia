@@ -43,13 +43,13 @@ void PackageImport(const void *key, const void *value, void *context) {
     bool &fail(*reinterpret_cast<bool *>(context));
 
     char buffer[1024];
-    if (!CFStringGetCString((CFStringRef) key, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+    if (!CFStringGetCString(reinterpret_cast<CFStringRef>(key), buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
         NSLog(@"failed to import package %@", key);
         return;
     }
 
     PackageValue *metadata(PackageFind(buffer, strlen(buffer), &fail));
-    NSDictionary *package((NSDictionary *) value);
+    NSDictionary *package((__bridge NSDictionary *) value);
 
     if (NSNumber *subscribed = [package objectForKey:@"IsSubscribed"])
         if ([subscribed boolValue] && !metadata->subscribed_)
@@ -67,7 +67,7 @@ void PackageImport(const void *key, const void *value, void *context) {
     if (date != nil && version != nil) {
         time_t time([date timeIntervalSince1970]);
         if (metadata->last_ < time || metadata->last_ == 0)
-            if (CFStringGetCString((CFStringRef) version, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+            if (CFStringGetCString((__bridge CFStringRef) version, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
                 size_t length(strlen(buffer));
                 uint16_t vhash(hashlittle(buffer, length));
 

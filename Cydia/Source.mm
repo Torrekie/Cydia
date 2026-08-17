@@ -176,7 +176,7 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
     if (!section.Find([name UTF8String], start, end))
         return (NSString *) [NSNull null];
 
-    return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
+    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(start, end - start))];
 } }
 
 - (NSComparisonResult) compareByName:(Source *)source {
