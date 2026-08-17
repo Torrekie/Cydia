@@ -88,7 +88,7 @@ class RegEx {
         size_t size(size_);
         UChar data[size];
         size = _rgxcall(uregex_group, regex_, match, data, size);
-        return [[[NSString alloc] initWithBytes:data length:(size * sizeof(UChar)) encoding:NSUTF16LittleEndianStringEncoding] autorelease];
+        return [[NSString alloc] initWithBytes:data length:(size * sizeof(UChar)) encoding:NSUTF16LittleEndianStringEncoding];
     }
 
     _finline bool operator ()(NSString *string) {
@@ -113,7 +113,7 @@ class RegEx {
     }
 
     bool operator ()(const char *data, size_t size) {
-        return operator ()([[[NSString alloc] initWithBytes:data length:size encoding:NSUTF8StringEncoding] autorelease]);
+        return operator ()([[NSString alloc] initWithBytes:data length:size encoding:NSUTF8StringEncoding]);
     }
 
     operator bool() const {
@@ -121,7 +121,7 @@ class RegEx {
     }
 
     NSString *operator ->*(NSString *format) const {
-        id values[capture_];
+        id __unsafe_unretained values[capture_];
         for (int i(0); i != capture_; ++i)
             values[i] = this->operator [](i + 1);
         return [NSString stringWithFormat:format :capture_ :values];

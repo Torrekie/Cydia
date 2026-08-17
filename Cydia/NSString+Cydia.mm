@@ -35,13 +35,13 @@
 }
 
 - (NSString *) stringByAddingPercentEscapesIncludingReserved {
-    return [(id)CFURLCreateStringByAddingPercentEscapes(
+    return CFBridgingRelease(CFURLCreateStringByAddingPercentEscapes(
         kCFAllocatorDefault,
         (CFStringRef) self,
         NULL,
         CFSTR(";/?:@&=+$,"),
         kCFStringEncodingUTF8
-    ) autorelease];
+    ));
 }
 
 @end
