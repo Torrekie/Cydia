@@ -12,6 +12,9 @@
 
 #include <UIKit/UIKit.h>
 
+// Shared UIKit layout value used by controllers outside MobileCydia.mm.
+static const NSUInteger CydiaAutoresizingFlexibleBoth = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
 extern CYColor Blue_;
 extern CYColor Blueish_;
 extern CYColor Black_;

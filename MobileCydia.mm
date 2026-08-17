@@ -137,6 +137,8 @@ extern "C" {
 #include "Cydia/Relations.h"
 #include "Cydia/Section.h"
 #include "Cydia/Source.h"
+#include "Cydia/TabBarController.h"
+#include "Cydia/URLProtocol.h"
 /* }}} */
 
 const char *common_arch=NULL;
@@ -173,7 +175,7 @@ static NSString *Error_;
 static NSString *Warning_;
 
 static void (*$SBSSetInterceptsMenuButtonForever)(bool);
-static NSData *(*$SBSCopyIconImagePNGDataForDisplayIdentifier)(NSString *);
+extern NSData *(*$SBSCopyIconImagePNGDataForDisplayIdentifier)(NSString *);
 
 static CFStringRef (*$MGCopyAnswer)(CFStringRef);
 
@@ -676,205 +678,6 @@ static void SaveConfig(NSObject *lock) {
 
     CydiaWriteSources();
 }
-
-/* Cydia Tab Bar Controller {{{ */
-@interface CydiaTabBarController : CyteTabBarController <
-    UITabBarControllerDelegate,
-    FetchDelegate
-> {
-    _transient Database *database_;
-
-    _H<UIActivityIndicatorView> indicator_;
-
-    bool updating_;
-    // XXX: ok, "updatedelegate_"?...
-    _transient NSObject<CydiaDelegate> *updatedelegate_;
-}
-
-- (void) beginUpdate;
-- (BOOL) updating;
-
-@end
-
-@implementation CydiaTabBarController
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-        [self setDelegate:self];
-
-        indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteTiny];
-        [indicator_ setOrigin:CGPointMake(kCFCoreFoundationVersionNumber >= 800 ? 2 : 4, 2)];
-
-        [[self view] setAutoresizingMask:UIViewAutoresizingFlexibleBoth];
-    } return self;
-}
-
-- (void) beginUpdate {
-    if (updating_)
-        return;
-
-    UIViewController *controller([[self viewControllers] objectAtIndex:1]);
-    UITabBarItem *item([controller tabBarItem]);
-
-    [item setBadgeValue:@""];
-    UIView *badge(MSHookIvar<UIView *>([item view], "_badge"));
-
-    [indicator_ startAnimating];
-    [badge addSubview:indicator_];
-
-    [updatedelegate_ retainNetworkActivityIndicator];
-    updating_ = true;
-
-    [NSThread
-        detachNewThreadSelector:@selector(performUpdate)
-        toTarget:self
-        withObject:nil
-    ];
-}
-
-- (void) performUpdate {
-    @autoreleasepool {
-
-    SourceStatus status(self, database_);
-    [database_ updateWithStatus:status];
-
-    [self
-        performSelectorOnMainThread:@selector(completeUpdate)
-        withObject:nil
-        waitUntilDone:NO
-    ];
-    }
-}
-
-- (void) stopUpdateWithSelector:(SEL)selector {
-    updating_ = false;
-    [updatedelegate_ releaseNetworkActivityIndicator];
-
-    UIViewController *controller([[self viewControllers] objectAtIndex:1]);
-    [[controller tabBarItem] setBadgeValue:nil];
-
-    [indicator_ removeFromSuperview];
-    [indicator_ stopAnimating];
-
-    [updatedelegate_ performSelector:selector withObject:nil afterDelay:0];
-}
-
-- (void) completeUpdate {
-    if (!updating_)
-        return;
-    [self stopUpdateWithSelector:@selector(reloadData)];
-}
-
-- (void) cancelUpdate {
-    [self stopUpdateWithSelector:@selector(updateDataAndLoad)];
-}
-
-- (void) cancelPressed {
-    [self cancelUpdate];
-}
-
-- (BOOL) updating {
-    return updating_;
-}
-
-- (bool) isSourceCancelled {
-    return !updating_;
-}
-
-- (void) startSourceFetch:(NSString *)uri {
-}
-
-- (void) stopSourceFetch:(NSString *)uri {
-}
-
-- (void) setUpdateDelegate:(id)delegate {
-    updatedelegate_ = delegate;
-}
-
-@end
-/* }}} */
-
-/* Cydia:// Protocol {{{ */
-@interface CydiaURLProtocol : CyteURLProtocol {
-}
-
-@end
-
-@implementation CydiaURLProtocol
-
-+ (NSString *) scheme {
-    return @"cydia";
-}
-
-- (bool) loadForPath:(NSString *)path ofRequest:(NSURLRequest *)request {
-    NSRange slash([path rangeOfString:@"/"]);
-
-    NSString *command;
-    if (slash.location == NSNotFound) {
-        command = path;
-        path = nil;
-    } else {
-        command = [path substringToIndex:slash.location];
-        path = [path substringFromIndex:(slash.location + 1)];
-    }
-
-    Database *database([Database sharedInstance]);
-
-    if (false);
-    else if ([command isEqualToString:@"application-icon"]) {
-        if (path == nil)
-            goto fail;
-        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-
-        UIImage *icon(nil);
-
-        if (icon == nil && $SBSCopyIconImagePNGDataForDisplayIdentifier != NULL) {
-            NSData *data($SBSCopyIconImagePNGDataForDisplayIdentifier(path));
-            icon = [UIImage imageWithData:data];
-        }
-
-        if (icon == nil)
-            if (NSString *file = SBSCopyIconImagePathForDisplayIdentifier(path))
-                icon = [UIImage imageAtPath:file];
-
-        if (icon == nil)
-            icon = [UIImage imageNamed:@"unknown.png"];
-
-        [self _returnPNGWithImage:icon forRequest:request];
-    } else if ([command isEqualToString:@"package-icon"]) {
-        if (path == nil)
-            goto fail;
-        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        Package *package([database packageWithName:path]);
-        if (package == nil)
-            goto fail;
-        [package parse];
-        UIImage *icon([package icon]);
-        [self _returnPNGWithImage:icon forRequest:request];
-    } else if ([command isEqualToString:@"uikit-image"]) {
-        if (path == nil)
-            goto fail;
-        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        UIImage *icon(_UIImageWithName(path));
-        [self _returnPNGWithImage:icon forRequest:request];
-    } else if ([command isEqualToString:@"section-icon"]) {
-        if (path == nil)
-            goto fail;
-        path = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        UIImage *icon([UIImage imageAtPath:[NSString stringWithFormat:@"%@/Sections/%@.png", App_, [path stringByReplacingOccurrencesOfString:@" " withString:@"_"]]]);
-        if (icon == nil)
-            icon = [UIImage imageNamed:@"unknown.png"];
-        [self _returnPNGWithImage:icon forRequest:request];
-    } else fail: {
-        return [super loadForPath:path ofRequest:request];
-    }
-
-    return true;
-}
-
-@end
-/* }}} */
 
 /* Section Controller {{{ */
 @interface SectionController : FilteredPackageListController {
