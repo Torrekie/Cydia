@@ -1,4 +1,5 @@
 #include "Cydia/Package.h"
+#include "Cydia/Database.h"
 
 #include "Cydia/Profile.hpp"
 #include "Cydia/Section.h"
@@ -32,17 +33,6 @@ static const char *StripVersion_(const char *version) {
     const char *colon(strchr(version, ':'));
     return colon == NULL ? version : colon + 1;
 }
-
-@interface Database : NSObject
-- (unsigned) era;
-- (pkgRecords *) records;
-- (pkgCacheFile &) cache;
-- (pkgDepCache::Policy *) policy;
-- (pkgSourceList &) list;
-- (NSString *) mappedSectionForPointer:(const char *)pointer;
-- (Source *) getSource:(pkgCache::PkgFileIterator)file;
-- (pkgProblemResolver *) resolver;
-@end
 
 uint32_t PackageChangesRadix(Package *self, void *) {
     union {
