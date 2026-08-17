@@ -126,6 +126,7 @@ extern "C" {
 #include "Cydia/Profile.hpp"
 #include "Cydia/Database.h"
 #include "Cydia/ProgressData.h"
+#include "Cydia/ProgressController.h"
 #include "Cydia/ProgressEvent.h"
 #include "Cydia/Relations.h"
 #include "Cydia/Section.h"
@@ -196,7 +197,7 @@ NSString *ShellEscape(NSString *value) {
     return [NSString stringWithFormat:@"'%@'", [value stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"]];
 }
 
-static _finline void UpdateExternalStatus(uint64_t newStatus) {
+void UpdateExternalStatus(uint64_t newStatus) {
     int notify_token;
     if (notify_register_check("com.saurik.Cydia.status", &notify_token) == NOTIFY_STATUS_OK) {
         notify_set_state(notify_token, newStatus);
@@ -324,7 +325,7 @@ typedef enum {
 /* Random Global Variables {{{ */
 int PulseInterval_ = 500000;
 
-static const NSString *UI_;
+const NSString *UI_;
 
 int Finish_;
 bool UICache_ = false;
@@ -351,7 +352,7 @@ static UIColor *InstallingColor_;
 static UIColor *RemovingColor_;
 
 static NSInteger CydiaUserInterfaceStyle;
-static UIColor *whiteIfNotDark(bool white)
+UIColor *whiteIfNotDark(bool white)
 {
   UIColor *color = (white) ? [UIColor whiteColor] : [UIColor blackColor];
   if (CydiaUserInterfaceStyle == UIUserInterfaceStyleDark)
@@ -1449,276 +1450,6 @@ bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         [self complete];
 }
 #endif
-
-@end
-/* }}} */
-
-/* Progress Controller {{{ */
-@interface ProgressController : CydiaWebViewController <
-    ProgressDelegate
-> {
-    _transient Database *database_;
-    _H<CydiaProgressData, 1> progress_;
-    unsigned cancel_;
-}
-
-- (id) initWithDatabase:(Database *)database delegate:(id)delegate;
-
-- (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title;
-
-- (void) setTitle:(NSString *)title;
-- (void) setCancellable:(bool)cancellable;
-
-@end
-
-@implementation ProgressController
-
-- (void) dealloc {
-    [database_ setProgressDelegate:nil];
-}
-
-- (UIBarButtonItem *) leftButton {
-    return cancel_ == 1 ? [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CANCEL")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(cancel)
-    ] : nil;
-}
-
-- (void) updateCancel {
-    [super applyLeftButton];
-}
-
-- (id) initWithDatabase:(Database *)database delegate:(id)delegate {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-        self.delegate = delegate;
-
-        [database_ setProgressDelegate:self];
-
-        progress_ = [[CydiaProgressData alloc] init];
-        [progress_ setDelegate:self];
-
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
-
-        [self setPageColor:whiteIfNotDark(0)];
-
-        [[self navigationItem] setHidesBackButton:YES];
-
-        [self updateCancel];
-    } return self;
-}
-
-- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [super webView:view didClearWindowObject:window forFrame:frame];
-    [window setValue:progress_ forKey:@"cydiaProgress"];
-}
-
-- (void) updateProgress {
-    [self dispatchEvent:@"CydiaProgressUpdate"];
-}
-
-- (void) viewWillAppear:(BOOL)animated {
-    [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
-    [super viewWillAppear:animated];
-}
-
-- (void) close {
-    UpdateExternalStatus(0);
-
-    if (Finish_ > 1)
-        [self.delegate saveState];
-
-    switch (Finish_) {
-        case 0:
-            [self.delegate returnToCydia];
-        break;
-
-        case 1:
-            [self.delegate terminateWithSuccess];
-            /*if ([self.delegate respondsToSelector:@selector(suspendWithAnimation:)])
-                [self.delegate suspendWithAnimation:YES];
-            else
-                [self.delegate suspend];*/
-        break;
-
-        case 2:
-            _trace();
-            goto reload;
-
-        case 3:
-            _trace();
-            goto reload;
-
-        reload: {
-            UIProgressHUD *hud([self.delegate addProgressHUD]);
-            [hud setText:UCLocalize("LOADING")];
-            [self.delegate performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0.5];
-            return;
-        }
-
-        case 4:
-            _trace();
-            if (void (*SBReboot)(mach_port_t) = reinterpret_cast<void (*)(mach_port_t)>(dlsym(RTLD_DEFAULT, "SBReboot")))
-                SBReboot(SBSSpringBoardServerPort());
-            else
-                reboot2(RB_AUTOBOOT);
-        break;
-    }
-
-    [super close];
-}
-
-- (void) setTitle:(NSString *)title {
-    [progress_ setTitle:title];
-    [self updateProgress];
-}
-
-- (UIBarButtonItem *) rightButton {
-    return [[progress_ running] boolValue] ? [super rightButton] : [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CLOSE")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(close)
-    ];
-}
-
-- (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
-    UpdateExternalStatus(1);
-
-    [progress_ setRunning:true];
-    [self setTitle:title];
-    // implicit updateProgress
-
-    SHA1SumValue notifyconf; {
-        FileFd file;
-        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            notifyconf = sha1.Result();
-        }
-    }
-
-    SHA1SumValue springlist; {
-        FileFd file;
-        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            springlist = sha1.Result();
-        }
-    }
-
-    if (invocation != nil) {
-        [invocation yieldToSelector:@selector(invoke)];
-        [self setTitle:@"COMPLETE"];
-    }
-
-    if (Finish_ < 4) {
-        FileFd file;
-        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(notifyconf == sha1.Result()))
-                Finish_ = 4;
-        }
-    }
-
-    if (Finish_ < 3) {
-        FileFd file;
-        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(springlist == sha1.Result()))
-                Finish_ = 3;
-        }
-    }
-
-    if (Finish_ < 2) {
-        if (RestartSubstrate_)
-            Finish_ = 2;
-    }
-
-    RestartSubstrate_ = false;
-
-    switch (Finish_) {
-        case 0: [progress_ setFinish:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */
-        case 1: [progress_ setFinish:UCLocalize("CLOSE_CYDIA")]; break;
-        case 2: [progress_ setFinish:UCLocalize("RESTART_SPRINGBOARD")]; break;
-        case 3: [progress_ setFinish:UCLocalize("RELOAD_SPRINGBOARD")]; break;
-        case 4: [progress_ setFinish:UCLocalize("REBOOT_DEVICE")]; break;
-    }
-
-    UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
-
-    [progress_ setRunning:false];
-    [self updateProgress];
-
-    [self applyRightButton];
-}
-
-- (void) addProgressEvent:(CydiaProgressEvent *)event {
-    [progress_ addEvent:event];
-    [self updateProgress];
-}
-
-- (bool) isProgressCancelled {
-    return cancel_ == 2;
-}
-
-- (void) cancel {
-    cancel_ = 2;
-    [self updateCancel];
-}
-
-- (void) setCancellable:(bool)cancellable {
-    unsigned cancel(cancel_);
-
-    if (!cancellable)
-        cancel_ = 0;
-    else if (cancel_ == 0)
-        cancel_ = 1;
-
-    if (cancel != cancel_)
-        [self updateCancel];
-}
-
-- (void) setProgressCancellable:(NSNumber *)cancellable {
-    [self setCancellable:[cancellable boolValue]];
-}
-
-- (void) setProgressPercent:(NSNumber *)percent {
-    [progress_ setPercent:[percent floatValue]];
-    [self updateProgress];
-}
-
-- (void) setProgressStatus:(NSDictionary *)status {
-    if (status == nil) {
-        [progress_ setCurrent:0];
-        [progress_ setTotal:0];
-        [progress_ setSpeed:0];
-    } else {
-        [progress_ setPercent:[[status objectForKey:@"Percent"] floatValue]];
-
-        [progress_ setCurrent:[[status objectForKey:@"Current"] floatValue]];
-        [progress_ setTotal:[[status objectForKey:@"Total"] floatValue]];
-        [progress_ setSpeed:[[status objectForKey:@"Speed"] floatValue]];
-    }
-
-    [self updateProgress];
-}
 
 @end
 /* }}} */
