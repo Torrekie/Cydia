@@ -48,4 +48,11 @@
 
 @end
 
+@interface AppCacheController : CydiaWebViewController
+@end
+
+@interface NSURL (CydiaSecure)
+- (bool) isCydiaSecure;
+@end
+
 #endif//Cydia_CydiaWebViewController_H
