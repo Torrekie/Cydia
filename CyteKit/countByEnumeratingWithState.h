@@ -26,13 +26,13 @@
 
 @interface DOMNodeList (Cyte)
 // XXX? - (NSUInteger) count;
-- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count;
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id __unsafe_unretained *)objects count:(NSUInteger)count;
 // XXX? - (id) objectAtIndex:(unsigned)index;
 @end
 
 @interface WebScriptObject (Cyte)
 - (NSUInteger) count;
-- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count;
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id __unsafe_unretained *)objects count:(NSUInteger)count;
 - (id) objectAtIndex:(unsigned)index;
 @end
 

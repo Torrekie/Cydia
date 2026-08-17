@@ -55,7 +55,7 @@
         if (title == nil)
             break;
 
-        UINavigationController *controller([[[UINavigationController alloc] init] autorelease]);
+        UINavigationController *controller([[UINavigationController alloc] init]);
         [controllers addObject:controller];
 
         auto legacy(va_arg(args, NSString *));
@@ -63,9 +63,9 @@
         auto select(va_arg(args, NSString *));
 
         if (kCFCoreFoundationVersionNumber < 800)
-            [controller setTabBarItem:[[[UITabBarItem alloc] initWithTitle:title image:[UIImage imageNamed:legacy] tag:0] autorelease]];
+            [controller setTabBarItem:[[UITabBarItem alloc] initWithTitle:title image:[UIImage imageNamed:legacy] tag:0]];
         else
-            [controller setTabBarItem:[[[UITabBarItem alloc] initWithTitle:title image:[UIImage imageNamed:normal] selectedImage:[UIImage imageNamed:select]] autorelease]];
+            [controller setTabBarItem:[[UITabBarItem alloc] initWithTitle:title image:[UIImage imageNamed:normal] selectedImage:[UIImage imageNamed:select]]];
     }
 
     va_end(args);
@@ -95,7 +95,7 @@
     // if this view was unloaded, the tranitionView may currently be presenting nothing
     if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
         UINavigationController *navigation((UINavigationController *) viewController);
-        [navigation pushViewController:[[[UIViewController alloc] init] autorelease] animated:NO];
+        [navigation pushViewController:[[UIViewController alloc] init] animated:NO];
         [navigation popViewControllerAnimated:NO];
     }
 }
@@ -115,9 +115,9 @@
         } return;
     }
 
-    NSMutableArray *controllers = [[[self viewControllers] mutableCopy] autorelease];
+    NSMutableArray *controllers = [[self viewControllers] mutableCopy];
     if (transient != nil) {
-        UINavigationController *navigation([[[UINavigationController alloc] init] autorelease]);
+        UINavigationController *navigation([[UINavigationController alloc] init]);
         [navigation setViewControllers:[NSArray arrayWithObject:transient]];
         transient = navigation;
 

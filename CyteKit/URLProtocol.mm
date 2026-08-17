@@ -61,7 +61,7 @@
     else {
         NSData *data(UIImagePNGRepresentation(icon));
 
-        NSURLResponse *response([[[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil] autorelease]);
+        NSURLResponse *response([[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil]);
         [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
         [client URLProtocol:self didLoadData:data];
         [client URLProtocolDidFinishLoading:self];

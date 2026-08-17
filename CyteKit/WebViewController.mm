@@ -124,7 +124,6 @@ float CYScrollViewDecelerationRateNormal;
 
     [self releaseNetworkActivityIndicator];
 
-    [super dealloc];
 }
 
 - (NSString *) description {
@@ -208,7 +207,7 @@ float CYScrollViewDecelerationRateNormal;
     if (cache || [request_ HTTPBody] == nil && [request_ HTTPBodyStream] == nil)
         [self loadRequest:request_];
     else {
-        UIAlertView *alert = [[[UIAlertView alloc]
+        UIAlertView *alert = [[UIAlertView alloc]
             initWithTitle:UCLocalize("RESUBMIT_FORM")
             message:nil
             delegate:self
@@ -216,7 +215,7 @@ float CYScrollViewDecelerationRateNormal;
             otherButtonTitles:
                 UCLocalize("SUBMIT"),
             nil
-        ] autorelease];
+        ];
 
         [alert setContext:@"submit"];
         [alert show];
@@ -294,7 +293,7 @@ float CYScrollViewDecelerationRateNormal;
 
 - (void) _openMailToURL:(NSURL *)url {
     if ($MFMailComposeViewController != nil && [$MFMailComposeViewController canSendMail]) {
-        MFMailComposeViewController *controller([[[$MFMailComposeViewController alloc] init] autorelease]);
+        MFMailComposeViewController *controller([[$MFMailComposeViewController alloc] init]);
         [controller setMailComposeDelegate:self];
 
         [controller setMailToURL:url];
@@ -376,7 +375,7 @@ float CYScrollViewDecelerationRateNormal;
     CyteViewController *page([self.delegate pageForURL:url forExternal:NO withReferrer:referrer]);
 
     if (page == nil) {
-        CyteWebViewController *browser([[[class_ alloc] init] autorelease]);
+        CyteWebViewController *browser([[class_ alloc] init]);
         [browser setRequest:request];
         page = browser;
     }
@@ -389,16 +388,16 @@ float CYScrollViewDecelerationRateNormal;
 
         [[self navigationController] pushViewController:page animated:YES];
     } else {
-        UINavigationController *navigation([[[UINavigationController alloc] initWithRootViewController:page] autorelease]);
+        UINavigationController *navigation([[UINavigationController alloc] initWithRootViewController:page]);
 
         [navigation setDelegate:self.delegate];
 
-        [[page navigationItem] setLeftBarButtonItem:[[[UIBarButtonItem alloc]
+        [[page navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("CLOSE")
             style:UIBarButtonItemStylePlain
             target:page
             action:@selector(close)
-        ] autorelease]];
+        ]];
 
         [[self navigationController] presentModalViewController:navigation animated:YES];
     }
@@ -439,7 +438,7 @@ float CYScrollViewDecelerationRateNormal;
     false) {
         appstore_ = url;
 
-        UIAlertView *alert = [[[UIAlertView alloc]
+        UIAlertView *alert = [[UIAlertView alloc]
             initWithTitle:UCLocalize("APP_STORE_REDIRECT")
             message:nil
             delegate:self
@@ -447,7 +446,7 @@ float CYScrollViewDecelerationRateNormal;
             otherButtonTitles:
                 UCLocalize("ALLOW"),
             nil
-        ] autorelease];
+        ];
 
         [alert setContext:@"itmsappss"];
         [alert show];
@@ -624,20 +623,20 @@ float CYScrollViewDecelerationRateNormal;
 }
 
 - (void) webView:(WebView *)view resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source {
-    challenge_ = [challenge retain];
+    challenge_ = challenge;
 
     NSURLProtectionSpace *space([challenge protectionSpace]);
     NSString *realm([space realm]);
     if (realm == nil)
         realm = @"";
 
-    UIAlertView *alert = [[[UIAlertView alloc]
+    UIAlertView *alert = [[UIAlertView alloc]
         initWithTitle:realm
         message:nil
         delegate:self
         cancelButtonTitle:UCLocalize("CANCEL")
         otherButtonTitles:UCLocalize("LOGIN"), nil
-    ] autorelease];
+    ];
 
     [alert setContext:@"challenge"];
     [alert setNumberOfRows:1];
@@ -777,12 +776,12 @@ float CYScrollViewDecelerationRateNormal;
     else if ((/*clang:*/id) custom_ == [NSNull null])
         return nil;
 
-    return [[[UIBarButtonItem alloc]
+    return [[UIBarButtonItem alloc]
         initWithTitle:static_cast<NSString *>(custom_.operator NSObject *())
         style:[self rightButtonStyle]
         target:self
         action:@selector(customButtonClicked)
-    ] autorelease];
+    ];
 }
 
 - (UIBarButtonItem *) leftButton {
@@ -792,12 +791,12 @@ float CYScrollViewDecelerationRateNormal;
 
     if (UINavigationController *navigation = [self navigationController])
         if ([[navigation parentOrPresentingViewController] modalViewController] == navigation)
-            return [[[UIBarButtonItem alloc]
+            return [[UIBarButtonItem alloc]
                 initWithTitle:UCLocalize("CLOSE")
                 style:UIBarButtonItemStylePlain
                 target:self
                 action:@selector(close)
-            ] autorelease];
+            ];
 
     return nil;
 }
@@ -880,21 +879,21 @@ float CYScrollViewDecelerationRateNormal;
 
         loading_ = [NSMutableSet setWithCapacity:5];
         registered_ = [NSMutableSet setWithCapacity:5];
-        indirect_ = [[[IndirectDelegate alloc] initWithDelegate:self] autorelease];
+        indirect_ = [[IndirectDelegate alloc] initWithDelegate:self];
 
-        reloaditem_ = [[[UIBarButtonItem alloc]
+        reloaditem_ = [[UIBarButtonItem alloc]
             initWithTitle:UCLocalize("RELOAD")
             style:[self rightButtonStyle]
             target:self
             action:@selector(reloadButtonClicked)
-        ] autorelease];
+        ];
 
-        loadingitem_ = [[[UIBarButtonItem alloc]
+        loadingitem_ = [[UIBarButtonItem alloc]
             initWithTitle:(kCFCoreFoundationVersionNumber >= 800 ? @"       " : @" ")
             style:UIBarButtonItemStylePlain
             target:self
             action:@selector(customButtonClicked)
-        ] autorelease];
+        ];
 
         UIActivityIndicatorViewStyle style;
         float left;
@@ -906,7 +905,7 @@ float CYScrollViewDecelerationRateNormal;
             left = 15;
         }
 
-        indicator_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:style] autorelease];
+        indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:style];
         [indicator_ setFrame:CGRectMake(left, 5, [indicator_ frame].size.width, [indicator_ frame].size.height)];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
 
@@ -927,7 +926,7 @@ static _H<NSString> UserAgent_;
 - (void) loadView {
     CGRect bounds([[UIScreen mainScreen] applicationFrame]);
 
-    webview_ = [[[CyteWebView alloc] initWithFrame:bounds] autorelease];
+    webview_ = [[CyteWebView alloc] initWithFrame:bounds];
     [webview_ setDelegate:self];
     [self setView:webview_];
 
@@ -1011,7 +1010,7 @@ static _H<NSString> UserAgent_;
     [self setViewportWidth:width_];
 
     if ([[UIColor groupTableViewBackgroundColor] isEqual:[UIColor clearColor]]) {
-        UITableView *table([[[UITableView alloc] initWithFrame:[webview_ bounds] style:UITableViewStyleGrouped] autorelease]);
+        UITableView *table([[UITableView alloc] initWithFrame:[webview_ bounds] style:UITableViewStyleGrouped]);
         [table setScrollsToTop:NO];
         [webview_ insertSubview:table atIndex:0];
         [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];

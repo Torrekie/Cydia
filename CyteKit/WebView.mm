@@ -104,15 +104,14 @@
 
 - (void) dealloc {
     if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_0) {
-        UIWebViewInternal *&_internal(MSHookIvar<UIWebViewInternal *>(self, "_internal"));
-        if (&_internal != NULL) {
-            UIWebViewWebViewDelegate *&webViewDelegate(MSHookIvar<UIWebViewWebViewDelegate *>(_internal, "webViewDelegate"));
-            if (&webViewDelegate != NULL)
+        UIWebViewInternal * __unsafe_unretained internal(MSHookIvar<UIWebViewInternal *>(self, "_internal"));
+        if (internal != NULL) {
+            UIWebViewWebViewDelegate * __unsafe_unretained webViewDelegate(MSHookIvar<UIWebViewWebViewDelegate *>(internal, "webViewDelegate"));
+            if (webViewDelegate != NULL)
                 [webViewDelegate _clearUIWebView];
         }
     }
 
-    [super dealloc];
 }
 
 - (NSString *) description {
@@ -155,7 +154,7 @@ static void $UIWebViewWebViewDelegate$webView$addMessageToConsole$(UIWebViewWebV
 // webView:decidePolicyForNavigationAction:request:frame:decisionListener: (2.0+) {{{
 - (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
     id<CyteWebViewDelegate> delegate([self delegate]);
-    CYWebPolicyDecisionMediator *mediator([[[CYWebPolicyDecisionMediator alloc] initWithListener:listener] autorelease]);
+    CYWebPolicyDecisionMediator *mediator([[CYWebPolicyDecisionMediator alloc] initWithListener:listener]);
     if (![mediator decided] && [delegate respondsToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
         [delegate webView:view decidePolicyForNavigationAction:action request:request frame:frame decisionListener:mediator];
     if (![mediator decided] && [UIWebView instancesRespondToSelector:@selector(webView:decidePolicyForNavigationAction:request:frame:decisionListener:)])
@@ -174,7 +173,7 @@ static void $UIWebViewWebViewDelegate$webView$decidePolicyForNewWindowAction$req
 
 - (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)frame decisionListener:(id<WebPolicyDecisionListener>)listener {
     id<CyteWebViewDelegate> delegate([self delegate]);
-    CYWebPolicyDecisionMediator *mediator([[[CYWebPolicyDecisionMediator alloc] initWithListener:listener] autorelease]);
+    CYWebPolicyDecisionMediator *mediator([[CYWebPolicyDecisionMediator alloc] initWithListener:listener]);
     if (![mediator decided] && [delegate respondsToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
         [delegate webView:view decidePolicyForNewWindowAction:action request:request newFrameName:frame decisionListener:mediator];
     if (![mediator decided] && [UIWebView instancesRespondToSelector:@selector(webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:)])
@@ -310,7 +309,6 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 // }}}
 // webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame: (2.1+) {{{
 - (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    [[self retain] autorelease];
     id<CyteWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:)])
         if (
@@ -322,7 +320,6 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 // }}}
 // webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame: (2.1+) {{{
 - (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame {
-    [[self retain] autorelease];
     id<CyteWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:)])
         if (
@@ -335,7 +332,6 @@ static NSURLRequest *$UIWebViewWebViewDelegate$webView$resource$willSendRequest$
 // }}}
 // webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame: (2.1+) {{{
 - (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame {
-    [[self retain] autorelease];
     id<CyteWebViewDelegate> delegate([self delegate]);
     if ([UIWebView instancesRespondToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:)])
         if (

@@ -29,14 +29,16 @@
 }
 
 - (void) _yieldToContext:(NSMutableArray *)context {
-    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+    @autoreleasepool {
 
     SEL selector(reinterpret_cast<SEL>([[context objectAtIndex:0] pointerValue]));
     id object([[context objectAtIndex:1] nonretainedObjectValue]);
     volatile bool &stopped(*reinterpret_cast<bool *>([[context objectAtIndex:2] pointerValue]));
 
     /* XXX: deal with exceptions */
-    id value([self performSelector:selector withObject:object]);
+    using SelectorFunction = id (*)(id, SEL, id);
+    SelectorFunction function(reinterpret_cast<SelectorFunction>([self methodForSelector:selector]));
+    id value(function(self, selector, object));
 
     NSMethodSignature *signature([self methodSignatureForSelector:selector]);
     [context removeAllObjects];
@@ -51,7 +53,7 @@
         waitUntilDone:NO
     ];
 
-    [pool release];
+    }
 }
 
 - (id) yieldToSelector:(SEL)selector withObject:(id)object {
@@ -63,11 +65,11 @@
         [NSValue valueWithPointer:const_cast<bool *>(&stopped)],
     nil]);
 
-    NSThread *thread([[[NSThread alloc]
+    NSThread *thread([[NSThread alloc]
         initWithTarget:self
         selector:@selector(_yieldToContext:)
         object:context
-    ] autorelease]);
+    ]);
 
     [thread start];
 

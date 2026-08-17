@@ -84,11 +84,11 @@ void CYRadixSortUsingFunction(id *self, size_t count, MenesRadixSortFunction fun
 
     auto lhs(CYRadixSort(swap, count));
 
-    const void **values(new const void *[count]);
+    NSMutableArray *values([NSMutableArray arrayWithCapacity:count]);
     for (size_t i(0); i != count; ++i)
-        values[i] = self[lhs[i].index];
-    memcpy(self, values, count * sizeof(id));
-    delete [] values;
+        [values addObject:self[lhs[i].index]];
+    for (size_t i(0); i != count; ++i)
+        self[i] = [values objectAtIndex:i];
 
     delete [] swap;
 }
@@ -107,11 +107,10 @@ void CYRadixSortUsingFunction(id *self, size_t count, MenesRadixSortFunction fun
 
     auto lhs(CYRadixSort(swap, count));
 
-    const void **values(new const void *[count]);
+    NSMutableArray *values([NSMutableArray arrayWithCapacity:count]);
     for (size_t i(0); i != count; ++i)
-        values[i] = [self objectAtIndex:lhs[i].index];
-    CFArrayReplaceValues((CFMutableArrayRef) self, CFRangeMake(0, count), values, count);
-    delete [] values;
+        [values addObject:[self objectAtIndex:lhs[i].index]];
+    [self setArray:values];
 
     delete [] swap;
 }

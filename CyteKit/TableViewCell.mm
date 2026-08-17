@@ -61,7 +61,7 @@
         UIView *content([self contentView]);
         CGRect bounds([content bounds]);
 
-        self.content = [[[CyteTableViewCellContentView alloc] initWithFrame:bounds] autorelease];
+        self.content = [[CyteTableViewCellContentView alloc] initWithFrame:bounds];
         [self.content setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
         [content addSubview:self.content];
 
