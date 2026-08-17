@@ -60,11 +60,11 @@
     if ([self respondsToSelector:@selector(setApplicationSupportsShakeToEdit:)])
         [self setApplicationSupportsShakeToEdit:NO];
 
-    [NSURLCache setSharedURLCache:[[[CyteURLCache alloc]
+    CyteURLCache *cache = [[CyteURLCache alloc]
         initWithMemoryCapacity:524288
         diskCapacity:10485760
-        diskPath:[NSString stringWithFormat:@"%@/%@/%@", NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject, NSBundle.mainBundle.bundleIdentifier, @"SDURLCache"]
-    ] autorelease]];
+        diskPath:[NSString stringWithFormat:@"%@/%@/%@", NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject, NSBundle.mainBundle.bundleIdentifier, @"SDURLCache"]];
+    [NSURLCache setSharedURLCache:cache];
 }
 
 - (void) retainNetworkActivityIndicator {

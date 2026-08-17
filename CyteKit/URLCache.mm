@@ -78,7 +78,7 @@ static _H<NSMutableSet> CachedURLs_([NSMutableSet setWithCapacity:32]);
 MSClassHook(NSURLConnection)
 
 MSHook(id, NSURLConnection$init$, NSURLConnection *self, SEL _cmd, NSURLRequest *request, id delegate, BOOL usesCache, int64_t maxContentLength, BOOL startImmediately, NSDictionary *connectionProperties) {
-    NSMutableURLRequest *copy([[request mutableCopy] autorelease]);
+    NSMutableURLRequest *copy([request mutableCopy]);
 
     NSURL *url([copy URL]);
 

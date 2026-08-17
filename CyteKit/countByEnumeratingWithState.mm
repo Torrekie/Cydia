@@ -27,7 +27,7 @@
 
 #include "iPhonePrivate.h"
 
-static NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id *objects, NSUInteger count) {
+static NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNodeList *self, SEL sel, NSFastEnumerationState *state, id __unsafe_unretained *objects, NSUInteger count) {
     size_t length([self length] - state->state);
     if (length <= 0)
         return 0;
@@ -36,7 +36,7 @@ static NSUInteger DOMNodeList$countByEnumeratingWithState$objects$count$(DOMNode
     for (size_t i(0); i != length; ++i)
         objects[i] = [self item:state->state++];
     state->itemsPtr = objects;
-    state->mutationsPtr = (unsigned long *) self;
+    state->mutationsPtr = reinterpret_cast<unsigned long *>((__bridge void *) self);
     return length;
 }
 
@@ -58,7 +58,7 @@ static struct DOMNodeList$countByEnumeratingWithState { DOMNodeList$countByEnume
     return [self webScriptValueAtIndex:index];
 }
 
-- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)objects count:(NSUInteger)count {
+- (NSUInteger) countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id __unsafe_unretained *)objects count:(NSUInteger)count {
     size_t length([self count] - state->state);
     if (length <= 0)
         return 0;
@@ -67,7 +67,7 @@ static struct DOMNodeList$countByEnumeratingWithState { DOMNodeList$countByEnume
     for (size_t i(0); i != length; ++i)
         objects[i] = [self objectAtIndex:state->state++];
     state->itemsPtr = objects;
-    state->mutationsPtr = (unsigned long *) self;
+    state->mutationsPtr = reinterpret_cast<unsigned long *>((__bridge void *) self);
     return length;
 }
 
