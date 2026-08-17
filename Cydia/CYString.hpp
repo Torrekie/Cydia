@@ -117,7 +117,7 @@ class CYString {
     }
 
     _finline operator id() {
-        return (NSString *) static_cast<CFStringRef>(*this);
+        return (__bridge NSString *) static_cast<CFStringRef>(*this);
     }
 
     _finline operator const char *() {
@@ -133,7 +133,7 @@ struct NSStringMapHash :
     std::unary_function<NSString *, size_t>
 {
     _finline size_t operator ()(NSString *value) const {
-        return CFStringHashNSString((CFStringRef) value);
+        return CFStringHashNSString((__bridge CFStringRef) value);
     }
 };
 
