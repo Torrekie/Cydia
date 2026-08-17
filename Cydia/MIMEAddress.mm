@@ -41,7 +41,7 @@
 }
 
 + (MIMEAddress *) addressWithString:(NSString *)string {
-    return [[[MIMEAddress alloc] initWithString:string] autorelease];
+    return [[MIMEAddress alloc] initWithString:string];
 }
 
 + (NSArray *) _attributeKeys {
