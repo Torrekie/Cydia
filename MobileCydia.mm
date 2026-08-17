@@ -28,7 +28,7 @@
 #include "CyteKit/Localize.h"
 
 #include <unicode/ustring.h>
-#include <unicode/utrans.h>
+#include "Cydia/ICUTransliterator.h"
 
 #include <objc/objc.h>
 #include <objc/runtime.h>

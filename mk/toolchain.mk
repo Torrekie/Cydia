@@ -47,6 +47,16 @@ flag += -I$(GENERATED_DIR)
 flag += -isystem sysroot/usr/include
 flag += -idirafter icu/icuSources/common
 flag += -idirafter icu/icuSources/i18n
+
+# Apple removed unicode/utrans.h from newer SDKs while retaining the ICU C
+# ABI.  Prefer the locally supplied iPhoneOS 14.5 SDK headers when present;
+# callers can override ICU_INCLUDE_DIR for another Apple SDK checkout.
+ICU_SDK ?= $(HOME)/iPhoneOS14.5.sdk
+ICU_INCLUDE_DIR ?= $(if $(wildcard $(ICU_SDK)/usr/include/unicode/utypes.h),$(ICU_SDK)/usr/include,$(mac)/usr/include)
+ifneq ($(wildcard $(ICU_INCLUDE_DIR)/unicode/utypes.h),)
+flag += -idirafter $(ICU_INCLUDE_DIR)
+endif
+
 flag += -Wall
 flag += -Wno-dangling-else
 flag += -Wno-deprecated-declarations
