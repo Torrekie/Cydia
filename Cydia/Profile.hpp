@@ -66,11 +66,18 @@ class ProfileTimer {
 
 void PrintTimes();
 
+#if defined(ProfileTimes) && ProfileTimes
 #ifndef _profile
 #define _profile(name) { \
     static ProfileTime name(#name); \
     ProfileTimer _ ## name(name);
 #define _end }
+#endif
+#else
+#ifndef _profile
+#define _profile(name) {
+#define _end }
+#endif
 #endif
 
 #endif//Cydia_Profile_HPP
