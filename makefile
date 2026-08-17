@@ -4,6 +4,27 @@
 dpkg := fakeroot dpkg-deb -Zlzma
 version := $(shell ./version.sh)
 DEPLOYMENT_TARGET ?= 12.0
+BUILD_DIR ?= build
+
+OBJECT_DIR := $(BUILD_DIR)/objects
+GENERATED_DIR := $(BUILD_DIR)/generated
+IMAGE_DIR := $(BUILD_DIR)/images
+BIN_DIR := $(BUILD_DIR)/bin
+ARCHIVE_DIR := $(BUILD_DIR)/archive
+PACKAGE_DIR := $(BUILD_DIR)/packages
+STAGE_DIR := $(BUILD_DIR)/stage
+
+APP_BINARY := $(BIN_DIR)/MobileCydia
+POSTINST_BINARY := $(BIN_DIR)/postinst
+CYDO_BINARY := $(BIN_DIR)/cydo
+SETNSFPN_BINARY := $(BIN_DIR)/setnsfpn
+CFVERSION_BINARY := $(BIN_DIR)/cfversion
+APT_LIBRARY := $(OBJECT_DIR)/libapt64.a
+VERSION_HEADER := $(GENERATED_DIR)/Version.h
+CYDIA_STAGE := $(STAGE_DIR)/cydia
+LPROJ_STAGE := $(STAGE_DIR)/cydia-lproj
+CYDIA_DEB := $(PACKAGE_DIR)/cydia_$(version)_iphoneos-arm.deb
+LPROJ_DEB := $(PACKAGE_DIR)/cydia-lproj_$(version)_iphoneos-arm.deb
 
 flag := 
 plus :=
@@ -47,11 +68,12 @@ iapt += -Iapt64
 iapt += -Iapt64-contrib
 iapt += -Iapt64-deb
 iapt += -Iapt-extra
-iapt += -IObjects/apt64
+iapt += -I$(GENERATED_DIR)/apt64
 
 flag += $(patsubst %,-Xarch_$(arch) %,$(iapt))
 
 flag += -I.
+flag += -I$(GENERATED_DIR)
 flag += -isystem sysroot/usr/include
 
 flag += -idirafter icu/icuSources/common
@@ -85,8 +107,8 @@ libs += -framework CFNetwork
 libs += -llockdown
 libs += -framework WebKit
 
-libs += -Xarch_$(arch) -Wl,-force_load,Objects/libapt64.a
-lapt += Objects/libapt64.a
+libs += -Xarch_$(arch) -Wl,-force_load,$(APT_LIBRARY)
+lapt += $(APT_LIBRARY)
 
 libs += -licucore
 
@@ -111,7 +133,7 @@ object := $(object:.cpp=.o)
 object := $(object:.cc=.o)
 object := $(object:.m=.o)
 object := $(object:.mm=.o)
-object := $(object:%=Objects/%)
+object := $(object:%=$(OBJECT_DIR)/%)
 
 methods := copy file rred gpgv
 
@@ -119,11 +141,17 @@ libapt64 :=
 libapt64 += $(wildcard apt64/apt-pkg/*.cc)
 libapt64 += $(wildcard apt64/apt-pkg/deb/*.cc)
 libapt64 += $(wildcard apt64/apt-pkg/contrib/*.cc)
-libapt64 += apt64/apt-pkg/tagfile-keys.cc
 libapt64 += apt64/methods/store.cc
 libapt64 += $(patsubst %,apt64/methods/%.cc,$(methods))
 libapt64 := $(filter-out %/srvrec.cc,$(libapt64))
-libapt64 := $(patsubst %.cc,Objects/%.o,$(libapt64))
+libapt64 := $(patsubst %.cc,$(OBJECT_DIR)/%.o,$(libapt64))
+
+tagfile_keys_dir := $(GENERATED_DIR)/apt64/apt-pkg
+tagfile_keys_header := $(tagfile_keys_dir)/tagfile-keys.h
+tagfile_keys_source := $(tagfile_keys_dir)/tagfile-keys.cc
+tagfile_keys_stamp := $(tagfile_keys_dir)/tagfile-keys.stamp
+tagfile_keys_object := $(OBJECT_DIR)/apt64/apt-pkg/tagfile-keys.o
+libapt64 += $(tagfile_keys_object)
 
 link += -Wl,-liconv
 link += -Xarch_$(arch) -Wl,-lz
@@ -154,67 +182,77 @@ cycc += $(target)
 plus += -std=c++11
 
 images := $(shell find MobileCydia.app/ -type f -name '*.png')
-images := $(images:%=Images/%)
+images := $(images:%=$(IMAGE_DIR)/%)
 
-lproj_deb := debs/cydia-lproj_$(version)_iphoneos-arm.deb
-
-all: MobileCydia
+all: $(APP_BINARY)
 
 clean:
-	rm -f MobileCydia postinst cydo setnsfpn cfversion
-	rm -rf Objects/ Images/
+	@case "$(BUILD_DIR)" in ""|/|.|..) echo "refusing unsafe BUILD_DIR: $(BUILD_DIR)" >&2; exit 2;; esac
+	rm -rf -- "$(BUILD_DIR)"
 
-Objects/apt64/apt-pkg/tagfile.o: Objects/apt64/apt-pkg/tagfile-keys.h
-Objects/apt64/apt-pkg/tagfile-keys.o: Objects/apt64/apt-pkg/tagfile-keys.h
-Objects/apt64/apt-pkg/deb/deblistparser.o: Objects/apt64/apt-pkg/tagfile-keys.h
+$(OBJECT_DIR)/apt64/apt-pkg/tagfile.o: $(tagfile_keys_header)
+$(OBJECT_DIR)/apt64/apt-pkg/deb/deblistparser.o: $(tagfile_keys_header)
+$(tagfile_keys_object): $(tagfile_keys_source) $(tagfile_keys_header)
 
-Objects/apt64/apt-pkg/tagfile-keys%h apt64/apt-pkg/tagfile-keys%cc:
-	mkdir -p apt64
-	mkdir -p Objects/apt64/apt-pkg
-	cd apt64 && ../apt64/triehash/triehash.pl \
+$(tagfile_keys_stamp): apt64/apt-pkg/tagfile-keys.list apt64/triehash/triehash.pl
+	@mkdir -p $(tagfile_keys_dir)
+	@echo "[trie] $(tagfile_keys_header)"
+	@apt64/triehash/triehash.pl \
             --ignore-case \
-            --header ../Objects/apt64/apt-pkg/tagfile-keys.h \
-            --code apt-pkg/tagfile-keys.cc \
+            --header $(tagfile_keys_header) \
+            --code $(tagfile_keys_source) \
             --enum-class \
             --enum-name pkgTagSection::Key \
             --function-name pkgTagHash \
             --include "<apt-pkg/tagfile.h>" \
-            ../apt64/apt-pkg/tagfile-keys.list
-	sed -i -e 's@typedef char static_assert64@//\\0@' apt64/apt-pkg/tagfile-keys.cc
+            apt64/apt-pkg/tagfile-keys.list
+	@perl -pi -e 's@typedef char static_assert64@//typedef char static_assert64@' $(tagfile_keys_source)
+	@touch $@
 
-Objects/apt64/%.o: apt64/%.cc $(header) apt.h apt-extra/*.h
+$(tagfile_keys_header) $(tagfile_keys_source): $(tagfile_keys_stamp)
+	@test -f $@
+
+$(tagfile_keys_object): $(tagfile_keys_source) $(header) apt.h apt-extra/*.h
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(apt64) $(plus) -c -o $@ $(tagfile_keys_source) -Dmain=main_$(basename $(notdir $@))
+
+$(OBJECT_DIR)/apt64/%.o: apt64/%.cc $(header) apt.h apt-extra/*.h
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(apt64) $(plus) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
 
-Objects/%.o: %.cc $(header)
+$(OBJECT_DIR)/%.o: %.cc $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) $(plus) -c -o $@ $< $(flag) -Wno-format -include apt.h -Dmain=main_$(basename $(notdir $@))
 
-Objects/%.o: %.c $(header)
+$(OBJECT_DIR)/%.o: %.c $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) -c -o $@ -x c $< $(flag)
 
-Objects/%.o: %.m $(header)
+$(OBJECT_DIR)/%.o: %.m $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) -c -o $@ $< $(flag)
 
-Objects/%.o: %.cpp $(header)
+$(OBJECT_DIR)/%.o: %.cpp $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) $(plus) -c -o $@ $< $(flag)
 
-Objects/%.o: %.mm $(header)
+$(OBJECT_DIR)/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
 	@$(cycc) $(plus) -c -o $@ $< $(flag)
 
-Objects/Version.o: Version.h
+$(OBJECT_DIR)/Version.o: $(VERSION_HEADER)
 
-Images/%.png: %.png
+$(VERSION_HEADER): FORCE
+	@./version.sh --header $@ >/dev/null
+
+$(IMAGE_DIR)/%.png: %.png
 	@mkdir -p $(dir $@)
 	@echo "[pngc] $<"
 	@./pngcrush.sh $< $@
@@ -225,15 +263,16 @@ sysroot: sysroot.sh
 	@echo 1>&2
 	@exit 1
 
-Objects/libapt64.a: $(libapt64)
+$(APT_LIBRARY): $(libapt64)
+	@mkdir -p $(dir $@)
 	@echo "[arch] $@"
 	@ar -rc $@ $^
 
-MobileCydia: $(object) entitlements.xml $(lapt)
+$(APP_BINARY): $(object) entitlements.xml $(lapt)
+	@mkdir -p $(dir $@) $(ARCHIVE_DIR)
 	@echo "[link] $@"
 	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit)
-	@mkdir -p bins
-	@cp -a $@ bins/$@-$(version)_$(shell date +%s)
+	@cp -a $@ $(ARCHIVE_DIR)/$(notdir $@)-$(version)_$(shell date +%s)
 	@echo "[strp] $@"
 	@grep '~' <<<"$(version)" >/dev/null && echo "skipping..." || strip $@
 	@echo "[uikt] $@"
@@ -243,91 +282,101 @@ MobileCydia: $(object) entitlements.xml $(lapt)
 	@install_name_tool -change /System/Library/Frameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
 	@install_name_tool -change /System/Library/PrivateFrameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
 
-cfversion: cfversion.mm
+$(CFVERSION_BINARY): cfversion.mm
+	@mkdir -p $(dir $@)
 	$(cycc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
 	@ldid -T0 -Sgenent.xml $@
 
-setnsfpn: setnsfpn.cpp
+$(SETNSFPN_BINARY): setnsfpn.cpp
+	@mkdir -p $(dir $@)
 	$(cycc) -o $@ $(filter %.cpp,$^) $(flag) $(link)
 	@ldid -T0 -Sgenent.xml $@
 
-cydo: cydo.cpp
+$(CYDO_BINARY): cydo.cpp
+	@mkdir -p $(dir $@)
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(flag) $(link) -Wno-deprecated-writable-strings
 	@ldid -T0 -Sgenent.xml $@
 
-postinst: postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h
+$(POSTINST_BINARY): postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h
+	@mkdir -p $(dir $@)
 	$(cycc) $(plus) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
 	@ldid -T0 -Sgenent.xml $@
 
-debs/cydia_$(version)_iphoneos-arm.deb: MobileCydia preinst postinst cfversion setnsfpn cydo $(images) $(shell find MobileCydia.app) cydia.control cydia.preferences Library/firmware.sh Library/move.sh Library/startup
-	fakeroot rm -rf _
-	mkdir -p _/var/lib/cydia
+$(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app) cydia.control cydia.preferences Library/firmware.sh Library/move.sh Library/startup
+	fakeroot rm -rf $(CYDIA_STAGE)
+	mkdir -p $(CYDIA_STAGE)/var/lib/cydia
 	
-	mkdir -p _/etc/apt
-	mkdir _/etc/apt/apt.conf.d
-	mkdir _/etc/apt/preferences.d
-	cp -a cydia.preferences _/etc/apt/preferences.d/cydia
-	cp -a Trusted.gpg _/etc/apt/trusted.gpg.d
-	cp -a Sources.list _/etc/apt/sources.list.d
+	mkdir -p $(CYDIA_STAGE)/etc/apt
+	mkdir $(CYDIA_STAGE)/etc/apt/apt.conf.d
+	mkdir $(CYDIA_STAGE)/etc/apt/preferences.d
+	cp -a cydia.preferences $(CYDIA_STAGE)/etc/apt/preferences.d/cydia
+	cp -a Trusted.gpg $(CYDIA_STAGE)/etc/apt/trusted.gpg.d
+	cp -a Sources.list $(CYDIA_STAGE)/etc/apt/sources.list.d
 	
-	mkdir -p _/usr/libexec
-	cp -a Library _/usr/libexec/cydia
-	cp -a sysroot/usr/bin/du _/usr/libexec/cydia
-	cp -a cfversion _/usr/libexec/cydia
-	cp -a setnsfpn _/usr/libexec/cydia
+	mkdir -p $(CYDIA_STAGE)/usr/libexec
+	cp -a Library $(CYDIA_STAGE)/usr/libexec/cydia
+	cp -a sysroot/usr/bin/du $(CYDIA_STAGE)/usr/libexec/cydia
+	cp -a $(CFVERSION_BINARY) $(CYDIA_STAGE)/usr/libexec/cydia/cfversion
+	cp -a $(SETNSFPN_BINARY) $(CYDIA_STAGE)/usr/libexec/cydia/setnsfpn
 	
-	cp -a cydo _/usr/libexec/cydia
+	cp -a $(CYDO_BINARY) $(CYDIA_STAGE)/usr/libexec/cydia/cydo
 	
-	mkdir -p _/Library
-	cp -a LaunchDaemons _/Library/LaunchDaemons
+	mkdir -p $(CYDIA_STAGE)/Library
+	cp -a LaunchDaemons $(CYDIA_STAGE)/Library/LaunchDaemons
 	
-	mkdir -p _/Applications
-	cp -a MobileCydia.app _/Applications/Cydia.app
-	rm -rf _/Applications/Cydia.app/*.lproj
-	cp -a MobileCydia _/Applications/Cydia.app/Cydia
+	mkdir -p $(CYDIA_STAGE)/Applications
+	cp -a MobileCydia.app $(CYDIA_STAGE)/Applications/Cydia.app
+	rm -rf $(CYDIA_STAGE)/Applications/Cydia.app/*.lproj
+	cp -a $(APP_BINARY) $(CYDIA_STAGE)/Applications/Cydia.app/Cydia
 	
-	for meth in bzip2 gzip lzma http https store $(methods); do ln -s Cydia _/Applications/Cydia.app/"$${meth}"; done
+	for meth in bzip2 gzip lzma http https store $(methods); do ln -s Cydia $(CYDIA_STAGE)/Applications/Cydia.app/"$${meth}"; done
 	
-	cd MobileCydia.app && find . -name '*.png' -exec cp -af ../Images/MobileCydia.app/{} ../_/Applications/Cydia.app/{} ';'
+	cd $(IMAGE_DIR)/MobileCydia.app && find . -name '*.png' -exec cp -af {} $(abspath $(CYDIA_STAGE))/Applications/Cydia.app/{} ';'
 	@echo "[sign] Cydia.app"
-	@ldid -T0 -Sentitlements.xml _/Applications/Cydia.app
+	@ldid -T0 -Sentitlements.xml $(CYDIA_STAGE)/Applications/Cydia.app
 	
-	mkdir -p _/Applications/Cydia.app/Sources
-	ln -s /usr/share/bigboss/icons/bigboss.png _/Applications/Cydia.app/Sources/apt.bigboss.us.com.png
-	ln -s /usr/share/bigboss/icons/planetiphones.png _/Applications/Cydia.app/Sections/"Planet-iPhones Mods.png"
+	mkdir -p $(CYDIA_STAGE)/Applications/Cydia.app/Sources
+	ln -s /usr/share/bigboss/icons/bigboss.png $(CYDIA_STAGE)/Applications/Cydia.app/Sources/apt.bigboss.us.com.png
+	ln -s /usr/share/bigboss/icons/planetiphones.png $(CYDIA_STAGE)/Applications/Cydia.app/Sections/"Planet-iPhones Mods.png"
 	
-	mkdir -p _/DEBIAN
-	./control.sh cydia.control _ >_/DEBIAN/control
-	cp -a preinst postinst triggers _/DEBIAN/
+	mkdir -p $(CYDIA_STAGE)/DEBIAN
+	./control.sh cydia.control $(CYDIA_STAGE) >$(CYDIA_STAGE)/DEBIAN/control
+	cp -a preinst triggers $(CYDIA_STAGE)/DEBIAN/
+	cp -a $(POSTINST_BINARY) $(CYDIA_STAGE)/DEBIAN/postinst
 	
-	find _ -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
+	find $(CYDIA_STAGE) -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
 	
-	fakeroot chown -R 0 _
-	fakeroot chgrp -R 0 _
-	fakeroot chmod 6755 _/usr/libexec/cydia/cydo
+	fakeroot chown -R 0 $(CYDIA_STAGE)
+	fakeroot chgrp -R 0 $(CYDIA_STAGE)
+	fakeroot chmod 6755 $(CYDIA_STAGE)/usr/libexec/cydia/cydo
 	
-	mkdir -p debs
-	ln -sf debs/cydia_$(version)_iphoneos-arm.deb Cydia.deb
-	$(dpkg) -b _ Cydia.deb
-	@echo "$$(stat -L -f "%z" Cydia.deb) $$(stat -f "%Y" Cydia.deb)"
+	mkdir -p $(dir $@)
+	$(dpkg) -b $(CYDIA_STAGE) $@
+	@echo "$$(stat -f "%z" $@) $$(stat -f "%Y" $@)"
 
-$(lproj_deb): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.control
-	fakeroot rm -rf __
-	mkdir -p __/Applications/Cydia.app
+$(LPROJ_DEB): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.control
+	fakeroot rm -rf $(LPROJ_STAGE)
+	mkdir -p $(LPROJ_STAGE)/Applications/Cydia.app
 	
-	cp -a MobileCydia.app/*.lproj __/Applications/Cydia.app
+	cp -a MobileCydia.app/*.lproj $(LPROJ_STAGE)/Applications/Cydia.app
 	
-	mkdir -p __/DEBIAN
-	./control.sh cydia-lproj.control __ >__/DEBIAN/control
+	mkdir -p $(LPROJ_STAGE)/DEBIAN
+	./control.sh cydia-lproj.control $(LPROJ_STAGE) >$(LPROJ_STAGE)/DEBIAN/control
 	
-	fakeroot chown -R 0 __
-	fakeroot chgrp -R 0 __
+	fakeroot chown -R 0 $(LPROJ_STAGE)
+	fakeroot chgrp -R 0 $(LPROJ_STAGE)
 	
-	mkdir -p debs
-	ln -sf debs/cydia-lproj_$(version)_iphoneos-arm.deb Cydia_.deb
-	$(dpkg) -b __ Cydia_.deb
-	@echo "$$(stat -L -f "%z" Cydia_.deb) $$(stat -f "%Y" Cydia_.deb)"
+	mkdir -p $(dir $@)
+	$(dpkg) -b $(LPROJ_STAGE) $@
+	@echo "$$(stat -f "%z" $@) $$(stat -f "%Y" $@)"
 	
-package: debs/cydia_$(version)_iphoneos-arm.deb $(lproj_deb)
+MobileCydia: $(APP_BINARY)
+postinst: $(POSTINST_BINARY)
+cfversion: $(CFVERSION_BINARY)
+setnsfpn: $(SETNSFPN_BINARY)
+cydo: $(CYDO_BINARY)
+package: $(CYDIA_DEB) $(LPROJ_DEB)
 
-.PHONY: all clean package
+FORCE:
+
+.PHONY: all clean package MobileCydia postinst cfversion setnsfpn cydo FORCE
