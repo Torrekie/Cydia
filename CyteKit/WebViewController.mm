@@ -15,7 +15,7 @@
 // XXX: fix the minimum requirement
 extern NSString * const kCAFilterNearest;
 
-#include <WebCore/WebCoreThread.h>
+#include "WebCore/WebCoreThread.h"
 
 #include <dlfcn.h>
 #include <objc/runtime.h>
@@ -1076,7 +1076,7 @@ static _H<NSString> UserAgent_;
         ($JSObjectCallAsFunction)(context, object, NULL, 0, NULL, NULL);
 
     // XXX: the JavaScript code submits a form, which seems to happen asynchronously
-    NSObject *target([CyteWebViewController class]);
+    Class target([CyteWebViewController class]);
     [NSObject cancelPreviousPerformRequestsWithTarget:target selector:@selector(_lockJavaScript:) object:preferences];
     [target performSelector:@selector(_lockJavaScript:) withObject:preferences afterDelay:1];
 }

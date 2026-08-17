@@ -44,8 +44,6 @@
 #include <CoreFoundation/CFInternal.h>
 #endif
 
-#include <CoreFoundation/CFUniChar.h>
-
 #include <SystemConfiguration/SystemConfiguration.h>
 
 #include <UIKit/UIKit.h>
@@ -53,7 +51,7 @@
 
 #include <QuartzCore/CALayer.h>
 
-#include <WebCore/WebCoreThread.h>
+#include "CyteKit/WebCore/WebCoreThread.h"
 
 #include <algorithm>
 #include <fstream>
