@@ -6,5 +6,6 @@ include mk/toolchain.mk
 include mk/sources.mk
 include mk/rules.mk
 include mk/package.mk
+include mk/verify.mk
 
 .PHONY: all clean package MobileCydia postinst cfversion setnsfpn cydo FORCE
