@@ -29,11 +29,11 @@
 - (void) loadView {
     [super loadView];
 
-    UITableView *table([[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped] autorelease]);
+    UITableView *table([[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStyleGrouped]);
     [table setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [[self view] addSubview:table];
 
-    CydiaLoadingView *indicator([[[CydiaLoadingView alloc] initWithFrame:[[self view] bounds]] autorelease]);
+    CydiaLoadingView *indicator([[CydiaLoadingView alloc] initWithFrame:[[self view] bounds]]);
     [indicator setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [[self view] addSubview:indicator];
 }

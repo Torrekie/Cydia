@@ -28,14 +28,14 @@
 
 - (id) initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame]) != nil) {
-        container_ = [[[UIView alloc] init] autorelease];
+        container_ = [[UIView alloc] init];
         [container_ setAutoresizingMask:UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin];
 
-        spinner_ = [[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray] autorelease];
+        spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
         [spinner_ startAnimating];
         [container_ addSubview:spinner_];
 
-        label_ = [[[UILabel alloc] init] autorelease];
+        label_ = [[UILabel alloc] init];
         [label_ setFont:[UIFont boldSystemFontOfSize:15.0f]];
         [label_ setBackgroundColor:[UIColor clearColor]];
         [label_ setTextColor:[UIColor viewFlipsideBackgroundColor]];
