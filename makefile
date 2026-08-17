@@ -3,6 +3,7 @@
 
 dpkg := fakeroot dpkg-deb -Zlzma
 version := $(shell ./version.sh)
+DEPLOYMENT_TARGET ?= 12.0
 
 flag := 
 plus :=
@@ -130,11 +131,11 @@ link += -Xarch_$(arch) -Wl,-lz
 flag += -DAPT_PKG_EXPOSE_STRING_VIEW
 flag += -Dsighandler_t=sig_t
 
-flag64 := 
-flag64 += -arch $(arch)
-flag64 += -Xarch_$(arch) -m$(kind)-version-min=7.0
+target :=
+target += -arch $(arch)
+target += -m$(kind)-version-min=$(DEPLOYMENT_TARGET)
 
-apt64 := $(cycc) $(flag64) $(flag)
+apt64 := $(cycc) $(target) $(flag)
 apt64 += -include apt.h
 apt64 += -Wno-deprecated-register
 apt64 += -Wno-unused-private-field
@@ -148,7 +149,7 @@ eapt += -Wno-format
 eapt += -Wno-logical-op-parentheses
 iapt += $(eapt)
 
-cycc += $(flag64)
+cycc += $(target)
 
 plus += -std=c++11
 
@@ -230,7 +231,7 @@ Objects/libapt64.a: $(libapt64)
 
 MobileCydia: $(object) entitlements.xml $(lapt)
 	@echo "[link] $@"
-	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit) -Wl,-sdk_version,11.0
+	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit)
 	@mkdir -p bins
 	@cp -a $@ bins/$@-$(version)_$(shell date +%s)
 	@echo "[strp] $@"
