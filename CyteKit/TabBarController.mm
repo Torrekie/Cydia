@@ -27,7 +27,7 @@
 #include <Menes/ObjectHandle.h>
 
 @implementation CyteTabBarController {
-    _transient UIViewController *transient_;
+    __weak UIViewController *transient_;
     _H<UIViewController> remembered_;
 }
 

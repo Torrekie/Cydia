@@ -28,7 +28,7 @@
 #include <Menes/ObjectHandle.h>
 
 @implementation CyteWindow {
-    _transient UIViewController *root_;
+    __weak UIViewController *root_;
 }
 
 - (void) setRootViewController:(UIViewController *)controller {

@@ -27,7 +27,7 @@
 #include <Foundation/Foundation.h>
 
 @interface IndirectDelegate : NSObject {
-    _transient volatile id delegate_;
+    volatile __weak id delegate_;
 }
 
 - (id) delegate;
