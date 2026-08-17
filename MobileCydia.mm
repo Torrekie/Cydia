@@ -1885,7 +1885,7 @@ class CydiaLogCleaner :
 }
 
 - (NSArray *) cells {
-    auto *$_CTServerConnectionCreate(reinterpret_cast<id (*)(void *, void *, void *)>(dlsym(RTLD_DEFAULT, "_CTServerConnectionCreate")));
+    auto *$_CTServerConnectionCreate(reinterpret_cast<CFTypeRef (*)(void *, void *, void *)>(dlsym(RTLD_DEFAULT, "_CTServerConnectionCreate")));
     if ($_CTServerConnectionCreate == NULL)
         return nil;
 
@@ -1894,17 +1894,17 @@ class CydiaLogCleaner :
     if ($_CTServerConnectionCellMonitorCopyCellInfo == NULL)
         return nil;
 
-    _H<const void> connection($_CTServerConnectionCreate(NULL, NULL, NULL), true);
+    id connection(CFBridgingRelease($_CTServerConnectionCreate(NULL, NULL, NULL)));
     if (connection == nil)
         return nil;
 
     int count(0);
     CFArrayRef cells(NULL);
-    auto result($_CTServerConnectionCellMonitorCopyCellInfo(connection, &count, &cells));
+    auto result($_CTServerConnectionCellMonitorCopyCellInfo((__bridge CFTypeRef) connection, &count, &cells));
     if (result.flag != 0)
         return nil;
 
-    return [(NSArray *) cells autorelease];
+    return CFBridgingRelease(cells);
 }
 
 - (NSString *) mcc {

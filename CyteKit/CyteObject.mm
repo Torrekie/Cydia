@@ -62,16 +62,16 @@ static NSString *CYHex(NSData *data, bool reverse = false) {
 }
 
 static NSObject *CYIOGetValue(const char *path, NSString *property) {
-    io_registry_entry_t entry(IORegistryEntryFromPath(kIOMasterPortDefault, path));
+    io_registry_entry_t entry(IORegistryEntryFromPath(MACH_PORT_NULL, path));
     if (entry == MACH_PORT_NULL)
         return nil;
 
-    CFTypeRef value(IORegistryEntryCreateCFProperty(entry, (CFStringRef) property, kCFAllocatorDefault, 0));
+    CFTypeRef value(IORegistryEntryCreateCFProperty(entry, (__bridge CFStringRef) property, kCFAllocatorDefault, 0));
     IOObjectRelease(entry);
 
     if (value == NULL)
         return nil;
-    return [(id) value autorelease];
+    return CFBridgingRelease(value);
 }
 
 @implementation CyteObject {
@@ -225,7 +225,7 @@ static NSObject *CYIOGetValue(const char *path, NSString *property) {
 }
 
 - (void) addInternalRedirect:(NSString *)from :(NSString *)to {
-    [CyteWebViewController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[[Diversion alloc] initWithFrom:from to:to] autorelease] waitUntilDone:NO];
+    [CyteWebViewController performSelectorOnMainThread:@selector(addDiversion:) withObject:[[Diversion alloc] initWithFrom:from to:to] waitUntilDone:NO];
 }
 
 - (void) close {
@@ -260,8 +260,8 @@ static NSObject *CYIOGetValue(const char *path, NSString *property) {
 }
 
 - (NSString *) getLocaleIdentifier {
-    _H<const __CFLocale> locale(CFLocaleCopyCurrent(), true);
-    return locale == NULL ? (NSString *) [NSNull null] : (NSString *) CFLocaleGetIdentifier(locale);
+    NSLocale *locale = CFBridgingRelease(CFLocaleCopyCurrent());
+    return locale == nil ? (NSString *) [NSNull null] : [locale localeIdentifier];
 }
 
 - (NSArray *) getPreferredLanguages {
