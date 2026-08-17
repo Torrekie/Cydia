@@ -1,6 +1,7 @@
 #include "Cydia/Package.h"
 
 #include "Cydia/Profile.hpp"
+#include "Cydia/Section.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
 #include "iPhonePrivate.h"
@@ -41,10 +42,6 @@ static const char *StripVersion_(const char *version) {
 - (NSString *) mappedSectionForPointer:(const char *)pointer;
 - (Source *) getSource:(pkgCache::PkgFileIterator)file;
 - (pkgProblemResolver *) resolver;
-@end
-
-@interface Section : NSObject
-- (NSString *) name;
 @end
 
 uint32_t PackageChangesRadix(Package *self, void *) {
