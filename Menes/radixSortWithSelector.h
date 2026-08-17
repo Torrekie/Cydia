@@ -25,7 +25,7 @@
 #include <Foundation/Foundation.h>
 
 typedef uint32_t (*MenesRadixSortFunction)(id, void *);
-void CYRadixSortUsingFunction(id *self, size_t count, MenesRadixSortFunction function, void *argument);
+void CYRadixSortUsingFunction(id __strong *self, size_t count, MenesRadixSortFunction function, void *argument);
 
 @interface NSMutableArray (MenesRadixSortWithSelector)
 - (void) radixSortUsingFunction:(MenesRadixSortFunction)function withContext:(void *)argument;

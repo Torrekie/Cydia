@@ -49,7 +49,7 @@ $(OBJECT_DIR)/%.o: %.c $(header)
 $(OBJECT_DIR)/%.o: %.m $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) -c -o $@ $< $(flag)
+	@$(cycc) $(objc_arc) -c -o $@ $< $(flag)
 
 $(OBJECT_DIR)/%.o: %.cpp $(header)
 	@mkdir -p $(dir $@)
@@ -59,7 +59,7 @@ $(OBJECT_DIR)/%.o: %.cpp $(header)
 $(OBJECT_DIR)/%.o: %.mm $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) $(plus) -c -o $@ $< $(flag)
+	@$(cycc) $(plus) $(objc_arc) -c -o $@ $< $(flag)
 
 $(OBJECT_DIR)/Version.o: $(VERSION_HEADER)
 
@@ -98,7 +98,7 @@ $(APP_BINARY): $(object) entitlements.xml $(lapt)
 
 $(CFVERSION_BINARY): cfversion.mm
 	@mkdir -p $(dir $@)
-	$(cycc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
+	$(cycc) $(objc_arc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
 	@ldid -T0 -Sgenent.xml $@
 
 $(SETNSFPN_BINARY): setnsfpn.cpp
@@ -113,7 +113,7 @@ $(CYDO_BINARY): cydo.cpp
 
 $(POSTINST_BINARY): postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h
 	@mkdir -p $(dir $@)
-	$(cycc) $(plus) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
+	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
 	@ldid -T0 -Sgenent.xml $@
 
 MobileCydia: $(APP_BINARY)
