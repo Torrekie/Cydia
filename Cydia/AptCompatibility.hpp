@@ -12,13 +12,6 @@
 #include <string>
 #include <vector>
 
-class pkgCache;
-class pkgDepCache;
-class pkgAcquireStatus;
-class pkgPackageManager;
-class pkgProblemResolver;
-class pkgSourceList;
-
 namespace CydiaAPT {
 
 enum class PackageManagerResult {
@@ -124,7 +117,7 @@ struct PackageRecordData {
 
 /* Stable package state/action values.  APT enum layouts and cache ownership
  * stay inside AptBackend; package controllers consume these strings and
- * booleans instead of touching pkgDepCache::StateCache. */
+ * booleans instead of touching APT's state-cache representation. */
 struct PackageStateData {
     std::string state;
     std::string selection;
@@ -210,18 +203,6 @@ struct TransactionData {
 };
 
 std::string Fingerprint(const void *data, std::size_t size);
-
-// Keep version-sensitive APT calls out of Objective-C controllers and models.
-// AptBackend now owns the mutable epoch handles; these references are a
-// transitional Database façade until the remaining cache queries become DTOs.
-PackageManagerResult RunPackageManager(pkgPackageManager &manager, int statusFd);
-bool CleanArchives(const std::string &directory, pkgCache &cache);
-bool ApplyStatus(pkgDepCache &cache);
-bool FixBroken(pkgDepCache &cache);
-bool MinimizeUpgrade(pkgDepCache &cache);
-bool PrepareDistUpgrade(pkgDepCache &cache);
-bool ResolveDependencies(pkgProblemResolver &resolver);
-bool UpdateLists(pkgAcquireStatus &status, pkgSourceList &list, int pulseInterval);
 
 } // namespace CydiaAPT
 
