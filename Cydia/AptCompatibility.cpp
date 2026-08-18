@@ -13,6 +13,7 @@
 #include <apt-pkg/packagemanager.h>
 #include <apt-pkg/pkgcache.h>
 #include <apt-pkg/upgrade.h>
+#include <apt-pkg/update.h>
 
 #if !defined(APT_PKG_ABI) || APT_PKG_ABI < 500
 #error "Cydia's APT compatibility layer requires libapt-pkg ABI 5.0 or newer"
@@ -133,6 +134,14 @@ bool CleanArchives(const std::string &directory, pkgCache &cache) {
     return cleaner.Go(directory, cache);
 }
 
+bool ApplyStatus(pkgDepCache &cache) {
+    return pkgApplyStatus(cache);
+}
+
+bool FixBroken(pkgDepCache &cache) {
+    return pkgFixBroken(cache);
+}
+
 bool MinimizeUpgrade(pkgDepCache &cache) {
     return pkgMinimizeUpgrade(cache);
 }
@@ -145,6 +154,10 @@ bool ResolveDependencies(pkgProblemResolver &resolver) {
     // InstallProtect was already a deprecated no-op in the oldest supported
     // ABI 5 baseline and was removed from newer libapt-pkg releases.
     return resolver.Resolve(true);
+}
+
+bool UpdateLists(pkgAcquireStatus &status, pkgSourceList &list, int pulseInterval) {
+    return ListUpdate(status, list, pulseInterval);
 }
 
 } // namespace CydiaAPT

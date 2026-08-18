@@ -14,8 +14,10 @@
 
 class pkgCache;
 class pkgDepCache;
+class pkgAcquireStatus;
 class pkgPackageManager;
 class pkgProblemResolver;
+class pkgSourceList;
 
 namespace CydiaAPT {
 
@@ -175,9 +177,12 @@ std::string Fingerprint(const void *data, std::size_t size);
 // transitional Database façade until the remaining cache queries become DTOs.
 PackageManagerResult RunPackageManager(pkgPackageManager &manager, int statusFd);
 bool CleanArchives(const std::string &directory, pkgCache &cache);
+bool ApplyStatus(pkgDepCache &cache);
+bool FixBroken(pkgDepCache &cache);
 bool MinimizeUpgrade(pkgDepCache &cache);
 bool PrepareDistUpgrade(pkgDepCache &cache);
 bool ResolveDependencies(pkgProblemResolver &resolver);
+bool UpdateLists(pkgAcquireStatus &status, pkgSourceList &list, int pulseInterval);
 
 } // namespace CydiaAPT
 
