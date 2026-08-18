@@ -8,7 +8,6 @@
 #include <Foundation/Foundation.h>
 
 #include <cstring>
-#include <functional>
 #include <string>
 
 static _finline CFStringRef CYStringCreate(const char *data, size_t size) {
@@ -63,18 +62,31 @@ class CYString {
     {
     }
 
+    CYString(const CYString &rhs) :
+        data_(rhs.data_),
+        size_(rhs.size_),
+        cache_(rhs.cache_ == NULL ? NULL : reinterpret_cast<CFStringRef>(CFRetain(rhs.cache_)))
+    {
+    }
+
     _finline ~CYString() {
         clear_();
     }
 
-    void operator =(const CYString &rhs) {
+    CYString &operator =(const CYString &rhs) {
+        if (this == &rhs)
+            return *this;
+
+        clear_();
         data_ = rhs.data_;
         size_ = rhs.size_;
 
-        if (rhs.cache_ == nil)
+        if (rhs.cache_ == NULL)
             cache_ = NULL;
         else
             cache_ = reinterpret_cast<CFStringRef>(CFRetain(rhs.cache_));
+
+        return *this;
     }
 
     void copy(CYPool *pool) {
@@ -129,25 +141,19 @@ extern "C" {
     CF_EXPORT CFHashCode CFStringHashNSString(CFStringRef str);
 }
 
-struct NSStringMapHash :
-    std::unary_function<NSString *, size_t>
-{
+struct NSStringMapHash {
     _finline size_t operator ()(NSString *value) const {
         return CFStringHashNSString((__bridge CFStringRef) value);
     }
 };
 
-struct NSStringMapLess :
-    std::binary_function<NSString *, NSString *, bool>
-{
+struct NSStringMapLess {
     _finline bool operator ()(NSString *lhs, NSString *rhs) const {
         return [lhs compare:rhs] == NSOrderedAscending;
     }
 };
 
-struct NSStringMapEqual :
-    std::binary_function<NSString *, NSString *, bool>
-{
+struct NSStringMapEqual {
     _finline bool operator ()(NSString *lhs, NSString *rhs) const {
         return CFStringCompare((CFStringRef) lhs, (CFStringRef) rhs, 0) == kCFCompareEqualTo;
         //CFEqual((CFTypeRef) lhs, (CFTypeRef) rhs);

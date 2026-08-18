@@ -19,14 +19,19 @@ class CYColor {
     }
 
     CYColor(CGColorSpaceRef space, float red, float green, float blue, float alpha) :
-        color_(Create_(space, red, green, blue, alpha))
+        color_(NULL)
     {
         Set(space, red, green, blue, alpha);
     }
 
+    CYColor(const CYColor &) = delete;
+    CYColor &operator =(const CYColor &) = delete;
+
     void Clear() {
-        if (color_ != NULL)
+        if (color_ != NULL) {
             CGColorRelease(color_);
+            color_ = NULL;
+        }
     }
 
     ~CYColor() {
