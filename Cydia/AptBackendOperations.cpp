@@ -3,6 +3,7 @@
  */
 
 #include "Cydia/AptBackendInternal.hpp"
+#include "Cydia/AptCompatibilityInternal.hpp"
 
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/clean.h>

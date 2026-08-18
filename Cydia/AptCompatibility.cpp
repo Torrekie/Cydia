@@ -3,6 +3,7 @@
  */
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/AptCompatibilityInternal.hpp"
 
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/clean.h>
