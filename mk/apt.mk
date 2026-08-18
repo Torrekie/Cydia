@@ -41,6 +41,7 @@ APT_AUDIT_CXX_STANDARD ?= $(APT_SOURCE_CXX_STANDARD)
 # even when the source file itself does not include an apt-pkg header.
 apt_api_sources := \
     Cydia/AptBackend.cpp \
+    Cydia/AptBackendOperations.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptRuntime.cpp \
     Cydia/ConfirmationController.mm \

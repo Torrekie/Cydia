@@ -49,6 +49,20 @@ class AptBackend {
 
     void reset();
     void createCacheViews();
+    std::vector<ErrorData> drainErrors();
+    void discardErrors();
+    bool loadSources();
+    bool openCache();
+    CacheStateSummary cacheState();
+    bool applyStatus();
+    bool fixBroken();
+    bool minimizeUpgrade();
+    bool cleanArchives();
+    bool prepareArchives();
+    SourceListData sourceList();
+    FetchResultData runFetcher(int pulseInterval);
+    PackageManagerResult runPackageManager(int statusFd);
+    UpdateResultData updateLists(pkgAcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
@@ -63,24 +77,10 @@ class AptBackend {
     bool clearPackage(PackageHandle handle);
     bool installPackage(PackageHandle handle);
     bool removePackage(PackageHandle handle);
-    std::string archiveDirectory() const;
-    std::string listsDirectory() const;
-    bool createPackageManager();
     std::vector<SourceHandle> sourceHandles();
     SourceSnapshot sourceSnapshot(SourceHandle handle);
     std::string sourceField(SourceHandle handle, const std::string &name);
     std::vector<std::uint32_t> sourceFileIDs(SourceHandle handle);
-    pkgSourceList *createSourceList();
-    pkgAcquire *createFetcher();
-
-    pkgCacheFile &cache();
-    pkgDepCache::Policy *policy() const;
-    pkgRecords *records() const;
-    pkgProblemResolver *&resolver();
-    pkgAcquire *fetcher() const;
-    FileFd *&lock();
-    std::unique_ptr<pkgPackageManager> &manager();
-    pkgSourceList *list() const;
 };
 
 } // namespace CydiaAPT

@@ -21,16 +21,6 @@
 #include "Sources.h"
 #include "fdstream.hpp"
 
-#include <apt-pkg/acquire-item.h>
-#include <apt-pkg/clean.h>
-#include <apt-pkg/deb/debindexfile.h>
-#include <apt-pkg/deb/debmetaindex.h>
-#include <apt-pkg/error.h>
-#include <apt-pkg/init.h>
-#include <apt-pkg/pkgsystem.h>
-#include <apt-pkg/progress.h>
-#include <apt-pkg/update.h>
-
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -117,7 +107,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (void) _readOutput:(NSNumber *)fd;
 - (bool) popErrorWithTitle:(NSString *)title;
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success;
-- (bool) popErrorWithTitle:(NSString *)title forReadList:(pkgSourceList &)list;
 - (void) updateWithStatus:(CancelStatus &)status;
 @end
 
@@ -402,26 +391,18 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (bool) popErrorWithTitle:(NSString *)title {
     bool fatal(false);
 
-    while (!_error->empty()) {
-        std::string error;
-        bool warning(!_error->PopMessage(error));
-        if (!warning)
+    const std::vector<CydiaAPT::ErrorData> errors(apt_->drainErrors());
+    for (std::vector<CydiaAPT::ErrorData>::const_iterator item(errors.begin()); item != errors.end(); ++item) {
+        if (!item->warning)
             fatal = true;
 
-        for (;;) {
-            size_t size(error.size());
-            if (size == 0 || error[size - 1] != '\n')
-                break;
-            error.resize(size - 1);
-        }
-
-        lprintf("%c:[%s]\n", warning ? 'W' : 'E', error.c_str());
+        lprintf("%c:[%s]\n", item->warning ? 'W' : 'E', item->message.c_str());
 
         static RegEx no_pubkey("GPG error:.* NO_PUBKEY .*");
-        if (warning && no_pubkey(error.c_str()))
+        if (item->warning && no_pubkey(item->message.c_str()))
             continue;
 
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:item->message.c_str()] ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
     }
 
     return fatal;
@@ -429,10 +410,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success {
     return [self popErrorWithTitle:title] || !success;
-}
-
-- (bool) popErrorWithTitle:(NSString *)title forReadList:(pkgSourceList &)list {
-    return [self popErrorWithTitle:title forOperation:list.ReadMainList()];
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {
@@ -444,10 +421,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     sourceMap_.clear();
     [sourceList_ removeAllObjects];
 
-    _error->Discard();
+    apt_->discardErrors();
 
     apt_->reset();
-    pkgCacheFile &cache(apt_->cache());
 
     pool_.~CYPool();
     new (&pool_) CYPool();
@@ -464,13 +440,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     NSString *title(UCLocalize("DATABASE"));
 
-    pkgSourceList *list(apt_->createSourceList());
     _profile(reloadDataWithInvocation$ReadMainList)
-    if ([self popErrorWithTitle:title forReadList:*list])
+    if ([self popErrorWithTitle:title forOperation:apt_->loadSources()])
         return;
     _end
-
-    apt_->createFetcher();
 
     std::vector<CydiaAPT::SourceHandle> sourceHandles;
     _profile(reloadDataWithInvocation$Source$initWithMetaIndex)
@@ -482,19 +455,19 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     _end
 
     _trace();
-    OpProgress progress;
     bool opened;
     bool attemptedDpkgRepair(false);
   open:
     delock_ = GetStatusDate();
     _profile(reloadDataWithInvocation$pkgCacheFile)
-        opened = cache.Open(&progress, false);
+        opened = apt_->openCache();
     _end
     if (!opened) {
         // XXX: this block should probably be merged with popError: in some way
-        while (!_error->empty()) {
-            std::string error;
-            bool warning(!_error->PopMessage(error));
+        const std::vector<CydiaAPT::ErrorData> errors(apt_->drainErrors());
+        for (std::vector<CydiaAPT::ErrorData>::const_iterator item(errors.begin()); item != errors.end(); ++item) {
+            const std::string &error(item->message);
+            const bool warning(item->warning);
 
             lprintf("cache.Open():[%s]\n", error.c_str());
 
@@ -513,7 +486,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
             // else if (error == "The list of sources could not be read.")
 
             if (repair != NULL) {
-                _error->Discard();
+                apt_->discardErrors();
                 [delegate_ repairWithSelector:repair];
                 goto open;
             }
@@ -530,29 +503,32 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     apt_->createCacheViews();
 
-    if (cache->DelCount() != 0 || cache->InstCount() != 0) {
+    CydiaAPT::CacheStateSummary cacheState(apt_->cacheState());
+    if (cacheState.deletes != 0 || cacheState.installs != 0) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("COUNTS_NONZERO_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
         return;
     }
 
     _profile(reloadDataWithInvocation$pkgApplyStatus)
-    if ([self popErrorWithTitle:title forOperation:CydiaAPT::ApplyStatus(static_cast<pkgDepCache &>(cache))])
+    if ([self popErrorWithTitle:title forOperation:apt_->applyStatus()])
         return;
     _end
 
-    if (cache->BrokenCount() != 0) {
+    cacheState = apt_->cacheState();
+    if (cacheState.broken != 0) {
         _profile(pkgApplyStatus$pkgFixBroken)
-        if ([self popErrorWithTitle:title forOperation:CydiaAPT::FixBroken(static_cast<pkgDepCache &>(cache))])
+        if ([self popErrorWithTitle:title forOperation:apt_->fixBroken()])
             return;
         _end
 
-        if (cache->BrokenCount() != 0) {
+        cacheState = apt_->cacheState();
+        if (cacheState.broken != 0) {
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("STILL_BROKEN_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
             return;
         }
 
         _profile(pkgApplyStatus$pkgMinimizeUpgrade)
-        if ([self popErrorWithTitle:title forOperation:CydiaAPT::MinimizeUpgrade(*cache)])
+        if ([self popErrorWithTitle:title forOperation:apt_->minimizeUpgrade()])
             return;
         _end
     }
@@ -689,50 +665,16 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (bool) clean {
 @synchronized (self) {
-    // XXX: I don't remember this condition
-    if (apt_->lock() != NULL)
-        return false;
-
-    const std::string archives(apt_->archiveDirectory());
-    FileFd Lock = FileFd(GetLock(archives + "lock"), true);
-
     NSString *title(UCLocalize("CLEAN_ARCHIVES"));
-
-    if ([self popErrorWithTitle:title])
+    if ([self popErrorWithTitle:title forOperation:apt_->cleanArchives()])
         return false;
-
-    pkgAcquire fetcher;
-    fetcher.Clean(archives);
-
-    if ([self popErrorWithTitle:title forOperation:CydiaAPT::CleanArchives(
-        archives + "partial/",
-        static_cast<pkgCache &>(apt_->cache()))])
-        return false;
-
     return true;
 } }
 
 - (bool) prepare {
-    apt_->fetcher()->Shutdown();
-
-    pkgRecords records(apt_->cache());
-
-    apt_->lock() = new FileFd(GetLock(apt_->archiveDirectory() + "lock"), true);
-
     NSString *title(UCLocalize("PREPARE_ARCHIVES"));
-
-    if ([self popErrorWithTitle:title])
+    if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()])
         return false;
-
-    pkgSourceList list;
-    if ([self popErrorWithTitle:title forReadList:list])
-        return false;
-
-    if (!apt_->createPackageManager())
-        return false;
-    if ([self popErrorWithTitle:title forOperation:apt_->manager()->GetArchives(apt_->fetcher(), &list, &records)])
-        return false;
-
     return true;
 }
 
@@ -742,42 +684,28 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     NSString *title(UCLocalize("PERFORM_SELECTIONS"));
 
-    NSMutableArray *before = [NSMutableArray arrayWithCapacity:16]; {
-        pkgSourceList list;
-        if ([self popErrorWithTitle:title forReadList:list])
-            return;
-        for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
-            [before addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
-    }
+    CydiaAPT::SourceListData before(apt_->sourceList());
+    if ([self popErrorWithTitle:title forOperation:before.success])
+        return;
 
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
-    if (apt_->fetcher()->Run(PulseInterval_) != pkgAcquire::Continue) {
+    CydiaAPT::FetchResultData fetch(apt_->runFetcher(PulseInterval_));
+    if (!fetch.completed) {
         _trace();
         [self popErrorWithTitle:title];
         return;
     }
 
-    bool failed = false;
-    for (pkgAcquire::ItemIterator item = apt_->fetcher()->ItemsBegin(); item != apt_->fetcher()->ItemsEnd(); item++) {
-        if ((*item)->Status == pkgAcquire::Item::StatDone && (*item)->Complete)
-            continue;
-        if ((*item)->Status == pkgAcquire::Item::StatIdle)
-            continue;
-
-        std::string uri = (*item)->DescURI();
-        std::string error = (*item)->ErrorText;
-
-        lprintf("pAf:%s:%s\n", uri.c_str(), error.c_str());
-        failed = true;
-
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError]);
+    for (std::vector<CydiaAPT::FetchFailureData>::const_iterator failure(fetch.failures.begin()); failure != fetch.failures.end(); ++failure) {
+        lprintf("pAf:%s:%s\n", failure->uri.c_str(), failure->error.c_str());
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:failure->error.c_str()] ofType:kCydiaProgressEventTypeError]);
         [delegate_ addProgressEventOnMainThread:event forTask:title];
     }
 
     [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
-    if (failed) {
+    if (!fetch.failures.empty()) {
         _trace();
         return;
     }
@@ -792,7 +720,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     delock_ = nil;
 
-    CydiaAPT::PackageManagerResult result(CydiaAPT::RunPackageManager(*apt_->manager(), statusfd_));
+    CydiaAPT::PackageManagerResult result(apt_->runPackageManager(statusfd_));
 
     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
     NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
@@ -821,15 +749,11 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return;
     }
 
-    NSMutableArray *after = [NSMutableArray arrayWithCapacity:16]; {
-        pkgSourceList list;
-        if ([self popErrorWithTitle:title forReadList:list])
-            return;
-        for (pkgSourceList::const_iterator source = list.begin(); source != list.end(); ++source)
-            [after addObject:[NSString stringWithUTF8String:(*source)->GetURI().c_str()]];
-    }
+    CydiaAPT::SourceListData after(apt_->sourceList());
+    if ([self popErrorWithTitle:title forOperation:after.success])
+        return;
 
-    if (![before isEqualToArray:after] && Finish_ == 0)
+    if (before.uris != after.uris && Finish_ == 0)
         [self update];
 }
 
@@ -861,21 +785,18 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (void) updateWithStatus:(CancelStatus &)status {
     NSString *title(UCLocalize("REFRESHING_DATA"));
 
-    pkgSourceList list;
-    if ([self popErrorWithTitle:title forReadList:list])
-        return;
-
-    FileFd lock = FileFd(GetLock(apt_->listsDirectory() + "lock"), true);
-    if ([self popErrorWithTitle:title])
-        return;
-
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
-    bool success(CydiaAPT::UpdateLists(status, list, PulseInterval_));
+    CydiaAPT::UpdateResultData result(apt_->updateLists(status, PulseInterval_));
+    if (!result.prepared) {
+        [self popErrorWithTitle:title];
+        [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+        return;
+    }
     if (status.WasCancelled())
-        _error->Discard();
+        apt_->discardErrors();
     else {
-        [self popErrorWithTitle:title forOperation:success];
+        [self popErrorWithTitle:title forOperation:result.success];
 
         [[NSDictionary dictionaryWithObjectsAndKeys:
             [NSDate date], @"LastUpdate",
