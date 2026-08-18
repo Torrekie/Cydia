@@ -52,6 +52,9 @@ class PackageDatabasePaths {
     /* Returns an empty string unless name is a single helper filename. */
     std::string CydiaHelperPath(const char *name) const;
 
+    /* Returns a tool supplied by the selected bootstrap's /usr/bin. */
+    std::string BootstrapBinaryPath(const char *name) const;
+
   private:
     PackageDatabasePaths(PackageDatabaseLayout layout,
                          const char *dpkgStatus,

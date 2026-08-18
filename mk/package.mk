@@ -1,4 +1,4 @@
-$(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app) cydia.control cydia.preferences Library/firmware.sh Library/move.sh Library/startup
+$(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library LaunchDaemons -type f) cydia.control cydia.preferences
 	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 
@@ -7,18 +7,22 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/trusted.gpg.d
 	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/sources.list.d
 	cp -a cydia.preferences $(CYDIA_STAGE_ROOT)/etc/apt/preferences.d/cydia
-	cp -a Trusted.gpg $(CYDIA_STAGE_ROOT)/etc/apt/trusted.gpg.d/
-	cp -a Sources.list $(CYDIA_STAGE_ROOT)/etc/apt/sources.list.d/
+	cp -a Trusted.gpg/. $(CYDIA_STAGE_ROOT)/etc/apt/trusted.gpg.d/
+	cp -a Sources.list/. $(CYDIA_STAGE_ROOT)/etc/apt/sources.list.d/
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/libexec
 	cp -a Library $(CYDIA_STAGE_ROOT)/usr/libexec/cydia
-	cp -a sysroot/usr/bin/du $(CYDIA_STAGE_ROOT)/usr/libexec/cydia
 	cp -a $(CFVERSION_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cfversion
 	cp -a $(SETNSFPN_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/setnsfpn
 	cp -a $(CYDO_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Library
 	cp -a LaunchDaemons $(CYDIA_STAGE_ROOT)/Library/LaunchDaemons
+	@if test -n "$(PACKAGE_PREFIX)"; then \
+		file=$(CYDIA_STAGE_ROOT)/Library/LaunchDaemons/com.saurik.Cydia.Startup.plist; \
+		sed 's@/usr/libexec/cydia@$(PACKAGE_PREFIX)/usr/libexec/cydia@g' "$$file" >"$$file.tmp"; \
+		mv -f "$$file.tmp" "$$file"; \
+	fi
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications
 	cp -a MobileCydia.app $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
