@@ -18,6 +18,9 @@
 #include <cstddef>
 #include <ctime>
 
+// The supported apt64 input exposes the modern candidate/version APIs.
+#define CYDIA_APT_MODERN 1
+
 @class Database;
 
 extern const char *common_arch;
@@ -73,9 +76,9 @@ struct ParsedPackage {
     _H<NSMutableArray> tags_;
 }
 
-- (id) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
-+ (Package *) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
-+ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
+- (instancetype) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
++ (instancetype) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
++ (instancetype) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
 
 - (pkgCache::PkgIterator) iterator;
 - (void) parse;
