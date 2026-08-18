@@ -11,7 +11,9 @@
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/ProgressController.h"
 #include "Cydia/ProgressEvent.h"
 #include "Cydia/ControllerState.h"
@@ -215,14 +217,22 @@
             @synchronized (self) {
                 for (Package *broken in (id) broken_) {
                     [broken remove];
-                    NSString *id(ShellEscape([broken id]));
-                    system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/rm -f"
-                        " /var/lib/dpkg/info/%@.prerm"
-                        " /var/lib/dpkg/info/%@.postrm"
-                        " /var/lib/dpkg/info/%@.preinst"
-                        " /var/lib/dpkg/info/%@.postinst"
-                        " /var/lib/dpkg/info/%@.extrainst_"
-                    "", id, id, id, id, id] UTF8String]);
+                    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+                    const char *name([[broken id] UTF8String]);
+                    std::vector<std::string> files;
+                    const char *suffixes[] = {".prerm", ".postrm", ".preinst", ".postinst", ".extrainst_"};
+                    for (const char *suffix : suffixes) {
+                        std::string file(paths.DpkgInfoFile(name, suffix));
+                        if (!file.empty())
+                            files.push_back(file);
+                    }
+
+                    std::vector<std::string> arguments;
+                    arguments.push_back("/bin/rm");
+                    arguments.push_back("-f");
+                    arguments.insert(arguments.end(), files.begin(), files.end());
+                    CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
+                    (void) runner.Run(arguments);
                 }
 
                 [self resolve];

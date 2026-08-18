@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace Cydia {
+namespace CydiaRuntime {
 namespace Dpkg {
 
 /* The wrapper used by Cydia can launch either the privileged cydo shim or the
@@ -57,10 +57,26 @@ class Runner {
      */
     Result Run(const std::vector<std::string> &arguments, int statusFd = -1) const;
 
+    /* Feed a bounded stdin payload to the child without invoking a shell. */
+    Result RunWithInput(const std::vector<std::string> &arguments,
+                        const std::string &input,
+                        int statusFd = -1) const;
+
+    /* Redirect stdout to a file using posix_spawn file actions. */
+    Result RunToFile(const std::vector<std::string> &arguments,
+                     const std::string &outputPath,
+                     int statusFd = -1) const;
+
     static std::string DefaultPath(Executable executable);
+
+  private:
+    Result RunInternal(const std::vector<std::string> &arguments,
+                       int statusFd,
+                       const std::string *input,
+                       const std::string *outputPath) const;
 };
 
 } // namespace Dpkg
-} // namespace Cydia
+} // namespace CydiaRuntime
 
 #endif

@@ -63,7 +63,7 @@ runner and a device `dpkg` executable. The next compatibility slice will
 centralize that runner and its rootful/rootless paths so an APT update does not
 require changing UI code or assuming one filesystem layout.
 
-`Cydia::PackageDatabasePaths` now selects a complete package-database layout
+`CydiaRuntime::PackageDatabasePaths` now selects a complete package-database layout
 before the first database access. Rootful paths remain under `/var/lib`; a
 rootless bootstrap uses `/var/jb/var/lib` and its matching `cydo`/`dpkg`
 helpers. Set `CYDIA_PACKAGE_LAYOUT=rootful` or `rootless` in a launcher when a

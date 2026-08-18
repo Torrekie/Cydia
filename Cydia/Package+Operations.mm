@@ -16,7 +16,7 @@
 @implementation Package (Operations)
 
 - (NSArray *) files {
-    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
     const std::string infoPath(paths.DpkgInfoFile([static_cast<NSString *>(id_) UTF8String], ".list"));
     if (infoPath.empty())
         return nil;

@@ -50,7 +50,7 @@ static NSString * const kCydiaProgressEventTypeStatus = @"Status";
 static NSString * const kCydiaProgressEventTypeWarning = @"Warning";
 
 static NSDate *GetStatusDate() {
-    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
     NSString *status([NSString stringWithUTF8String:paths.DpkgStatusPath().c_str()]);
     return [[[NSFileManager defaultManager] attributesOfItemAtPath:status error:NULL] fileModificationDate];
 }
@@ -653,8 +653,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (void) configure {
     _trace();
-    Cydia::Dpkg::Runner runner(Cydia::Dpkg::Executable::Cydo);
-    Cydia::Dpkg::Result result(runner.Run({"--configure", "-a"}, statusfd_));
+    CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
+    CydiaRuntime::Dpkg::Result result(runner.Run({"--configure", "-a"}, statusfd_));
     if (!result.succeeded())
         _trace();
     _trace();
@@ -765,13 +765,16 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     CydiaAPT::PackageManagerResult result(CydiaAPT::RunPackageManager(*apt_->manager(), statusfd_));
 
-    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
     NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
     NSString *nextended(Cache("extended_states"));
 
     struct stat info;
-    if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG)
-        system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/cp --remove-destination %@ %@", ShellEscape(nextended), ShellEscape(oextended)] UTF8String]);
+    if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG) {
+        CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
+        (void) runner.Run({"/bin/cp", "--remove-destination",
+                           [nextended UTF8String], [oextended UTF8String]});
+    }
 
     unlink([nextended UTF8String]);
     symlink([oextended UTF8String], [nextended UTF8String]);
