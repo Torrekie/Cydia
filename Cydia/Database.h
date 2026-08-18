@@ -26,7 +26,6 @@ namespace CydiaAPT {
 class AptBackend;
 }
 
-class CancelStatus;
 class CydiaStatus;
 
 @protocol DatabaseDelegate
@@ -118,7 +117,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (bool) delocked;
 - (bool) upgrade;
 - (void) update;
-- (void) updateWithStatus:(CancelStatus &)status;
+- (void) updateWithFetchDelegate:(NSObject<FetchDelegate> *)delegate;
 
 - (void) setDelegate:(NSObject<DatabaseDelegate> *)delegate;
 - (void) setProgressDelegate:(NSObject<ProgressDelegate> *)delegate;

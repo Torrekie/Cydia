@@ -26,7 +26,6 @@
 
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
-#include "Cydia/DatabaseStatus.h"
 #include "Menes/ObjectHandle.h"
 #include "Substrate.hpp"
 #include "iPhonePrivate.h"
@@ -82,8 +81,7 @@
 - (void) performUpdate {
     @autoreleasepool {
 
-    SourceStatus status(self, database_);
-    [database_ updateWithStatus:status];
+    [database_ updateWithFetchDelegate:self];
 
     [self
         performSelectorOnMainThread:@selector(completeUpdate)
