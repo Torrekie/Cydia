@@ -63,6 +63,13 @@ runner and a device `dpkg` executable. The next compatibility slice will
 centralize that runner and its rootful/rootless paths so an APT update does not
 require changing UI code or assuming one filesystem layout.
 
+`Cydia::PackageDatabasePaths` now selects a complete package-database layout
+before the first database access. Rootful paths remain under `/var/lib`; a
+rootless bootstrap uses `/var/jb/var/lib` and its matching `cydo`/`dpkg`
+helpers. Set `CYDIA_PACKAGE_LAYOUT=rootful` or `rootless` in a launcher when a
+device intentionally keeps both databases; automatic detection only selects
+rootless when its database and helper are present.
+
 `make verify-apt-api` syntax-checks Cydia's private adapter against the pinned
 tree. A pre-fetched clean stable or main checkout can be tested without changing
 the gitlink and without allowing Make to access the network:
