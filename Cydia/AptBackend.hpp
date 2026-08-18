@@ -45,6 +45,8 @@ class AptBackend {
     explicit AptBackend(pkgAcquireStatus &status);
     ~AptBackend();
 
+    static void KeepFileDescriptor(int descriptor);
+
     void reset();
     void createCacheViews();
     std::vector<PackageHandle> packageHandles();
@@ -61,6 +63,9 @@ class AptBackend {
     bool clearPackage(PackageHandle handle);
     bool installPackage(PackageHandle handle);
     bool removePackage(PackageHandle handle);
+    std::string archiveDirectory() const;
+    std::string listsDirectory() const;
+    bool createPackageManager();
     pkgCache::PkgIterator packageIterator(PackageHandle handle);
     std::vector<SourceHandle> sourceHandles();
     SourceSnapshot sourceSnapshot(SourceHandle handle);

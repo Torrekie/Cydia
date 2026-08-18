@@ -262,7 +262,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         _assert(pipe(fds) != -1);
         cydiafd_ = fds[1];
 
-        _config->Set("APT::Keep-Fds::", cydiafd_);
+        CydiaAPT::AptBackend::KeepFileDescriptor(cydiafd_);
         setenv("CYDIA", [[[[NSNumber numberWithInt:cydiafd_] stringValue] stringByAppendingString:@" 1"] UTF8String], _not(int));
 
         [NSThread
@@ -703,7 +703,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if (apt_->lock() != NULL)
         return false;
 
-    FileFd Lock = FileFd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"), true);
+    const std::string archives(apt_->archiveDirectory());
+    FileFd Lock = FileFd(GetLock(archives + "lock"), true);
 
     NSString *title(UCLocalize("CLEAN_ARCHIVES"));
 
@@ -711,10 +712,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return false;
 
     pkgAcquire fetcher;
-    fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
+    fetcher.Clean(archives);
 
     if ([self popErrorWithTitle:title forOperation:CydiaAPT::CleanArchives(
-        _config->FindDir("Dir::Cache::Archives") + "partial/",
+        archives + "partial/",
         static_cast<pkgCache &>(apt_->cache()))])
         return false;
 
@@ -726,7 +727,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     pkgRecords records(apt_->cache());
 
-    apt_->lock() = new FileFd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"), true);
+    apt_->lock() = new FileFd(GetLock(apt_->archiveDirectory() + "lock"), true);
 
     NSString *title(UCLocalize("PREPARE_ARCHIVES"));
 
@@ -737,7 +738,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if ([self popErrorWithTitle:title forReadList:list])
         return false;
 
-    apt_->manager().reset(_system->CreatePM(apt_->cache()));
+    if (!apt_->createPackageManager())
+        return false;
     if ([self popErrorWithTitle:title forOperation:apt_->manager()->GetArchives(apt_->fetcher(), &list, &records)])
         return false;
 
@@ -863,7 +865,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if ([self popErrorWithTitle:title forReadList:list])
         return;
 
-    FileFd lock = FileFd(GetLock(_config->FindDir("Dir::State::Lists") + "lock"), true);
+    FileFd lock = FileFd(GetLock(apt_->listsDirectory() + "lock"), true);
     if ([self popErrorWithTitle:title])
         return;
 
