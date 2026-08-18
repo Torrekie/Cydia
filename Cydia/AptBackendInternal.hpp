@@ -1,33 +1,44 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * APT lifetime and transaction ownership boundary.
+ * Private libapt-pkg storage for AptBackend.
  */
 
-#ifndef Cydia_AptBackend_HPP
-#define Cydia_AptBackend_HPP
+#ifndef Cydia_AptBackendInternal_HPP
+#define Cydia_AptBackendInternal_HPP
 
 #include "Cydia/AptCompatibility.hpp"
+
+#include <apt-pkg/acquire.h>
+#include <apt-pkg/algorithms.h>
+#include <apt-pkg/cachefile.h>
+#include <apt-pkg/contrib/fileutl.h>
+#include <apt-pkg/packagemanager.h>
+#include <apt-pkg/pkgrecords.h>
+#include <apt-pkg/sourcelist.h>
 
 #include <memory>
 
 namespace CydiaAPT {
-
-class AcquireStatus;
-
 namespace Internal {
-class AptBackend;
-}
 
-/*
- * Database is an Objective-C façade; this class owns every mutable APT
- * handle belonging to one database epoch.  Its storage and all libapt-pkg
- * headers stay in AptBackendInternal.hpp.
- */
+class PackageRegistry;
+class SourceRegistry;
+
 class AptBackend {
   private:
-    std::unique_ptr<Internal::AptBackend> implementation_;
+    pkgAcquireStatus *status_;
+    pkgCacheFile cache_;
+    pkgDepCache::Policy *policy_;
+    pkgRecords *records_;
+    pkgProblemResolver *resolver_;
+    pkgAcquire *fetcher_;
+    FileFd *lock_;
+    std::unique_ptr<pkgPackageManager> manager_;
+    pkgSourceList *list_;
+    std::unique_ptr<PackageRegistry> packages_;
+    std::unique_ptr<SourceRegistry> sources_;
 
   public:
-    explicit AptBackend(AcquireStatus &status);
+    explicit AptBackend(pkgAcquireStatus &status);
     ~AptBackend();
 
     static void KeepFileDescriptor(int descriptor);
@@ -47,7 +58,7 @@ class AptBackend {
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
     PackageManagerResult runPackageManager(int statusFd);
-    UpdateResultData updateLists(AcquireStatus &status, int pulseInterval);
+    UpdateResultData updateLists(pkgAcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
@@ -68,6 +79,7 @@ class AptBackend {
     std::vector<std::uint32_t> sourceFileIDs(SourceHandle handle);
 };
 
+} // namespace Internal
 } // namespace CydiaAPT
 
-#endif // Cydia_AptBackend_HPP
+#endif // Cydia_AptBackendInternal_HPP

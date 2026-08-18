@@ -30,7 +30,6 @@
 
 #include <cstdio>
 
-#include "apt.h"
 #define ForRelease 1
 #define AlwaysReload 0
 #define CacheState_ Cache("CacheState.plist")
@@ -146,7 +145,9 @@
 
 - (void) _uicache {
     _trace();
-    system("/usr/bin/uicache");
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    CydiaRuntime::Dpkg::Runner runner(paths.CydoPath());
+    (void) runner.Run({paths.BootstrapBinaryPath("uicache")});
     _trace();
 }
 

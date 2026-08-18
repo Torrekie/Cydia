@@ -102,17 +102,23 @@ commit.
 
 The migration keeps APT embedded but removes APT types from UI and model-facing
 headers. Cydia-owned package, source, transaction, progress, and error values
-will cross the backend boundary. Raw cache iterators and acquisition objects
-remain private to the APT adapter and cannot outlive its cache generation.
+cross the backend boundary today. `AptBackend.hpp` is a façade over the private
+`AptBackendInternal.hpp` storage; acquire status uses the opaque
+`DatabaseStatus` façade. Raw cache iterators and acquisition objects remain
+private to the APT adapter and cannot outlive its cache generation.
 
-dpkg remains external. A dedicated runner will resolve its executable,
-construct an argument vector without shell interpolation, parse status-fd
-events, and negotiate capabilities rather than linking libdpkg.a or matching
-localized error text.
+dpkg remains external. `DpkgRunner` resolves its executable, constructs an
+argument vector without shell interpolation, preserves status-fd descriptors,
+and reports launch/exit/signal results rather than linking libdpkg.a or
+matching localized error text. Future dpkg capability probes belong in this
+runner boundary; controllers must not grow version-specific CLI logic.
 
-All APT, dpkg, cache, state, lock, helper, and package-database paths will be
+All APT, dpkg, cache, state, lock, helper, and package-database paths are
 provided by one environment policy. Rooted and rootless layouts are selected
-explicitly; paths are not converted by blindly prefixing /var/jb.
+explicitly; paths are not converted by blindly prefixing /var/jb. Native Cydia
+operations and bootstrap helpers now use that policy; remaining path literals
+are limited to the policy implementation and documented legacy user-data
+locations.
 
 ## Acceptance
 

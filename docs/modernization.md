@@ -58,6 +58,11 @@ Make.
 the ownership and source-size gates, and `make verify` runs the complete
 compile/static suite.
 
+`make verify-package-paths` is the rooted/rootless fixture gate. It checks the
+same Cydia-owned path policy used by `DpkgRunner`, `cydo`, and the package
+staging rules; it does not assume that a rootless installation is a prefixed
+copy of a rootful filesystem.
+
 The app-owned source-size limit is 1200 lines (`VERIFY_MAX_SOURCE_LINES` can be
 overridden for an audit). The largest maintained source is now below that
 limit; the remaining larger inputs are either focused application/bootstrap
@@ -72,4 +77,6 @@ make build/bin/MobileCydia
 make --no-print-directory -B -j6 doIA=yes \
   BUILD_DIR=/tmp/cydia-simulator-build \
   /tmp/cydia-simulator-build/bin/MobileCydia
+make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootful package
+make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootless package
 ```

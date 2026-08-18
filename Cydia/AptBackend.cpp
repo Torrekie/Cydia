@@ -2,7 +2,8 @@
  * APT lifetime and transaction ownership boundary.
  */
 
-#include "Cydia/AptBackend.hpp"
+#include "Cydia/AptBackendInternal.hpp"
+#include "Cydia/AptCompatibilityInternal.hpp"
 
 #include <apt-pkg/policy.h>
 #include <apt-pkg/acquire-item.h>
@@ -11,6 +12,7 @@
 #include <apt-pkg/error.h>
 #include <apt-pkg/fileutl.h>
 #include <apt-pkg/init.h>
+#include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/tagfile.h>
 
 #include <cstring>
@@ -80,6 +82,7 @@ class ParserView {
 } // namespace
 
 namespace CydiaAPT {
+namespace Internal {
 
 class PackageRegistry {
   public:
@@ -235,6 +238,18 @@ void AptBackend::createCacheViews() {
     policy_ = new pkgDepCache::Policy();
     records_ = new pkgRecords(cache_);
     resolver_ = new pkgProblemResolver(cache_);
+}
+
+bool AptBackend::loadSources() {
+    delete list_;
+    list_ = new pkgSourceList();
+    sources_.reset(new SourceRegistry());
+    if (!list_->ReadMainList())
+        return false;
+
+    delete fetcher_;
+    fetcher_ = new pkgAcquire(status_);
+    return true;
 }
 
 std::vector<PackageHandle> AptBackend::packageHandles() {
@@ -633,24 +648,6 @@ bool AptBackend::removePackage(PackageHandle handle) {
     return true;
 }
 
-std::string AptBackend::archiveDirectory() const {
-    return _config->FindDir("Dir::Cache::Archives");
-}
-
-std::string AptBackend::listsDirectory() const {
-    return _config->FindDir("Dir::State::Lists");
-}
-
-bool AptBackend::createPackageManager() {
-    manager_.reset(_system->CreatePM(cache_));
-    return manager_.get() != NULL;
-}
-
-pkgCache::PkgIterator AptBackend::packageIterator(PackageHandle handle) {
-    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
-    return entry == NULL ? pkgCache::PkgIterator() : entry->package;
-}
-
 std::vector<SourceHandle> AptBackend::sourceHandles() {
     std::vector<SourceHandle> handles;
     if (list_ == NULL || fetcher_ == NULL)
@@ -768,49 +765,5 @@ std::vector<std::uint32_t> AptBackend::sourceFileIDs(SourceHandle handle) {
     return result;
 }
 
-pkgSourceList *AptBackend::createSourceList() {
-    delete list_;
-    list_ = new pkgSourceList();
-    sources_.reset(new SourceRegistry());
-    return list_;
-}
-
-pkgAcquire *AptBackend::createFetcher() {
-    delete fetcher_;
-    fetcher_ = new pkgAcquire(status_);
-    return fetcher_;
-}
-
-pkgCacheFile &AptBackend::cache() {
-    return cache_;
-}
-
-pkgDepCache::Policy *AptBackend::policy() const {
-    return policy_;
-}
-
-pkgRecords *AptBackend::records() const {
-    return records_;
-}
-
-pkgProblemResolver *&AptBackend::resolver() {
-    return resolver_;
-}
-
-pkgAcquire *AptBackend::fetcher() const {
-    return fetcher_;
-}
-
-FileFd *&AptBackend::lock() {
-    return lock_;
-}
-
-std::unique_ptr<pkgPackageManager> &AptBackend::manager() {
-    return manager_;
-}
-
-pkgSourceList *AptBackend::list() const {
-    return list_;
-}
-
+} // namespace Internal
 } // namespace CydiaAPT
