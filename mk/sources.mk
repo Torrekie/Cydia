@@ -32,6 +32,7 @@ object := $(object:%=$(OBJECT_DIR)/%)
 # Keep APT objects in a stable build namespace even when an update is audited
 # from a different source directory.
 apt_http_object := $(OBJECT_DIR)/apt64/methods/http.o
+apt_compat_object := $(OBJECT_DIR)/Cydia/AptCompatibility.o
 object := $(filter-out $(OBJECT_DIR)/$(apt_http_source:.cc=.o),$(object))
 object += $(apt_http_object)
 

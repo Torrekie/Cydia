@@ -49,8 +49,8 @@ check_equal() {
 }
 
 check_provenance() {
-    if [ "$#" -ne 11 ]; then
-        fail "provenance expects 11 arguments"
+    if [ "$#" -ne 12 ]; then
+        fail "provenance expects 12 arguments"
         return
     fi
 
@@ -58,11 +58,12 @@ check_provenance() {
     expected_commit=$2
     expected_url=$3
     expected_version=$4
-    source_trust=$5
-    expected_major=$6
-    expected_minor=$7
-    expected_release=$8
-    shift 8
+    expected_cxx_level=$5
+    source_trust=$6
+    expected_major=$7
+    expected_minor=$8
+    expected_release=$9
+    shift 9
     license_files=$1
     shift
     contrib_include_dir=$1
@@ -125,6 +126,10 @@ check_provenance() {
             's/^[[:space:]]*set(PACKAGE_VERSION[[:space:]]*"\([^"]*\)").*/\1/p' \
             "$cmake_file" | head -n 1)
         check_equal "APT package version" "$version" "$expected_version"
+        cxx_level=$(sed -n \
+            's/^[[:space:]]*set(CMAKE_CXX_STANDARD[[:space:]]*\([0-9][0-9]*\)).*/\1/p' \
+            "$cmake_file" | head -n 1)
+        check_equal "APT C++ standard level" "$cxx_level" "$expected_cxx_level"
     fi
 
     if [ ! -f "$macros_file" ]; then

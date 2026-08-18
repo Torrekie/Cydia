@@ -9,6 +9,8 @@ APT_SOURCE_DIR := apt64
 APT_SOURCE_COMMIT := e4718f05d049c1a09fb9662cc3db2d4c5122defe
 APT_SOURCE_URL := git://git.bingner.com/apt.git
 APT_SOURCE_VERSION := 1.8.2
+APT_SOURCE_CXX_LEVEL := 11
+APT_SOURCE_CXX_STANDARD := c++11
 # The inherited git:// source has no recorded signed tag or signer identity.
 # Keep that limitation machine-visible until a reviewed upstream import adds a
 # real signature-verification gate.
@@ -28,6 +30,11 @@ APT_CONTRIB_INCLUDE_DIR := $(APT_INCLUDE_DIR)/contrib
 APT_DEB_INCLUDE_DIR := $(APT_INCLUDE_DIR)/deb
 APT_CONTRIB_INCLUDE_TARGET := $(APT_CONTRIB_INCLUDE_DIR)/apt-pkg
 APT_DEB_INCLUDE_TARGET := $(APT_DEB_INCLUDE_DIR)/apt-pkg
+
+# `verify-apt-api` can point at a separately fetched stable tag or upstream
+# main checkout.  Make never fetches this tree itself.
+APT_AUDIT_SOURCE_DIR ?= $(APT_SOURCE_DIR)
+APT_AUDIT_CXX_STANDARD ?= $(APT_SOURCE_CXX_STANDARD)
 
 apt_core_sources := \
     acquire-item.cc \

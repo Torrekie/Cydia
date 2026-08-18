@@ -58,6 +58,8 @@ $(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.
 		echo "toolchain-state=$$toolchain_state"; \
 		echo "source-url=$(APT_SOURCE_URL)"; \
 		echo "version=$(APT_SOURCE_VERSION)"; \
+		echo "cxx-level=$(APT_SOURCE_CXX_LEVEL)"; \
+		echo "cxx-standard=$(APT_SOURCE_CXX_STANDARD)"; \
 		echo "trust=$(APT_SOURCE_TRUST)"; \
 		echo "abi=$(APT_ABI_MAJOR).$(APT_ABI_MINOR).$(APT_ABI_RELEASE)"; \
 		echo "arch=$(arch)"; \
@@ -91,17 +93,22 @@ $(tagfile_keys_header) $(tagfile_keys_source): $(tagfile_keys_stamp)
 $(tagfile_keys_object): $(tagfile_keys_source) $(header) apt.h apt-extra/*.h
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(apt64) $(plus) -c -o $@ $(tagfile_keys_source) -Dmain=main_$(basename $(notdir $@))
+	@$(apt64) $(apt_plus) -c -o $@ $(tagfile_keys_source) -Dmain=main_$(basename $(notdir $@))
 
 $(OBJECT_DIR)/apt64/%.o: $(APT_SOURCE_DIR)/%.cc $(header) apt.h apt-extra/*.h
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(apt64) $(plus) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
+	@$(apt64) $(apt_plus) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
 
 $(apt_http_object): $(apt_http_source) $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(cycc) $(plus) -c -o $@ $< $(flag) $(http_flags) -Wno-format -include apt.h -Dmain=main_http
+	@$(cycc) $(apt_plus) -c -o $@ $< $(flag) $(http_flags) -Wno-format -include apt.h -Dmain=main_http
+
+$(apt_compat_object): Cydia/AptCompatibility.cpp $(header) apt.h apt-extra/*.h
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(apt64) $(apt_plus) -c -o $@ $<
 
 $(OBJECT_DIR)/%.o: %.cc $(header)
 	@mkdir -p $(dir $@)

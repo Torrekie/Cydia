@@ -129,3 +129,4 @@ apt64 += -DNDEBUG
 
 cycc += $(target)
 plus += -std=c++11
+apt_plus := $(filter-out -std=%,$(plus)) -std=$(APT_SOURCE_CXX_STANDARD)
