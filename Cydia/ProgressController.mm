@@ -29,10 +29,6 @@
 #include "Menes/yieldToSelector.h"
 #include "iPhonePrivate.h"
 
-#include <apt-pkg/error.h>
-#include <apt-pkg/fileutl.h>
-#include <apt-pkg/mmap.h>
-
 #include <notify.h>
 #include <sys/reboot.h>
 
@@ -45,14 +41,13 @@ extern UIColor *whiteIfNotDark(bool white);
 #define NotifyConfig_ "/etc/notify.conf"
 
 static std::string FileFingerprint(const char *path) {
-    FileFd file;
-    if (!file.Open(path, FileFd::ReadOnly)) {
-        _error->Discard();
+    if (path == NULL)
         return std::string();
-    }
 
-    MMap mmap(file, MMap::ReadOnly);
-    return CydiaAPT::Fingerprint(mmap.Data(), mmap.Size());
+    NSData *data([NSData dataWithContentsOfFile:[NSString stringWithUTF8String:path]]);
+    if (data == nil)
+        return std::string();
+    return CydiaAPT::Fingerprint([data bytes], [data length]);
 }
 
 @protocol ProgressControllerDelegate <NSObject>

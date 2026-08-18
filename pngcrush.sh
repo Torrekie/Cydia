@@ -13,7 +13,7 @@ copy=("${src}" "${dst}")
 function step() {
     "$@"
     mv -f "${dst}" "${src}"
-    steps+=($(stat -f "%z" "${src}"))
+    steps+=("$(wc -c < "${src}")")
 }
 
 pngcrush=$(xcode-select --print-path)/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush

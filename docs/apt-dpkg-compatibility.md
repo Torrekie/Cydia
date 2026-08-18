@@ -59,16 +59,19 @@ branch during make. Compatibility work uses two lanes:
 The runtime currently embeds APT: the reviewed `apt64` sources are compiled
 into `libapt64.a` and force-loaded into `MobileCydia`. `dpkg` is intentionally
 not embedded; package transactions still go through the configured `cydo`
-runner and a device `dpkg` executable. The next compatibility slice will
-centralize that runner and its rootful/rootless paths so an APT update does not
-require changing UI code or assuming one filesystem layout.
+runner and a device `dpkg` executable. That runner and its filesystem policy
+are centralized so an APT update does not require changing UI code or assuming
+one bootstrap layout.
 
-`Cydia::PackageDatabasePaths` now selects a complete package-database layout
+`CydiaRuntime::PackageDatabasePaths` now selects a complete package-database layout
 before the first database access. Rootful paths remain under `/var/lib`; a
 rootless bootstrap uses `/var/jb/var/lib` and its matching `cydo`/`dpkg`
-helpers. Set `CYDIA_PACKAGE_LAYOUT=rootful` or `rootless` in a launcher when a
-device intentionally keeps both databases; automatic detection only selects
-rootless when its database and helper are present.
+helpers. APT configuration and source-list paths follow `/etc/apt` or
+`/var/jb/etc/apt` from the same selection. Set
+`CYDIA_PACKAGE_LAYOUT=rootful` or `rootless` in a launcher when a device
+intentionally keeps both databases; automatic detection only selects rootless
+when its database and helper are present. `make verify-package-paths` exercises
+both deterministic layouts and rejects package/helper path traversal.
 
 `make verify-apt-api` syntax-checks Cydia's private adapter against the pinned
 tree. A pre-fetched clean stable or main checkout can be tested without changing
@@ -99,17 +102,23 @@ commit.
 
 The migration keeps APT embedded but removes APT types from UI and model-facing
 headers. Cydia-owned package, source, transaction, progress, and error values
-will cross the backend boundary. Raw cache iterators and acquisition objects
-remain private to the APT adapter and cannot outlive its cache generation.
+cross the backend boundary today. `AptBackend.hpp` is a façade over the private
+`AptBackendInternal.hpp` storage; acquire status uses the opaque
+`DatabaseStatus` façade. Raw cache iterators and acquisition objects remain
+private to the APT adapter and cannot outlive its cache generation.
 
-dpkg remains external. A dedicated runner will resolve its executable,
-construct an argument vector without shell interpolation, parse status-fd
-events, and negotiate capabilities rather than linking libdpkg.a or matching
-localized error text.
+dpkg remains external. `DpkgRunner` resolves its executable, constructs an
+argument vector without shell interpolation, preserves status-fd descriptors,
+and reports launch/exit/signal results rather than linking libdpkg.a or
+matching localized error text. Future dpkg capability probes belong in this
+runner boundary; controllers must not grow version-specific CLI logic.
 
-All APT, dpkg, cache, state, lock, helper, and package-database paths will be
+All APT, dpkg, cache, state, lock, helper, and package-database paths are
 provided by one environment policy. Rooted and rootless layouts are selected
-explicitly; paths are not converted by blindly prefixing /var/jb.
+explicitly; paths are not converted by blindly prefixing /var/jb. Native Cydia
+operations and bootstrap helpers now use that policy; remaining path literals
+are limited to the policy implementation and documented legacy user-data
+locations.
 
 ## Acceptance
 

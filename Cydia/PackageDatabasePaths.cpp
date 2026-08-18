@@ -16,6 +16,12 @@ struct PackageDatabaseLayoutValues {
     const char *dpkgStatus;
     const char *dpkgInfoDirectory;
     const char *aptExtendedStates;
+    const char *aptListsDirectory;
+    const char *aptConfigDirectory;
+    const char *cydiaStateDirectory;
+    const char *packageLibraryDirectory;
+    const char *cydiaLibexecDirectory;
+    const char *cydiaApplication;
     const char *cydo;
     const char *dpkgBinary;
 };
@@ -24,6 +30,12 @@ const PackageDatabaseLayoutValues kRootfulLayout = {
     "/var/lib/dpkg/status",
     "/var/lib/dpkg/info",
     "/var/lib/apt/extended_states",
+    "/var/lib/apt/lists",
+    "/etc/apt",
+    "/var/lib/cydia",
+    "/var/lib",
+    "/usr/libexec/cydia",
+    "/Applications/Cydia.app/Cydia",
     "/usr/libexec/cydia/cydo",
     "/usr/bin/dpkg",
 };
@@ -32,12 +44,18 @@ const PackageDatabaseLayoutValues kRootlessLayout = {
     "/var/jb/var/lib/dpkg/status",
     "/var/jb/var/lib/dpkg/info",
     "/var/jb/var/lib/apt/extended_states",
+    "/var/jb/var/lib/apt/lists",
+    "/var/jb/etc/apt",
+    "/var/jb/var/lib/cydia",
+    "/var/jb/var/lib",
+    "/var/jb/usr/libexec/cydia",
+    "/var/jb/Applications/Cydia.app/Cydia",
     "/var/jb/usr/libexec/cydia/cydo",
     "/var/jb/usr/bin/dpkg",
 };
 
-const PackageDatabaseLayoutValues &ValuesForLayout(Cydia::PackageDatabaseLayout layout) {
-    return layout == Cydia::PackageDatabaseLayout::Rootless ? kRootlessLayout : kRootfulLayout;
+const PackageDatabaseLayoutValues &ValuesForLayout(CydiaRuntime::PackageDatabaseLayout layout) {
+    return layout == CydiaRuntime::PackageDatabaseLayout::Rootless ? kRootlessLayout : kRootfulLayout;
 }
 
 bool Exists(const char *path) {
@@ -52,20 +70,44 @@ bool IsLayoutValue(const char *value, const char *expected) {
     return value != NULL && strcasecmp(value, expected) == 0;
 }
 
+std::string JoinPath(const std::string &directory, const char *leaf) {
+    std::string path(directory);
+    path += '/';
+    path += leaf;
+    return path;
+}
+
+bool IsLeafName(const char *name) {
+    return name != NULL && name[0] != '\0' && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 &&
+        strchr(name, '/') == NULL;
+}
+
 } // namespace
 
-namespace Cydia {
+namespace CydiaRuntime {
 
 PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *dpkgStatus,
                                            const char *dpkgInfoDirectory,
                                            const char *aptExtendedStates,
+                                           const char *aptListsDirectory,
+                                           const char *aptConfigDirectory,
+                                           const char *cydiaStateDirectory,
+                                           const char *packageLibraryDirectory,
+                                           const char *cydiaLibexecDirectory,
+                                           const char *cydiaApplication,
                                            const char *cydo,
                                            const char *dpkgBinary) :
     layout_(layout),
     dpkgStatusPath_(dpkgStatus),
     dpkgInfoDirectory_(dpkgInfoDirectory),
     aptExtendedStatesPath_(aptExtendedStates),
+    aptListsDirectory_(aptListsDirectory),
+    aptConfigDirectory_(aptConfigDirectory),
+    cydiaStateDirectory_(cydiaStateDirectory),
+    packageLibraryDirectory_(packageLibraryDirectory),
+    cydiaLibexecDirectory_(cydiaLibexecDirectory),
+    cydiaApplicationPath_(cydiaApplication),
     cydoPath_(cydo),
     dpkgBinaryPath_(dpkgBinary)
 {
@@ -74,7 +116,10 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
 PackageDatabasePaths PackageDatabasePaths::ForLayout(PackageDatabaseLayout layout) {
     const PackageDatabaseLayoutValues &values(ValuesForLayout(layout));
     return PackageDatabasePaths(layout, values.dpkgStatus, values.dpkgInfoDirectory, values.aptExtendedStates,
-                                values.cydo, values.dpkgBinary);
+                                values.aptListsDirectory,
+                                values.aptConfigDirectory, values.cydiaStateDirectory,
+                                values.packageLibraryDirectory, values.cydiaLibexecDirectory,
+                                values.cydiaApplication, values.cydo, values.dpkgBinary);
 }
 
 PackageDatabasePaths PackageDatabasePaths::Detect() {
@@ -115,12 +160,61 @@ const std::string &PackageDatabasePaths::AptExtendedStatesPath() const {
     return aptExtendedStatesPath_;
 }
 
+const std::string &PackageDatabasePaths::AptListsDirectory() const {
+    return aptListsDirectory_;
+}
+
+const std::string &PackageDatabasePaths::AptConfigDirectory() const {
+    return aptConfigDirectory_;
+}
+
+const std::string &PackageDatabasePaths::CydiaStateDirectory() const {
+    return cydiaStateDirectory_;
+}
+
+const std::string &PackageDatabasePaths::PackageLibraryDirectory() const {
+    return packageLibraryDirectory_;
+}
+
+const std::string &PackageDatabasePaths::CydiaLibexecDirectory() const {
+    return cydiaLibexecDirectory_;
+}
+
+const std::string &PackageDatabasePaths::CydiaApplicationPath() const {
+    return cydiaApplicationPath_;
+}
+
+std::string PackageDatabasePaths::CydiaApplicationDirectory() const {
+    const std::string::size_type slash(cydiaApplicationPath_.rfind('/'));
+    return slash == std::string::npos ? std::string() : cydiaApplicationPath_.substr(0, slash);
+}
+
 const std::string &PackageDatabasePaths::CydoPath() const {
     return cydoPath_;
 }
 
 const std::string &PackageDatabasePaths::DpkgBinaryPath() const {
     return dpkgBinaryPath_;
+}
+
+std::string PackageDatabasePaths::AptSourcesListPath() const {
+    return JoinPath(aptConfigDirectory_, "sources.list");
+}
+
+std::string PackageDatabasePaths::AptSourcesDirectory() const {
+    return JoinPath(aptConfigDirectory_, "sources.list.d");
+}
+
+std::string PackageDatabasePaths::CydiaSourcesListPath() const {
+    return JoinPath(AptSourcesDirectory(), "cydia.list");
+}
+
+std::string PackageDatabasePaths::CydiaMetadataPath() const {
+    return JoinPath(cydiaStateDirectory_, "metadata.plist");
+}
+
+std::string PackageDatabasePaths::CydiaFirmwareVersionPath() const {
+    return JoinPath(cydiaStateDirectory_, "firmware.ver");
 }
 
 std::string PackageDatabasePaths::DpkgInfoFile(const char *packageName, const char *suffix) const {
@@ -135,4 +229,18 @@ std::string PackageDatabasePaths::DpkgInfoFile(const char *packageName, const ch
     return path;
 }
 
-} // namespace Cydia
+std::string PackageDatabasePaths::CydiaHelperPath(const char *name) const {
+    return IsLeafName(name) ? JoinPath(cydiaLibexecDirectory_, name) : std::string();
+}
+
+std::string PackageDatabasePaths::BootstrapBinaryPath(const char *name) const {
+    if (!IsLeafName(name))
+        return std::string();
+
+    const std::string::size_type slash(dpkgBinaryPath_.rfind('/'));
+    if (slash == std::string::npos)
+        return std::string();
+    return JoinPath(dpkgBinaryPath_.substr(0, slash), name);
+}
+
+} // namespace CydiaRuntime

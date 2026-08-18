@@ -20,6 +20,7 @@
 /* }}} */
 
 #include "CyteKit/UCPlatform.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +39,52 @@
 
 struct timeval _ltv;
 bool _itv;
+
+static bool CopyExecutable(const std::string &source, const std::string &destination) {
+    int input(open(source.c_str(), O_RDONLY));
+    if (input == -1)
+        return false;
+
+    int output(open(destination.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0755));
+    if (output == -1) {
+        close(input);
+        return false;
+    }
+
+    bool success(true);
+    char buffer[64 * 1024];
+    for (;;) {
+        ssize_t count(read(input, buffer, sizeof(buffer)));
+        if (count == 0)
+            break;
+        if (count == -1) {
+            if (errno == EINTR)
+                continue;
+            success = false;
+            break;
+        }
+        for (ssize_t offset(0); offset != count;) {
+            ssize_t written(write(output, buffer + offset, count - offset));
+            if (written == -1 && errno == EINTR)
+                continue;
+            if (written <= 0) {
+                success = false;
+                break;
+            }
+            offset += written;
+        }
+        if (!success)
+            break;
+    }
+
+    if (close(input) == -1)
+        success = false;
+    if (close(output) == -1)
+        success = false;
+    if (!success)
+        unlink(destination.c_str());
+    return success;
+}
 
 #include <dlfcn.h>
 /* Set platform binary flag */
@@ -77,16 +124,19 @@ void launch_data_dict_iterate(launch_data_t data, LaunchDataIterator code) {
 }
 
 int main(int argc, char *argv[]) {
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    const std::string dummy(paths.CydiaHelperPath("cydo.dummy"));
+
     patch_setuidandplatformize();
     auto request(launch_data_new_string(LAUNCH_KEY_GETJOBS));
     auto response(launch_msg(request));
     launch_data_free(request);
-    if ((response == NULL || launch_data_get_type(response) != LAUNCH_DATA_DICTIONARY ) && strcmp(argv[0], "/usr/libexec/cydia/cydo.dummy") != 0 ) {
+    if ((response == NULL || launch_data_get_type(response) != LAUNCH_DATA_DICTIONARY ) && argv[0] != NULL && strcmp(argv[0], dummy.c_str()) != 0 ) {
         BOOL ok=false;
         struct stat st;
         struct stat myst;
-        if (stat("/usr/libexec/cydia/cydo.dummy", &st) == 0 && stat(argv[0], &myst) == 0 && st.st_size == myst.st_size) {
-            int efd = open("/usr/libexec/cydia/cydo.dummy", O_RDONLY);
+        if (stat(dummy.c_str(), &st) == 0 && stat(argv[0], &myst) == 0 && st.st_size == myst.st_size) {
+            int efd = open(dummy.c_str(), O_RDONLY);
             if (efd > 0) {
                 void *existing = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, efd, 0);
                 if (existing != MAP_FAILED) {
@@ -108,11 +158,11 @@ int main(int argc, char *argv[]) {
         }
         fprintf(stderr, "Warning: couldn't communicate with launchd , maybe we're in an intentionally broken jailbreak? Try to work around it.\n");
         if (!ok) {
-            unlink("/usr/libexec/cydia/cydo.dummy");
-            system("cp /usr/libexec/cydia/cydo /usr/libexec/cydia/cydo.dummy");
-            chmod("/usr/libexec/cydia/cydo.dummy", 0755);
+            unlink(dummy.c_str());
+            if (!CopyExecutable(paths.CydoPath(), dummy))
+                return EX_UNAVAILABLE;
         }
-        argv[0] = "/usr/libexec/cydia/cydo.dummy";
+        argv[0] = const_cast<char *>(dummy.c_str());
         execv(argv[0], argv);
         _assert(false);
     }
@@ -125,7 +175,7 @@ int main(int argc, char *argv[]) {
     auto cydia(false);
 
     struct stat correct;
-    if (lstat("/Applications/Cydia.app/Cydia", &correct) == -1) {
+    if (lstat(paths.CydiaApplicationPath().c_str(), &correct) == -1) {
         fprintf(stderr, "you have no arms left");
         return EX_NOPERM;
     }
@@ -189,7 +239,7 @@ int main(int argc, char *argv[]) {
     setgid(0);
 
     if (argc < 2 || argv[1][0] != '/')
-        argv[0] = "/usr/bin/dpkg";
+        argv[0] = const_cast<char *>(paths.DpkgBinaryPath().c_str());
     else {
         --argc;
         ++argv;
