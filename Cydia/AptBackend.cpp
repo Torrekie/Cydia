@@ -536,6 +536,25 @@ bool AptBackend::resolveDependencies() {
     return success;
 }
 
+void AptBackend::clearSelections() {
+    if (static_cast<pkgDepCache *>(cache_) == NULL)
+        return;
+    delete resolver_;
+    resolver_ = new pkgProblemResolver(cache_);
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
+        if (!cache[package].Keep())
+            cache.MarkKeep(package, false);
+        else if ((cache[package].iFlags & pkgDepCache::ReInstall) != 0)
+            cache.SetReInstall(package, false);
+    }
+}
+
+bool AptBackend::prepareDistUpgrade() {
+    return static_cast<pkgDepCache *>(cache_) != NULL &&
+        PrepareDistUpgrade(static_cast<pkgDepCache &>(cache_));
+}
+
 bool AptBackend::clearPackage(PackageHandle handle) {
     PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
     if (entry == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)

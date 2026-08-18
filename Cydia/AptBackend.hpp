@@ -54,6 +54,8 @@ class AptBackend {
     std::vector<RelationData> relations(PackageHandle handle);
     TransactionData transactionData();
     bool resolveDependencies();
+    void clearSelections();
+    bool prepareDistUpgrade();
     bool clearPackage(PackageHandle handle);
     bool installPackage(PackageHandle handle);
     bool removePackage(PackageHandle handle);

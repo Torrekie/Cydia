@@ -330,6 +330,14 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->resolveDependencies();
 }
 
+- (void) clearSelections {
+    apt_->clearSelections();
+}
+
+- (bool) prepareDistUpgrade {
+    return apt_->prepareDistUpgrade();
+}
+
 - (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle {
     return apt_->clearPackage(handle);
 }
@@ -663,14 +671,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (void) clear {
 @synchronized (self) {
-    delete apt_->resolver();
-    apt_->resolver() = new pkgProblemResolver(apt_->cache());
-
-    for (pkgCache::PkgIterator iterator(apt_->cache()->PkgBegin()); !iterator.end(); ++iterator)
-        if (!apt_->cache()[iterator].Keep())
-            apt_->cache()->MarkKeep(iterator, false);
-        else if ((apt_->cache()[iterator].iFlags & pkgDepCache::ReInstall) != 0)
-            apt_->cache()->SetReInstall(iterator, false);
+    apt_->clearSelections();
 } }
 
 - (void) configure {
@@ -832,8 +833,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (bool) upgrade {
     NSString *title(UCLocalize("UPGRADE"));
-    if ([self popErrorWithTitle:title forOperation:CydiaAPT::PrepareDistUpgrade(
-        static_cast<pkgDepCache &>(apt_->cache()))])
+    if ([self popErrorWithTitle:title forOperation:apt_->prepareDistUpgrade()])
         return false;
     return true;
 }
