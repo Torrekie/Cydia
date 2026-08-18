@@ -22,6 +22,9 @@
 #ifndef Cydia_ProgressEvent_H
 #define Cydia_ProgressEvent_H
 
+#include "CyteKit/UCPlatform.h"
+#include "Menes/ObjectHandle.h"
+
 #include <Foundation/Foundation.h>
 
 #include <apt-pkg/acquire.h>
