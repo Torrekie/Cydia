@@ -38,6 +38,27 @@ struct PackageRecordData {
     std::string Field(const char *name) const;
 };
 
+/* Stable package state/action values.  APT enum layouts and cache ownership
+ * stay inside AptBackend; package controllers consume these strings and
+ * booleans instead of touching pkgDepCache::StateCache. */
+struct PackageStateData {
+    std::string state;
+    std::string selection;
+    std::string mode;
+    bool essential;
+    bool ignored;
+    bool broken;
+    bool hasMode;
+    bool half;
+    bool halfConfigured;
+    bool halfInstalled;
+    bool hasCurrent;
+    bool upgradable;
+    bool candidateMatchesVersion;
+
+    PackageStateData();
+};
+
 std::string Fingerprint(const void *data, std::size_t size);
 
 // Keep version-sensitive APT calls out of Objective-C controllers and models.

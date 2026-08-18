@@ -36,7 +36,7 @@ acquire status adapters that still require those headers live in the private
 | Area | Legacy dependency | Backend migration seam |
 | --- | --- | --- |
 | package records | backend snapshots fields/tags/descriptions into `PackageRecordData`; lookup still receives a short-lived opaque iterator handle | replace the handle with a backend-owned package/version key |
-| package cache | iterator fields and tag-list internals | opaque package/version handles plus query methods |
+| package cache | backend snapshots package state and owns clear/install/remove mutations; calls still pass short-lived iterator addresses | replace iterator addresses with backend-owned package/version keys |
 | archive cleanup | old `pkgArchiveCleaner::Erase` virtual signature | `AptArchiveCleaner` adapter with version-gated implementation |
 | package manager setup | direct `pkgSystem::CreatePM` and `pkgCacheFile` assumptions | `AptBackend` owns initialization and transaction handles |
 | policy/upgrade | policy comparisons and cache mutation still occur outside the adapter | backend methods returning Cydia result enums |

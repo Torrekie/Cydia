@@ -4,6 +4,8 @@
 
 #include "Cydia/AptBackend.hpp"
 
+#include <apt-pkg/policy.h>
+
 #include <cstring>
 
 namespace {
@@ -70,6 +72,35 @@ class ParserView {
 } // namespace
 
 namespace CydiaAPT {
+
+namespace {
+
+const char *CurrentStateName(unsigned char state) {
+    switch (state) {
+        case pkgCache::State::NotInstalled: return "NotInstalled";
+        case pkgCache::State::UnPacked: return "UnPacked";
+        case pkgCache::State::HalfConfigured: return "HalfConfigured";
+        case pkgCache::State::HalfInstalled: return "HalfInstalled";
+        case pkgCache::State::ConfigFiles: return "ConfigFiles";
+        case pkgCache::State::Installed: return "Installed";
+        case pkgCache::State::TriggersAwaited: return "TriggersAwaited";
+        case pkgCache::State::TriggersPending: return "TriggersPending";
+    }
+    return NULL;
+}
+
+const char *SelectionName(unsigned char state) {
+    switch (state) {
+        case pkgCache::State::Unknown: return "Unknown";
+        case pkgCache::State::Install: return "Install";
+        case pkgCache::State::Hold: return "Hold";
+        case pkgCache::State::DeInstall: return "DeInstall";
+        case pkgCache::State::Purge: return "Purge";
+    }
+    return NULL;
+}
+
+} // namespace
 
 AptBackend::AptBackend(pkgAcquireStatus &status) :
     status_(&status),
@@ -146,6 +177,109 @@ CydiaAPT::PackageRecordData AptBackend::recordData(const void *verFileIterator) 
         data.raw.assign(start, end);
 
     return data;
+}
+
+CydiaAPT::PackageStateData AptBackend::packageState(const void *pkgIterator, const void *verIterator) {
+    CydiaAPT::PackageStateData data;
+    if (pkgIterator == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+        return data;
+
+    const pkgCache::PkgIterator &sourcePackage(
+        *static_cast<const pkgCache::PkgIterator *>(pkgIterator));
+    pkgCache::PkgIterator package(sourcePackage);
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    pkgDepCache::StateCache &state(cache[package]);
+
+    if (const char *name = CurrentStateName(package->CurrentState))
+        data.state = name;
+    if (const char *name = SelectionName(package->SelectedState))
+        data.selection = name;
+
+    data.essential = (package->Flags & pkgCache::Flag::Essential) != 0;
+    data.ignored = package->SelectedState == pkgCache::State::Hold;
+    data.broken = state.InstBroken();
+    data.hasMode = state.Mode != pkgDepCache::ModeKeep;
+    data.half = package->CurrentState == pkgCache::State::HalfConfigured ||
+        package->CurrentState == pkgCache::State::HalfInstalled;
+    data.halfConfigured = package->CurrentState == pkgCache::State::HalfConfigured;
+    data.halfInstalled = package->CurrentState == pkgCache::State::HalfInstalled;
+
+    pkgCache::VerIterator version;
+    if (verIterator != NULL)
+        version = *static_cast<const pkgCache::VerIterator *>(verIterator);
+    pkgCache::VerIterator current(package.CurrentVer());
+    data.hasCurrent = !current.end();
+    data.upgradable = !version.end() && !current.end() && version != current && state.Status != 0;
+
+    if (!version.end() && cache_.Policy != NULL)
+        data.candidateMatchesVersion = state.CandidateVerIter(cache) == cache_.Policy->GetCandidateVer(package);
+
+    switch (state.Mode) {
+        case pkgDepCache::ModeDelete:
+            data.mode = (state.iFlags & pkgDepCache::Purge) != 0 ? "PURGE" : "REMOVE";
+            break;
+        case pkgDepCache::ModeKeep:
+            if ((state.iFlags & pkgDepCache::ReInstall) != 0)
+                data.mode = "REINSTALL";
+            break;
+        case pkgDepCache::ModeInstall:
+            switch (state.Status) {
+                case -1:
+                    data.mode = data.candidateMatchesVersion ? "UPGRADE" : "DOWNGRADE";
+                    break;
+                case 0: data.mode = "INSTALL"; break;
+                case 1: data.mode = "UPGRADE"; break;
+                case 2: data.mode = "NEW_INSTALL"; break;
+            }
+            break;
+    }
+
+    return data;
+}
+
+bool AptBackend::clearPackage(const void *pkgIterator) {
+    if (pkgIterator == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+        return false;
+    const pkgCache::PkgIterator &source(*static_cast<const pkgCache::PkgIterator *>(pkgIterator));
+    pkgCache::PkgIterator package(source);
+    resolver_->Clear(package);
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    cache.SetReInstall(package, false);
+    cache.MarkKeep(package, false);
+    return true;
+}
+
+bool AptBackend::installPackage(const void *pkgIterator, const void *verIterator) {
+    if (pkgIterator == NULL || verIterator == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+        return false;
+    const pkgCache::PkgIterator &sourcePackage(*static_cast<const pkgCache::PkgIterator *>(pkgIterator));
+    const pkgCache::VerIterator &sourceVersion(*static_cast<const pkgCache::VerIterator *>(verIterator));
+    pkgCache::PkgIterator package(sourcePackage);
+    pkgCache::VerIterator version(sourceVersion);
+    resolver_->Clear(package);
+    resolver_->Protect(package);
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    cache.SetCandidateVersion(version);
+    cache.SetReInstall(package, false);
+    cache.MarkInstall(package, false);
+    pkgDepCache::StateCache &state(cache[package]);
+    if (!state.Install())
+        cache.SetReInstall(package, true);
+    return true;
+}
+
+bool AptBackend::removePackage(const void *pkgIterator) {
+    if (pkgIterator == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+        return false;
+    const pkgCache::PkgIterator &source(*static_cast<const pkgCache::PkgIterator *>(pkgIterator));
+    pkgCache::PkgIterator package(source);
+    resolver_->Clear(package);
+    resolver_->Remove(package);
+    resolver_->Protect(package);
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    cache.SetReInstall(package, false);
+    cache.MarkDelete(package, true);
+    return true;
 }
 
 pkgSourceList *AptBackend::createSourceList() {

@@ -43,6 +43,10 @@ class AptBackend {
     void reset();
     void createCacheViews();
     CydiaAPT::PackageRecordData recordData(const void *verFileIterator);
+    CydiaAPT::PackageStateData packageState(const void *pkgIterator, const void *verIterator);
+    bool clearPackage(const void *pkgIterator);
+    bool installPackage(const void *pkgIterator, const void *verIterator);
+    bool removePackage(const void *pkgIterator);
     pkgSourceList *createSourceList();
     pkgAcquire *createFetcher();
 

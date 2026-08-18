@@ -515,8 +515,9 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _end
 
         _profile(Package$initWithVersion$Flags)
-            essential_ |= ((iterator->Flags & pkgCache::Flag::Essential) == 0 ? NO : YES);
-            ignored_ = iterator->SelectedState == pkgCache::State::Hold;
+            CydiaAPT::PackageStateData state([database stateForPackageHandle:&iterator_ versionHandle:&version_]);
+            essential_ |= state.essential;
+            ignored_ = state.ignored;
         _end
 
 #if CYDIA_APT_MODERN

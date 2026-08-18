@@ -36,6 +36,20 @@ std::string PackageRecordData::Field(const char *name) const {
     return std::string();
 }
 
+PackageStateData::PackageStateData() :
+    essential(false),
+    ignored(false),
+    broken(false),
+    hasMode(false),
+    half(false),
+    halfConfigured(false),
+    halfInstalled(false),
+    hasCurrent(false),
+    upgradable(false),
+    candidateMatchesVersion(false)
+{
+}
+
 std::string Fingerprint(const void *data, std::size_t size) {
     if (data == NULL && size != 0)
         return std::string();

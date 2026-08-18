@@ -7,8 +7,6 @@
 
 #include <unicode/uchar.h>
 
-#include <apt-pkg/policy.h>
-
 #include <cctype>
 #include <cstring>
 #include <limits>
@@ -69,15 +67,6 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (NSString *) uri {
     return nil;
-#if 0
-    pkgIndexFile *index;
-    pkgCache::PkgFileIterator file(file_.File());
-    if (![database_ list].FindIndex(file, index))
-        return nil;
-    return [NSString stringWithUTF8String:iterator_->Path];
-    //return [NSString stringWithUTF8String:file.Site()];
-    //return [NSString stringWithUTF8String:index->ArchiveURI(file.FileName()).c_str()];
-#endif
 }
 
 - (MIMEAddress *) maintainer {
@@ -192,15 +181,15 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (BOOL) upgradableAndEssential:(BOOL)essential {
     _profile(Package$upgradableAndEssential)
-        pkgCache::VerIterator current(iterator_.CurrentVer());
-        if (current.end()) {
+        CydiaAPT::PackageStateData state([database_ stateForPackageHandle:&iterator_ versionHandle:&version_]);
+        if (!state.hasCurrent) {
             if (essential && essential_) {
                 return (strcmp(version_.Arch(), common_arch)==0);
             } else {
                 return false;
             }
         } else {
-            return (version_ != current && [database_ cache][iterator_].Status != 0);
+            return state.upgradable;
         }
     _end
 }
@@ -210,7 +199,11 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (BOOL) broken {
-    return [database_ cache][iterator_].InstBroken();
+    @synchronized (database_) {
+        if ([database_ era] != era_ || iterator_.end())
+            return NO;
+        return [database_ stateForPackageHandle:&iterator_ versionHandle:&version_].broken;
+    }
 }
 
 - (BOOL) unfiltered {
@@ -246,16 +239,15 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (BOOL) half {
-    unsigned char current(iterator_->CurrentState);
-    return current == pkgCache::State::HalfConfigured || current == pkgCache::State::HalfInstalled;
+    return [database_ stateForPackageHandle:&iterator_ versionHandle:&version_].half;
 }
 
 - (BOOL) halfConfigured {
-    return iterator_->CurrentState == pkgCache::State::HalfConfigured;
+    return [database_ stateForPackageHandle:&iterator_ versionHandle:&version_].halfConfigured;
 }
 
 - (BOOL) halfInstalled {
-    return iterator_->CurrentState == pkgCache::State::HalfInstalled;
+    return [database_ stateForPackageHandle:&iterator_ versionHandle:&version_].halfInstalled;
 }
 
 - (BOOL) hasMode {
@@ -263,8 +255,7 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     if ([database_ era] != era_ || iterator_.end())
         return NO;
 
-    pkgDepCache::StateCache &state([database_ cache][iterator_]);
-    return state.Mode != pkgDepCache::ModeKeep;
+    return [database_ stateForPackageHandle:&iterator_ versionHandle:&version_].hasMode;
 } }
 
 - (NSString *) mode {
@@ -272,41 +263,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     if ([database_ era] != era_ || iterator_.end())
         return nil;
 
-    pkgDepCache::StateCache &state([database_ cache][iterator_]);
-
-    switch (state.Mode) {
-        case pkgDepCache::ModeDelete:
-            if ((state.iFlags & pkgDepCache::Purge) != 0)
-                return @"PURGE";
-            else
-                return @"REMOVE";
-        case pkgDepCache::ModeKeep:
-            if ((state.iFlags & pkgDepCache::ReInstall) != 0)
-                return @"REINSTALL";
-            /*else if ((state.iFlags & pkgDepCache::AutoKept) != 0)
-                return nil;*/
-            else
-                return nil;
-        case pkgDepCache::ModeInstall:
-            /*if ((state.iFlags & pkgDepCache::ReInstall) != 0)
-                return @"REINSTALL";
-            else*/ switch (state.Status) {
-                case -1:
-#if CYDIA_APT_MODERN
-                    return [database_ cache].Policy->GetCandidateVer(iterator_)==state.CandidateVerIter([database_ cache])?@"UPGRADE":@"DOWNGRADE";
-#else
-                    return @"DOWNGRADE";
-#endif
-                case 0:
-                    return @"INSTALL";
-                case 1:
-                    return @"UPGRADE";
-                case 2:
-                    return @"NEW_INSTALL";
-                _nodefault
-            }
-        _nodefault
-    }
+    CydiaAPT::PackageStateData state([database_ stateForPackageHandle:&iterator_ versionHandle:&version_]);
+    return state.mode.empty() ? nil : [NSString stringWithUTF8String:state.mode.c_str()];
 } }
 
 - (NSString *) id {
