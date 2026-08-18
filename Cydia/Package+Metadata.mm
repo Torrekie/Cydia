@@ -7,7 +7,6 @@
 
 #include <unicode/uchar.h>
 
-#include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/policy.h>
 
 #include <cctype>
@@ -86,8 +85,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     if ([database_ era] != era_ || file_.end())
         return nil;
 
-    pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    const std::string &maintainer(parser->Maintainer());
+    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+    const std::string &maintainer(record.maintainer);
     return maintainer.empty() ? nil : [MIMEAddress addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
 } }
 
@@ -108,8 +107,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     if ([database_ era] != era_ || file_.end())
         return nil;
 
-    pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    NSString *description([NSString stringWithUTF8String:parser->LongDesc().c_str()]);
+    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+    NSString *description([NSString stringWithUTF8String:record.longDescription.c_str()]);
 
     NSArray *lines = [description componentsSeparatedByString:@"\n"];
     NSMutableArray *trimmed = [NSMutableArray arrayWithCapacity:([lines count] - 1)];
@@ -130,8 +129,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         return static_cast<NSString *>(parsed_->tagline_);
 
 @synchronized (database_) {
-    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
-    std::string value(parser.ShortDesc());
+    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+    std::string value(record.shortDescription);
     if (value.empty())
         return nil;
     if (value.size() > 200)

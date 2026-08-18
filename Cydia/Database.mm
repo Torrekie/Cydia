@@ -313,6 +313,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->cache();
 }
 
+- (CydiaAPT::PackageRecordData) recordForHandle:(const void *)handle {
+    return apt_->recordData(handle);
+}
+
 - (pkgDepCache::Policy *) policy {
     return apt_->policy();
 }
