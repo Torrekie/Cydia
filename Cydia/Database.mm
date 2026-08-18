@@ -32,6 +32,7 @@
 #include <apt-pkg/update.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <iterator>
 #include <string>
@@ -43,6 +44,21 @@
 
 #define lprintf(args...) fprintf(stderr, args)
 #define CacheState_ Cache("CacheState.plist")
+
+static bool ErrorSuggestsDpkgRepair(const std::string &error) {
+    std::string lower;
+    lower.reserve(error.size());
+    for (std::string::const_iterator character(error.begin()); character != error.end(); ++character)
+        lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(*character))));
+
+    /* Do not key recovery to one English sentence: dpkg and newer APT builds
+     * change punctuation and localization.  A single repair attempt is
+     * bounded by the caller so an unrelated persistent error cannot loop. */
+    return lower.find("dpkg") != std::string::npos &&
+        (lower.find("interrupt") != std::string::npos ||
+         lower.find("configur") != std::string::npos ||
+         lower.find("status") != std::string::npos);
+}
 
 static NSString * const kCydiaProgressEventTypeError = @"Error";
 static NSString * const kCydiaProgressEventTypeInformation = @"Information";
@@ -468,6 +484,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     _trace();
     OpProgress progress;
     bool opened;
+    bool attemptedDpkgRepair(false);
   open:
     delock_ = GetStatusDate();
     _profile(reloadDataWithInvocation$pkgCacheFile)
@@ -484,9 +501,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
 
             SEL repair(NULL);
-            if (false);
-            else if (error == "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem. ")
+            if (!attemptedDpkgRepair && ErrorSuggestsDpkgRepair(error)) {
                 repair = @selector(configure);
+                attemptedDpkgRepair = true;
+            }
             //else if (error == "The package lists or status file could not be parsed or opened.")
             //    repair = @selector(update);
             // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
