@@ -136,6 +136,7 @@ The baseline verification sequence is:
 ~~~sh
 make verify-apt
 make verify-apt-compile
+make verify-dpkg-runner
 make verify
 make build/bin/MobileCydia
 make --no-print-directory -B -j6 doIA=yes \
