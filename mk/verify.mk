@@ -3,6 +3,7 @@
 
 VERIFY_SCRIPT := scripts/verify-modernization.sh
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
+APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 
 verify_objc_sources := $(filter %.m %.mm,$(source))
@@ -22,9 +23,9 @@ verify_size_sources := $(filter-out apt64/% SDURLCache/%,$(filter %.m %.mm %.c %
 verify_size_sources += postinst.mm cfversion.mm
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
-.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-compile
+.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-compile
 
-verify: verify-apt verify-apt-compile verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-static verify-compile
 
 verify-apt: verify-apt-provenance verify-apt-sources verify-apt-config
 
@@ -43,14 +44,20 @@ verify-apt-config:
 	fi; \
 	echo "[verify-apt][ ok ] compiler reports APT version $(APT_SOURCE_VERSION)"
 
-verify-apt-compile: $(APT_LIBRARY) $(apt_http_object)
-	@echo "[verify-apt] embedded APT archive and HTTP method compile graph is up to date"
+verify-apt-api: $(APT_API_VERIFY_SCRIPT) Cydia/AptCompatibility.cpp Cydia/AptCompatibility.hpp
+	@$(APT_API_VERIFY_SCRIPT) "$(APT_AUDIT_SOURCE_DIR)" "$(gxx)" "$(sdk)" \
+		"$(kind)" "$(arch)" "$(DEPLOYMENT_TARGET)" \
+		"$(APT_AUDIT_CXX_STANDARD)" Cydia/AptCompatibility.cpp
+
+verify-apt-compile: $(APT_LIBRARY) $(apt_http_object) $(apt_compat_object)
+	@echo "[verify-apt] embedded APT archive, HTTP method, and compatibility API compile graph is up to date"
 
 verify-apt-provenance: $(APT_VERIFY_SCRIPT) mk/apt.mk .gitmodules \
 	$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET)
 	@$(APT_VERIFY_SCRIPT) provenance \
 		"$(APT_SOURCE_DIR)" "$(APT_SOURCE_COMMIT)" "$(APT_SOURCE_URL)" \
-		"$(APT_SOURCE_VERSION)" "$(APT_SOURCE_TRUST)" \
+		"$(APT_SOURCE_VERSION)" "$(APT_SOURCE_CXX_LEVEL)" \
+		"$(APT_SOURCE_TRUST)" \
 		"$(APT_ABI_MAJOR)" "$(APT_ABI_MINOR)" "$(APT_ABI_RELEASE)" \
 		"$(APT_LICENSE_FILES)" \
 		"$(APT_CONTRIB_INCLUDE_TARGET)" "$(APT_DEB_INCLUDE_TARGET)"

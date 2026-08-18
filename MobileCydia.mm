@@ -79,7 +79,6 @@
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/sha1.h>
 #include <apt-pkg/sourcelist.h>
-#include <apt-pkg/sptr.h>
 #include <apt-pkg/strutl.h>
 #include <apt-pkg/tagfile.h>
 

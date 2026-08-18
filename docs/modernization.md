@@ -46,7 +46,10 @@ in `mk/apt.mk`. The update and backend-boundary policy is documented in
 manifest before an upstream update can enter the build. The inherited baseline
 is explicitly `legacy-unverified`; exact-input checks are not presented as
 source-authenticity proof. `make verify-apt-compile` rebuilds the embedded APT
-archive and HTTP method through that reviewed manifest.
+archive, HTTP method, and Cydia-owned compatibility adapter through that
+reviewed manifest. `make verify-apt-api` can syntax-check the adapter against a
+separately fetched clean APT stable or main checkout without network access in
+Make.
 `make verify-config` checks the effective device configuration and the ARC/iOS
 12 flags emitted by the Objective-C, Objective-C++ and helper recipes.
 `make verify-compile` builds every supported Objective-C object plus the

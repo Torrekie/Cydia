@@ -5,6 +5,7 @@
 
 #include "Cydia/Database.h"
 
+#include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Package.h"
 #include "Cydia/PackageMetadata.hpp"
 #include "Cydia/Profile.hpp"
@@ -23,7 +24,6 @@
 #include <apt-pkg/error.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/update.h>
-#include <apt-pkg/upgrade.h>
 
 #include <algorithm>
 #include <cstring>
@@ -418,7 +418,7 @@ class CydiaLogCleaner :
 
     delete list_;
     list_ = NULL;
-    manager_ = NULL;
+    manager_.reset();
     delete lock_;
     lock_ = NULL;
     delete fetcher_;
@@ -717,7 +717,7 @@ class CydiaLogCleaner :
     if ([self popErrorWithTitle:title forReadList:list])
         return false;
 
-    manager_ = (_system->CreatePM(cache_));
+    manager_.reset(_system->CreatePM(cache_));
     if ([self popErrorWithTitle:title forOperation:manager_->GetArchives(fetcher_, &list, &records)])
         return false;
 
@@ -780,7 +780,7 @@ class CydiaLogCleaner :
 
     delock_ = nil;
 
-    pkgPackageManager::OrderResult result(manager_->DoInstall(statusfd_));
+    Cydia::Apt::PackageManagerResult result(Cydia::Apt::RunPackageManager(*manager_, statusfd_));
 
     NSString *oextended(@"/var/lib/apt/extended_states");
     NSString *nextended(Cache("extended_states"));
@@ -795,12 +795,12 @@ class CydiaLogCleaner :
     if ([self popErrorWithTitle:title])
         return;
 
-    if (result == pkgPackageManager::Failed) {
+    if (result == Cydia::Apt::PackageManagerResult::Failed) {
         _trace();
         return;
     }
 
-    if (result != pkgPackageManager::Completed) {
+    if (result != Cydia::Apt::PackageManagerResult::Completed) {
         _trace();
         return;
     }
@@ -823,7 +823,7 @@ class CydiaLogCleaner :
 
 - (bool) upgrade {
     NSString *title(UCLocalize("UPGRADE"));
-    if ([self popErrorWithTitle:title forOperation:pkgDistUpgrade(cache_)])
+    if ([self popErrorWithTitle:title forOperation:Cydia::Apt::PrepareDistUpgrade(cache_)])
         return false;
     return true;
 }

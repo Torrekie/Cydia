@@ -15,6 +15,7 @@ The current baseline is recorded in mk/apt.mk:
 | Commit | e4718f05d049c1a09fb9662cc3db2d4c5122defe |
 | Source URL | git://git.bingner.com/apt.git |
 | Embedded version | 1.8.2 |
+| Required C++ level | 11 |
 | libapt-pkg version triplet | 5.0.2 |
 | ABI/SOVERSION | 5.0 / 5 |
 | Provenance trust | legacy-unverified |
@@ -52,8 +53,28 @@ step that validates the tag before `APT_SOURCE_TRUST` can change. Release
 builds then pin that exact reviewed tag and commit. They never fetch a floating
 branch during make. Compatibility work uses two lanes:
 
-1. the newest signed stable APT release, which is release-blocking; and
+1. a reviewed, compatible signed stable APT release, which is release-blocking; and
 2. upstream main as an early-warning canary, which is never shipped unpinned.
+
+The runtime currently embeds APT: the reviewed `apt64` sources are compiled
+into `libapt64.a` and force-loaded into `MobileCydia`. `dpkg` is intentionally
+not embedded; package transactions still go through the configured `cydo`
+runner and a device `dpkg` executable. The next compatibility slice will
+centralize that runner and its rootful/rootless paths so an APT update does not
+require changing UI code or assuming one filesystem layout.
+
+`make verify-apt-api` syntax-checks Cydia's private adapter against the pinned
+tree. A pre-fetched clean stable or main checkout can be tested without changing
+the gitlink and without allowing Make to access the network:
+
+~~~sh
+make verify-apt-api \
+  APT_AUDIT_SOURCE_DIR=/path/to/apt \
+  APT_AUDIT_CXX_STANDARD=c++2b
+~~~
+
+The C++ standard is an APT-source property; app-owned Objective-C++ remains on
+its existing standard until raw APT headers have been removed from that file.
 
 An APT source update is split into reviewable commits:
 
