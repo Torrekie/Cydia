@@ -1051,7 +1051,7 @@ int main(int argc, char *argv[]) {
     _config->Set("Acquire::AllowInsecureRepositories", true);
     _config->Set("Acquire::Check-Valid-Until", false);
 
-    _config->Set("Dir::Bin::Methods", "/Applications/Cydia.app");
+    _config->Set("Dir::Bin::Methods", packagePaths.CydiaApplicationDirectory());
 
     _config->Set("pkgCacheGen::ForceEssential", "");
 

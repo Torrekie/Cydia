@@ -184,6 +184,11 @@ const std::string &PackageDatabasePaths::CydiaApplicationPath() const {
     return cydiaApplicationPath_;
 }
 
+std::string PackageDatabasePaths::CydiaApplicationDirectory() const {
+    const std::string::size_type slash(cydiaApplicationPath_.rfind('/'));
+    return slash == std::string::npos ? std::string() : cydiaApplicationPath_.substr(0, slash);
+}
+
 const std::string &PackageDatabasePaths::CydoPath() const {
     return cydoPath_;
 }
