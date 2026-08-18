@@ -19,6 +19,9 @@
 **/
 /* }}} */
 
+#ifndef CyteKit_CyteObject_H
+#define CyteKit_CyteObject_H
+
 #include <Foundation/Foundation.h>
 
 @class CyteWebViewController;
@@ -30,3 +33,5 @@
 - (NSArray *) attributeKeys;
 
 @end
+
+#endif//CyteKit_CyteObject_H

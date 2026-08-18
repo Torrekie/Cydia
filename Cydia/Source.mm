@@ -1,4 +1,5 @@
 #include "Cydia/Source.h"
+#include "Cydia/Database.h"
 
 #include "Cydia/Profile.hpp"
 #include "iPhonePrivate.h"
@@ -10,10 +11,6 @@
 #include <apt-pkg/tagfile.h>
 
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
-
-@interface Database : NSObject
-- (unsigned) era;
-@end
 
 @implementation Source
 

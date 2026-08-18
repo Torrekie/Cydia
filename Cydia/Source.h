@@ -13,7 +13,10 @@
 #include <string>
 
 @class Database;
-@protocol SourceDelegate;
+
+@protocol SourceDelegate
+- (void) setFetch:(NSNumber *)fetch;
+@end
 
 extern _H<NSMutableDictionary> Sources_;
 
