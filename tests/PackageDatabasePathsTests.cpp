@@ -21,6 +21,7 @@ int main() {
 
     const PackageDatabasePaths rootful(PackageDatabasePaths::ForLayout(PackageDatabaseLayout::Rootful));
     Expect(rootful.DpkgStatusPath() == "/var/lib/dpkg/status", "rootful dpkg status path");
+    Expect(rootful.AptListsDirectory() == "/var/lib/apt/lists", "rootful APT lists path");
     Expect(rootful.AptConfigDirectory() == "/etc/apt", "rootful APT configuration path");
     Expect(rootful.CydiaSourcesListPath() == "/etc/apt/sources.list.d/cydia.list", "rootful Cydia source link");
     Expect(rootful.CydiaMetadataPath() == "/var/lib/cydia/metadata.plist", "rootful Cydia metadata path");
@@ -30,6 +31,7 @@ int main() {
 
     const PackageDatabasePaths rootless(PackageDatabasePaths::ForLayout(PackageDatabaseLayout::Rootless));
     Expect(rootless.DpkgStatusPath() == "/var/jb/var/lib/dpkg/status", "rootless dpkg status path");
+    Expect(rootless.AptListsDirectory() == "/var/jb/var/lib/apt/lists", "rootless APT lists path");
     Expect(rootless.AptConfigDirectory() == "/var/jb/etc/apt", "rootless APT configuration path");
     Expect(rootless.CydiaSourcesListPath() == "/var/jb/etc/apt/sources.list.d/cydia.list", "rootless Cydia source link");
     Expect(rootless.CydiaMetadataPath() == "/var/jb/var/lib/cydia/metadata.plist", "rootless Cydia metadata path");

@@ -186,9 +186,9 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(flag) $(link) -Wno-deprecated-writable-strings
 	@ldid -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h
+$(POSTINST_BINARY): postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
-	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
+	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
 	@ldid -T0 -Sgenent.xml $@
 
 MobileCydia: $(APP_BINARY)

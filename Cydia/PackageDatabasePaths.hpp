@@ -32,6 +32,7 @@ class PackageDatabasePaths {
     const std::string &DpkgStatusPath() const;
     const std::string &DpkgInfoDirectory() const;
     const std::string &AptExtendedStatesPath() const;
+    const std::string &AptListsDirectory() const;
     const std::string &AptConfigDirectory() const;
     const std::string &CydiaStateDirectory() const;
     const std::string &PackageLibraryDirectory() const;
@@ -60,6 +61,7 @@ class PackageDatabasePaths {
                          const char *dpkgStatus,
                          const char *dpkgInfoDirectory,
                          const char *aptExtendedStates,
+                         const char *aptListsDirectory,
                          const char *aptConfigDirectory,
                          const char *cydiaStateDirectory,
                          const char *packageLibraryDirectory,
@@ -72,6 +74,7 @@ class PackageDatabasePaths {
     std::string dpkgStatusPath_;
     std::string dpkgInfoDirectory_;
     std::string aptExtendedStatesPath_;
+    std::string aptListsDirectory_;
     std::string aptConfigDirectory_;
     std::string cydiaStateDirectory_;
     std::string packageLibraryDirectory_;
