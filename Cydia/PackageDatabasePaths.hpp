@@ -36,6 +36,7 @@ class PackageDatabasePaths {
     const std::string &CydiaStateDirectory() const;
     const std::string &PackageLibraryDirectory() const;
     const std::string &CydiaLibexecDirectory() const;
+    const std::string &CydiaApplicationPath() const;
     const std::string &CydoPath() const;
     const std::string &DpkgBinaryPath() const;
 
@@ -60,6 +61,7 @@ class PackageDatabasePaths {
                          const char *cydiaStateDirectory,
                          const char *packageLibraryDirectory,
                          const char *cydiaLibexecDirectory,
+                         const char *cydiaApplication,
                          const char *cydo,
                          const char *dpkgBinary);
 
@@ -71,6 +73,7 @@ class PackageDatabasePaths {
     std::string cydiaStateDirectory_;
     std::string packageLibraryDirectory_;
     std::string cydiaLibexecDirectory_;
+    std::string cydiaApplicationPath_;
     std::string cydoPath_;
     std::string dpkgBinaryPath_;
 };
