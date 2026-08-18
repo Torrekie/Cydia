@@ -32,6 +32,10 @@
 @class CydiaProgressEvent;
 @protocol ProgressDelegate;
 
+namespace CydiaAPT {
+class AptBackend;
+}
+
 @protocol DatabaseDelegate
 - (void) repairWithSelector:(SEL)selector;
 - (void) setConfigurationData:(NSString *)data;
@@ -119,14 +123,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     unsigned era_;
     _H<NSDate> delock_;
 
-    pkgCacheFile cache_;
-    pkgDepCache::Policy *policy_;
-    pkgRecords *records_;
-    pkgProblemResolver *resolver_;
-    pkgAcquire *fetcher_;
-    FileFd *lock_;
-    std::unique_ptr<pkgPackageManager> manager_;
-    pkgSourceList *list_;
+    CydiaAPT::AptBackend *apt_;
 
     SourceMap sourceMap_;
     _H<NSMutableArray> sourceList_;

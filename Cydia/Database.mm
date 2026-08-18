@@ -6,6 +6,7 @@
 #include "Cydia/Database.h"
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/AptBackend.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
 #include "Cydia/PackageDatabasePaths.hpp"
@@ -125,7 +126,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (void) dealloc {
-    // XXX: actually implement this thing
+    delete apt_;
+    apt_ = NULL;
     _assert(false);
     [self clearPackages];
     NSRecycleZone(zone_);
@@ -239,27 +241,24 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if (name == nil)
         return nil;
 @synchronized (self) {
-    if (static_cast<pkgDepCache *>(cache_) == NULL)
+    pkgCacheFile &cache(apt_->cache());
+    if (static_cast<pkgDepCache *>(cache) == NULL)
         return nil;
     pkgCache::PkgIterator iterator;
 #ifndef __arm__
     // try common arch first
-    iterator = cache_->FindPkg([name UTF8String], common_arch);
+    iterator = cache->FindPkg([name UTF8String], common_arch);
     if (iterator.end())
-        iterator = cache_->FindPkg([name UTF8String], "any");
+        iterator = cache->FindPkg([name UTF8String], "any");
 #else
-    iterator = cache_->FindPkg([name UTF8String]);
+    iterator = cache->FindPkg([name UTF8String]);
 #endif
     return iterator.end() ? nil : [Package newPackageWithIterator:iterator withZone:NULL inPool:NULL database:self];
 } }
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        policy_ = NULL;
-        records_ = NULL;
-        resolver_ = NULL;
-        fetcher_ = NULL;
-        lock_ = NULL;
+        apt_ = new CydiaAPT::AptBackend(status_);
 
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
 
@@ -307,27 +306,27 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (pkgCacheFile &) cache {
-    return cache_;
+    return apt_->cache();
 }
 
 - (pkgDepCache::Policy *) policy {
-    return policy_;
+    return apt_->policy();
 }
 
 - (pkgRecords *) records {
-    return records_;
+    return apt_->records();
 }
 
 - (pkgProblemResolver *) resolver {
-    return resolver_;
+    return apt_->resolver();
 }
 
 - (pkgAcquire &) fetcher {
-    return *fetcher_;
+    return *apt_->fetcher();
 }
 
 - (pkgSourceList &) list {
-    return *list_;
+    return *apt_->list();
 }
 
 - (NSArray *) packages {
@@ -413,21 +412,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     _error->Discard();
 
-    delete list_;
-    list_ = NULL;
-    manager_.reset();
-    delete lock_;
-    lock_ = NULL;
-    delete fetcher_;
-    fetcher_ = NULL;
-    delete resolver_;
-    resolver_ = NULL;
-    delete records_;
-    records_ = NULL;
-    delete policy_;
-    policy_ = NULL;
-
-    cache_.Close();
+    apt_->reset();
+    pkgCacheFile &cache(apt_->cache());
 
     pool_.~CYPool();
     new (&pool_) CYPool();
@@ -444,17 +430,17 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     NSString *title(UCLocalize("DATABASE"));
 
-    list_ = new pkgSourceList();
+    pkgSourceList *list(apt_->createSourceList());
     _profile(reloadDataWithInvocation$ReadMainList)
-    if ([self popErrorWithTitle:title forReadList:*list_])
+    if ([self popErrorWithTitle:title forReadList:*list])
         return;
     _end
 
-    fetcher_ = new pkgAcquire(&status_);
+    pkgAcquire *fetcher(apt_->createFetcher());
 
     _profile(reloadDataWithInvocation$Source$initWithMetaIndex)
-    for (pkgSourceList::const_iterator source = list_->begin(); source != list_->end(); ++source) {
-        Source *object([[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:&pool_ withAcquire:fetcher_]);
+    for (pkgSourceList::const_iterator source = list->begin(); source != list->end(); ++source) {
+        Source *object([[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:&pool_ withAcquire:fetcher]);
         [sourceList_ addObject:object];
     }
     _end
@@ -465,7 +451,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
   open:
     delock_ = GetStatusDate();
     _profile(reloadDataWithInvocation$pkgCacheFile)
-        opened = cache_.Open(&progress, false);
+        opened = cache.Open(&progress, false);
     _end
     if (!opened) {
         // XXX: this block should probably be merged with popError: in some way
@@ -473,7 +459,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
             std::string error;
             bool warning(!_error->PopMessage(error));
 
-            lprintf("cache_.Open():[%s]\n", error.c_str());
+            lprintf("cache.Open():[%s]\n", error.c_str());
 
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
 
@@ -504,34 +490,31 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     now_ = [[NSDate date] timeIntervalSince1970];
 
-    policy_ = new pkgDepCache::Policy();
-    records_ = new pkgRecords(cache_);
-    resolver_ = new pkgProblemResolver(cache_);
-    lock_ = NULL;
+    apt_->createCacheViews();
 
-    if (cache_->DelCount() != 0 || cache_->InstCount() != 0) {
+    if (cache->DelCount() != 0 || cache->InstCount() != 0) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("COUNTS_NONZERO_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
         return;
     }
 
     _profile(reloadDataWithInvocation$pkgApplyStatus)
-    if ([self popErrorWithTitle:title forOperation:pkgApplyStatus(cache_)])
+    if ([self popErrorWithTitle:title forOperation:pkgApplyStatus(cache)])
         return;
     _end
 
-    if (cache_->BrokenCount() != 0) {
+    if (cache->BrokenCount() != 0) {
         _profile(pkgApplyStatus$pkgFixBroken)
-        if ([self popErrorWithTitle:title forOperation:pkgFixBroken(cache_)])
+        if ([self popErrorWithTitle:title forOperation:pkgFixBroken(cache)])
             return;
         _end
 
-        if (cache_->BrokenCount() != 0) {
+        if (cache->BrokenCount() != 0) {
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("STILL_BROKEN_EX") ofType:kCydiaProgressEventTypeError] forTask:title];
             return;
         }
 
         _profile(pkgApplyStatus$pkgMinimizeUpgrade)
-        if ([self popErrorWithTitle:title forOperation:CydiaAPT::MinimizeUpgrade(cache_)])
+        if ([self popErrorWithTitle:title forOperation:CydiaAPT::MinimizeUpgrade(*cache)])
             return;
         _end
     }
@@ -542,7 +525,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
             // XXX: this could be more intelligent
             if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {
-                pkgCache::PkgFileIterator cached((*index)->FindInCache(cache_));
+                pkgCache::PkgFileIterator cached((*index)->FindInCache(*cache));
                 if (!cached.end())
                     sourceMap_[cached->ID] = object;
             }
@@ -561,7 +544,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
         size_t last(0);
         _profile(reloadDataWithInvocation$packageWithIterator)
-        for (pkgCache::PkgIterator iterator = cache_->PkgBegin(); !iterator.end(); ++iterator)
+        for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator)
             if (Package *package = [Package newPackageWithIterator:iterator withZone:zone_ inPool:&pool_ database:self]) {
                 if (unsigned index = package.metadata->index_) {
                     --index;
@@ -658,14 +641,14 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (void) clear {
 @synchronized (self) {
-    delete resolver_;
-    resolver_ = new pkgProblemResolver(cache_);
+    delete apt_->resolver();
+    apt_->resolver() = new pkgProblemResolver(apt_->cache());
 
-    for (pkgCache::PkgIterator iterator(cache_->PkgBegin()); !iterator.end(); ++iterator)
-        if (!cache_[iterator].Keep())
-            cache_->MarkKeep(iterator, false);
-        else if ((cache_[iterator].iFlags & pkgDepCache::ReInstall) != 0)
-            cache_->SetReInstall(iterator, false);
+    for (pkgCache::PkgIterator iterator(apt_->cache()->PkgBegin()); !iterator.end(); ++iterator)
+        if (!apt_->cache()[iterator].Keep())
+            apt_->cache()->MarkKeep(iterator, false);
+        else if ((apt_->cache()[iterator].iFlags & pkgDepCache::ReInstall) != 0)
+            apt_->cache()->SetReInstall(iterator, false);
 } }
 
 - (void) configure {
@@ -680,7 +663,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (bool) clean {
 @synchronized (self) {
     // XXX: I don't remember this condition
-    if (lock_ != NULL)
+    if (apt_->lock() != NULL)
         return false;
 
     FileFd Lock = FileFd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"), true);
@@ -694,18 +677,19 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
 
     if ([self popErrorWithTitle:title forOperation:CydiaAPT::CleanArchives(
-        _config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
+        _config->FindDir("Dir::Cache::Archives") + "partial/",
+        static_cast<pkgCache &>(apt_->cache()))])
         return false;
 
     return true;
 } }
 
 - (bool) prepare {
-    fetcher_->Shutdown();
+    apt_->fetcher()->Shutdown();
 
-    pkgRecords records(cache_);
+    pkgRecords records(apt_->cache());
 
-    lock_ = new FileFd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"), true);
+    apt_->lock() = new FileFd(GetLock(_config->FindDir("Dir::Cache::Archives") + "lock"), true);
 
     NSString *title(UCLocalize("PREPARE_ARCHIVES"));
 
@@ -716,8 +700,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if ([self popErrorWithTitle:title forReadList:list])
         return false;
 
-    manager_.reset(_system->CreatePM(cache_));
-    if ([self popErrorWithTitle:title forOperation:manager_->GetArchives(fetcher_, &list, &records)])
+    apt_->manager().reset(_system->CreatePM(apt_->cache()));
+    if ([self popErrorWithTitle:title forOperation:apt_->manager()->GetArchives(apt_->fetcher(), &list, &records)])
         return false;
 
     return true;
@@ -739,14 +723,14 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
-    if (fetcher_->Run(PulseInterval_) != pkgAcquire::Continue) {
+    if (apt_->fetcher()->Run(PulseInterval_) != pkgAcquire::Continue) {
         _trace();
         [self popErrorWithTitle:title];
         return;
     }
 
     bool failed = false;
-    for (pkgAcquire::ItemIterator item = fetcher_->ItemsBegin(); item != fetcher_->ItemsEnd(); item++) {
+    for (pkgAcquire::ItemIterator item = apt_->fetcher()->ItemsBegin(); item != apt_->fetcher()->ItemsEnd(); item++) {
         if ((*item)->Status == pkgAcquire::Item::StatDone && (*item)->Complete)
             continue;
         if ((*item)->Status == pkgAcquire::Item::StatIdle)
@@ -779,7 +763,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     delock_ = nil;
 
-    CydiaAPT::PackageManagerResult result(CydiaAPT::RunPackageManager(*manager_, statusfd_));
+    CydiaAPT::PackageManagerResult result(CydiaAPT::RunPackageManager(*apt_->manager(), statusfd_));
 
     const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
     NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
@@ -823,7 +807,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (bool) upgrade {
     NSString *title(UCLocalize("UPGRADE"));
-    if ([self popErrorWithTitle:title forOperation:CydiaAPT::PrepareDistUpgrade(cache_)])
+    if ([self popErrorWithTitle:title forOperation:CydiaAPT::PrepareDistUpgrade(
+        static_cast<pkgDepCache &>(apt_->cache()))])
         return false;
     return true;
 }

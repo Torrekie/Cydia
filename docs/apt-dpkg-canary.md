@@ -24,6 +24,11 @@ replace, link, or run the embedded tree. The UI/model layer still exposes raw
 APT iterators and cache lifetimes, so those objects must move behind
 `AptBackend` before the gitlink can advance safely.
 
+`Cydia/AptBackend` is now the owner of one database epoch's mutable cache,
+record, resolver, acquire, lock, package-manager, and source-list handles.
+`Database` remains the Objective-C façade for this transition; its raw
+compatibility accessors are intentionally the next DTO migration seam.
+
 | Area | Legacy dependency | Backend migration seam |
 | --- | --- | --- |
 | package records | compatibility wrapper still receives an opaque parser handle | move lookup and parser lifetime entirely into `AptBackend` DTO queries |
