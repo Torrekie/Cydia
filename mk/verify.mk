@@ -22,8 +22,13 @@ verify_ownership_files += postinst.mm cfversion.mm
 verify_size_sources := $(filter-out apt64/% SDURLCache/%,$(filter %.m %.mm %.c %.cc %.cpp,$(code)))
 verify_size_sources += postinst.mm cfversion.mm
 
+# Candidate set for the APT-consumer inventory.  The inventory script checks
+# that every raw APT token in app-owned C++/Objective-C++ is represented by the
+# reviewed `apt_api_sources` manifest above.
+apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
+
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
-.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-compile
+.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
 verify: verify-apt verify-apt-api verify-apt-compile verify-static verify-compile
 
@@ -44,10 +49,14 @@ verify-apt-config:
 	fi; \
 	echo "[verify-apt][ ok ] compiler reports APT version $(APT_SOURCE_VERSION)"
 
-verify-apt-api: $(APT_API_VERIFY_SCRIPT) Cydia/AptCompatibility.cpp Cydia/AptCompatibility.hpp
+verify-apt-api-inventory: $(APT_API_VERIFY_SCRIPT) $(apt_api_sources)
+	@$(APT_API_VERIFY_SCRIPT) inventory "$(apt_api_sources)" $(apt_api_candidates)
+
+verify-apt-api: verify-apt-api-inventory $(APT_API_VERIFY_SCRIPT) $(apt_api_sources)
 	@$(APT_API_VERIFY_SCRIPT) "$(APT_AUDIT_SOURCE_DIR)" "$(gxx)" "$(sdk)" \
 		"$(kind)" "$(arch)" "$(DEPLOYMENT_TARGET)" \
-		"$(APT_AUDIT_CXX_STANDARD)" Cydia/AptCompatibility.cpp
+		"$(APT_AUDIT_CXX_STANDARD)" "$(GENERATED_DIR)" "$(ICU_INCLUDE_DIR)" \
+		$(apt_api_sources)
 
 verify-apt-compile: $(APT_LIBRARY) $(apt_http_object) $(apt_compat_object)
 	@echo "[verify-apt] embedded APT archive, HTTP method, and compatibility API compile graph is up to date"
