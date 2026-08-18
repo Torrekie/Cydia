@@ -110,6 +110,12 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
     int inputPipe[2] = {-1, -1};
     if (input != NULL && pipe(inputPipe) == -1)
         return launchFailure(errno);
+    if (input != NULL && fcntl(inputPipe[1], F_SETNOSIGPIPE, 1) == -1) {
+        const int error(errno);
+        (void) close(inputPipe[0]);
+        (void) close(inputPipe[1]);
+        return launchFailure(error);
+    }
 
     std::vector<std::string> storage;
     storage.reserve(arguments.size() + 3);
@@ -158,6 +164,11 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
         actionError = posix_spawn_file_actions_adddup2(&actions, inputPipe[0], STDIN_FILENO);
         if (actionError == 0 && inputPipe[0] != STDIN_FILENO)
             actionError = posix_spawn_file_actions_addclose(&actions, inputPipe[0]);
+        /* The child must not retain the parent's writer.  Otherwise a helper
+         * that reads stdin to EOF waits forever because its own copy keeps
+         * the pipe open after the parent finishes writing. */
+        if (actionError == 0 && inputPipe[1] != STDIN_FILENO)
+            actionError = posix_spawn_file_actions_addclose(&actions, inputPipe[1]);
         if (actionError != 0) {
             (void) posix_spawn_file_actions_destroy(&actions);
             (void) close(inputPipe[0]);
