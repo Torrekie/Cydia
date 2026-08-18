@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace Cydia {
+namespace CydiaRuntime {
 
 /*
  * The package database is owned by the selected bootstrap.  Rootless
@@ -54,6 +54,6 @@ class PackageDatabasePaths {
     std::string dpkgBinaryPath_;
 };
 
-} // namespace Cydia
+} // namespace CydiaRuntime
 
 #endif // Cydia_PackageDatabasePaths_HPP

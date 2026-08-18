@@ -24,7 +24,9 @@
 
 #include "Cydia/AppState.h"
 #include "Cydia/Database.h"
+#include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivateServices.h"
 #include "CyteKit/countByEnumeratingWithState.h"
 #include "CyteKit/extern.h"
@@ -394,7 +396,9 @@
 - (void) _setupMail:(MFMailComposeViewController *)controller {
     [controller addAttachmentData:[NSData dataWithContentsOfFile:@"/tmp/cydia.log"] mimeType:@"text/plain" fileName:@"cydia.log"];
 
-    system("/usr/bin/dpkg -l >/tmp/dpkgl.log");
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    CydiaRuntime::Dpkg::Runner runner(paths.DpkgBinaryPath());
+    (void) runner.RunToFile({"-l"}, "/tmp/dpkgl.log");
     [controller addAttachmentData:[NSData dataWithContentsOfFile:@"/tmp/dpkgl.log"] mimeType:@"text/plain" fileName:@"dpkgl.log"];
 }
 

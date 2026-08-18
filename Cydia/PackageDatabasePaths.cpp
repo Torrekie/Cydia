@@ -36,8 +36,8 @@ const PackageDatabaseLayoutValues kRootlessLayout = {
     "/var/jb/usr/bin/dpkg",
 };
 
-const PackageDatabaseLayoutValues &ValuesForLayout(Cydia::PackageDatabaseLayout layout) {
-    return layout == Cydia::PackageDatabaseLayout::Rootless ? kRootlessLayout : kRootfulLayout;
+const PackageDatabaseLayoutValues &ValuesForLayout(CydiaRuntime::PackageDatabaseLayout layout) {
+    return layout == CydiaRuntime::PackageDatabaseLayout::Rootless ? kRootlessLayout : kRootfulLayout;
 }
 
 bool Exists(const char *path) {
@@ -54,7 +54,7 @@ bool IsLayoutValue(const char *value, const char *expected) {
 
 } // namespace
 
-namespace Cydia {
+namespace CydiaRuntime {
 
 PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *dpkgStatus,
@@ -135,4 +135,4 @@ std::string PackageDatabasePaths::DpkgInfoFile(const char *packageName, const ch
     return path;
 }
 
-} // namespace Cydia
+} // namespace CydiaRuntime

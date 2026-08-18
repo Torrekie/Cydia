@@ -488,7 +488,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             lower[size] = '\0';
 
             if (!installed_.empty()) {
-                const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+                const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
                 const std::string infoPath(paths.DpkgInfoFile(lower, ".list"));
                 if (!infoPath.empty()) {
                     struct stat info;

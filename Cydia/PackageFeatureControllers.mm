@@ -10,14 +10,13 @@
 #include "Cydia/ControllerState.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/Section.h"
 #include "CyteKit/Localize.h"
 #include "Menes/Menes.h"
 #include "iPhonePrivate.h"
-
-#include <cstdio>
-#include <cstring>
 
 #define AlwaysReload 0
 
@@ -78,18 +77,15 @@
 }
 
 - (void) _updateIgnored {
-    const char *package([name_ UTF8String]);
     bool on([ignoredSwitch_ isOn]);
 
-    FILE *dpkg(popen("/usr/libexec/cydia/cydo --set-selections", "w"));
-    fwrite(package, strlen(package), 1, dpkg);
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    const char *name([name_ UTF8String]);
+    std::string input(name == NULL ? "" : name);
+    input += on ? " hold\n" : " install\n";
 
-    if (on)
-        fwrite(" hold\n", 6, 1, dpkg);
-    else
-        fwrite(" install\n", 9, 1, dpkg);
-
-    pclose(dpkg);
+    CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
+    (void) runner.RunWithInput({paths.DpkgBinaryPath(), "--set-selections"}, input);
 }
 
 - (void) onIgnored:(id)control {
