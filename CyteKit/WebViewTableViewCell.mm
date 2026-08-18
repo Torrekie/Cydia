@@ -32,7 +32,7 @@
 }
 
 + (CyteWebViewTableViewCell *) cellWithRequest:(NSURLRequest *)request {
-    CyteWebViewTableViewCell *cell([[[self alloc] initWithRequest:request] autorelease]);
+    CyteWebViewTableViewCell *cell([[self alloc] initWithRequest:request]);
     return cell;
 }
 
@@ -40,7 +40,7 @@
     if ((self = [super init]) != nil) {
         UIView *view(self);
 
-        webview_ = [[[CyteWebView alloc] initWithFrame:[view bounds]] autorelease];
+        webview_ = [[CyteWebView alloc] initWithFrame:[view bounds]];
         [webview_ setDelegate:self];
         [view addSubview:webview_];
 

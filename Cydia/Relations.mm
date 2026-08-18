@@ -1,5 +1,7 @@
 #include "Cydia/Relations.h"
 
+#include "iPhonePrivate.h"
+
 @implementation CydiaOperation
 
 - (id) initWithOperator:(const char *)_operator value:(const char *)value {
@@ -41,7 +43,7 @@
         package_ = [NSString stringWithUTF8String:dep.TargetPkg().Name()];
 
         if (const char *version = dep.TargetVer())
-            version_ = [[[CydiaOperation alloc] initWithOperator:dep.CompType() value:version] autorelease];
+            version_ = [[CydiaOperation alloc] initWithOperator:dep.CompType() value:version];
         else
             version_ = (id) [NSNull null];
     } return self;
@@ -84,7 +86,7 @@
         dep.GlobOr(start, end); // ++dep
 
         _forever {
-            [clauses_ addObject:[[[CydiaClause alloc] initWithIterator:start] autorelease]];
+            [clauses_ addObject:[[CydiaClause alloc] initWithIterator:start]];
 
             // yes, seriously. (wtf?)
             if (start == end)

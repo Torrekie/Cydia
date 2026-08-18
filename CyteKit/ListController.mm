@@ -150,11 +150,11 @@ static CGFloat CYStatusBarHeight() {
 }
 
 - (void) loadView {
-    UIView *view([[[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]] autorelease]);
+    UIView *view([[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]]);
     [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
     [self setView:view];
 
-    list_ = [[[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain] autorelease];
+    list_ = [[UITableView alloc] initWithFrame:[[self view] bounds] style:UITableViewStylePlain];
     if ([list_ respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)])
         [list_ setCellLayoutMarginsFollowReadableWidth:NO];
     [list_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];

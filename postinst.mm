@@ -220,7 +220,7 @@ int main(int argc, const char *argv[]) {
 
     platformize_me();
 
-    NSAutoreleasePool *pool([[NSAutoreleasePool alloc] init]);
+    @autoreleasepool {
 
     bool restart(false);
 
@@ -308,6 +308,6 @@ int main(int argc, const char *argv[]) {
     if (restart)
         Finish("restart");
 
-    [pool release];
     return 0;
+    }
 }
