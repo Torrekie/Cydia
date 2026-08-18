@@ -5,6 +5,17 @@ code := $(filter-out SDURLCache/SDURLCacheTests.m,$(code))
 code += MobileCydia.mm Version.mm iPhonePrivate.h Cytore.hpp lookup3.c Sources.h Sources.mm DiskUsage.cpp
 code += apt64/methods/http.cc
 
+# The embedded HTTP method has its own process-wide identity values.  Prefix
+# them when it is linked into MobileCydia so they do not collide with Cydia's
+# request-header state or CyteKit's hardware-machine state.
+http_flags := \
+    -DMachine_=CydiaHttpMachine_ \
+    -DUniqueID_=CydiaHttpUniqueID_ \
+    -DFirmware_=CydiaHttpFirmware_ \
+    -Dlockdown_connect=CydiaLockdownConnect \
+    -Dlockdown_copy_value=CydiaLockdownCopyValue \
+    -Dlockdown_disconnect=CydiaLockdownDisconnect
+
 source := $(filter %.m,$(code)) $(filter %.mm,$(code))
 source += $(filter %.c,$(code)) $(filter %.cpp,$(code)) $(filter %.cc,$(code))
 header := $(filter %.h,$(code)) $(filter %.hpp,$(code)) $(filter %.hh,$(code))
@@ -24,6 +35,7 @@ libapt64 += $(wildcard apt64/apt-pkg/*.cc)
 libapt64 += $(wildcard apt64/apt-pkg/deb/*.cc)
 libapt64 += $(wildcard apt64/apt-pkg/contrib/*.cc)
 libapt64 += apt64/methods/store.cc
+libapt64 += apt64/methods/basehttp.cc
 libapt64 += $(patsubst %,apt64/methods/%.cc,$(methods))
 libapt64 := $(filter-out %/srvrec.cc,$(libapt64))
 libapt64 := $(patsubst %.cc,$(OBJECT_DIR)/%.o,$(libapt64))

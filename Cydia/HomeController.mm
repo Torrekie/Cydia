@@ -33,8 +33,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) dealloc {
-    if (reachability_ != NULL && runloop_ != NULL)
-        SCNetworkReachabilityUnscheduleFromRunLoop(reachability_, runloop_, kCFRunLoopDefaultMode);
+    if (reachability_ != NULL) {
+        if (runloop_ != NULL)
+            SCNetworkReachabilityUnscheduleFromRunLoop(reachability_, runloop_, kCFRunLoopDefaultMode);
+        CFRelease(reachability_);
+        reachability_ = NULL;
+    }
 }
 
 - (NSURL *) navigationURL {

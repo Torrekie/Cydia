@@ -76,13 +76,30 @@ link += -multiply_defined suppress
 libs += -framework CoreFoundation
 libs += -framework CoreGraphics
 libs += -framework Foundation
+# GraphicsServices is a private, dynamically-resolved API in this source. It
+# was present in older SDK layouts but is absent from current public SDKs; do
+# not make a modern SDK link fail merely because that optional framework is
+# not shipped.
+graphics_services_framework := $(firstword $(wildcard \
+    $(sdk)/System/Library/PrivateFrameworks/GraphicsServices.framework \
+    $(sdk)/System/Library/Frameworks/GraphicsServices.framework))
+ifneq ($(graphics_services_framework),)
+ifneq ($(doIA),yes)
 libs += -framework GraphicsServices
+endif
+endif
 libs += -framework IOKit
 libs += -framework QuartzCore
+springboard_services_framework := $(firstword $(wildcard \
+    $(sdk)/System/Library/PrivateFrameworks/SpringBoardServices.framework \
+    $(sdk)/System/Library/Frameworks/SpringBoardServices.framework))
+ifneq ($(springboard_services_framework),)
+ifneq ($(doIA),yes)
 libs += -framework SpringBoardServices
+endif
+endif
 libs += -framework SystemConfiguration
 libs += -framework CFNetwork
-libs += -llockdown
 libs += -framework WebKit
 libs += -Xarch_$(arch) -Wl,-force_load,$(APT_LIBRARY)
 lapt += $(APT_LIBRARY)

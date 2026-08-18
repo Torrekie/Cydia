@@ -24,6 +24,7 @@
 
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
+#include "Cydia/PrivateServices.h"
 #include "iPhonePrivate.h"
 
 // The application bootstrap resolves this private symbol before UIApplicationMain.
@@ -64,7 +65,7 @@ NSData *(*$SBSCopyIconImagePNGDataForDisplayIdentifier)(NSString *);
         }
 
         if (icon == nil)
-            if (NSString *file = SBSCopyIconImagePathForDisplayIdentifier(path))
+            if (NSString *file = CydiaCopyIconImagePath(path))
                 icon = [UIImage imageAtPath:file];
 
         if (icon == nil)
