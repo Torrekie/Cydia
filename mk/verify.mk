@@ -6,6 +6,7 @@ APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
+DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 host_cxx := $(shell xcrun --sdk macosx -f clang++)
 
 verify_objc_sources := $(filter %.m %.mm,$(source))
@@ -29,10 +30,10 @@ verify_size_sources += postinst.mm cfversion.mm
 # reviewed `apt_api_sources` manifest above.
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
-.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-package-paths
+.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-package-paths verify-dpkg-runner
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-dpkg-runner verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -40,6 +41,14 @@ $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabase
 		tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-package-paths: $(PACKAGE_PATHS_TEST)
+	@$<
+
+$(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) -isysroot $(mac) -std=c++11 -Wall -Wextra -I. \
+		tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp -o $@
+
+verify-dpkg-runner: $(DPKG_RUNNER_TEST)
 	@$<
 
 verify-apt: verify-apt-provenance verify-apt-sources verify-apt-config
