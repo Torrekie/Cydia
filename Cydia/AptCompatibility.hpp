@@ -5,6 +5,9 @@
 #ifndef Cydia_AptCompatibility_H
 #define Cydia_AptCompatibility_H
 
+#include <string>
+
+class pkgCache;
 class pkgDepCache;
 class pkgPackageManager;
 
@@ -18,9 +21,11 @@ enum class PackageManagerResult {
 };
 
 // Keep version-sensitive APT calls out of Objective-C controllers and models.
-// This surface deliberately uses only Cydia-owned values; raw APT result types
-// remain inside AptCompatibility.cpp.
+// The cache references are transitional handles; the next AptBackend slice
+// will replace them with Cydia-owned transaction objects and DTOs.
 PackageManagerResult RunPackageManager(pkgPackageManager &manager, int statusFd);
+bool CleanArchives(const std::string &directory, pkgCache &cache);
+bool MinimizeUpgrade(pkgDepCache &cache);
 bool PrepareDistUpgrade(pkgDepCache &cache);
 
 } // namespace Apt

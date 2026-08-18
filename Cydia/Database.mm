@@ -25,6 +25,8 @@
 #include <apt-pkg/deb/debmetaindex.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/init.h>
+#include <apt-pkg/pkgsystem.h>
+#include <apt-pkg/progress.h>
 #include <apt-pkg/update.h>
 
 #include <algorithm>
@@ -90,15 +92,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         }
     }
 }
-
-class CydiaLogCleaner :
-    public pkgArchiveCleaner
-{
-  protected:
-    virtual void Erase(const char *File, std::string Pkg, std::string Ver, struct stat &St) {
-        unlink(File);
-    }
-};
 
 @interface Database ()
 - (void) clearPackages;
@@ -472,7 +465,7 @@ class CydiaLogCleaner :
   open:
     delock_ = GetStatusDate();
     _profile(reloadDataWithInvocation$pkgCacheFile)
-        opened = cache_.Open(progress, false);
+        opened = cache_.Open(&progress, false);
     _end
     if (!opened) {
         // XXX: this block should probably be merged with popError: in some way
@@ -538,7 +531,7 @@ class CydiaLogCleaner :
         }
 
         _profile(pkgApplyStatus$pkgMinimizeUpgrade)
-        if ([self popErrorWithTitle:title forOperation:pkgMinimizeUpgrade(cache_)])
+        if ([self popErrorWithTitle:title forOperation:Cydia::Apt::MinimizeUpgrade(cache_)])
             return;
         _end
     }
@@ -700,8 +693,8 @@ class CydiaLogCleaner :
     pkgAcquire fetcher;
     fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
 
-    CydiaLogCleaner cleaner;
-    if ([self popErrorWithTitle:title forOperation:cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
+    if ([self popErrorWithTitle:title forOperation:Cydia::Apt::CleanArchives(
+        _config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
         return false;
 
     return true;
