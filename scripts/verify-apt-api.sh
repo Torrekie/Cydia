@@ -1,12 +1,54 @@
 #!/bin/sh
-# Syntax-check Cydia's private adapter against a pre-fetched APT source tree.
+# Syntax-check Cydia's APT compatibility surface against a pre-fetched tree.
 
 set -u
 
-if [ "$#" -ne 8 ]; then
-    echo "usage: $0 SOURCE_DIR COMPILER SDK KIND ARCH DEPLOYMENT CXX_STANDARD SOURCE" >&2
+fail() {
+    echo "[verify-apt-api][FAIL] $*" >&2
+    exit 1
+}
+
+apt_usage() {
+    echo "usage: $0 SOURCE_DIR COMPILER SDK KIND ARCH DEPLOYMENT CXX_STANDARD GENERATED_DIR ICU_INCLUDE_DIR SOURCE..." >&2
     exit 2
+}
+
+# Keep the source manifest honest.  This intentionally uses a conservative
+# token scan: a newly added translation unit that mentions an APT type must be
+# added to the canary list, and a moved consumer must be removed from it.
+if [ "${1-}" = inventory ]; then
+    [ "$#" -ge 3 ] || {
+        echo "usage: $0 inventory 'MANIFEST SOURCES' CANDIDATE_SOURCE..." >&2
+        exit 2
+    }
+
+    manifest=$2
+    shift 2
+    pattern='(^|[^[:alnum:]_])(pkg(Cache|DepCache|Acquire|Records|Policy|ProblemResolver|SourceList|PackageManager|CacheFile|ArchiveCleaner)|_error|_config|_system)([^[:alnum:]_]|$)|#include[[:space:]]*[<"]apt-pkg/|#include[[:space:]]*[<"]apt\.h'
+    count=0
+
+    for listed in $manifest; do
+        [ -f "$listed" ] || fail "manifest source does not exist: $listed"
+        grep -Eq "$pattern" "$listed" ||
+            fail "manifest source no longer exposes an APT dependency: $listed"
+        count=$((count + 1))
+    done
+
+    for candidate in "$@"; do
+        [ -f "$candidate" ] || continue
+        if grep -Eq "$pattern" "$candidate"; then
+            case " $manifest " in
+                *" $candidate "*) ;;
+                *) fail "APT consumer is missing from manifest: $candidate" ;;
+            esac
+        fi
+    done
+
+    echo "[verify-apt-api][ ok ] reviewed manifest covers $count APT consumer(s)"
+    exit 0
 fi
+
+[ "$#" -ge 10 ] || apt_usage
 
 source_dir=$1
 compiler=$2
@@ -15,9 +57,12 @@ kind=$4
 arch=$5
 deployment=$6
 cxx_standard=$7
-adapter_source=$8
-temporary=
+generated_dir=$8
+icu_include_dir=$9
+shift 9
+[ "$#" -gt 0 ] || apt_usage
 
+temporary=
 cleanup() {
     [ -z "$temporary" ] || rm -rf "$temporary"
 }
@@ -27,16 +72,14 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-fail() {
-    echo "[verify-apt-api][FAIL] $*" >&2
-    exit 1
-}
-
 source_dir=$(cd "$source_dir" 2>/dev/null && pwd -P) ||
     fail "could not resolve APT source directory: $source_dir"
 [ -d "$source_dir/apt-pkg" ] || fail "missing APT source directory: $source_dir/apt-pkg"
 [ -f "$source_dir/apt-pkg/contrib/macros.h" ] || fail "missing APT ABI header"
-[ -f "$adapter_source" ] || fail "missing adapter source: $adapter_source"
+
+for source_file in "$@"; do
+    [ -f "$source_file" ] || fail "missing compatibility source: $source_file"
+done
 
 commit=$(git -C "$source_dir" rev-parse HEAD 2>/dev/null) ||
     fail "$source_dir is not a git checkout"
@@ -78,20 +121,41 @@ ln -s "$source_dir/apt-pkg/contrib" "$temporary/contrib/apt-pkg" ||
 ln -s "$source_dir/apt-pkg/deb" "$temporary/deb/apt-pkg" ||
     fail "could not create deb include root"
 
-"$compiler" \
-    "-std=$cxx_standard" \
-    -fsyntax-only \
-    -arch "$arch" \
-    "-m$kind-version-min=$deployment" \
-    -isysroot "$sdk" \
-    -DAPT_PKG_EXPOSE_STRING_VIEW \
-    -Dsighandler_t=sig_t \
-    -I"$source_dir" \
-    -I"$temporary/contrib" \
-    -I"$temporary/deb" \
-    -Iapt-extra \
-    -I. \
-    -include apt.h \
-    "$adapter_source" || fail "adapter does not compile against APT ABI $major.$minor"
+status=0
+for source_file in "$@"; do
+    log_name=$(printf '%s' "$source_file" | tr '/ ' '__')
+    log_file="$temporary/$log_name.log"
+    "$compiler" \
+        "-std=$cxx_standard" \
+        -fsyntax-only \
+        -fobjc-arc \
+        -fobjc-call-cxx-cdtors \
+        -arch "$arch" \
+        "-m$kind-version-min=$deployment" \
+        -isysroot "$sdk" \
+        -DAPT_PKG_EXPOSE_STRING_VIEW \
+        -Dsighandler_t=sig_t \
+        -I"$source_dir" \
+        -I"$temporary/contrib" \
+        -I"$temporary/deb" \
+        -Iapt-extra \
+        -I. \
+        -I"$generated_dir" \
+        -isystem sysroot/usr/include \
+        -idirafter "$icu_include_dir" \
+        -idirafter icu/icuSources/common \
+        -idirafter icu/icuSources/i18n \
+        -Wno-deprecated-declarations \
+        -Wno-unknown-warning-option \
+        -include system.h \
+        -include apt.h \
+        "$source_file" >"$log_file" 2>&1
+    if [ "$?" -ne 0 ]; then
+        status=1
+        echo "[verify-apt-api][FAIL] $source_file" >&2
+        grep -m 8 -E 'error:|fatal error:' "$log_file" >&2 || tail -n 40 "$log_file" >&2
+    fi
+done
 
-echo "[verify-apt-api][ ok ] adapter accepts APT ABI $major.$minor at $commit ($cxx_standard)"
+[ "$status" -eq 0 ] || exit "$status"
+echo "[verify-apt-api][ ok ] $* accept APT ABI $major.$minor at $commit ($cxx_standard)"

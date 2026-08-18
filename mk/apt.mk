@@ -36,6 +36,24 @@ APT_DEB_INCLUDE_TARGET := $(APT_DEB_INCLUDE_DIR)/apt-pkg
 APT_AUDIT_SOURCE_DIR ?= $(APT_SOURCE_DIR)
 APT_AUDIT_CXX_STANDARD ?= $(APT_SOURCE_CXX_STANDARD)
 
+# Translation units that directly or transitively consume libapt-pkg.  Keep
+# this list explicit: an APT update must review every Cydia-facing API use,
+# even when the source file itself does not include an apt-pkg header.
+apt_api_sources := \
+    Cydia/Application+Operations.mm \
+    Cydia/AptCompatibility.cpp \
+    Cydia/ConfirmationController.mm \
+    Cydia/Database.mm \
+    Cydia/DatabaseStatus.mm \
+    Cydia/Package+Metadata.mm \
+    Cydia/Package+Operations.mm \
+    Cydia/Package.mm \
+    Cydia/ProgressController.mm \
+    Cydia/ProgressEvent.mm \
+    Cydia/Relations.mm \
+    Cydia/Source.mm \
+    MobileCydia.mm
+
 apt_core_sources := \
     acquire-item.cc \
     acquire-method.cc \
