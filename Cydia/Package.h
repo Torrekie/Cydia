@@ -52,7 +52,7 @@ struct ParsedPackage {
 
     CYPool *pool_;
     uint32_t rank_;
-    _transient Database *database_;
+    __weak Database *database_;
 
     pkgCache::VerIterator version_;
     pkgCache::PkgIterator iterator_;
@@ -66,7 +66,7 @@ struct ParsedPackage {
     time_t upgraded_;
 
     const char *section_;
-    _transient NSString *section$_;
+    __strong NSString *section$_;
     _H<Source> source_;
     PackageValue *metadata_;
     ParsedPackage *parsed_;

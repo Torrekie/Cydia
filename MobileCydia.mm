@@ -431,10 +431,10 @@ static CGColorSpaceRef space_;
 
 NSDictionary *SectionMap_;
 _H<NSDate> Backgrounded_;
-_transient NSMutableDictionary *Values_;
+__strong NSMutableDictionary *Values_;
 NSMutableDictionary *Sections_;
 _H<NSMutableDictionary> Sources_;
-static _transient NSNumber *Version_;
+static __strong NSNumber *Version_;
 time_t now_;
 
 _H<NSMutableDictionary> SessionData_;

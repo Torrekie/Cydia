@@ -75,7 +75,7 @@ class CydiaStatus :
     public CancelStatus
 {
   private:
-    _transient NSObject<ProgressDelegate> *delegate_;
+    __weak NSObject<ProgressDelegate> *delegate_;
 
   public:
     CydiaStatus();
@@ -93,8 +93,8 @@ class SourceStatus :
     public CancelStatus
 {
   private:
-    _transient NSObject<FetchDelegate> *delegate_;
-    _transient Database *database_;
+    __weak NSObject<FetchDelegate> *delegate_;
+    __weak Database *database_;
     std::set<std::string> fetches_;
 
   public:
@@ -133,8 +133,8 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 
     _H<NSArray> packages_;
 
-    _transient NSObject<DatabaseDelegate> *delegate_;
-    _transient NSObject<ProgressDelegate> *progress_;
+    __weak NSObject<DatabaseDelegate> *delegate_;
+    __weak NSObject<ProgressDelegate> *progress_;
 
     CydiaStatus status_;
 
