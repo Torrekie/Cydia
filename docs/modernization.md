@@ -24,7 +24,8 @@ graph but are not forced into the app-owned module-size policy.
 
 The embedded APT gitlink, ABI, licenses, and reviewed source groups are recorded
 in `mk/apt.mk`. The update and backend-boundary policy is documented in
-`docs/apt-dpkg-compatibility.md`.
+`docs/apt-dpkg-compatibility.md`; current canary blockers and migration order
+are tracked in `docs/apt-dpkg-canary.md`.
 
 ## Compatibility contract
 

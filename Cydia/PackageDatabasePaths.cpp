@@ -89,8 +89,7 @@ PackageDatabasePaths PackageDatabasePaths::Detect() {
      * are present.  A rootless device may also retain a system/rootful dpkg
      * database, so database presence alone must not force the historical
      * layout in that case. */
-    if (HasPackageDatabase(kRootlessLayout) &&
-        (Exists(kRootlessLayout.cydo) || !HasPackageDatabase(kRootfulLayout)))
+    if (HasPackageDatabase(kRootlessLayout) && Exists(kRootlessLayout.cydo))
         return ForLayout(PackageDatabaseLayout::Rootless);
     return ForLayout(PackageDatabaseLayout::Rootful);
 }
