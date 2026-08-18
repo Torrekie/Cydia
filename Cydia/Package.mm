@@ -1,5 +1,6 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/DatabaseApt.h"
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Profile.hpp"

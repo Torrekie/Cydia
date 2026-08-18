@@ -11,6 +11,7 @@
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/DatabaseApt.h"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
 #include "Cydia/PackageDatabasePaths.hpp"
