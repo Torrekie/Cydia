@@ -27,10 +27,10 @@ static NSString *kCydiaProgressEventTypeWarning = @"Warning";
     return event;
 }
 
-+ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItemDesc:(pkgAcquire::ItemDesc &)desc {
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItem:(const CydiaAPT::AcquireItemData &)item {
     CydiaProgressEvent *event([self eventWithMessage:message ofType:type]);
 
-    NSString *description([NSString stringWithUTF8String:desc.Description.c_str()]);
+    NSString *description([NSString stringWithUTF8String:item.description.c_str()]);
     NSArray *fields([description componentsSeparatedByString:@" "]);
     [event setItem:fields];
 
@@ -39,7 +39,7 @@ static NSString *kCydiaProgressEventTypeWarning = @"Warning";
         [event setVersion:[fields objectAtIndex:3]];
     }
 
-    [event setURL:[NSString stringWithUTF8String:desc.URI.c_str()]];
+    [event setURL:[NSString stringWithUTF8String:item.uri.c_str()]];
 
     return event;
 }

@@ -2,6 +2,8 @@
 
 shopt -s extglob nullglob
 
+. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+
 if [[ ${1:0:1} == - ]]; then
     v=$1
     shift 1
@@ -22,10 +24,10 @@ function mv_() {
 
     if [[ ! -e /var/stash ]]; then
         mkdir -p /var/db/stash
-        /usr/libexec/cydia/setnsfpn /var/db/stash
+        "${CYDIA_LIBEXEC}/setnsfpn" /var/db/stash
         ln -s -t /var /var/db/stash
     elif [[ -d /var/stash ]]; then
-        /usr/libexec/cydia/setnsfpn /var/stash
+        "${CYDIA_LIBEXEC}/setnsfpn" /var/stash
     fi
 
     tmp=$(mktemp -d /var/stash/_.XXXXXX)
@@ -64,7 +66,7 @@ function shift_() {
     dir=${1%/}
 
     if [[ -d ${dir} && ! -h ${dir} ]]; then
-        used=$(/usr/libexec/cydia/du -bs "${dir}")
+        used=$("${CYDIA_BIN}/du" -bs "${dir}")
         used=${used%%$'\t'*}
         free=$(df_ /var)
 

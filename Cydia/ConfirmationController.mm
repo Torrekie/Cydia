@@ -30,30 +30,9 @@
 #include "CyteKit/webScriptObjectInContext.h"
 #include "iPhonePrivate.h"
 
-#include <apt-pkg/cachefile.h>
-#include <apt-pkg/depcache.h>
-#include <apt-pkg/policy.h>
-
 #include <cstring>
 
 #define AlwaysReload 0
-
-static bool DepSubstrate(const pkgCache::VerIterator &iterator) {
-    if (!iterator.end())
-        for (pkgCache::DepIterator dep(iterator.DependsList()); !dep.end(); ++dep) {
-            if (dep->Type != pkgCache::Dep::Depends && dep->Type != pkgCache::Dep::PreDepends)
-                continue;
-            pkgCache::PkgIterator package(dep.TargetPkg());
-            if (package.end())
-                continue;
-            if (strcmp(package.Name(), "mobilesubstrate") == 0 ||
-                strcmp(package.Name(), "com.ex.substitute") == 0)
-                return true;
-        }
-
-    return false;
-}
-
 
 @implementation ConfirmationController
 
@@ -113,138 +92,50 @@ static bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         NSMutableArray *downgrades([NSMutableArray arrayWithCapacity:16]);
         NSMutableArray *removes([NSMutableArray arrayWithCapacity:16]);
 
-        bool remove(false);
+        const CydiaAPT::TransactionData transaction([database_ transactionData]);
+        for (std::vector<std::string>::const_iterator value(transaction.installs.begin()); value != transaction.installs.end(); ++value)
+            [installs addObject:[NSString stringWithUTF8String:value->c_str()]];
+        for (std::vector<std::string>::const_iterator value(transaction.reinstalls.begin()); value != transaction.reinstalls.end(); ++value)
+            [reinstalls addObject:[NSString stringWithUTF8String:value->c_str()]];
+        for (std::vector<std::string>::const_iterator value(transaction.upgrades.begin()); value != transaction.upgrades.end(); ++value)
+            [upgrades addObject:[NSString stringWithUTF8String:value->c_str()]];
+        for (std::vector<std::string>::const_iterator value(transaction.downgrades.begin()); value != transaction.downgrades.end(); ++value)
+            [downgrades addObject:[NSString stringWithUTF8String:value->c_str()]];
+        for (std::vector<std::string>::const_iterator value(transaction.removes.begin()); value != transaction.removes.end(); ++value)
+            [removes addObject:[NSString stringWithUTF8String:value->c_str()]];
 
-        pkgCacheFile &cache([database_ cache]);
-        NSArray *packages([database_ packages]);
-#ifdef __arm__
-        pkgDepCache::Policy *policy([database_ policy]);
-#endif
-
-        issues_ = [NSMutableArray arrayWithCapacity:4];
-
-        for (Package *package in packages) {
-            pkgCache::PkgIterator iterator([package iterator]);
-            NSString *name([package id]);
-
-            if ([package broken]) {
-                NSMutableArray *reasons([NSMutableArray arrayWithCapacity:4]);
-
-                [issues_ addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                    name, @"package",
-                    reasons, @"reasons",
-                nil]];
-
-                pkgCache::VerIterator ver(cache[iterator].InstVerIter(cache));
-                if (ver.end())
-                    continue;
-
-                for (pkgCache::DepIterator dep(ver.DependsList()); !dep.end(); ) {
-                    pkgCache::DepIterator start;
-                    pkgCache::DepIterator end;
-                    dep.GlobOr(start, end); // ++dep
-
-                    if (!cache->IsImportantDep(end))
-                        continue;
-                    if ((cache[end] & pkgDepCache::DepGInstall) != 0)
-                        continue;
-
-                    NSMutableArray *clauses([NSMutableArray arrayWithCapacity:4]);
-
-                    [reasons addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                        [NSString stringWithUTF8String:start.DepType()], @"relationship",
-                        clauses, @"clauses",
+        issues_ = [NSMutableArray arrayWithCapacity:transaction.issues.size()];
+        for (std::vector<CydiaAPT::TransactionIssueData>::const_iterator issue(transaction.issues.begin()); issue != transaction.issues.end(); ++issue) {
+            NSMutableArray *reasons([NSMutableArray arrayWithCapacity:issue->reasons.size()]);
+            for (std::vector<CydiaAPT::TransactionReasonData>::const_iterator reason(issue->reasons.begin()); reason != issue->reasons.end(); ++reason) {
+                NSMutableArray *clauses([NSMutableArray arrayWithCapacity:reason->clauses.size()]);
+                for (std::vector<CydiaAPT::TransactionClauseData>::const_iterator clause(reason->clauses.begin()); clause != reason->clauses.end(); ++clause) {
+                    NSDictionary *version(clause->version.empty() ? (NSDictionary *) [NSNull null] : (NSDictionary *) [NSDictionary dictionaryWithObjectsAndKeys:
+                        [NSString stringWithUTF8String:clause->comparison.c_str()], @"operator",
+                        [NSString stringWithUTF8String:clause->version.c_str()], @"value",
+                    nil]);
+                    NSString *installed(clause->installed.empty() ? (NSString *) [WebUndefined undefined] : [NSString stringWithUTF8String:clause->installed.c_str()]);
+                    [clauses addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                        [NSString stringWithUTF8String:clause->package.c_str()], @"package",
+                        version, @"version",
+                        [NSString stringWithUTF8String:clause->reason.c_str()], @"reason",
+                        installed, @"installed",
                     nil]];
-
-                    _forever {
-                        NSString *reason, *installed((NSString *) [WebUndefined undefined]);
-
-                        pkgCache::PkgIterator target(start.TargetPkg());
-                        if (target->ProvidesList != 0)
-                            reason = @"missing";
-                        else {
-                            pkgCache::VerIterator ver(cache[target].InstVerIter(cache));
-                            if (!ver.end()) {
-                                reason = @"installed";
-                                installed = [NSString stringWithUTF8String:ver.VerStr()];
-                            } else if (!cache[target].CandidateVerIter(cache).end())
-                                reason = @"uninstalled";
-                            else if (target->ProvidesList == 0)
-                                reason = @"uninstallable";
-                            else
-                                reason = @"virtual";
-                        }
-
-                        NSDictionary *version(start.TargetVer() == 0 ? (NSDictionary *) [NSNull null] : [NSDictionary dictionaryWithObjectsAndKeys:
-                            [NSString stringWithUTF8String:start.CompType()], @"operator",
-                            [NSString stringWithUTF8String:start.TargetVer()], @"value",
-                        nil]);
-
-                        [clauses addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                            [NSString stringWithUTF8String:start.TargetPkg().Name()], @"package",
-                            version, @"version",
-                            reason, @"reason",
-                            installed, @"installed",
-                        nil]];
-
-                        // yes, seriously. (wtf?)
-                        if (start == end)
-                            break;
-                        ++start;
-                    }
                 }
-            }
-
-            pkgDepCache::StateCache &state(cache[iterator]);
-
-            static RegEx special_r("(firmware|gsc\\..*|cy\\+.*)");
-
-            if (state.NewInstall())
-                [installs addObject:name];
-            // XXX: else if (state.Install())
-            else if (!state.Delete() && (state.iFlags & pkgDepCache::ReInstall) == pkgDepCache::ReInstall)
-                [reinstalls addObject:name];
-            // XXX: move before previous if
-#ifndef __arm__
-            else if (state.Upgrade() || (state.Downgrade() && state.CandidateVerIter(cache) == cache.Policy->GetCandidateVer(iterator)))
-#else
-            else if (state.Upgrade())
-#endif
-                [upgrades addObject:name];
-            else if (state.Downgrade())
-                [downgrades addObject:name];
-            else if (!state.Delete())
-                // XXX: _assert(state.Keep());
-                continue;
-            else if (special_r(name))
-                [issues_ addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                    [NSNull null], @"package",
-                    [NSArray arrayWithObjects:
-                        [NSDictionary dictionaryWithObjectsAndKeys:
-                            @"Conflicts", @"relationship",
-                            [NSArray arrayWithObjects:
-                                [NSDictionary dictionaryWithObjectsAndKeys:
-                                    name, @"package",
-                                    [NSNull null], @"version",
-                                    @"installed", @"reason",
-                                nil],
-                            nil], @"clauses",
-                        nil],
-                    nil], @"reasons",
+                [reasons addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                    [NSString stringWithUTF8String:reason->relationship.c_str()], @"relationship",
+                    clauses, @"clauses",
                 nil]];
-            else {
-                if ([package essential])
-                    remove = true;
-                [removes addObject:name];
             }
-
-#ifndef __arm__
-            substrate_ |= DepSubstrate(cache->GetCandidateVersion(iterator));
-#else
-            substrate_ |= DepSubstrate(policy->GetCandidateVer(iterator));
-#endif
-            substrate_ |= DepSubstrate(iterator.CurrentVer());
+            id package(issue->package.empty() ? (id) [NSNull null] : (id) [NSString stringWithUTF8String:issue->package.c_str()]);
+            [issues_ addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                package, @"package",
+                reasons, @"reasons",
+            nil]];
         }
+
+        const bool remove(transaction.removesEssential);
+        substrate_ = transaction.substrate;
 
         if (!remove)
             essential_ = nil;
@@ -284,8 +175,8 @@ static bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         nil];
 
         sizes_ = [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSNumber numberWithInteger:[database_ fetcher].FetchNeeded()], @"downloading",
-            [NSNumber numberWithInteger:[database_ fetcher].PartialPresent()], @"resuming",
+            [NSNumber numberWithUnsignedLongLong:transaction.downloading], @"downloading",
+            [NSNumber numberWithUnsignedLongLong:transaction.resuming], @"resuming",
         nil];
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/confirm/", UI_]]];

@@ -81,8 +81,7 @@
 - (void) performUpdate {
     @autoreleasepool {
 
-    SourceStatus status(self, database_);
-    [database_ updateWithStatus:status];
+    [database_ updateWithFetchDelegate:self];
 
     [self
         performSelectorOnMainThread:@selector(completeUpdate)

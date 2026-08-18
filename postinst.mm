@@ -1,7 +1,12 @@
 #include "CyteKit/UCPlatform.h"
+#include "Cydia/DpkgRunner.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 
 #include <dirent.h>
+#include <Foundation/Foundation.h>
 #include <strings.h>
+
+#include <string>
 
 #include <sys/stat.h>
 #include <sys/sysctl.h>
@@ -56,7 +61,92 @@ void UICache() {
 }
 
 static bool setnsfpn(const char *path) {
-    return system([[NSString stringWithFormat:@"/usr/libexec/cydia/setnsfpn %s", path] UTF8String]) == 0;
+    if (path == NULL)
+        return false;
+
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    const std::string helper(paths.CydiaHelperPath("setnsfpn"));
+    if (helper.empty())
+        return false;
+
+    CydiaRuntime::Dpkg::Runner runner(helper);
+    return runner.Run({path}).succeeded();
+}
+
+static bool RemoveItem(const char *path) {
+    if (path == NULL)
+        return false;
+    NSString *item([NSString stringWithUTF8String:path]);
+    if (item == nil)
+        return false;
+    NSFileManager *manager([NSFileManager defaultManager]);
+    if (![manager fileExistsAtPath:item])
+        return true;
+    return [manager removeItemAtPath:item error:NULL];
+}
+
+static bool CopyItem(const char *source, const char *destination) {
+    if (source == NULL || destination == NULL)
+        return false;
+    NSString *from([NSString stringWithUTF8String:source]);
+    NSString *to([NSString stringWithUTF8String:destination]);
+    return from != nil && to != nil &&
+        [[NSFileManager defaultManager] copyItemAtPath:from toPath:to error:NULL];
+}
+
+static bool MoveItem(const char *source, const char *destination) {
+    if (source == NULL || destination == NULL)
+        return false;
+    NSString *from([NSString stringWithUTF8String:source]);
+    NSString *to([NSString stringWithUTF8String:destination]);
+    return from != nil && to != nil &&
+        [[NSFileManager defaultManager] moveItemAtPath:from toPath:to error:NULL];
+}
+
+static bool MoveDirectoryContents(const char *source, const char *destination) {
+    if (source == NULL || destination == NULL)
+        return false;
+
+    DIR *directory(opendir(source));
+    if (directory == NULL)
+        return false;
+
+    bool success(true);
+    while (dirent *entry = readdir(directory)) {
+        const char *name(entry->d_name);
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+            continue;
+
+        std::string from(source);
+        from += '/';
+        from += name;
+        std::string to(destination);
+        to += '/';
+        to += name;
+        if (rename(from.c_str(), to.c_str()) == -1) {
+            success = false;
+            break;
+        }
+    }
+
+    closedir(directory);
+    return success;
+}
+
+static void ChownTree(const char *path, uid_t uid, gid_t gid) {
+    if (path == NULL)
+        return;
+
+    NSString *root([NSString stringWithUTF8String:path]);
+    if (root == nil)
+        return;
+
+    chown(path, uid, gid);
+    NSDirectoryEnumerator *entries([[NSFileManager defaultManager] enumeratorAtPath:root]);
+    for (NSString *relative in entries) {
+        NSString *item([root stringByAppendingPathComponent:relative]);
+        chown([item fileSystemRepresentation], uid, gid);
+    }
 }
 
 enum StashStatus {
@@ -66,6 +156,10 @@ enum StashStatus {
 };
 
 static StashStatus MoveStash() {
+    if (CydiaRuntime::PackageDatabasePaths::Current().layout() ==
+        CydiaRuntime::PackageDatabaseLayout::Rootless)
+        return StashGood;
+
     struct stat stat;
 
     if (lstat("/var/stash", &stat) == -1)
@@ -87,7 +181,7 @@ static StashStatus MoveStash() {
     else {
         if (!setnsfpn("/var/db/stash"))
             return StashFail;
-        if (system("mv -t /var/stash /var/db/stash/*") != 0)
+        if (!MoveDirectoryContents("/var/db/stash", "/var/stash"))
             return StashFail;
         if (rmdir("/var/db/stash") == -1)
             return StashFail;
@@ -108,10 +202,10 @@ static StashStatus MoveStash() {
 }
 
 static bool FixProtections() {
-    const char *path("/var/lib");
-    mkdir(path, 0755);
-    if (!setnsfpn(path)) {
-        fprintf(stderr, "failed to setnsfpn %s\n", path);
+    const std::string &path(CydiaRuntime::PackageDatabasePaths::Current().PackageLibraryDirectory());
+    mkdir(path.c_str(), 0755);
+    if (!setnsfpn(path.c_str())) {
+        fprintf(stderr, "failed to setnsfpn %s\n", path.c_str());
         return false;
     }
 
@@ -239,9 +333,10 @@ int main(int argc, const char *argv[]) {
         }
     }
 
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+
     #define OldCache_ "/var/root/Library/Caches/com.saurik.Cydia"
-    if (access(OldCache_, F_OK) == 0)
-        system("rm -rf " OldCache_);
+    RemoveItem(OldCache_);
 
     NSDictionary<NSFileAttributeKey, id> *attributes = @{
         NSFileOwnerAccountID: @501,
@@ -253,11 +348,13 @@ int main(int argc, const char *argv[]) {
                                                attributes:attributes
                                                     error:nil
     ];
-    if (access(NewCache_ "/lists", F_OK) != 0 && errno == ENOENT)
-        system("cp -at " NewCache_ " /var/lib/apt/lists");
-    system("chown -R 501.501 " NewCache_);
+    std::string newCacheLists(NewCache_);
+    newCacheLists += "/lists";
+    if (access(newCacheLists.c_str(), F_OK) != 0 && errno == ENOENT)
+        CopyItem(paths.AptListsDirectory().c_str(), newCacheLists.c_str());
+    ChownTree(NewCache_, 501, 501);
 
-    #define OldLibrary_ "/var/lib/cydia"
+    const std::string oldLibrary(paths.CydiaStateDirectory());
 
     #define NewLibrary_ "/var/mobile/Library/Cydia"
     [[NSFileManager defaultManager] createDirectoryAtPath:@NewLibrary_
@@ -268,8 +365,9 @@ int main(int argc, const char *argv[]) {
 
     #define Cytore_ "/metadata.cb0"
 
-    #define CYDIA_LIST "/etc/apt/sources.list.d/cydia.list"
-    unlink(CYDIA_LIST);
+    const std::string cydiaList(paths.CydiaSourcesListPath());
+    NSString *cydiaListPath([NSString stringWithUTF8String:cydiaList.c_str()]);
+    unlink(cydiaList.c_str());
     if (kCFCoreFoundationVersionNumber >= 1443) {
         [[NSString stringWithFormat:@
             "deb https://apt.bingner.com/ ./\n"
@@ -278,7 +376,7 @@ int main(int argc, const char *argv[]) {
             "deb http://apt.modmyi.com/ stable main\n"
             "deb https://repo.chariz.com/ ./\n"
             "deb https://repo.dynastic.co/ ./\n"
-	] writeToFile:@ CYDIA_LIST atomically:YES];
+	] writeToFile:cydiaListPath atomically:YES];
     } else {
         [[NSString stringWithFormat:@
             "deb http://apt.saurik.com/ ios/%.2f main\n"
@@ -288,15 +386,21 @@ int main(int argc, const char *argv[]) {
             "deb http://apt.modmyi.com/ stable main\n"
             "deb https://repo.chariz.com/ ./\n"
             "deb https://repo.dynastic.co/ ./\n"
-        , kCFCoreFoundationVersionNumber] writeToFile:@ CYDIA_LIST atomically:YES];
+        , kCFCoreFoundationVersionNumber] writeToFile:cydiaListPath atomically:YES];
     }
 
-    if (access(NewLibrary_ Cytore_, F_OK) != 0 && errno == ENOENT) {
-        if (access(NewCache_ Cytore_, F_OK) == 0)
-            system("mv -f " NewCache_ Cytore_ " " NewLibrary_);
-        else if (access(OldLibrary_ Cytore_, F_OK) == 0)
-            system("mv -f " OldLibrary_ Cytore_ " " NewLibrary_);
-        chown(NewLibrary_ Cytore_, 501, 501);
+    std::string newLibraryMetadata(NewLibrary_);
+    newLibraryMetadata += Cytore_;
+    std::string newCacheMetadata(NewCache_);
+    newCacheMetadata += Cytore_;
+    std::string oldLibraryMetadata(oldLibrary);
+    oldLibraryMetadata += Cytore_;
+    if (access(newLibraryMetadata.c_str(), F_OK) != 0 && errno == ENOENT) {
+        if (access(newCacheMetadata.c_str(), F_OK) == 0)
+            MoveItem(newCacheMetadata.c_str(), newLibraryMetadata.c_str());
+        else if (access(oldLibraryMetadata.c_str(), F_OK) == 0)
+            MoveItem(oldLibraryMetadata.c_str(), newLibraryMetadata.c_str());
+        chown(newLibraryMetadata.c_str(), 501, 501);
     }
 
     if (kCFCoreFoundationVersionNumber < 1349.56) {

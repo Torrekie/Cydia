@@ -1,13 +1,11 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/Source.h"
 #include "Cydia/Profile.hpp"
 #include "CyteKit/Localize.h"
 #include "iPhonePrivate.h"
 
 #include <unicode/uchar.h>
-
-#include <apt-pkg/pkgrecords.h>
-#include <apt-pkg/policy.h>
 
 #include <cctype>
 #include <cstring>
@@ -26,10 +24,9 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 - (NSArray *) downgrades {
     NSMutableArray *versions([NSMutableArray arrayWithCapacity:4]);
 
-    for (auto version(iterator_.VersionList()); !version.end(); ++version) {
-        if (version == version_)
-            continue;
-        Package *package([[Package allocWithZone:NULL] initWithVersion:version withZone:NULL inPool:NULL database:database_]);
+    std::vector<CydiaAPT::PackageHandle> handles([database_ packageDowngrades:handle_]);
+    for (std::vector<CydiaAPT::PackageHandle>::const_iterator handle(handles.begin()); handle != handles.end(); ++handle) {
+        Package *package([[Package allocWithZone:NULL] initWithHandle:*handle withZone:NULL inPool:NULL database:database_]);
         if ([package source] == nil)
             continue;
         [versions addObject:package];
@@ -40,11 +37,11 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (NSString *) section {
     if (section$_ == nil) {
-        if (section_ == NULL)
+        if (section_.empty())
             return nil;
 
         _profile(Package$section$mappedSectionForPointer)
-            section$_ = [database_ mappedSectionForPointer:section_];
+            section$_ = [database_ mappedSectionForPointer:section_.data()];
         _end
     } return section$_;
 }
@@ -69,24 +66,15 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (NSString *) uri {
     return nil;
-#if 0
-    pkgIndexFile *index;
-    pkgCache::PkgFileIterator file(file_.File());
-    if (![database_ list].FindIndex(file, index))
-        return nil;
-    return [NSString stringWithUTF8String:iterator_->Path];
-    //return [NSString stringWithUTF8String:file.Site()];
-    //return [NSString stringWithUTF8String:index->ArchiveURI(file.FileName()).c_str()];
-#endif
 }
 
 - (MIMEAddress *) maintainer {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    const std::string &maintainer(parser->Maintainer());
+    CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
+    const std::string &maintainer(record.maintainer);
     return maintainer.empty() ? nil : [MIMEAddress addressWithString:[NSString stringWithUTF8String:maintainer.c_str()]];
 } }
 
@@ -96,19 +84,19 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (size_t) size {
 @synchronized (database_) {
-    if ([database_ era] != era_ || version_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return 0;
 
-    return version_->InstalledSize;
+    return installedSize_;
 } }
 
 - (NSString *) longDescription {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    pkgRecords::Parser *parser = &[database_ records]->Lookup(file_);
-    NSString *description([NSString stringWithUTF8String:parser->LongDesc().c_str()]);
+    CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
+    NSString *description([NSString stringWithUTF8String:record.longDescription.c_str()]);
 
     NSArray *lines = [description componentsSeparatedByString:@"\n"];
     NSMutableArray *trimmed = [NSMutableArray arrayWithCapacity:([lines count] - 1)];
@@ -129,8 +117,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         return static_cast<NSString *>(parsed_->tagline_);
 
 @synchronized (database_) {
-    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
-    std::string value(parser.ShortDesc());
+    CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
+    std::string value(record.shortDescription);
     if (value.empty())
         return nil;
     if (value.size() > 200)
@@ -192,15 +180,15 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (BOOL) upgradableAndEssential:(BOOL)essential {
     _profile(Package$upgradableAndEssential)
-        pkgCache::VerIterator current(iterator_.CurrentVer());
-        if (current.end()) {
+        CydiaAPT::PackageStateData state([database_ packageState:handle_]);
+        if (!state.hasCurrent) {
             if (essential && essential_) {
-                return (strcmp(version_.Arch(), common_arch)==0);
+                return (selectedArchitecture_ == common_arch);
             } else {
                 return false;
             }
         } else {
-            return (version_ != current && [database_ cache][iterator_].Status != 0);
+            return state.upgradable;
         }
     _end
 }
@@ -210,7 +198,11 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (BOOL) broken {
-    return [database_ cache][iterator_].InstBroken();
+    @synchronized (database_) {
+        if ([database_ era] != era_ || !handle_.valid())
+            return NO;
+        return [database_ packageState:handle_].broken;
+    }
 }
 
 - (BOOL) unfiltered {
@@ -246,67 +238,32 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (BOOL) half {
-    unsigned char current(iterator_->CurrentState);
-    return current == pkgCache::State::HalfConfigured || current == pkgCache::State::HalfInstalled;
+    return [database_ packageState:handle_].half;
 }
 
 - (BOOL) halfConfigured {
-    return iterator_->CurrentState == pkgCache::State::HalfConfigured;
+    return [database_ packageState:handle_].halfConfigured;
 }
 
 - (BOOL) halfInstalled {
-    return iterator_->CurrentState == pkgCache::State::HalfInstalled;
+    return [database_ packageState:handle_].halfInstalled;
 }
 
 - (BOOL) hasMode {
 @synchronized (database_) {
-    if ([database_ era] != era_ || iterator_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return NO;
 
-    pkgDepCache::StateCache &state([database_ cache][iterator_]);
-    return state.Mode != pkgDepCache::ModeKeep;
+    return [database_ packageState:handle_].hasMode;
 } }
 
 - (NSString *) mode {
 @synchronized (database_) {
-    if ([database_ era] != era_ || iterator_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    pkgDepCache::StateCache &state([database_ cache][iterator_]);
-
-    switch (state.Mode) {
-        case pkgDepCache::ModeDelete:
-            if ((state.iFlags & pkgDepCache::Purge) != 0)
-                return @"PURGE";
-            else
-                return @"REMOVE";
-        case pkgDepCache::ModeKeep:
-            if ((state.iFlags & pkgDepCache::ReInstall) != 0)
-                return @"REINSTALL";
-            /*else if ((state.iFlags & pkgDepCache::AutoKept) != 0)
-                return nil;*/
-            else
-                return nil;
-        case pkgDepCache::ModeInstall:
-            /*if ((state.iFlags & pkgDepCache::ReInstall) != 0)
-                return @"REINSTALL";
-            else*/ switch (state.Status) {
-                case -1:
-#if CYDIA_APT_MODERN
-                    return [database_ cache].Policy->GetCandidateVer(iterator_)==state.CandidateVerIter([database_ cache])?@"UPGRADE":@"DOWNGRADE";
-#else
-                    return @"DOWNGRADE";
-#endif
-                case 0:
-                    return @"INSTALL";
-                case 1:
-                    return @"UPGRADE";
-                case 2:
-                    return @"NEW_INSTALL";
-                _nodefault
-            }
-        _nodefault
-    }
+    CydiaAPT::PackageStateData state([database_ packageState:handle_]);
+    return state.mode.empty() ? nil : [NSString stringWithUTF8String:state.mode.c_str()];
 } }
 
 - (NSString *) id {
@@ -355,10 +312,10 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 - (Source *) source {
     if (source_ == nil) {
         @synchronized (database_) {
-            if ([database_ era] != era_ || file_.end())
+            if ([database_ era] != era_ || !handle_.valid() || !hasSourceFile_)
                 source_ = (Source *) [NSNull null];
             else
-                source_ = [database_ getSource:file_.File()] ?: (Source *) [NSNull null];
+                source_ = [database_ sourceWithFileID:sourceFileID_] ?: (Source *) [NSNull null];
         }
     }
 

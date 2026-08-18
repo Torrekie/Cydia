@@ -1,12 +1,11 @@
 #ifndef Cydia_Relations_H
 #define Cydia_Relations_H
 
+#include "Cydia/AptCompatibility.hpp"
 #include "CyteKit/UCPlatform.h"
 #include "Menes/ObjectHandle.h"
 
 #include <Foundation/Foundation.h>
-
-#include <apt-pkg/pkgcache.h>
 
 @interface CydiaOperation : NSObject {
     _H<NSString> operator_;
@@ -24,7 +23,7 @@
     _H<CydiaOperation> version_;
 }
 
-- (id) initWithIterator:(pkgCache::DepIterator &)dep;
+- (id) initWithData:(const CydiaAPT::RelationClauseData &)data;
 - (NSString *) package;
 - (CydiaOperation *) version;
 
@@ -35,7 +34,7 @@
     _H<NSMutableArray> clauses_;
 }
 
-- (id) initWithIterator:(pkgCache::DepIterator &)dep;
+- (id) initWithData:(const CydiaAPT::RelationData &)data;
 - (NSString *) relationship;
 - (NSArray *) clauses;
 - (void) addClause:(CydiaClause *)clause;

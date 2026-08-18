@@ -14,7 +14,7 @@
 
 extern char **environ;
 
-namespace Cydia {
+namespace CydiaRuntime {
 namespace Dpkg {
 
 namespace {
@@ -79,10 +79,36 @@ const std::string &Runner::executable() const {
 }
 
 Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) const {
-    if (executable_.empty() || statusFd < -1)
+    return RunInternal(arguments, statusFd, NULL, NULL);
+}
+
+Result Runner::RunWithInput(const std::vector<std::string> &arguments,
+    const std::string &input,
+    int statusFd) const {
+    return RunInternal(arguments, statusFd, &input, NULL);
+}
+
+Result Runner::RunToFile(const std::vector<std::string> &arguments,
+                         const std::string &outputPath,
+                         int statusFd) const {
+    return RunInternal(arguments, statusFd, NULL, &outputPath);
+}
+
+Result Runner::RunInternal(const std::vector<std::string> &arguments,
+                           int statusFd,
+                           const std::string *input,
+                           const std::string *outputPath) const {
+    if (executable_.empty() || statusFd < -1 ||
+        (outputPath != NULL && outputPath->empty()) ||
+        (input != NULL && statusFd == STDIN_FILENO) ||
+        (outputPath != NULL && statusFd == STDOUT_FILENO))
         return launchFailure(EINVAL);
 
     if (statusFd >= 0 && fcntl(statusFd, F_GETFD) == -1)
+        return launchFailure(errno);
+
+    int inputPipe[2] = {-1, -1};
+    if (input != NULL && pipe(inputPipe) == -1)
         return launchFailure(errno);
 
     std::vector<std::string> storage;
@@ -108,13 +134,49 @@ Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) cons
      */
     posix_spawn_file_actions_t actions;
     int actionError = posix_spawn_file_actions_init(&actions);
-    if (actionError != 0)
+    if (actionError != 0) {
+        if (input != NULL) {
+            (void) close(inputPipe[0]);
+            (void) close(inputPipe[1]);
+        }
         return launchFailure(actionError);
+    }
 
     if (statusFd >= 0) {
         actionError = posix_spawn_file_actions_addinherit_np(&actions, statusFd);
         if (actionError != 0) {
             (void) posix_spawn_file_actions_destroy(&actions);
+            if (input != NULL) {
+                (void) close(inputPipe[0]);
+                (void) close(inputPipe[1]);
+            }
+            return launchFailure(actionError);
+        }
+    }
+
+    if (input != NULL) {
+        actionError = posix_spawn_file_actions_adddup2(&actions, inputPipe[0], STDIN_FILENO);
+        if (actionError == 0 && inputPipe[0] != STDIN_FILENO)
+            actionError = posix_spawn_file_actions_addclose(&actions, inputPipe[0]);
+        if (actionError != 0) {
+            (void) posix_spawn_file_actions_destroy(&actions);
+            (void) close(inputPipe[0]);
+            (void) close(inputPipe[1]);
+            return launchFailure(actionError);
+        }
+    }
+
+    if (outputPath != NULL) {
+        actionError = posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO,
+                                                       outputPath->c_str(),
+                                                       O_WRONLY | O_CREAT | O_TRUNC,
+                                                       0644);
+        if (actionError != 0) {
+            (void) posix_spawn_file_actions_destroy(&actions);
+            if (input != NULL) {
+                (void) close(inputPipe[0]);
+                (void) close(inputPipe[1]);
+            }
             return launchFailure(actionError);
         }
     }
@@ -122,8 +184,31 @@ Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) cons
     pid_t child;
     int spawnError = posix_spawn(&child, executable_.c_str(), &actions, NULL, argv.data(), environ);
     (void) posix_spawn_file_actions_destroy(&actions);
-    if (spawnError != 0)
+    if (spawnError != 0) {
+        if (input != NULL) {
+            (void) close(inputPipe[0]);
+            (void) close(inputPipe[1]);
+        }
         return launchFailure(spawnError);
+    }
+
+    int inputError = 0;
+    if (input != NULL) {
+        (void) close(inputPipe[0]);
+        size_t offset = 0;
+        while (offset != input->size()) {
+            ssize_t written = write(inputPipe[1], input->data() + offset, input->size() - offset);
+            if (written > 0) {
+                offset += static_cast<size_t>(written);
+                continue;
+            }
+            if (written == -1 && errno == EINTR)
+                continue;
+            inputError = written == -1 ? errno : EIO;
+            break;
+        }
+        (void) close(inputPipe[1]);
+    }
 
     int status;
     pid_t waited;
@@ -134,8 +219,10 @@ Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) cons
     if (waited == -1)
         return launchFailure(errno);
 
+    if (inputError != 0)
+        return launchFailure(inputError);
     return fromWaitStatus(status);
 }
 
 } // namespace Dpkg
-} // namespace Cydia
+} // namespace CydiaRuntime
