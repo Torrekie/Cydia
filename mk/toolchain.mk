@@ -36,9 +36,9 @@ link += -Wl,-dead_strip
 link += -Wl,-no_dead_strip_inits_and_terms
 
 iapt :=
-iapt += -Iapt64
-iapt += -Iapt64-contrib
-iapt += -Iapt64-deb
+iapt += -I$(APT_SOURCE_DIR)
+iapt += -I$(APT_CONTRIB_INCLUDE_DIR)
+iapt += -I$(APT_DEB_INCLUDE_DIR)
 iapt += -Iapt-extra
 iapt += -I$(GENERATED_DIR)/apt64
 
@@ -120,17 +120,12 @@ target += -m$(kind)-version-min=$(DEPLOYMENT_TARGET)
 
 apt64 := $(cycc) $(target) $(flag)
 apt64 += -include apt.h
+apt64 += -D'VERSION="$(APT_SOURCE_VERSION)"'
+apt64 += -D'PACKAGE_VERSION="$(APT_SOURCE_VERSION)"'
 apt64 += -Wno-deprecated-register
 apt64 += -Wno-unused-private-field
 apt64 += -Wno-unused-variable
 apt64 += -DNDEBUG
-
-eapt := -include apt.h
-apt64 += $(eapt)
-eapt += -D'VERSION="0.7.25.3"'
-eapt += -Wno-format
-eapt += -Wno-logical-op-parentheses
-iapt += $(eapt)
 
 cycc += $(target)
 plus += -std=c++11
