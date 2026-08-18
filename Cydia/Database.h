@@ -24,9 +24,8 @@
 
 namespace CydiaAPT {
 class AptBackend;
+class ProgressStatus;
 }
-
-class CydiaStatus;
 
 @protocol DatabaseDelegate
 - (void) repairWithSelector:(SEL)selector;
@@ -71,7 +70,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     __weak NSObject<DatabaseDelegate> *delegate_;
     __weak NSObject<ProgressDelegate> *progress_;
 
-    CydiaStatus *status_;
+    CydiaAPT::ProgressStatus *status_;
 
     int cydiafd_;
     int statusfd_;
