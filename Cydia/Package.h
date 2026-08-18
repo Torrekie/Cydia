@@ -18,6 +18,9 @@
 #include <cstddef>
 #include <ctime>
 
+// The supported apt64 input exposes the modern candidate/version APIs.
+#define CYDIA_APT_MODERN 1
+
 @class Database;
 
 extern const char *common_arch;

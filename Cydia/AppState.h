@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2015  Jay Freeman (saurik)
-*/
+ * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
+ * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ */
 
 /* GNU General Public License, Version 3 {{{ */
 /*
@@ -16,25 +17,30 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Cydia.  If not, see <http://www.gnu.org/licenses/>.
-**/
+ */
 /* }}} */
 
-#ifndef CyteKit_IndirectDelegate_H
-#define CyteKit_IndirectDelegate_H
+#ifndef Cydia_AppState_H
+#define Cydia_AppState_H
 
 #include "CyteKit/UCPlatform.h"
+#include "Menes/ObjectHandle.h"
 
 #include <Foundation/Foundation.h>
 
-@interface IndirectDelegate : NSObject {
-    volatile __weak id delegate_;
-}
+@class UIDevice;
 
-- (id) delegate;
-- (void) setDelegate:(id)delegate;
+/* Values initialized by the application bootstrap and consumed by web code. */
+extern NSString *Cydia_;
+extern const NSString *UI_;
+extern BOOL Advanced_;
+extern _H<NSString> UniqueID_;
+extern NSMutableDictionary *Values_;
+extern _H<NSMutableDictionary> SessionData_;
+extern _H<NSMutableSet> BridgedHosts_;
+extern _H<NSMutableSet> InsecureHosts_;
 
-- (id) initWithDelegate:(id)delegate;
+NSString *UniqueIdentifier(UIDevice *device = nil);
+NSString *VerifySource(NSString *href);
 
-@end
-
-#endif//CyteKit_IndirectDelegate_H
+#endif//Cydia_AppState_H

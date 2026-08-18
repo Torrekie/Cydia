@@ -66,7 +66,7 @@
 @end
 
 @implementation CyteViewController {
-    _transient id delegate_;
+    __weak id delegate_;
     BOOL loaded_;
     _H<UIColor> color_;
 }

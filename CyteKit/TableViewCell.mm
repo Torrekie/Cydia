@@ -27,7 +27,7 @@
 #include <Menes/ObjectHandle.h>
 
 @implementation CyteTableViewCellContentView {
-    _transient id<CyteTableViewCellDelegate> delegate_;
+    __weak id<CyteTableViewCellDelegate> delegate_;
 }
 
 - (id) initWithFrame:(CGRect)frame {
