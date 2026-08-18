@@ -38,6 +38,7 @@ class PackageDatabasePaths {
     const std::string &PackageLibraryDirectory() const;
     const std::string &CydiaLibexecDirectory() const;
     const std::string &CydiaApplicationPath() const;
+    std::string CydiaApplicationDirectory() const;
     const std::string &CydoPath() const;
     const std::string &DpkgBinaryPath() const;
 
