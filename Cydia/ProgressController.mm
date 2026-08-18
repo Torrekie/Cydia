@@ -23,6 +23,7 @@
 #include "Cydia/ProgressController.h"
 
 #include "Cydia/Database.h"
+#include "Cydia/PrivateServices.h"
 #include "CyteKit/Localize.h"
 #include "Menes/yieldToSelector.h"
 #include "iPhonePrivate.h"
@@ -32,7 +33,6 @@
 #include <apt-pkg/mmap.h>
 #include <apt-pkg/sha1.h>
 
-#include <dlfcn.h>
 #include <notify.h>
 #include <sys/reboot.h>
 
@@ -142,10 +142,7 @@ extern UIColor *whiteIfNotDark(bool white);
 
         case 4:
             _trace();
-            if (void (*SBReboot)(mach_port_t) = reinterpret_cast<void (*)(mach_port_t)>(dlsym(RTLD_DEFAULT, "SBReboot")))
-                SBReboot(SBSSpringBoardServerPort());
-            else
-                reboot2(RB_AUTOBOOT);
+            CydiaReboot(RB_AUTOBOOT);
         break;
     }
 

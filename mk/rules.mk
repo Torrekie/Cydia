@@ -39,6 +39,11 @@ $(OBJECT_DIR)/apt64/%.o: apt64/%.cc $(header) apt.h apt-extra/*.h
 	@echo "[cycc] $<"
 	@$(apt64) $(plus) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
 
+$(OBJECT_DIR)/apt64/methods/http.o: apt64/methods/http.cc $(header)
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(cycc) $(plus) -c -o $@ $< $(flag) $(http_flags) -Wno-format -include apt.h -Dmain=main_http
+
 $(OBJECT_DIR)/%.o: %.cc $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"

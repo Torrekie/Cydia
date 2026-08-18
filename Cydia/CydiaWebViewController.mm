@@ -25,6 +25,7 @@
 #include "Cydia/AppState.h"
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
+#include "Cydia/PrivateServices.h"
 #include "CyteKit/countByEnumeratingWithState.h"
 #include "CyteKit/extern.h"
 #include "CyteKit/Localize.h"
@@ -162,7 +163,8 @@
 
 - (NSDictionary *) getApplicationInfo:(NSString *)display value:(NSString *)key {
     char path[1024];
-    if (SBBundlePathForDisplayIdentifier(SBSSpringBoardServerPort(), [display UTF8String], path) != 0)
+    mach_port_t port(CydiaSpringBoardServerPort());
+    if (port == MACH_PORT_NULL || CydiaBundlePathForDisplayIdentifier(port, [display UTF8String], path) != 0)
         return (id) [NSNull null];
     NSDictionary *info([NSDictionary dictionaryWithContentsOfFile:[[NSString stringWithUTF8String:path] stringByAppendingString:@"/Info.plist"]]);
     if (info == nil)
@@ -171,11 +173,11 @@
 }
 
 - (NSArray *) getDisplayIdentifiers {
-    return SBSCopyApplicationDisplayIdentifiers(false, false);
+    return CydiaCopyApplicationDisplayIdentifiers(false, false);
 }
 
 - (NSString *) getLocalizedNameForDisplayIdentifier:(NSString *)identifier {
-    return SBSCopyLocalizedApplicationNameForDisplayIdentifier(identifier) ?: (id) [NSNull null];
+    return CydiaCopyLocalizedApplicationName(identifier) ?: (id) [NSNull null];
 }
 
 - (NSNumber *) getKernelNumber:(NSString *)name {

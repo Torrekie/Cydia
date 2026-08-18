@@ -22,7 +22,7 @@ extern _H<NSMutableDictionary> Sources_;
 
 @interface Source : NSObject {
     unsigned era_;
-    _transient Database *database_;
+    __weak Database *database_;
     metaIndex *index_;
 
     CYString depiction_;
@@ -47,7 +47,7 @@ extern _H<NSMutableDictionary> Sources_;
 
     std::set<std::string> fetches_;
     std::set<std::string> files_;
-    _transient NSObject<SourceDelegate> *delegate_;
+    __weak NSObject<SourceDelegate> *delegate_;
 }
 
 - (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(CYPool *)pool withAcquire:(pkgAcquire *)acquire;

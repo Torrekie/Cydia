@@ -141,7 +141,7 @@ CFComparisonResult StringNameCompare(CFStringRef lhn, CFStringRef rhn, size_t le
     _end
 }
 
-CFComparisonResult StringNameCompare(NSString *lhn, NSString*rhn, size_t length) {
+CFComparisonResult StringNameCompare(NSString *lhn, NSString *rhn, size_t length) {
     return StringNameCompare((__bridge CFStringRef) lhn, (__bridge CFStringRef) rhn, length);
 }
 

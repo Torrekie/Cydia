@@ -431,10 +431,10 @@ static CGColorSpaceRef space_;
 
 NSDictionary *SectionMap_;
 _H<NSDate> Backgrounded_;
-_transient NSMutableDictionary *Values_;
+__strong NSMutableDictionary *Values_;
 NSMutableDictionary *Sections_;
 _H<NSMutableDictionary> Sources_;
-static _transient NSNumber *Version_;
+static __strong NSNumber *Version_;
 time_t now_;
 
 _H<NSMutableDictionary> SessionData_;
@@ -760,7 +760,7 @@ int main_gzip(int, char *argv[]);
 
 int main_store(int, char *argv[]);
 
-int main_http();
+int main_http(int, const char *argv[]);
 
 int main(int argc, char *argv[]) {
     const char *argv0(argv[0]);
@@ -788,9 +788,9 @@ int main(int argc, char *argv[]) {
         return main_store(argc, argv);
 #endif
     else if (!strcmp(argv0, "http"))
-        return main_http();
+        return main_http(argc, const_cast<const char **>(argv));
     else if (!strcmp(argv0, "https"))
-        return main_http();
+        return main_http(argc, const_cast<const char **>(argv));
     else {}
 
     if ([WebPreferences respondsToSelector:@selector(setWebKitLinkTimeVersion:)])
