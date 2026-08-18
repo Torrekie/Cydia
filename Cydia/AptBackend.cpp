@@ -333,6 +333,11 @@ CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
     data.essential = (package->Flags & pkgCache::Flag::Essential) != 0;
     data.ignored = package->SelectedState == pkgCache::State::Hold;
     data.broken = state.InstBroken();
+    data.newInstall = state.NewInstall();
+    data.deletePackage = state.Delete();
+    data.reinstall = (state.iFlags & pkgDepCache::ReInstall) == pkgDepCache::ReInstall;
+    data.upgrade = state.Upgrade();
+    data.downgrade = state.Downgrade();
     data.hasMode = state.Mode != pkgDepCache::ModeKeep;
     data.half = package->CurrentState == pkgCache::State::HalfConfigured ||
         package->CurrentState == pkgCache::State::HalfInstalled;
@@ -398,6 +403,137 @@ std::vector<RelationData> AptBackend::relations(PackageHandle handle) {
         result.push_back(relation);
     }
     return result;
+}
+
+namespace {
+
+bool DependsOnSubstrate(pkgCache::VerIterator version) {
+    if (version.end())
+        return false;
+    for (pkgCache::DepIterator dependency(version.DependsList()); !dependency.end(); ++dependency) {
+        if (dependency->Type != pkgCache::Dep::Depends && dependency->Type != pkgCache::Dep::PreDepends)
+            continue;
+        pkgCache::PkgIterator package(dependency.TargetPkg());
+        if (!package.end() &&
+            (strcmp(package.Name(), "mobilesubstrate") == 0 ||
+             strcmp(package.Name(), "com.ex.substitute") == 0))
+            return true;
+    }
+    return false;
+}
+
+bool IsSpecialRemoval(const std::string &name) {
+    return name.compare(0, 8, "firmware") == 0 ||
+        name.compare(0, 4, "gsc.") == 0 ||
+        name.compare(0, 3, "cy+") == 0;
+}
+
+} // namespace
+
+TransactionData AptBackend::transactionData() {
+    TransactionData result;
+    if (static_cast<pkgDepCache *>(cache_) == NULL)
+        return result;
+
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    const std::vector<PackageHandle> handles(packageHandles());
+    for (std::vector<PackageHandle>::const_iterator handle(handles.begin()); handle != handles.end(); ++handle) {
+        PackageRegistry::Entry *entry(FindPackage(packages_.get(), *handle));
+        if (entry == NULL)
+            continue;
+
+        const std::string name(entry->package.Name());
+        const PackageStateData state(packageState(*handle));
+
+        if (state.broken) {
+            TransactionIssueData issue;
+            issue.package = name;
+
+            pkgCache::VerIterator installed(entry->package.CurrentVer());
+            for (pkgCache::DepIterator dependency(installed.end() ? pkgCache::DepIterator() : installed.DependsList()); !dependency.end(); ) {
+                pkgCache::DepIterator first;
+                pkgCache::DepIterator last;
+                dependency.GlobOr(first, last);
+                if (!cache.IsImportantDep(last) || (cache[last] & pkgDepCache::DepGInstall) != 0)
+                    continue;
+
+                TransactionReasonData reason;
+                reason.relationship = first.DepType();
+                for (;;) {
+                    TransactionClauseData clause;
+                    pkgCache::PkgIterator target(first.TargetPkg());
+                    clause.package = target.end() ? std::string() : target.Name();
+                    if (const char *required = first.TargetVer()) {
+                        clause.comparison = first.CompType();
+                        clause.version = required;
+                    }
+
+                    if (target.end() || target->ProvidesList != 0)
+                        clause.reason = "missing";
+                    else {
+                        pkgCache::VerIterator targetInstalled(target.CurrentVer());
+                        if (!targetInstalled.end()) {
+                            clause.reason = "installed";
+                            clause.installed = targetInstalled.VerStr();
+                        } else if (!cache[target].CandidateVerIter(cache).end())
+                            clause.reason = "uninstalled";
+                        else if (target->ProvidesList == 0)
+                            clause.reason = "uninstallable";
+                        else
+                            clause.reason = "virtual";
+                    }
+                    reason.clauses.push_back(clause);
+                    if (first == last)
+                        break;
+                    ++first;
+                }
+                issue.reasons.push_back(reason);
+            }
+            result.issues.push_back(issue);
+        }
+
+        if (state.newInstall)
+            result.installs.push_back(name);
+        else if (!state.deletePackage && state.reinstall)
+            result.reinstalls.push_back(name);
+        else if (state.upgrade || (state.downgrade && state.candidateMatchesVersion))
+            result.upgrades.push_back(name);
+        else if (state.downgrade)
+            result.downgrades.push_back(name);
+        else if (!state.deletePackage)
+            continue;
+        else if (IsSpecialRemoval(name)) {
+            TransactionIssueData issue;
+            TransactionReasonData reason;
+            TransactionClauseData clause;
+            issue.package.clear();
+            reason.relationship = "Conflicts";
+            clause.package = name;
+            clause.reason = "installed";
+            reason.clauses.push_back(clause);
+            issue.reasons.push_back(reason);
+            result.issues.push_back(issue);
+        } else {
+            result.removesEssential = result.removesEssential || state.essential;
+            result.removes.push_back(name);
+        }
+
+        result.substrate = result.substrate || DependsOnSubstrate(entry->version);
+        result.substrate = result.substrate || DependsOnSubstrate(entry->package.CurrentVer());
+    }
+
+    if (fetcher_ != NULL) {
+        result.downloading = fetcher_->FetchNeeded();
+        result.resuming = fetcher_->PartialPresent();
+    }
+    return result;
+}
+
+bool AptBackend::resolveDependencies() {
+    const bool success(resolver_ != NULL && ResolveDependencies(*resolver_));
+    if (!success)
+        _error->Discard();
+    return success;
 }
 
 bool AptBackend::clearPackage(PackageHandle handle) {

@@ -7,7 +7,6 @@
 #include "Cydia/MIMEAddress.h"
 #include "Cydia/PackageMetadata.hpp"
 #include "Cydia/Relations.h"
-#include "Cydia/Source.h"
 #include "Menes/ObjectHandle.h"
 
 #include <UIKit/UIKit.h>
@@ -16,6 +15,7 @@
 #include <ctime>
 
 @class Database;
+@class Source;
 
 extern const char *common_arch;
 extern NSString *App_;
