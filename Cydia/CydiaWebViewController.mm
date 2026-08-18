@@ -38,6 +38,7 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <sys/sysctl.h>
+#include <unistd.h>
 
 /* Web Scripting {{{ */
 @implementation CydiaObject
@@ -296,7 +297,20 @@
 - (NSNumber *) du:(NSString *)path {
     NSNumber *value(nil);
 
-    FILE *du(popen([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /usr/libexec/cydia/du -ks %@", ShellEscape(path)] UTF8String], "r"));
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    const std::string helper(paths.CydiaHelperPath("du"));
+    if (path == nil || helper.empty())
+        return nil;
+
+    char outputTemplate[] = "/tmp/cydia-du.XXXXXX";
+    int outputFD(mkstemp(outputTemplate));
+    if (outputFD == -1)
+        return nil;
+    close(outputFD);
+
+    CydiaRuntime::Dpkg::Runner runner(paths.CydoPath());
+    const CydiaRuntime::Dpkg::Result result(runner.RunToFile({helper, "-ks", [path UTF8String]}, outputTemplate));
+    FILE *du(result.succeeded() ? fopen(outputTemplate, "r") : NULL);
     if (du != NULL) {
         char line[1024];
         while (fgets(line, sizeof(line), du) != NULL) {
@@ -308,8 +322,10 @@
                 value = [NSNumber numberWithUnsignedLong:strtoul(line, NULL, 0)];
             }
         }
-        pclose(du);
+        fclose(du);
     }
+
+    unlink(outputTemplate);
 
     return value;
 }
