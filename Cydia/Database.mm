@@ -102,6 +102,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (bool) popErrorWithTitle:(NSString *)title;
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success;
 - (bool) popErrorWithTitle:(NSString *)title forReadList:(pkgSourceList &)list;
+- (void) updateWithStatus:(CancelStatus &)status;
 @end
 
 @implementation Database
@@ -827,6 +828,16 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (void) update {
     [self updateWithStatus:*status_];
+}
+
+- (void) updateWithFetchDelegate:(NSObject<FetchDelegate> *)fetchDelegate {
+    if (fetchDelegate == nil) {
+        [self updateWithStatus:*status_];
+        return;
+    }
+
+    SourceStatus status(fetchDelegate, self);
+    [self updateWithStatus:status];
 }
 
 - (void) updateWithStatus:(CancelStatus &)status {
