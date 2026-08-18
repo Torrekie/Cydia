@@ -1,7 +1,10 @@
 all: $(APP_BINARY)
 
 clean:
-	@case "$(BUILD_DIR)" in ""|/|.|..) echo "refusing unsafe BUILD_DIR: $(BUILD_DIR)" >&2; exit 2;; esac
+	@case "$(BUILD_DIR)" in \
+		""|/|.|..|/*|./*|../*|*/.|*/..|*/./*|*/../*|*/) \
+			echo "refusing unsafe BUILD_DIR: $(BUILD_DIR)" >&2; exit 2;; \
+	esac
 	rm -rf -- "$(BUILD_DIR)"
 
 $(OBJECT_DIR)/apt64/apt-pkg/tagfile.o: $(tagfile_keys_header)
