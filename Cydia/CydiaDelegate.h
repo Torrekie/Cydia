@@ -23,9 +23,11 @@
 - (void) installPackages:(NSArray *)packages;
 - (void) removePackage:(Package *)package;
 - (void) beginUpdate;
+- (void) cancelUpdate;
 - (BOOL) updating;
 - (bool) requestUpdate;
 - (void) distUpgrade;
+- (void) queue;
 - (void) loadData;
 - (void) updateData;
 - (void) _saveConfig;
