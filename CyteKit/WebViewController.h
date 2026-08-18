@@ -25,16 +25,13 @@
 #define PACKED_VERSION(major, minor, tiny) ((((major) & 0xffff) << 16) | (((minor) & 0xff) << 8) | ((tiny) & 0xff))
 
 #include "CyteKit/ViewController.h"
+#include "CyteKit/Diversion.h"
 #include "CyteKit/WebView.h"
 
 #include <UIKit/UIKit.h>
 #include <MessageUI/MessageUI.h>
 
 @class IndirectDelegate;
-
-@interface Diversion : NSObject
-- (id) initWithFrom:(NSString *)from to:(NSString *)to;
-@end
 
 @protocol CyteWebViewControllerDelegate
 - (void) retainNetworkActivityIndicator;

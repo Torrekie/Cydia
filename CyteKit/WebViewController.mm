@@ -4,6 +4,7 @@
 #include "CyteKit/Localize.h"
 #include "CyteKit/MFMailComposeViewController-MailToURL.h"
 #include "CyteKit/RegEx.hpp"
+#include "CyteKit/WebFrame+Cydia.h"
 #include "CyteKit/WebThreadLocked.hpp"
 #include "CyteKit/WebViewController.h"
 
@@ -14,7 +15,7 @@
 // XXX: fix the minimum requirement
 extern NSString * const kCAFilterNearest;
 
-#include <WebCore/WebCoreThread.h>
+#include "WebCore/WebCoreThread.h"
 
 #include <dlfcn.h>
 #include <objc/runtime.h>
@@ -36,138 +37,6 @@ JSValueRef (*$JSObjectCallAsFunction)(JSContextRef, JSObjectRef, JSObjectRef, si
 static Class $MFMailComposeViewController;
 
 float CYScrollViewDecelerationRateNormal;
-
-@interface WebFrame (Cydia)
-- (void) cydia$updateHeight;
-@end
-
-@implementation WebFrame (Cydia)
-
-- (NSString *) description {
-    return [NSString stringWithFormat:@"<%s: %p, %@>", class_getName([self class]), self, [[[([self provisionalDataSource] ?: [self dataSource]) request] URL] absoluteString]];
-}
-
-- (void) cydia$updateHeight {
-    [[[self frameElement] style]
-        setProperty:@"height"
-        value:[NSString stringWithFormat:@"%dpx",
-            [[[self DOMDocument] body] scrollHeight]]
-        priority:nil];
-}
-
-@end
-
-// Diversion {{{
-static _H<NSMutableSet> Diversions_;
-
-@implementation Diversion {
-    RegEx pattern_;
-    _H<NSString> key_;
-    _H<NSString> format_;
-}
-
-- (id) initWithFrom:(NSString *)from to:(NSString *)to {
-    if ((self = [super init]) != nil) {
-        pattern_ = [from UTF8String];
-        key_ = from;
-        format_ = to;
-    } return self;
-}
-
-- (NSString *) divert:(NSString *)url {
-    return !pattern_(url) ? nil : pattern_->*format_;
-}
-
-+ (NSURL *) divertURL:(NSURL *)url {
-  divert:
-    NSString *href([url absoluteString]);
-
-    for (Diversion *diversion in (id) Diversions_)
-        if (NSString *diverted = [diversion divert:href]) {
-#if !ForRelease
-            NSLog(@"div: %@", diverted);
-#endif
-            url = [NSURL URLWithString:diverted];
-            goto divert;
-        }
-
-    return url;
-}
-
-- (NSString *) key {
-    return key_;
-}
-
-- (NSUInteger) hash {
-    return [key_ hash];
-}
-
-- (BOOL) isEqual:(Diversion *)object {
-    return self == object || [self class] == [object class] && [key_ isEqual:[object key]];
-}
-
-@end
-// }}}
-/* Indirect Delegate {{{ */
-@implementation IndirectDelegate
-
-- (id) delegate {
-    return delegate_;
-}
-
-- (void) setDelegate:(id)delegate {
-    delegate_ = delegate;
-}
-
-- (id) initWithDelegate:(id)delegate {
-    delegate_ = delegate;
-    return self;
-}
-
-- (IMP) methodForSelector:(SEL)sel {
-    if (IMP method = [super methodForSelector:sel])
-        return method;
-    fprintf(stderr, "methodForSelector:[%s] == NULL\n", sel_getName(sel));
-    return NULL;
-}
-
-- (BOOL) respondsToSelector:(SEL)sel {
-    if ([super respondsToSelector:sel])
-        return YES;
-
-    // XXX: WebThreadCreateNSInvocation returns nil
-
-#if ShowInternals
-    fprintf(stderr, "[%s]R?%s\n", class_getName(object_getClass(self)), sel_getName(sel));
-#endif
-
-    return delegate_ == nil ? NO : [delegate_ respondsToSelector:sel];
-}
-
-- (NSMethodSignature *) methodSignatureForSelector:(SEL)sel {
-    if (NSMethodSignature *method = [super methodSignatureForSelector:sel])
-        return method;
-
-#if ShowInternals
-    fprintf(stderr, "[%s]S?%s\n", class_getName(object_getClass(self)), sel_getName(sel));
-#endif
-
-    if (delegate_ != nil)
-        if (NSMethodSignature *sig = [delegate_ methodSignatureForSelector:sel])
-            return sig;
-
-    // XXX: I fucking hate Apple so very very bad
-    return [NSMethodSignature signatureWithObjCTypes:"v@:"];
-}
-
-- (void) forwardInvocation:(NSInvocation *)inv {
-    SEL sel = [inv selector];
-    if (delegate_ != nil && [delegate_ respondsToSelector:sel])
-        [inv invokeWithTarget:delegate_];
-}
-
-@end
-/* }}} */
 
 @implementation CyteWebViewController {
     _H<CyteWebView, 1> webview_;
@@ -232,7 +101,7 @@ static _H<NSMutableSet> Diversions_;
     else // XXX: this actually might be fast on some older systems: we should look into this
         CYScrollViewDecelerationRateNormal = 0.998;
 
-    Diversions_ = [NSMutableSet setWithCapacity:0];
+    [Diversion initializeStore];
 }
 
 - (bool) retainsNetworkActivityIndicator {
@@ -271,7 +140,7 @@ static _H<NSMutableSet> Diversions_;
 }
 
 + (void) addDiversion:(Diversion *)diversion {
-    [Diversions_ addObject:diversion];
+    [Diversion addDiversion:diversion];
 }
 
 - (NSURL *) URLWithURL:(NSURL *)url {
@@ -1207,7 +1076,7 @@ static _H<NSString> UserAgent_;
         ($JSObjectCallAsFunction)(context, object, NULL, 0, NULL, NULL);
 
     // XXX: the JavaScript code submits a form, which seems to happen asynchronously
-    NSObject *target([CyteWebViewController class]);
+    Class target([CyteWebViewController class]);
     [NSObject cancelPreviousPerformRequestsWithTarget:target selector:@selector(_lockJavaScript:) object:preferences];
     [target performSelector:@selector(_lockJavaScript:) withObject:preferences afterDelay:1];
 }
@@ -1369,29 +1238,3 @@ static _H<NSString> UserAgent_;
 }
 
 @end
-
-MSClassHook(WAKWindow)
-
-static CGSize $WAKWindow$screenSize(WAKWindow *self, SEL _cmd) {
-    CGSize size([[UIScreen mainScreen] bounds].size);
-    /*if ([$WAKWindow respondsToSelector:@selector(hasLandscapeOrientation)])
-        if ([$WAKWindow hasLandscapeOrientation])
-            std::swap(size.width, size.height);*/
-    return size;
-}
-
-static struct WAKWindow$screenSize { WAKWindow$screenSize() {
-    if ($WAKWindow != NULL)
-        if (Method method = class_getInstanceMethod($WAKWindow, @selector(screenSize)))
-            method_setImplementation(method, (IMP) &$WAKWindow$screenSize);
-} } WAKWindow$screenSize;;
-
-MSClassHook(NSUserDefaults)
-
-MSHook(id, NSUserDefaults$objectForKey$, NSUserDefaults *self, SEL _cmd, NSString *key) {
-    if ([key respondsToSelector:@selector(isEqualToString:)] && [key isEqualToString:@"WebKitLocalStorageDatabasePathPreferenceKey"])
-        return [NSString stringWithFormat:@"%@/%@/%@", NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject, NSBundle.mainBundle.bundleIdentifier, @"LocalStorage"];
-    return _NSUserDefaults$objectForKey$(self, _cmd, key);
-}
-
-CYHook(NSUserDefaults, objectForKey$, objectForKey:)

@@ -22,6 +22,8 @@
 #ifndef CyteKit_IndirectDelegate_H
 #define CyteKit_IndirectDelegate_H
 
+#include "CyteKit/UCPlatform.h"
+
 #include <Foundation/Foundation.h>
 
 @interface IndirectDelegate : NSObject {
