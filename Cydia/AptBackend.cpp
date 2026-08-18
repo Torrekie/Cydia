@@ -7,6 +7,7 @@
 #include <apt-pkg/policy.h>
 
 #include <cstring>
+#include <limits>
 
 namespace {
 
@@ -73,7 +74,59 @@ class ParserView {
 
 namespace CydiaAPT {
 
+class PackageRegistry {
+  public:
+    struct Entry {
+        pkgCache::PkgIterator package;
+        pkgCache::VerIterator version;
+        pkgCache::VerFileIterator file;
+
+        Entry(pkgCache::PkgIterator package, pkgCache::VerIterator version) :
+            package(package),
+            version(version),
+            file(version.FileList())
+        {
+        }
+    };
+
+    std::vector<Entry> entries;
+    std::map<std::string, PackageHandle> handles;
+};
+
 namespace {
+
+std::string RegistryKey(pkgCache::PkgIterator package, pkgCache::VerIterator version) {
+    std::string key(package.Name());
+    key.push_back('\n');
+    key.append(version.Arch());
+    key.push_back('\n');
+    key.append(version.VerStr());
+    return key;
+}
+
+PackageHandle RegisterPackage(PackageRegistry &registry, pkgCache::PkgIterator package,
+                              pkgCache::VerIterator version) {
+    if (package.end() || version.end())
+        return PackageHandle();
+
+    const std::string key(RegistryKey(package, version));
+    std::map<std::string, PackageHandle>::const_iterator found(registry.handles.find(key));
+    if (found != registry.handles.end())
+        return found->second;
+
+    if (registry.entries.size() >= std::numeric_limits<std::uint32_t>::max())
+        return PackageHandle();
+    registry.entries.push_back(PackageRegistry::Entry(package, version));
+    PackageHandle handle(static_cast<std::uint32_t>(registry.entries.size()));
+    registry.handles[key] = handle;
+    return handle;
+}
+
+PackageRegistry::Entry *FindPackage(PackageRegistry *registry, PackageHandle handle) {
+    if (registry == NULL || !handle.valid() || handle.value > registry->entries.size())
+        return NULL;
+    return &registry->entries[handle.value - 1];
+}
 
 const char *CurrentStateName(unsigned char state) {
     switch (state) {
@@ -109,7 +162,8 @@ AptBackend::AptBackend(pkgAcquireStatus &status) :
     resolver_(NULL),
     fetcher_(NULL),
     lock_(NULL),
-    list_(NULL)
+    list_(NULL),
+    packages_(new PackageRegistry())
 {
 }
 
@@ -118,6 +172,7 @@ AptBackend::~AptBackend() {
 }
 
 void AptBackend::reset() {
+    packages_.reset(new PackageRegistry());
     delete list_;
     list_ = NULL;
     manager_.reset();
@@ -135,6 +190,7 @@ void AptBackend::reset() {
 }
 
 void AptBackend::createCacheViews() {
+    packages_.reset(new PackageRegistry());
     delete resolver_;
     resolver_ = NULL;
     delete records_;
@@ -147,14 +203,61 @@ void AptBackend::createCacheViews() {
     resolver_ = new pkgProblemResolver(cache_);
 }
 
-CydiaAPT::PackageRecordData AptBackend::recordData(const void *verFileIterator) {
+std::vector<PackageHandle> AptBackend::packageHandles() {
+    std::vector<PackageHandle> handles;
+    if (static_cast<pkgDepCache *>(cache_) == NULL)
+        return handles;
+
+    PackageRegistry &registry(*packages_);
+    for (pkgCache::PkgIterator package(cache_->PkgBegin()); !package.end(); ++package) {
+        pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
+        PackageHandle handle(RegisterPackage(registry, package, version));
+        if (handle.valid())
+            handles.push_back(handle);
+    }
+    return handles;
+}
+
+PackageHandle AptBackend::packageHandle(const std::string &name, const std::string &preferredArchitecture) {
+    if (name.empty() || static_cast<pkgDepCache *>(cache_) == NULL)
+        return PackageHandle();
+
+    pkgCache::PkgIterator package;
+    if (!preferredArchitecture.empty())
+        package = cache_->FindPkg(name, preferredArchitecture);
+    if (package.end())
+        package = cache_->FindPkg(name, "any");
+    if (package.end())
+        package = cache_->FindPkg(name);
+    if (package.end())
+        return PackageHandle();
+
+    return RegisterPackage(*packages_, package, cache_->GetCandidateVersion(package));
+}
+
+std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
+    std::vector<PackageHandle> handles;
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL)
+        return handles;
+
+    for (pkgCache::VerIterator version(entry->package.VersionList()); !version.end(); ++version) {
+        if (version == entry->version)
+            continue;
+        PackageHandle other(RegisterPackage(*packages_, entry->package, version));
+        if (other.valid())
+            handles.push_back(other);
+    }
+    return handles;
+}
+
+CydiaAPT::PackageRecordData AptBackend::recordData(PackageHandle handle) {
     CydiaAPT::PackageRecordData data;
-    if (records_ == NULL || verFileIterator == NULL)
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (records_ == NULL || entry == NULL || entry->file.end())
         return data;
 
-    const pkgCache::VerFileIterator &file(
-        *static_cast<const pkgCache::VerFileIterator *>(verFileIterator));
-    pkgRecords::Parser &parser(records_->Lookup(file));
+    pkgRecords::Parser &parser(records_->Lookup(entry->file));
     ParserView record(parser);
 
     static const char * const fieldNames[] = {
@@ -179,14 +282,46 @@ CydiaAPT::PackageRecordData AptBackend::recordData(const void *verFileIterator) 
     return data;
 }
 
-CydiaAPT::PackageStateData AptBackend::packageState(const void *pkgIterator, const void *verIterator) {
-    CydiaAPT::PackageStateData data;
-    if (pkgIterator == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+CydiaAPT::PackageSnapshot AptBackend::packageSnapshot(PackageHandle handle) {
+    CydiaAPT::PackageSnapshot data;
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL)
         return data;
 
-    const pkgCache::PkgIterator &sourcePackage(
-        *static_cast<const pkgCache::PkgIterator *>(pkgIterator));
-    pkgCache::PkgIterator package(sourcePackage);
+    data.handle = handle;
+    data.record = recordData(handle);
+    data.state = packageState(handle);
+    data.identifier = entry->package.Name();
+    data.version = entry->version.VerStr();
+    data.architecture = entry->version.Arch();
+    data.installedSize = entry->version->InstalledSize;
+    if (const char *section = entry->version.Section())
+        data.section = section;
+
+    pkgCache::VerIterator installed(entry->package.CurrentVer());
+    if (!installed.end())
+        data.installedVersion = installed.VerStr();
+
+    if (!entry->file.end()) {
+        pkgCache::PkgFileIterator file(entry->file.File());
+        if (!file.end()) {
+            data.hasSourceFile = true;
+            data.sourceFileID = file->ID;
+        }
+    }
+
+    if (cache_.Policy != NULL)
+        data.defaultPriority = cache_.Policy->GetPriority(entry->version, true) == 500;
+    return data;
+}
+
+CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
+    CydiaAPT::PackageStateData data;
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+        return data;
+
+    pkgCache::PkgIterator package(entry->package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     pkgDepCache::StateCache &state(cache[package]);
 
@@ -204,9 +339,7 @@ CydiaAPT::PackageStateData AptBackend::packageState(const void *pkgIterator, con
     data.halfConfigured = package->CurrentState == pkgCache::State::HalfConfigured;
     data.halfInstalled = package->CurrentState == pkgCache::State::HalfInstalled;
 
-    pkgCache::VerIterator version;
-    if (verIterator != NULL)
-        version = *static_cast<const pkgCache::VerIterator *>(verIterator);
+    pkgCache::VerIterator version(entry->version);
     pkgCache::VerIterator current(package.CurrentVer());
     data.hasCurrent = !current.end();
     data.upgradable = !version.end() && !current.end() && version != current && state.Status != 0;
@@ -237,11 +370,41 @@ CydiaAPT::PackageStateData AptBackend::packageState(const void *pkgIterator, con
     return data;
 }
 
-bool AptBackend::clearPackage(const void *pkgIterator) {
-    if (pkgIterator == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+std::vector<RelationData> AptBackend::relations(PackageHandle handle) {
+    std::vector<RelationData> result;
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL)
+        return result;
+
+    for (pkgCache::DepIterator dependency(entry->version.DependsList()); !dependency.end(); ) {
+        pkgCache::DepIterator first;
+        pkgCache::DepIterator last;
+        dependency.GlobOr(first, last);
+
+        RelationData relation;
+        relation.relationship = first.DepType();
+        for (;;) {
+            RelationClauseData clause;
+            clause.package = first.TargetPkg().Name();
+            if (const char *version = first.TargetVer()) {
+                clause.comparison = first.CompType();
+                clause.version = version;
+            }
+            relation.clauses.push_back(clause);
+            if (first == last)
+                break;
+            ++first;
+        }
+        result.push_back(relation);
+    }
+    return result;
+}
+
+bool AptBackend::clearPackage(PackageHandle handle) {
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
         return false;
-    const pkgCache::PkgIterator &source(*static_cast<const pkgCache::PkgIterator *>(pkgIterator));
-    pkgCache::PkgIterator package(source);
+    pkgCache::PkgIterator package(entry->package);
     resolver_->Clear(package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     cache.SetReInstall(package, false);
@@ -249,13 +412,12 @@ bool AptBackend::clearPackage(const void *pkgIterator) {
     return true;
 }
 
-bool AptBackend::installPackage(const void *pkgIterator, const void *verIterator) {
-    if (pkgIterator == NULL || verIterator == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+bool AptBackend::installPackage(PackageHandle handle) {
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
         return false;
-    const pkgCache::PkgIterator &sourcePackage(*static_cast<const pkgCache::PkgIterator *>(pkgIterator));
-    const pkgCache::VerIterator &sourceVersion(*static_cast<const pkgCache::VerIterator *>(verIterator));
-    pkgCache::PkgIterator package(sourcePackage);
-    pkgCache::VerIterator version(sourceVersion);
+    pkgCache::PkgIterator package(entry->package);
+    pkgCache::VerIterator version(entry->version);
     resolver_->Clear(package);
     resolver_->Protect(package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
@@ -268,11 +430,11 @@ bool AptBackend::installPackage(const void *pkgIterator, const void *verIterator
     return true;
 }
 
-bool AptBackend::removePackage(const void *pkgIterator) {
-    if (pkgIterator == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+bool AptBackend::removePackage(PackageHandle handle) {
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
         return false;
-    const pkgCache::PkgIterator &source(*static_cast<const pkgCache::PkgIterator *>(pkgIterator));
-    pkgCache::PkgIterator package(source);
+    pkgCache::PkgIterator package(entry->package);
     resolver_->Clear(package);
     resolver_->Remove(package);
     resolver_->Protect(package);
@@ -280,6 +442,11 @@ bool AptBackend::removePackage(const void *pkgIterator) {
     cache.SetReInstall(package, false);
     cache.MarkDelete(package, true);
     return true;
+}
+
+pkgCache::PkgIterator AptBackend::packageIterator(PackageHandle handle) {
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    return entry == NULL ? pkgCache::PkgIterator() : entry->package;
 }
 
 pkgSourceList *AptBackend::createSourceList() {

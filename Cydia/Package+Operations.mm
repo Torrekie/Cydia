@@ -1,6 +1,5 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
-#include "Cydia/DatabaseApt.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
@@ -36,25 +35,25 @@
 
 - (NSString *) state {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    CydiaAPT::PackageStateData state([database_ stateForPackageHandle:&iterator_ versionHandle:&version_]);
+    CydiaAPT::PackageStateData state([database_ packageState:handle_]);
     return state.state.empty() ? (NSString *) [NSNull null] : [NSString stringWithUTF8String:state.state.c_str()];
 } }
 
 - (NSString *) selection {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    CydiaAPT::PackageStateData state([database_ stateForPackageHandle:&iterator_ versionHandle:&version_]);
+    CydiaAPT::PackageStateData state([database_ packageState:handle_]);
     return state.selection.empty() ? (NSString *) [NSNull null] : [NSString stringWithUTF8String:state.selection.c_str()];
 } }
 
 - (NSArray *) warnings {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
     NSMutableArray *warnings([NSMutableArray arrayWithCapacity:4]);
@@ -156,26 +155,26 @@
 
 - (void) clear {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return;
 
-    (void) [database_ clearPackageForHandle:&iterator_];
+    (void) [database_ clearPackageHandle:handle_];
 } }
 
 - (void) install {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return;
 
-    (void) [database_ installPackageForHandle:&iterator_ versionHandle:&version_];
+    (void) [database_ installPackageHandle:handle_];
 } }
 
 - (void) remove {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return;
 
-    (void) [database_ removePackageForHandle:&iterator_];
+    (void) [database_ removePackageHandle:handle_];
 } }
 
 @end

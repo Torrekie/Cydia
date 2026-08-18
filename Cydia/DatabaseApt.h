@@ -19,18 +19,13 @@
 #include <apt-pkg/sourcelist.h>
 
 @interface Database (APTCompatibility)
-- (CydiaAPT::PackageRecordData) recordForHandle:(const void *)handle;
-- (CydiaAPT::PackageStateData) stateForPackageHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle;
-- (bool) clearPackageForHandle:(const void *)packageHandle;
-- (bool) installPackageForHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle;
-- (bool) removePackageForHandle:(const void *)packageHandle;
+- (pkgCache::PkgIterator) iteratorForPackageHandle:(CydiaAPT::PackageHandle)handle;
 - (pkgCacheFile &) cache;
 - (pkgDepCache::Policy *) policy;
 - (pkgRecords *) records;
 - (pkgProblemResolver *) resolver;
 - (pkgAcquire &) fetcher;
 - (pkgSourceList &) list;
-- (Source *) getSource:(pkgCache::PkgFileIterator)file;
 @end
 
 #endif //Cydia_DatabaseApt_H

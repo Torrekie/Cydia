@@ -244,19 +244,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if (name == nil)
         return nil;
 @synchronized (self) {
-    pkgCacheFile &cache(apt_->cache());
-    if (static_cast<pkgDepCache *>(cache) == NULL)
-        return nil;
-    pkgCache::PkgIterator iterator;
-#ifndef __arm__
-    // try common arch first
-    iterator = cache->FindPkg([name UTF8String], common_arch);
-    if (iterator.end())
-        iterator = cache->FindPkg([name UTF8String], "any");
-#else
-    iterator = cache->FindPkg([name UTF8String]);
-#endif
-    return iterator.end() ? nil : [Package newPackageWithIterator:iterator withZone:NULL inPool:NULL database:self];
+    CydiaAPT::PackageHandle handle(apt_->packageHandle([name UTF8String], common_arch));
+    return !handle.valid() ? nil : [Package newPackageWithHandle:handle withZone:NULL inPool:NULL database:self];
 } }
 
 - (id) init {
@@ -313,24 +302,40 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->cache();
 }
 
-- (CydiaAPT::PackageRecordData) recordForHandle:(const void *)handle {
+- (CydiaAPT::PackageSnapshot) packageSnapshot:(CydiaAPT::PackageHandle)handle {
+    return apt_->packageSnapshot(handle);
+}
+
+- (CydiaAPT::PackageRecordData) packageRecord:(CydiaAPT::PackageHandle)handle {
     return apt_->recordData(handle);
 }
 
-- (CydiaAPT::PackageStateData) stateForPackageHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle {
-    return apt_->packageState(packageHandle, versionHandle);
+- (CydiaAPT::PackageStateData) packageState:(CydiaAPT::PackageHandle)handle {
+    return apt_->packageState(handle);
 }
 
-- (bool) clearPackageForHandle:(const void *)packageHandle {
-    return apt_->clearPackage(packageHandle);
+- (std::vector<CydiaAPT::RelationData>) packageRelations:(CydiaAPT::PackageHandle)handle {
+    return apt_->relations(handle);
 }
 
-- (bool) installPackageForHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle {
-    return apt_->installPackage(packageHandle, versionHandle);
+- (std::vector<CydiaAPT::PackageHandle>) packageDowngrades:(CydiaAPT::PackageHandle)handle {
+    return apt_->downgradeHandles(handle);
 }
 
-- (bool) removePackageForHandle:(const void *)packageHandle {
-    return apt_->removePackage(packageHandle);
+- (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle {
+    return apt_->clearPackage(handle);
+}
+
+- (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle {
+    return apt_->installPackage(handle);
+}
+
+- (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle {
+    return apt_->removePackage(handle);
+}
+
+- (pkgCache::PkgIterator) iteratorForPackageHandle:(CydiaAPT::PackageHandle)handle {
+    return apt_->packageIterator(handle);
 }
 
 - (pkgDepCache::Policy *) policy {
@@ -366,6 +371,11 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         if ([[source key] isEqualToString:key])
             return source;
     } return nil;
+}
+
+- (Source *) sourceWithFileID:(unsigned long)identifier {
+    SourceMap::const_iterator source(sourceMap_.find(identifier));
+    return source == sourceMap_.end() ? nil : source->second;
 }
 
 - (bool) popErrorWithTitle:(NSString *)title {
@@ -546,9 +556,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         size_t lost(0);
 
         size_t last(0);
-        _profile(reloadDataWithInvocation$packageWithIterator)
-        for (pkgCache::PkgIterator iterator = cache->PkgBegin(); !iterator.end(); ++iterator)
-            if (Package *package = [Package newPackageWithIterator:iterator withZone:zone_ inPool:&pool_ database:self]) {
+        _profile(reloadDataWithInvocation$packageWithHandle)
+        std::vector<CydiaAPT::PackageHandle> handles(apt_->packageHandles());
+        for (std::vector<CydiaAPT::PackageHandle>::const_iterator handle(handles.begin()); handle != handles.end(); ++handle)
+            if (Package *package = [Package newPackageWithHandle:*handle withZone:zone_ inPool:&pool_ database:self]) {
                 if (unsigned index = package.metadata->index_) {
                     --index;
                     if (packages.size() == index) {
@@ -861,11 +872,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (NSObject<ProgressDelegate> *) progressDelegate {
     return progress_;
-}
-
-- (Source *) getSource:(pkgCache::PkgFileIterator)file {
-    SourceMap::const_iterator i(sourceMap_.find(file->ID));
-    return i == sourceMap_.end() ? nil : i->second;
 }
 
 - (void) setFetch:(bool)fetch forURI:(const char *)uri {

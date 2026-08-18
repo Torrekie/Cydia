@@ -6,6 +6,7 @@
 #ifndef Cydia_Database_H
 #define Cydia_Database_H
 
+#include "Cydia/AptCompatibility.hpp"
 #include "CyteKit/UCPlatform.h"
 #include "Menes/ObjectHandle.h"
 #include "Menes/Pooling.hpp"
@@ -86,10 +87,19 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 
 - (FILE *) input;
 - (Package *) packageWithName:(NSString *)name;
+- (CydiaAPT::PackageSnapshot) packageSnapshot:(CydiaAPT::PackageHandle)handle;
+- (CydiaAPT::PackageRecordData) packageRecord:(CydiaAPT::PackageHandle)handle;
+- (CydiaAPT::PackageStateData) packageState:(CydiaAPT::PackageHandle)handle;
+- (std::vector<CydiaAPT::RelationData>) packageRelations:(CydiaAPT::PackageHandle)handle;
+- (std::vector<CydiaAPT::PackageHandle>) packageDowngrades:(CydiaAPT::PackageHandle)handle;
+- (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle;
+- (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle;
+- (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle;
 
 - (NSArray *) packages;
 - (NSArray *) sources;
 - (Source *) sourceWithKey:(NSString *)key;
+- (Source *) sourceWithFileID:(unsigned long)identifier;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 
 - (void) clear;

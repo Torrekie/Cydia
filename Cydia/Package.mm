@@ -1,6 +1,5 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
-#include "Cydia/DatabaseApt.h"
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Profile.hpp"
@@ -11,12 +10,6 @@
 #include "iPhonePrivate.h"
 
 #include <unicode/ustring.h>
-
-#include <apt-pkg/algorithms.h>
-#include <apt-pkg/error.h>
-#include <apt-pkg/policy.h>
-#include <apt-pkg/sourcelist.h>
-#include <apt-pkg/strutl.h>
 
 #include <algorithm>
 #include <cctype>
@@ -249,9 +242,12 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
 - (NSArray *) relations {
 @synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid())
+        return nil;
     NSMutableArray *relations([NSMutableArray arrayWithCapacity:16]);
-    for (pkgCache::DepIterator dep(version_.DependsList()); !dep.end(); ++dep)
-        [relations addObject:[[CydiaRelation alloc] initWithIterator:dep]];
+    std::vector<CydiaAPT::RelationData> data([database_ packageRelations:handle_]);
+    for (std::vector<CydiaAPT::RelationData>::const_iterator relation(data.begin()); relation != data.end(); ++relation)
+        [relations addObject:[[CydiaRelation alloc] initWithData:*relation]];
     return relations;
 } }
 
@@ -263,10 +259,10 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
 - (NSString *) getField:(NSString *)name {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+    CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
     std::string value(record.Field([name UTF8String]));
     if (value.empty())
         return (NSString *) [NSNull null];
@@ -276,10 +272,10 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
 - (NSString *) getRecord {
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
 
-    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+    CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
     return [NSString stringWithString:CFBridgingRelease(CYStringCreate(record.raw))];
 } }
 
@@ -287,7 +283,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     if (parsed_ != NULL)
         return;
 @synchronized (database_) {
-    if ([database_ era] != era_ || file_.end())
+    if ([database_ era] != era_ || !handle_.valid())
         return;
 
     ParsedPackage *parsed(new ParsedPackage);
@@ -296,7 +292,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     _profile(Package$parse)
         CYString bugs;
         CYString website;
-        CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+        CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
 
         _profile(Package$parse$Find)
             struct {
@@ -340,9 +336,13 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     _end
 } }
 
-- (instancetype) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
+- (instancetype) initWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
-    _profile(Package$initWithVersion)
+    _profile(Package$initWithHandle)
+        CydiaAPT::PackageSnapshot snapshot([database packageSnapshot:handle]);
+        if (!snapshot.handle.valid())
+            return nil;
+
         if (pool == NULL)
             pool_ = new CYPool();
         else {
@@ -352,25 +352,20 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
         database_ = database;
         era_ = [database era];
+        handle_ = handle;
+        installedSize_ = static_cast<size_t>(snapshot.installedSize);
+        sourceFileID_ = snapshot.sourceFileID;
+        hasSourceFile_ = snapshot.hasSourceFile;
+        selectedArchitecture_.set(NULL, snapshot.architecture);
 
-        version_ = version;
-
-        pkgCache::PkgIterator iterator(version_.ParentPkg());
-        iterator_ = iterator;
-
-        _profile(Package$initWithVersion$Version)
-            file_ = version_.FileList();
-        _end
-
-        _profile(Package$initWithVersion$Cache)
-            CydiaAPT::PackageRecordData record([database recordForHandle:&file_]);
+        _profile(Package$initWithHandle$Cache)
+            const CydiaAPT::PackageRecordData &record(snapshot.record);
             name_.set(NULL, record.displayName);
 
-            latest_.set(NULL, StripVersion_(version_.VerStr()));
+            latest_.set(NULL, StripVersion_(snapshot.version.c_str()));
 
-            pkgCache::VerIterator current(iterator.CurrentVer());
-            if (!current.end())
-                installed_.set(NULL, StripVersion_(current.VerStr()));
+            if (!snapshot.installedVersion.empty())
+                installed_.set(NULL, StripVersion_(snapshot.installedVersion.c_str()));
         _end
 
         _profile(Package$initWithVersion$Transliterate) do {
@@ -427,9 +422,8 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             transform_.set(NULL, transform, length);
         } while (false); _end
 
-        _profile(Package$initWithVersion$Tags)
-            CydiaAPT::PackageRecordData record([database recordForHandle:&file_]);
-            std::vector<std::string> aptTags(record.tags);
+        _profile(Package$initWithHandle$Tags)
+            std::vector<std::string> aptTags(snapshot.record.tags);
             if (!aptTags.empty()) {
                 tags_ = [NSMutableArray arrayWithCapacity:8];
 
@@ -464,8 +458,8 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             }
         _end
 
-        _profile(Package$initWithVersion$Metadata)
-            const char *mixed(iterator.Name());
+        _profile(Package$initWithHandle$Metadata)
+            const char *mixed(snapshot.identifier.c_str());
             size_t size(strlen(mixed));
             char lower[size + 1];
 
@@ -491,7 +485,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
             id_.set(NULL, metadata->name_, size);
 
-            const char *latest(version_.VerStr());
+            const char *latest(snapshot.version.c_str());
             size_t length(strlen(latest));
 
             uint16_t vhash(hashlittle(latest, length));
@@ -510,40 +504,27 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
                 metadata->last_ = metadata->first_;
         _end
 
-        _profile(Package$initWithVersion$Section)
-            section_ = version_.Section();
+        _profile(Package$initWithHandle$Section)
+            section_.set(pool_, snapshot.section);
         _end
 
-        _profile(Package$initWithVersion$Flags)
-            CydiaAPT::PackageStateData state([database stateForPackageHandle:&iterator_ versionHandle:&version_]);
-            essential_ |= state.essential;
-            ignored_ = state.ignored;
+        _profile(Package$initWithHandle$Flags)
+            essential_ |= snapshot.state.essential;
+            ignored_ = snapshot.state.ignored;
         _end
 
-#if CYDIA_APT_MODERN
-        _profile(Package$initWithVersion$Priority)
+        _profile(Package$initWithHandle$Priority)
             // ignore "essential" tags from non-pinned repos
-            if (essential_ && [database cache].Policy->GetPriority(version, true) == 500) {
+            if (essential_ && snapshot.defaultPriority) {
                 essential_ = NO;
             }
         _end
-#endif
 
     _end } return self;
 }
 
-+ (instancetype) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
-    pkgCache::VerIterator version;
-
-    _profile(Package$packageWithIterator$GetCandidateVer)
-#if CYDIA_APT_MODERN
-        version = [database cache]->GetCandidateVersion(iterator);
-#else
-        version = [database policy]->GetCandidateVer(iterator);
-#endif
-    _end
-
-    if (version.end())
++ (instancetype) newPackageWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
+    if (!handle.valid())
         return nil;
 
     Package *package;
@@ -554,7 +535,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
     _profile(Package$packageWithIterator$Initialize)
         package = [package
-            initWithVersion:version
+            initWithHandle:handle
             withZone:zone
             inPool:pool
             database:database
@@ -564,13 +545,8 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     return package;
 }
 
-// XXX: just in case a Cydia extension is using this (I bet this is unlikely, though, due to CYPool?)
-+ (instancetype) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
-    return [self newPackageWithIterator:iterator withZone:zone inPool:pool database:database];
-}
-
-- (pkgCache::PkgIterator) iterator {
-    return iterator_;
+- (CydiaAPT::PackageHandle) handle {
+    return handle_;
 }
 
 @end

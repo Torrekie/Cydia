@@ -1,6 +1,7 @@
 #ifndef Cydia_Package_H
 #define Cydia_Package_H
 
+#include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Collation.hpp"
 #include "Cydia/CYString.hpp"
 #include "Cydia/MIMEAddress.h"
@@ -11,15 +12,8 @@
 
 #include <UIKit/UIKit.h>
 
-#include <apt-pkg/cachefile.h>
-#include <apt-pkg/depcache.h>
-#include <apt-pkg/pkgcache.h>
-
 #include <cstddef>
 #include <ctime>
-
-// The supported apt64 input exposes the modern candidate/version APIs.
-#define CYDIA_APT_MODERN 1
 
 @class Database;
 
@@ -57,18 +51,20 @@ struct ParsedPackage {
     uint32_t rank_;
     __weak Database *database_;
 
-    pkgCache::VerIterator version_;
-    pkgCache::PkgIterator iterator_;
-    pkgCache::VerFileIterator file_;
+    CydiaAPT::PackageHandle handle_;
+    size_t installedSize_;
+    uint32_t sourceFileID_;
+    bool hasSourceFile_;
 
     CYString id_;
     CYString name_;
     CYString transform_;
     CYString latest_;
     CYString installed_;
+    CYString selectedArchitecture_;
+    CYString section_;
     time_t upgraded_;
 
-    const char *section_;
     __strong NSString *section$_;
     _H<Source> source_;
     PackageValue *metadata_;
@@ -76,11 +72,10 @@ struct ParsedPackage {
     _H<NSMutableArray> tags_;
 }
 
-- (instancetype) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
-+ (instancetype) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
-+ (instancetype) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
+- (instancetype) initWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
++ (instancetype) newPackageWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database;
 
-- (pkgCache::PkgIterator) iterator;
+- (CydiaAPT::PackageHandle) handle;
 - (void) parse;
 - (NSArray *) relations;
 - (NSString *) architecture;

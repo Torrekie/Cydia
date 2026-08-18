@@ -38,12 +38,12 @@
 
 @implementation CydiaClause
 
-- (id) initWithIterator:(pkgCache::DepIterator &)dep {
+- (id) initWithData:(const CydiaAPT::RelationClauseData &)data {
     if ((self = [super init]) != nil) {
-        package_ = [NSString stringWithUTF8String:dep.TargetPkg().Name()];
+        package_ = [NSString stringWithUTF8String:data.package.c_str()];
 
-        if (const char *version = dep.TargetVer())
-            version_ = [[CydiaOperation alloc] initWithOperator:dep.CompType() value:version];
+        if (!data.version.empty())
+            version_ = [[CydiaOperation alloc] initWithOperator:data.comparison.c_str() value:data.version.c_str()];
         else
             version_ = (id) [NSNull null];
     } return self;
@@ -76,23 +76,14 @@
 
 @implementation CydiaRelation
 
-- (id) initWithIterator:(pkgCache::DepIterator &)dep {
+- (id) initWithData:(const CydiaAPT::RelationData &)data {
     if ((self = [super init]) != nil) {
-        relationship_ = [NSString stringWithUTF8String:dep.DepType()];
+        relationship_ = [NSString stringWithUTF8String:data.relationship.c_str()];
         clauses_ = [NSMutableArray arrayWithCapacity:8];
 
-        pkgCache::DepIterator start;
-        pkgCache::DepIterator end;
-        dep.GlobOr(start, end); // ++dep
-
-        _forever {
-            [clauses_ addObject:[[CydiaClause alloc] initWithIterator:start]];
-
-            // yes, seriously. (wtf?)
-            if (start == end)
-                break;
-            ++start;
-        }
+        for (std::vector<CydiaAPT::RelationClauseData>::const_iterator clause(data.clauses.begin());
+             clause != data.clauses.end(); ++clause)
+            [clauses_ addObject:[[CydiaClause alloc] initWithData:*clause]];
     } return self;
 }
 
