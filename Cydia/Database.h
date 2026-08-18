@@ -19,10 +19,10 @@
 #include <apt-pkg/packagemanager.h>
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/sourcelist.h>
-#include <apt-pkg/sptr.h>
 
 #include <cstdio>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 
@@ -125,7 +125,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     pkgProblemResolver *resolver_;
     pkgAcquire *fetcher_;
     FileFd *lock_;
-    SPtr<pkgPackageManager> manager_;
+    std::unique_ptr<pkgPackageManager> manager_;
     pkgSourceList *list_;
 
     SourceMap sourceMap_;

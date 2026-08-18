@@ -7,6 +7,7 @@
 #include <unicode/uchar.h>
 
 #include <apt-pkg/pkgrecords.h>
+#include <apt-pkg/policy.h>
 
 #include <cctype>
 #include <cstring>

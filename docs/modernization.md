@@ -22,6 +22,11 @@ App-owned code is organized by domain under `Cydia/`:
 `SDURLCache/` remain vendored inputs; they are compiled by the existing Make
 graph but are not forced into the app-owned module-size policy.
 
+The embedded APT gitlink, ABI, licenses, and reviewed source groups are recorded
+in `mk/apt.mk`. The update and backend-boundary policy is documented in
+`docs/apt-dpkg-compatibility.md`; current canary blockers and migration order
+are tracked in `docs/apt-dpkg-canary.md`.
+
 ## Compatibility contract
 
 - Minimum deployment target: iOS 12.0.
@@ -38,6 +43,14 @@ graph but are not forced into the app-owned module-size policy.
 
 ## Verification
 
+`make verify-apt` checks the recorded embedded APT input and explicit source
+manifest before an upstream update can enter the build. The inherited baseline
+is explicitly `legacy-unverified`; exact-input checks are not presented as
+source-authenticity proof. `make verify-apt-compile` rebuilds the embedded APT
+archive, HTTP method, and Cydia-owned compatibility adapter through that
+reviewed manifest. `make verify-apt-api` can syntax-check the adapter against a
+separately fetched clean APT stable or main checkout without network access in
+Make.
 `make verify-config` checks the effective device configuration and the ARC/iOS
 12 flags emitted by the Objective-C, Objective-C++ and helper recipes.
 `make verify-compile` builds every supported Objective-C object plus the

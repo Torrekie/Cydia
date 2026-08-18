@@ -5,6 +5,7 @@
 
 #include "Cydia/Application.h"
 #include "Cydia/ApplicationInternal.h"
+#include "Cydia/AptCompatibility.hpp"
 #include "Cydia/AppState.h"
 #include "Cydia/Appearance.h"
 #include "Cydia/ConfirmationController.h"
@@ -28,7 +29,6 @@
 #include <cstdio>
 
 #include "apt.h"
-#include <apt-pkg/algorithms.h>
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/error.h>
 
@@ -75,8 +75,7 @@
 - (void) resolve {
     pkgProblemResolver *resolver = [database_ resolver];
 
-    resolver->InstallProtect();
-    if (!resolver->Resolve(true))
+    if (!CydiaAPT::ResolveDependencies(*resolver))
         _error->Discard();
 }
 

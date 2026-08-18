@@ -22,6 +22,7 @@
 
 #include "Cydia/ProgressController.h"
 
+#include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Database.h"
 #include "Cydia/PrivateServices.h"
 #include "CyteKit/Localize.h"
@@ -31,7 +32,6 @@
 #include <apt-pkg/error.h>
 #include <apt-pkg/fileutl.h>
 #include <apt-pkg/mmap.h>
-#include <apt-pkg/sha1.h>
 
 #include <notify.h>
 #include <sys/reboot.h>
@@ -43,6 +43,17 @@ extern UIColor *whiteIfNotDark(bool white);
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
 #define NotifyConfig_ "/etc/notify.conf"
+
+static std::string FileFingerprint(const char *path) {
+    FileFd file;
+    if (!file.Open(path, FileFd::ReadOnly)) {
+        _error->Discard();
+        return std::string();
+    }
+
+    MMap mmap(file, MMap::ReadOnly);
+    return CydiaAPT::Fingerprint(mmap.Data(), mmap.Size());
+}
 
 @protocol ProgressControllerDelegate <NSObject>
 - (void) saveState;
@@ -170,29 +181,8 @@ extern UIColor *whiteIfNotDark(bool white);
     [self setTitle:title];
     // implicit updateProgress
 
-    SHA1SumValue notifyconf; {
-        FileFd file;
-        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            notifyconf = sha1.Result();
-        }
-    }
-
-    SHA1SumValue springlist; {
-        FileFd file;
-        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            springlist = sha1.Result();
-        }
-    }
+    std::string notifyconf(FileFingerprint(NotifyConfig_));
+    std::string springlist(FileFingerprint(SpringBoard_));
 
     if (invocation != nil) {
         [invocation yieldToSelector:@selector(invoke)];
@@ -200,29 +190,13 @@ extern UIColor *whiteIfNotDark(bool white);
     }
 
     if (Finish_ < 4) {
-        FileFd file;
-        if (!file.Open(NotifyConfig_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(notifyconf == sha1.Result()))
-                Finish_ = 4;
-        }
+        if (notifyconf != FileFingerprint(NotifyConfig_))
+            Finish_ = 4;
     }
 
     if (Finish_ < 3) {
-        FileFd file;
-        if (!file.Open(SpringBoard_, FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            MMap mmap(file, MMap::ReadOnly);
-            SHA1Summation sha1;
-            sha1.Add(reinterpret_cast<uint8_t *>(mmap.Data()), mmap.Size());
-            if (!(springlist == sha1.Result()))
-                Finish_ = 3;
-        }
+        if (springlist != FileFingerprint(SpringBoard_))
+            Finish_ = 3;
     }
 
     if (Finish_ < 2) {

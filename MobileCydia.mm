@@ -76,10 +76,9 @@
 #include <apt-pkg/error.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/mmap.h>
+#include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/pkgrecords.h>
-#include <apt-pkg/sha1.h>
 #include <apt-pkg/sourcelist.h>
-#include <apt-pkg/sptr.h>
 #include <apt-pkg/strutl.h>
 #include <apt-pkg/tagfile.h>
 
