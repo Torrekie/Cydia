@@ -1,5 +1,6 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/DatabaseApt.h"
 #include "Cydia/Profile.hpp"
 #include "CyteKit/Localize.h"
 #include "iPhonePrivate.h"

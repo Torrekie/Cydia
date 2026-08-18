@@ -149,12 +149,6 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (FILE *) input;
 - (Package *) packageWithName:(NSString *)name;
 
-- (pkgCacheFile &) cache;
-- (pkgDepCache::Policy *) policy;
-- (pkgRecords *) records;
-- (pkgProblemResolver *) resolver;
-- (pkgAcquire &) fetcher;
-- (pkgSourceList &) list;
 - (NSArray *) packages;
 - (NSArray *) sources;
 - (Source *) sourceWithKey:(NSString *)key;

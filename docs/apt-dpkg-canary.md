@@ -26,8 +26,10 @@ APT iterators and cache lifetimes, so those objects must move behind
 
 `Cydia/AptBackend` is now the owner of one database epoch's mutable cache,
 record, resolver, acquire, lock, package-manager, and source-list handles.
-`Database` remains the Objective-C façade for this transition; its raw
-compatibility accessors are intentionally the next DTO migration seam.
+`Database` remains the Objective-C façade for this transition. Its raw handle
+accessors now live in the explicitly private `DatabaseApt.h` category instead
+of the public database API; replacing that category with DTO queries is the
+next migration seam.
 
 | Area | Legacy dependency | Backend migration seam |
 | --- | --- | --- |

@@ -1,5 +1,6 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/DatabaseApt.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"

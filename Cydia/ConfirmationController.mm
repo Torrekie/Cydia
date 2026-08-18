@@ -24,6 +24,7 @@
 
 #include "Cydia/AppState.h"
 #include "Cydia/Database.h"
+#include "Cydia/DatabaseApt.h"
 #include "Cydia/Package.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
