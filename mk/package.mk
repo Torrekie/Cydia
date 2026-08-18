@@ -1,5 +1,5 @@
 $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app) cydia.control cydia.preferences Library/firmware.sh Library/move.sh Library/startup
-	fakeroot rm -rf $(CYDIA_STAGE)
+	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/apt.conf.d
@@ -42,16 +42,14 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 
 	find $(CYDIA_STAGE) -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
 
-	fakeroot chown -R 0 $(CYDIA_STAGE)
-	fakeroot chgrp -R 0 $(CYDIA_STAGE)
-	fakeroot chmod 6755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
+	chmod 6755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
 
 	mkdir -p $(dir $@)
 	$(dpkg) -b $(CYDIA_STAGE) $@
-	@echo "$$(stat -f "%z" $@) $$(stat -f "%Y" $@)"
+	@echo "$$(wc -c < $@) bytes $@"
 
 $(LPROJ_DEB): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.control
-	fakeroot rm -rf $(LPROJ_STAGE)
+	rm -rf $(LPROJ_STAGE)
 	mkdir -p $(LPROJ_STAGE_ROOT)/Applications/Cydia.app
 
 	cp -a MobileCydia.app/*.lproj $(LPROJ_STAGE_ROOT)/Applications/Cydia.app
@@ -59,11 +57,8 @@ $(LPROJ_DEB): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.contro
 	mkdir -p $(LPROJ_STAGE)/DEBIAN
 	./control.sh cydia-lproj.control $(LPROJ_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(LPROJ_STAGE)/DEBIAN/control
 
-	fakeroot chown -R 0 $(LPROJ_STAGE)
-	fakeroot chgrp -R 0 $(LPROJ_STAGE)
-
 	mkdir -p $(dir $@)
 	$(dpkg) -b $(LPROJ_STAGE) $@
-	@echo "$$(stat -f "%z" $@) $$(stat -f "%Y" $@)"
+	@echo "$$(wc -c < $@) bytes $@"
 
 package: $(CYDIA_DEB) $(LPROJ_DEB)

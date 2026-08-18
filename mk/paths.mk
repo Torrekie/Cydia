@@ -1,4 +1,4 @@
-dpkg := fakeroot dpkg-deb -Zlzma
+dpkg := dpkg-deb --root-owner-group -Zxz
 version := $(shell ./version.sh)
 DEPLOYMENT_TARGET ?= 12.0
 BUILD_DIR ?= build
