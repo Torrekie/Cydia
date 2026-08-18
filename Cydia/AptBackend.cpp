@@ -5,6 +5,12 @@
 #include "Cydia/AptBackend.hpp"
 
 #include <apt-pkg/policy.h>
+#include <apt-pkg/acquire-item.h>
+#include <apt-pkg/debindexfile.h>
+#include <apt-pkg/debmetaindex.h>
+#include <apt-pkg/error.h>
+#include <apt-pkg/fileutl.h>
+#include <apt-pkg/tagfile.h>
 
 #include <cstring>
 #include <limits>
@@ -93,6 +99,20 @@ class PackageRegistry {
     std::map<std::string, PackageHandle> handles;
 };
 
+class SourceRegistry {
+  public:
+    struct Entry {
+        metaIndex *index;
+        SourceSnapshot snapshot;
+        std::vector<std::uint32_t> fileIDs;
+
+        Entry(metaIndex *index) : index(index) {
+        }
+    };
+
+    std::vector<Entry> entries;
+};
+
 namespace {
 
 std::string RegistryKey(pkgCache::PkgIterator package, pkgCache::VerIterator version) {
@@ -123,6 +143,12 @@ PackageHandle RegisterPackage(PackageRegistry &registry, pkgCache::PkgIterator p
 }
 
 PackageRegistry::Entry *FindPackage(PackageRegistry *registry, PackageHandle handle) {
+    if (registry == NULL || !handle.valid() || handle.value > registry->entries.size())
+        return NULL;
+    return &registry->entries[handle.value - 1];
+}
+
+SourceRegistry::Entry *FindSource(SourceRegistry *registry, SourceHandle handle) {
     if (registry == NULL || !handle.valid() || handle.value > registry->entries.size())
         return NULL;
     return &registry->entries[handle.value - 1];
@@ -163,7 +189,8 @@ AptBackend::AptBackend(pkgAcquireStatus &status) :
     fetcher_(NULL),
     lock_(NULL),
     list_(NULL),
-    packages_(new PackageRegistry())
+    packages_(new PackageRegistry()),
+    sources_(new SourceRegistry())
 {
 }
 
@@ -173,6 +200,7 @@ AptBackend::~AptBackend() {
 
 void AptBackend::reset() {
     packages_.reset(new PackageRegistry());
+    sources_.reset(new SourceRegistry());
     delete list_;
     list_ = NULL;
     manager_.reset();
@@ -604,9 +632,127 @@ pkgCache::PkgIterator AptBackend::packageIterator(PackageHandle handle) {
     return entry == NULL ? pkgCache::PkgIterator() : entry->package;
 }
 
+std::vector<SourceHandle> AptBackend::sourceHandles() {
+    std::vector<SourceHandle> handles;
+    if (list_ == NULL || fetcher_ == NULL)
+        return handles;
+
+    if (sources_->entries.empty()) {
+        for (pkgSourceList::const_iterator source(list_->begin()); source != list_->end(); ++source) {
+            SourceRegistry::Entry entry(*source);
+            entry.snapshot.uri = (*source)->GetURI();
+            entry.snapshot.distribution = (*source)->GetDist();
+            entry.snapshot.type = (*source)->GetType();
+            entry.snapshot.trusted = (*source)->IsTrusted();
+
+            if (debReleaseIndex *release = dynamic_cast<debReleaseIndex *>(*source)) {
+                entry.snapshot.base = release->MetaIndexURI("");
+
+                const std::size_t first(fetcher_->ItemsEnd() - fetcher_->ItemsBegin());
+                release->GetIndexes(fetcher_, true);
+                for (pkgAcquire::ItemIterator item(fetcher_->ItemsBegin() + first); item != fetcher_->ItemsEnd(); ++item) {
+                    const std::string file((*item)->DescURI());
+                    const std::string::size_type slash(file.rfind('/'));
+                    if (slash != std::string::npos)
+                        entry.snapshot.files.insert(file.substr(0, slash));
+                }
+
+                FileFd fd;
+                if (!fd.Open(release->MetaIndexFile("Release"), FileFd::ReadOnly))
+                    _error->Discard();
+                else {
+                    pkgTagFile tags(&fd);
+                    pkgTagSection section;
+                    if (tags.Step(section)) {
+                        struct Field {
+                            const char *name;
+                            std::string *value;
+                        } fields[] = {
+                            {"default-icon", &entry.snapshot.defaultIcon},
+                            {"depiction", &entry.snapshot.depiction},
+                            {"description", &entry.snapshot.description},
+                            {"label", &entry.snapshot.label},
+                            {"origin", &entry.snapshot.origin},
+                            {"support", &entry.snapshot.support},
+                            {"version", &entry.snapshot.version},
+                        };
+                        for (std::size_t index(0); index != sizeof(fields) / sizeof(fields[0]); ++index) {
+                            const char *start(NULL);
+                            const char *end(NULL);
+                            if (section.Find(fields[index].name, start, end) && start != NULL && end >= start)
+                                fields[index].value->assign(start, end);
+                        }
+                    }
+                }
+            }
+
+            sources_->entries.push_back(entry);
+        }
+    }
+
+    for (std::size_t index(0); index != sources_->entries.size(); ++index) {
+        SourceHandle handle(static_cast<std::uint32_t>(index + 1));
+        sources_->entries[index].snapshot.handle = handle;
+        handles.push_back(handle);
+    }
+    return handles;
+}
+
+SourceSnapshot AptBackend::sourceSnapshot(SourceHandle handle) {
+    (void) sourceHandles();
+    SourceRegistry::Entry *entry(FindSource(sources_.get(), handle));
+    return entry == NULL ? SourceSnapshot() : entry->snapshot;
+}
+
+std::string AptBackend::sourceField(SourceHandle handle, const std::string &name) {
+    (void) sourceHandles();
+    SourceRegistry::Entry *entry(FindSource(sources_.get(), handle));
+    if (entry == NULL || name.empty())
+        return std::string();
+
+    debReleaseIndex *release(dynamic_cast<debReleaseIndex *>(entry->index));
+    if (release == NULL)
+        return std::string();
+    FileFd fd;
+    if (!fd.Open(release->MetaIndexFile("Release"), FileFd::ReadOnly)) {
+        _error->Discard();
+        return std::string();
+    }
+    pkgTagFile tags(&fd);
+    pkgTagSection section;
+    if (!tags.Step(section))
+        return std::string();
+    const char *start(NULL);
+    const char *end(NULL);
+    return section.Find(name.c_str(), start, end) && start != NULL && end >= start ? std::string(start, end) : std::string();
+}
+
+std::vector<std::uint32_t> AptBackend::sourceFileIDs(SourceHandle handle) {
+    std::vector<std::uint32_t> result;
+    (void) sourceHandles();
+    SourceRegistry::Entry *entry(FindSource(sources_.get(), handle));
+    if (entry == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
+        return result;
+    if (entry->fileIDs.empty()) {
+        for (std::vector<pkgIndexFile *> *indices(entry->index->GetIndexFiles()); indices != NULL && !indices->empty(); ) {
+            for (std::vector<pkgIndexFile *>::const_iterator index(indices->begin()); index != indices->end(); ++index) {
+                if (dynamic_cast<debPackagesIndex *>(*index) == NULL)
+                    continue;
+                pkgCache::PkgFileIterator file((*index)->FindInCache(static_cast<pkgCache &>(cache_)));
+                if (!file.end())
+                    entry->fileIDs.push_back(file->ID);
+            }
+            break;
+        }
+    }
+    result = entry->fileIDs;
+    return result;
+}
+
 pkgSourceList *AptBackend::createSourceList() {
     delete list_;
     list_ = new pkgSourceList();
+    sources_.reset(new SourceRegistry());
     return list_;
 }
 

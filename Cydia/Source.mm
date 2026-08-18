@@ -4,12 +4,6 @@
 #include "Cydia/Profile.hpp"
 #include "iPhonePrivate.h"
 
-#include <apt-pkg/acquire-item.h>
-#include <apt-pkg/debmetaindex.h>
-#include <apt-pkg/error.h>
-#include <apt-pkg/fileutl.h>
-#include <apt-pkg/tagfile.h>
-
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 
 @implementation Source
@@ -59,69 +53,21 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
     return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
-- (metaIndex *) metaIndex {
-    return index_;
-}
+- (void) setSnapshot:(const CydiaAPT::SourceSnapshot &)snapshot inPool:(CYPool *)pool {
+    trusted_ = snapshot.trusted;
 
-- (void) setMetaIndex:(metaIndex *)index inPool:(CYPool *)pool withAcquire:(pkgAcquire *)acquire {
-    trusted_ = index->IsTrusted();
-
-    uri_.set(pool, index->GetURI());
-    distribution_.set(pool, index->GetDist());
-    type_.set(pool, index->GetType());
-
-    debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index));
-    if (dindex != NULL) {
-        std::string file(dindex->MetaIndexURI(""));
-        base_.set(pool, file);
-
-        size_t first(acquire->ItemsEnd() - acquire->ItemsBegin());
-
-        _profile(Source$setMetaIndex$GetIndexes)
-        dindex->GetIndexes(acquire, true);
-        _end
-        _profile(Source$setMetaIndex$DescURI)
-        for (pkgAcquire::ItemIterator item(acquire->ItemsBegin() + first); item != acquire->ItemsEnd(); item++) {
-            std::string file((*item)->DescURI());
-            auto slash(file.rfind('/'));
-            if (slash == std::string::npos)
-                continue;
-            files_.insert(file.substr(0, slash));
-        }
-        _end
-
-        FileFd fd;
-        if (!fd.Open(dindex->MetaIndexFile("Release"), FileFd::ReadOnly))
-            _error->Discard();
-        else {
-            pkgTagFile tags(&fd);
-
-            pkgTagSection section;
-            tags.Step(section);
-
-            struct {
-                const char *name_;
-                CYString *value_;
-            } names[] = {
-                {"default-icon", &defaultIcon_},
-                {"depiction", &depiction_},
-                {"description", &description_},
-                {"label", &label_},
-                {"origin", &origin_},
-                {"support", &support_},
-                {"version", &version_},
-            };
-
-            for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
-                const char *start, *end;
-
-                if (section.Find(names[i].name_, start, end)) {
-                    CYString &value(*names[i].value_);
-                    value.set(pool, start, end - start);
-                }
-            }
-        }
-    }
+    uri_.set(pool, snapshot.uri);
+    distribution_.set(pool, snapshot.distribution);
+    type_.set(pool, snapshot.type);
+    base_.set(pool, snapshot.base);
+    defaultIcon_.set(pool, snapshot.defaultIcon);
+    depiction_.set(pool, snapshot.depiction);
+    description_.set(pool, snapshot.description);
+    label_.set(pool, snapshot.label);
+    origin_.set(pool, snapshot.origin);
+    support_.set(pool, snapshot.support);
+    version_.set(pool, snapshot.version);
+    files_ = snapshot.files;
 
     record_ = [Sources_ objectForKey:[self key]];
 
@@ -137,43 +83,23 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
         authority_ = [url path];
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(CYPool *)pool withAcquire:(pkgAcquire *)acquire {
+- (Source *) initWithHandle:(CydiaAPT::SourceHandle)handle forDatabase:(Database *)database inPool:(CYPool *)pool {
     if ((self = [super init]) != nil) {
         era_ = [database era];
         database_ = database;
-        index_ = index;
+        handle_ = handle;
 
-        _profile(Source$initWithMetaIndex$setMetaIndex)
-        [self setMetaIndex:index inPool:pool withAcquire:acquire];
+        _profile(Source$initWithHandle$setSnapshot)
+        [self setSnapshot:[database sourceSnapshot:handle] inPool:pool];
         _end
     } return self;
 }
 
 - (NSString *) getField:(NSString *)name {
 @synchronized (database_) {
-    if ([database_ era] != era_ || index_ == NULL)
+    if ([database_ era] != era_ || !handle_.valid())
         return nil;
-
-    debReleaseIndex *dindex(dynamic_cast<debReleaseIndex *>(index_));
-    if (dindex == NULL)
-        return nil;
-
-    FileFd fd;
-    if (!fd.Open(dindex->MetaIndexFile("Release"), FileFd::ReadOnly)) {
-         _error->Discard();
-         return nil;
-    }
-
-    pkgTagFile tags(&fd);
-
-    pkgTagSection section;
-    tags.Step(section);
-
-    const char *start, *end;
-    if (!section.Find([name UTF8String], start, end))
-        return (NSString *) [NSNull null];
-
-    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(start, end - start))];
+    return [database_ sourceField:handle_ name:name];
 } }
 
 - (NSComparisonResult) compareByName:(Source *)source {

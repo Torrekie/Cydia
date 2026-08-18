@@ -20,6 +20,7 @@
 namespace CydiaAPT {
 
 class PackageRegistry;
+class SourceRegistry;
 
 /*
  * Database is an Objective-C façade; this class owns every mutable APT
@@ -38,6 +39,7 @@ class AptBackend {
     std::unique_ptr<pkgPackageManager> manager_;
     pkgSourceList *list_;
     std::unique_ptr<PackageRegistry> packages_;
+    std::unique_ptr<SourceRegistry> sources_;
 
   public:
     explicit AptBackend(pkgAcquireStatus &status);
@@ -60,6 +62,10 @@ class AptBackend {
     bool installPackage(PackageHandle handle);
     bool removePackage(PackageHandle handle);
     pkgCache::PkgIterator packageIterator(PackageHandle handle);
+    std::vector<SourceHandle> sourceHandles();
+    SourceSnapshot sourceSnapshot(SourceHandle handle);
+    std::string sourceField(SourceHandle handle, const std::string &name);
+    std::vector<std::uint32_t> sourceFileIDs(SourceHandle handle);
     pkgSourceList *createSourceList();
     pkgAcquire *createFetcher();
 
