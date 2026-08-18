@@ -28,7 +28,9 @@
 
 #define COMMON_ARCH "iphoneos-arm"
 #define PACKAGE "cydia" // XXX
-#define PACKAGE_VERSION "${PACKAGE_VERSION}" // XXX
+#ifndef PACKAGE_VERSION
+#define PACKAGE_VERSION "unknown"
+#endif
 #define PACKAGE_MAIL "saurik@saurik.com"
 
 #define CMAKE_INSTALL_FULL_BINDIR "/usr/bin"

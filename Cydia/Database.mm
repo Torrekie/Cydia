@@ -5,7 +5,10 @@
 
 #include "Cydia/Database.h"
 
+#include "Cydia/AptCompatibility.hpp"
+#include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PackageMetadata.hpp"
 #include "Cydia/Profile.hpp"
 #include "Cydia/ProgressEvent.h"
@@ -22,8 +25,9 @@
 #include <apt-pkg/deb/debmetaindex.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/init.h>
+#include <apt-pkg/pkgsystem.h>
+#include <apt-pkg/progress.h>
 #include <apt-pkg/update.h>
-#include <apt-pkg/upgrade.h>
 
 #include <algorithm>
 #include <cstring>
@@ -45,7 +49,9 @@ static NSString * const kCydiaProgressEventTypeStatus = @"Status";
 static NSString * const kCydiaProgressEventTypeWarning = @"Warning";
 
 static NSDate *GetStatusDate() {
-    return [[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/lib/dpkg/status" error:NULL] fileModificationDate];
+    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    NSString *status([NSString stringWithUTF8String:paths.DpkgStatusPath().c_str()]);
+    return [[[NSFileManager defaultManager] attributesOfItemAtPath:status error:NULL] fileModificationDate];
 }
 
 template <typename Type_>
@@ -86,15 +92,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         }
     }
 }
-
-class CydiaLogCleaner :
-    public pkgArchiveCleaner
-{
-  protected:
-    virtual void Erase(const char *File, std::string Pkg, std::string Ver, struct stat &St) {
-        unlink(File);
-    }
-};
 
 @interface Database ()
 - (void) clearPackages;
@@ -418,7 +415,7 @@ class CydiaLogCleaner :
 
     delete list_;
     list_ = NULL;
-    manager_ = NULL;
+    manager_.reset();
     delete lock_;
     lock_ = NULL;
     delete fetcher_;
@@ -468,7 +465,7 @@ class CydiaLogCleaner :
   open:
     delock_ = GetStatusDate();
     _profile(reloadDataWithInvocation$pkgCacheFile)
-        opened = cache_.Open(progress, false);
+        opened = cache_.Open(&progress, false);
     _end
     if (!opened) {
         // XXX: this block should probably be merged with popError: in some way
@@ -534,7 +531,7 @@ class CydiaLogCleaner :
         }
 
         _profile(pkgApplyStatus$pkgMinimizeUpgrade)
-        if ([self popErrorWithTitle:title forOperation:pkgMinimizeUpgrade(cache_)])
+        if ([self popErrorWithTitle:title forOperation:CydiaAPT::MinimizeUpgrade(cache_)])
             return;
         _end
     }
@@ -672,9 +669,11 @@ class CydiaLogCleaner :
 } }
 
 - (void) configure {
-    NSString *dpkg = [NSString stringWithFormat:@"/usr/libexec/cydo --configure -a --status-fd %u", statusfd_];
     _trace();
-    system([dpkg UTF8String]);
+    Cydia::Dpkg::Runner runner(Cydia::Dpkg::Executable::Cydo);
+    Cydia::Dpkg::Result result(runner.Run({"--configure", "-a"}, statusfd_));
+    if (!result.succeeded())
+        _trace();
     _trace();
 }
 
@@ -694,8 +693,8 @@ class CydiaLogCleaner :
     pkgAcquire fetcher;
     fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
 
-    CydiaLogCleaner cleaner;
-    if ([self popErrorWithTitle:title forOperation:cleaner.Go(_config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
+    if ([self popErrorWithTitle:title forOperation:CydiaAPT::CleanArchives(
+        _config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
         return false;
 
     return true;
@@ -717,7 +716,7 @@ class CydiaLogCleaner :
     if ([self popErrorWithTitle:title forReadList:list])
         return false;
 
-    manager_ = (_system->CreatePM(cache_));
+    manager_.reset(_system->CreatePM(cache_));
     if ([self popErrorWithTitle:title forOperation:manager_->GetArchives(fetcher_, &list, &records)])
         return false;
 
@@ -780,9 +779,10 @@ class CydiaLogCleaner :
 
     delock_ = nil;
 
-    pkgPackageManager::OrderResult result(manager_->DoInstall(statusfd_));
+    CydiaAPT::PackageManagerResult result(CydiaAPT::RunPackageManager(*manager_, statusfd_));
 
-    NSString *oextended(@"/var/lib/apt/extended_states");
+    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
     NSString *nextended(Cache("extended_states"));
 
     struct stat info;
@@ -795,12 +795,12 @@ class CydiaLogCleaner :
     if ([self popErrorWithTitle:title])
         return;
 
-    if (result == pkgPackageManager::Failed) {
+    if (result == CydiaAPT::PackageManagerResult::Failed) {
         _trace();
         return;
     }
 
-    if (result != pkgPackageManager::Completed) {
+    if (result != CydiaAPT::PackageManagerResult::Completed) {
         _trace();
         return;
     }
@@ -823,7 +823,7 @@ class CydiaLogCleaner :
 
 - (bool) upgrade {
     NSString *title(UCLocalize("UPGRADE"));
-    if ([self popErrorWithTitle:title forOperation:pkgDistUpgrade(cache_)])
+    if ([self popErrorWithTitle:title forOperation:CydiaAPT::PrepareDistUpgrade(cache_)])
         return false;
     return true;
 }

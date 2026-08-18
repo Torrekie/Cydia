@@ -2,6 +2,7 @@
 .SECONDARY:
 
 include mk/paths.mk
+include mk/apt.mk
 include mk/toolchain.mk
 include mk/sources.mk
 include mk/rules.mk

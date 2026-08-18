@@ -32,6 +32,7 @@
 
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/depcache.h>
+#include <apt-pkg/policy.h>
 
 #include <cstring>
 

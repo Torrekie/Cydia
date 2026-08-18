@@ -2,6 +2,8 @@
 # from `all` and `package`: existing build and packaging behavior is unchanged.
 
 VERIFY_SCRIPT := scripts/verify-modernization.sh
+APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
+APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 
 verify_objc_sources := $(filter %.m %.mm,$(source))
@@ -20,9 +22,61 @@ verify_ownership_files += postinst.mm cfversion.mm
 verify_size_sources := $(filter-out apt64/% SDURLCache/%,$(filter %.m %.mm %.c %.cc %.cpp,$(code)))
 verify_size_sources += postinst.mm cfversion.mm
 
-.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
+# Candidate set for the APT-consumer inventory.  The inventory script checks
+# that every raw APT token in app-owned C++/Objective-C++ is represented by the
+# reviewed `apt_api_sources` manifest above.
+apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
-verify: verify-static verify-compile
+.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
+.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
+
+verify: verify-apt verify-apt-api verify-apt-compile verify-static verify-compile
+
+verify-apt: verify-apt-provenance verify-apt-sources verify-apt-config
+
+verify-apt-config:
+	@package_version=$$(printf '#include <config.h>\n' | \
+		$(apt64) -dM -E -x c++ - 2>/dev/null | \
+		awk '$$2 == "PACKAGE_VERSION" { print $$3; exit }'); \
+	version=$$(printf '#include <config.h>\n' | \
+		$(apt64) -dM -E -x c++ - 2>/dev/null | \
+		awk '$$2 == "VERSION" { print $$3; exit }'); \
+	if test "$$package_version" != '"$(APT_SOURCE_VERSION)"'; then \
+		echo "[verify-apt][FAIL] PACKAGE_VERSION is $$package_version" >&2; exit 1; \
+	fi; \
+	if test "$$version" != '"$(APT_SOURCE_VERSION)"'; then \
+		echo "[verify-apt][FAIL] VERSION is $$version" >&2; exit 1; \
+	fi; \
+	echo "[verify-apt][ ok ] compiler reports APT version $(APT_SOURCE_VERSION)"
+
+verify-apt-api-inventory: $(APT_API_VERIFY_SCRIPT) $(apt_api_sources)
+	@$(APT_API_VERIFY_SCRIPT) inventory "$(apt_api_sources)" $(apt_api_candidates)
+
+verify-apt-api: verify-apt-api-inventory $(APT_API_VERIFY_SCRIPT) $(apt_api_sources)
+	@$(APT_API_VERIFY_SCRIPT) "$(APT_AUDIT_SOURCE_DIR)" "$(gxx)" "$(sdk)" \
+		"$(kind)" "$(arch)" "$(DEPLOYMENT_TARGET)" \
+		"$(APT_AUDIT_CXX_STANDARD)" "$(GENERATED_DIR)" "$(ICU_INCLUDE_DIR)" \
+		$(apt_api_sources)
+
+verify-apt-compile: $(APT_LIBRARY) $(apt_http_object) $(apt_compat_object)
+	@echo "[verify-apt] embedded APT archive, HTTP method, and compatibility API compile graph is up to date"
+
+verify-apt-provenance: $(APT_VERIFY_SCRIPT) mk/apt.mk .gitmodules \
+	$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET)
+	@$(APT_VERIFY_SCRIPT) provenance \
+		"$(APT_SOURCE_DIR)" "$(APT_SOURCE_COMMIT)" "$(APT_SOURCE_URL)" \
+		"$(APT_SOURCE_VERSION)" "$(APT_SOURCE_CXX_LEVEL)" \
+		"$(APT_SOURCE_TRUST)" \
+		"$(APT_ABI_MAJOR)" "$(APT_ABI_MINOR)" "$(APT_ABI_RELEASE)" \
+		"$(APT_LICENSE_FILES)" \
+		"$(APT_CONTRIB_INCLUDE_TARGET)" "$(APT_DEB_INCLUDE_TARGET)"
+
+verify-apt-sources: $(APT_VERIFY_SCRIPT) mk/apt.mk
+	@$(APT_VERIFY_SCRIPT) sources "$(APT_SOURCE_DIR)" \
+		"$(apt_core_sources)" "$(apt_deb_sources)" \
+		"$(apt_contrib_sources)" "$(apt_method_sources)" \
+		"$(apt_excluded_contrib_sources)" "$(notdir $(apt_http_source))" \
+		"$(apt_excluded_method_sources)"
 
 verify-static: $(VERIFY_SCRIPT)
 	@status=0; \
@@ -37,7 +91,7 @@ verify-static: $(VERIFY_SCRIPT)
 verify-config: $(VERIFY_SCRIPT)
 	@$(VERIFY_SCRIPT) config "$(DEPLOYMENT_TARGET)" "$(arch)" "$(objc_arc)" "$(MAKE)" \
 		"$(OBJECT_DIR)" "$(POSTINST_BINARY)" "$(CFVERSION_BINARY)" \
-		"makefile mk/toolchain.mk mk/rules.mk mk/verify.mk"
+		"makefile mk/apt.mk mk/toolchain.mk mk/rules.mk mk/verify.mk"
 
 verify-ownership: $(VERIFY_SCRIPT)
 	@$(VERIFY_SCRIPT) ownership $(verify_ownership_files)

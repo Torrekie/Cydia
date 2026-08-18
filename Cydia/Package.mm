@@ -1,7 +1,9 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
 
+#include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Profile.hpp"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/Section.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
@@ -11,6 +13,7 @@
 
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/error.h>
+#include <apt-pkg/policy.h>
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/sourcelist.h>
 #include <apt-pkg/strutl.h>
@@ -265,11 +268,12 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
     pkgRecords::Parser &parser([database_ records]->Lookup(file_));
 
-    const char *start, *end;
-    if (!parser.Find([name UTF8String], start, end))
+    CydiaAPT::PackageRecord record(&parser);
+    std::string value(record.Field([name UTF8String]));
+    if (value.empty())
         return (NSString *) [NSNull null];
 
-    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(start, end - start))];
+    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(value))];
 } }
 
 - (NSString *) getRecord {
@@ -306,6 +310,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         CYString website;
 
         _profile(Package$parse$Find)
+            CydiaAPT::PackageRecord record(parser);
             struct {
                 const char *name_;
                 CYString *value_;
@@ -322,12 +327,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             };
 
             for (size_t i(0); i != sizeof(names) / sizeof(names[0]); ++i) {
-                const char *start, *end;
-
-                if (parser->Find(names[i].name_, start, end)) {
+                std::string field(record.Field(names[i].name_));
+                if (!field.empty()) {
                     CYString &value(*names[i].value_);
                     _profile(Package$parse$Value)
-                        value.set(pool_, start, end - start);
+                        value.set(pool_, field);
                     _end
                 }
             }
@@ -371,7 +375,9 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _end
 
         _profile(Package$initWithVersion$Cache)
-            name_.set(NULL, version_.Display());
+            pkgRecords::Parser &parser([database records]->Lookup(file_));
+            CydiaAPT::PackageRecord record(&parser);
+            name_.set(NULL, record.DisplayName());
 
             latest_.set(NULL, StripVersion_(version_.VerStr()));
 
@@ -435,16 +441,14 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         } while (false); _end
 
         _profile(Package$initWithVersion$Tags)
-#if CYDIA_APT_MODERN
-            pkgCache::TagIterator tag(version_.TagList());
-#else
-            pkgCache::TagIterator tag(iterator.TagList());
-#endif
-            if (!tag.end()) {
+            pkgRecords::Parser &tagParser([database records]->Lookup(file_));
+            CydiaAPT::PackageRecord tagRecord(&tagParser);
+            std::vector<std::string> aptTags(tagRecord.Tags());
+            if (!aptTags.empty()) {
                 tags_ = [NSMutableArray arrayWithCapacity:8];
 
-                goto tag; for (; !tag.end(); ++tag) tag: {
-                    const char *name(tag.Name());
+                for (std::vector<std::string>::const_iterator tag(aptTags.begin()); tag != aptTags.end(); ++tag) {
+                    const char *name(tag->c_str());
                     NSString *string(CFBridgingRelease(CYStringCreate(name)));
                     if (string == nil)
                         continue;
@@ -477,21 +481,23 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _profile(Package$initWithVersion$Metadata)
             const char *mixed(iterator.Name());
             size_t size(strlen(mixed));
-            static const size_t prefix(sizeof("/var/lib/dpkg/info/") - 1);
-            char lower[prefix + size + 5 + 1];
+            char lower[size + 1];
 
             for (size_t i(0); i != size; ++i)
-                lower[prefix + i] = mixed[i] | 0x20;
+                lower[i] = mixed[i] | 0x20;
+            lower[size] = '\0';
 
             if (!installed_.empty()) {
-                memcpy(lower, "/var/lib/dpkg/info/", prefix);
-                memcpy(lower + prefix + size, ".list", 6);
-                struct stat info;
-                if (stat(lower, &info) != -1)
-                    upgraded_ = info.st_birthtime;
+                const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+                const std::string infoPath(paths.DpkgInfoFile(lower, ".list"));
+                if (!infoPath.empty()) {
+                    struct stat info;
+                    if (stat(infoPath.c_str(), &info) != -1)
+                        upgraded_ = info.st_birthtime;
+                }
             }
 
-            PackageValue *metadata(PackageFind(lower + prefix, size));
+            PackageValue *metadata(PackageFind(lower, size));
             if (metadata == NULL)
                 return nil;
 
