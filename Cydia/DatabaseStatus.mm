@@ -59,13 +59,15 @@ void CydiaStatus::setDelegate(NSObject<ProgressDelegate> *delegate) {
 
 void CydiaStatus::Fetch(pkgAcquire::ItemDesc &desc) {
     NSString *name([NSString stringWithUTF8String:desc.ShortDesc.c_str()]);
-    CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:kCydiaProgressEventTypeStatus forItemDesc:desc]);
+    CydiaAPT::AcquireItemData item{desc.Description, desc.URI};
+    CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:kCydiaProgressEventTypeStatus forItem:item]);
     [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
 }
 
 void CydiaStatus::Done(pkgAcquire::ItemDesc &desc) {
     NSString *name([NSString stringWithUTF8String:desc.ShortDesc.c_str()]);
-    CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:Colon_, UCLocalize("DONE"), name] ofType:kCydiaProgressEventTypeStatus forItemDesc:desc]);
+    CydiaAPT::AcquireItemData item{desc.Description, desc.URI};
+    CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:Colon_, UCLocalize("DONE"), name] ofType:kCydiaProgressEventTypeStatus forItem:item]);
     [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
 }
 
@@ -80,7 +82,8 @@ void CydiaStatus::Fail(pkgAcquire::ItemDesc &desc) {
     if (error.empty())
         return;
 
-    CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError forItemDesc:desc]);
+    CydiaAPT::AcquireItemData item{desc.Description, desc.URI};
+    CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError forItem:item]);
     [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
 }
 

@@ -61,6 +61,11 @@ struct SourceSnapshot {
     SourceSnapshot();
 };
 
+struct AcquireItemData {
+    std::string description;
+    std::string uri;
+};
+
 /* A copy owned by Cydia, detached from the lifetime and layout of an APT
  * record parser.  The backend creates this while its cache epoch is locked;
  * models may retain the returned values after that parser is gone. */

@@ -22,12 +22,11 @@
 #ifndef Cydia_ProgressEvent_H
 #define Cydia_ProgressEvent_H
 
+#include "Cydia/AptCompatibility.hpp"
 #include "CyteKit/UCPlatform.h"
 #include "Menes/ObjectHandle.h"
 
 #include <Foundation/Foundation.h>
-
-#include <apt-pkg/acquire.h>
 
 @interface CydiaProgressEvent : NSObject {
     _H<NSString> message_;
@@ -41,7 +40,7 @@
 
 + (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type;
 + (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forPackage:(NSString *)package;
-+ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItemDesc:(pkgAcquire::ItemDesc &)desc;
++ (CydiaProgressEvent *) eventWithMessage:(NSString *)message ofType:(NSString *)type forItem:(const CydiaAPT::AcquireItemData &)item;
 
 - (id) initWithMessage:(NSString *)message ofType:(NSString *)type;
 
