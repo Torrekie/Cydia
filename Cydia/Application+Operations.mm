@@ -30,7 +30,6 @@
 
 #include <cstdio>
 
-#include "apt.h"
 #define ForRelease 1
 #define AlwaysReload 0
 #define CacheState_ Cache("CacheState.plist")
