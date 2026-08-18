@@ -59,6 +59,7 @@ void PackageImport(const void *key, const void *value, void *context) {
 
     char buffer[1024];
     if (!CFStringGetCString((CFStringRef) key, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+        fail = true;
         NSLog(@"failed to import package %@", key);
         return;
     }
