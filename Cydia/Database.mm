@@ -322,6 +322,14 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->downgradeHandles(handle);
 }
 
+- (CydiaAPT::TransactionData) transactionData {
+    return apt_->transactionData();
+}
+
+- (bool) resolveDependencies {
+    return apt_->resolveDependencies();
+}
+
 - (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle {
     return apt_->clearPackage(handle);
 }

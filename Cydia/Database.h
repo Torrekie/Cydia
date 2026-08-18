@@ -92,6 +92,8 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (CydiaAPT::PackageStateData) packageState:(CydiaAPT::PackageHandle)handle;
 - (std::vector<CydiaAPT::RelationData>) packageRelations:(CydiaAPT::PackageHandle)handle;
 - (std::vector<CydiaAPT::PackageHandle>) packageDowngrades:(CydiaAPT::PackageHandle)handle;
+- (CydiaAPT::TransactionData) transactionData;
+- (bool) resolveDependencies;
 - (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle;
 - (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle;
 - (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle;

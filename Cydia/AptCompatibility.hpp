@@ -66,6 +66,11 @@ struct PackageStateData {
     bool hasCurrent;
     bool upgradable;
     bool candidateMatchesVersion;
+    bool newInstall;
+    bool deletePackage;
+    bool reinstall;
+    bool upgrade;
+    bool downgrade;
 
     PackageStateData();
 };
@@ -96,6 +101,39 @@ struct RelationClauseData {
 struct RelationData {
     std::string relationship;
     std::vector<RelationClauseData> clauses;
+};
+
+struct TransactionClauseData {
+    std::string package;
+    std::string comparison;
+    std::string version;
+    std::string reason;
+    std::string installed;
+};
+
+struct TransactionReasonData {
+    std::string relationship;
+    std::vector<TransactionClauseData> clauses;
+};
+
+struct TransactionIssueData {
+    std::string package;
+    std::vector<TransactionReasonData> reasons;
+};
+
+struct TransactionData {
+    std::vector<std::string> installs;
+    std::vector<std::string> reinstalls;
+    std::vector<std::string> upgrades;
+    std::vector<std::string> downgrades;
+    std::vector<std::string> removes;
+    std::vector<TransactionIssueData> issues;
+    std::uint64_t downloading;
+    std::uint64_t resuming;
+    bool removesEssential;
+    bool substrate;
+
+    TransactionData();
 };
 
 std::string Fingerprint(const void *data, std::size_t size);

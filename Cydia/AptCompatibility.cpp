@@ -46,7 +46,12 @@ PackageStateData::PackageStateData() :
     halfInstalled(false),
     hasCurrent(false),
     upgradable(false),
-    candidateMatchesVersion(false)
+    candidateMatchesVersion(false),
+    newInstall(false),
+    deletePackage(false),
+    reinstall(false),
+    upgrade(false),
+    downgrade(false)
 {
 }
 
@@ -55,6 +60,14 @@ PackageSnapshot::PackageSnapshot() :
     sourceFileID(0),
     hasSourceFile(false),
     defaultPriority(false)
+{
+}
+
+TransactionData::TransactionData() :
+    downloading(0),
+    resuming(0),
+    removesEssential(false),
+    substrate(false)
 {
 }
 

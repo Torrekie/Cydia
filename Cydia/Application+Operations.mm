@@ -11,7 +11,6 @@
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
-#include "Cydia/DatabaseApt.h"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
 #include "Cydia/PackageDatabasePaths.hpp"
@@ -32,9 +31,6 @@
 #include <cstdio>
 
 #include "apt.h"
-#include <apt-pkg/configuration.h>
-#include <apt-pkg/error.h>
-
 #define ForRelease 1
 #define AlwaysReload 0
 #define CacheState_ Cache("CacheState.plist")
@@ -76,10 +72,7 @@
 }
 
 - (void) resolve {
-    pkgProblemResolver *resolver = [database_ resolver];
-
-    if (!CydiaAPT::ResolveDependencies(*resolver))
-        _error->Discard();
+    (void) [database_ resolveDependencies];
 }
 
 - (bool) perform {
