@@ -16,6 +16,7 @@ struct PackageDatabaseLayoutValues {
     const char *dpkgStatus;
     const char *dpkgInfoDirectory;
     const char *aptExtendedStates;
+    const char *aptListsDirectory;
     const char *aptConfigDirectory;
     const char *cydiaStateDirectory;
     const char *packageLibraryDirectory;
@@ -29,6 +30,7 @@ const PackageDatabaseLayoutValues kRootfulLayout = {
     "/var/lib/dpkg/status",
     "/var/lib/dpkg/info",
     "/var/lib/apt/extended_states",
+    "/var/lib/apt/lists",
     "/etc/apt",
     "/var/lib/cydia",
     "/var/lib",
@@ -42,6 +44,7 @@ const PackageDatabaseLayoutValues kRootlessLayout = {
     "/var/jb/var/lib/dpkg/status",
     "/var/jb/var/lib/dpkg/info",
     "/var/jb/var/lib/apt/extended_states",
+    "/var/jb/var/lib/apt/lists",
     "/var/jb/etc/apt",
     "/var/jb/var/lib/cydia",
     "/var/jb/var/lib",
@@ -87,6 +90,7 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *dpkgStatus,
                                            const char *dpkgInfoDirectory,
                                            const char *aptExtendedStates,
+                                           const char *aptListsDirectory,
                                            const char *aptConfigDirectory,
                                            const char *cydiaStateDirectory,
                                            const char *packageLibraryDirectory,
@@ -98,6 +102,7 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
     dpkgStatusPath_(dpkgStatus),
     dpkgInfoDirectory_(dpkgInfoDirectory),
     aptExtendedStatesPath_(aptExtendedStates),
+    aptListsDirectory_(aptListsDirectory),
     aptConfigDirectory_(aptConfigDirectory),
     cydiaStateDirectory_(cydiaStateDirectory),
     packageLibraryDirectory_(packageLibraryDirectory),
@@ -111,6 +116,7 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
 PackageDatabasePaths PackageDatabasePaths::ForLayout(PackageDatabaseLayout layout) {
     const PackageDatabaseLayoutValues &values(ValuesForLayout(layout));
     return PackageDatabasePaths(layout, values.dpkgStatus, values.dpkgInfoDirectory, values.aptExtendedStates,
+                                values.aptListsDirectory,
                                 values.aptConfigDirectory, values.cydiaStateDirectory,
                                 values.packageLibraryDirectory, values.cydiaLibexecDirectory,
                                 values.cydiaApplication, values.cydo, values.dpkgBinary);
@@ -152,6 +158,10 @@ const std::string &PackageDatabasePaths::DpkgInfoDirectory() const {
 
 const std::string &PackageDatabasePaths::AptExtendedStatesPath() const {
     return aptExtendedStatesPath_;
+}
+
+const std::string &PackageDatabasePaths::AptListsDirectory() const {
+    return aptListsDirectory_;
 }
 
 const std::string &PackageDatabasePaths::AptConfigDirectory() const {
