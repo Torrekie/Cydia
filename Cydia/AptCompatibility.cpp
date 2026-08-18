@@ -77,6 +77,29 @@ SourceSnapshot::SourceSnapshot() :
 {
 }
 
+CacheStateSummary::CacheStateSummary() :
+    deletes(0),
+    installs(0),
+    broken(0)
+{
+}
+
+FetchResultData::FetchResultData() :
+    completed(false)
+{
+}
+
+SourceListData::SourceListData() :
+    success(false)
+{
+}
+
+UpdateResultData::UpdateResultData() :
+    prepared(false),
+    success(false)
+{
+}
+
 std::string Fingerprint(const void *data, std::size_t size) {
     if (data == NULL && size != 0)
         return std::string();

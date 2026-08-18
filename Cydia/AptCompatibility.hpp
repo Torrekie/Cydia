@@ -68,6 +68,45 @@ struct AcquireItemData {
     std::string uri;
 };
 
+struct ErrorData {
+    std::string message;
+    bool warning;
+};
+
+struct CacheStateSummary {
+    std::uint64_t deletes;
+    std::uint64_t installs;
+    std::uint64_t broken;
+
+    CacheStateSummary();
+};
+
+struct FetchFailureData {
+    std::string uri;
+    std::string error;
+};
+
+struct FetchResultData {
+    std::vector<FetchFailureData> failures;
+    bool completed;
+
+    FetchResultData();
+};
+
+struct SourceListData {
+    std::vector<std::string> uris;
+    bool success;
+
+    SourceListData();
+};
+
+struct UpdateResultData {
+    bool prepared;
+    bool success;
+
+    UpdateResultData();
+};
+
 /* A copy owned by Cydia, detached from the lifetime and layout of an APT
  * record parser.  The backend creates this while its cache epoch is locked;
  * models may retain the returned values after that parser is gone. */
