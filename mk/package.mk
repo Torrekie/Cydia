@@ -44,7 +44,10 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	cp -a preinst triggers $(CYDIA_STAGE)/DEBIAN/
 	cp -a $(POSTINST_BINARY) $(CYDIA_STAGE)/DEBIAN/postinst
 
-	find $(CYDIA_STAGE) -exec touch -t "$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$(git show --format='format:%ct' | head -n 1)")" {} ';'
+	@commit_epoch="$$(git log -1 --no-patch --format='%ct' 2>/dev/null || true)"; \
+	if test -n "$$commit_epoch" && stamp="$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$commit_epoch" 2>/dev/null)" && test -n "$$stamp"; then \
+		find $(CYDIA_STAGE) -exec touch -t "$$stamp" {} ';'; \
+	fi
 
 	chmod 6755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
 
