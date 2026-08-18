@@ -181,7 +181,7 @@ $(SETNSFPN_BINARY): setnsfpn.cpp
 	$(cycc) -o $@ $(filter %.cpp,$^) $(flag) $(link)
 	@ldid -T0 -Sgenent.xml $@
 
-$(CYDO_BINARY): cydo.cpp
+$(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(flag) $(link) -Wno-deprecated-writable-strings
 	@ldid -T0 -Sgenent.xml $@

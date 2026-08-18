@@ -20,6 +20,7 @@ struct PackageDatabaseLayoutValues {
     const char *cydiaStateDirectory;
     const char *packageLibraryDirectory;
     const char *cydiaLibexecDirectory;
+    const char *cydiaApplication;
     const char *cydo;
     const char *dpkgBinary;
 };
@@ -32,6 +33,7 @@ const PackageDatabaseLayoutValues kRootfulLayout = {
     "/var/lib/cydia",
     "/var/lib",
     "/usr/libexec/cydia",
+    "/Applications/Cydia.app/Cydia",
     "/usr/libexec/cydia/cydo",
     "/usr/bin/dpkg",
 };
@@ -44,6 +46,7 @@ const PackageDatabaseLayoutValues kRootlessLayout = {
     "/var/jb/var/lib/cydia",
     "/var/jb/var/lib",
     "/var/jb/usr/libexec/cydia",
+    "/var/jb/Applications/Cydia.app/Cydia",
     "/var/jb/usr/libexec/cydia/cydo",
     "/var/jb/usr/bin/dpkg",
 };
@@ -88,6 +91,7 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *cydiaStateDirectory,
                                            const char *packageLibraryDirectory,
                                            const char *cydiaLibexecDirectory,
+                                           const char *cydiaApplication,
                                            const char *cydo,
                                            const char *dpkgBinary) :
     layout_(layout),
@@ -98,6 +102,7 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
     cydiaStateDirectory_(cydiaStateDirectory),
     packageLibraryDirectory_(packageLibraryDirectory),
     cydiaLibexecDirectory_(cydiaLibexecDirectory),
+    cydiaApplicationPath_(cydiaApplication),
     cydoPath_(cydo),
     dpkgBinaryPath_(dpkgBinary)
 {
@@ -108,7 +113,7 @@ PackageDatabasePaths PackageDatabasePaths::ForLayout(PackageDatabaseLayout layou
     return PackageDatabasePaths(layout, values.dpkgStatus, values.dpkgInfoDirectory, values.aptExtendedStates,
                                 values.aptConfigDirectory, values.cydiaStateDirectory,
                                 values.packageLibraryDirectory, values.cydiaLibexecDirectory,
-                                values.cydo, values.dpkgBinary);
+                                values.cydiaApplication, values.cydo, values.dpkgBinary);
 }
 
 PackageDatabasePaths PackageDatabasePaths::Detect() {
@@ -163,6 +168,10 @@ const std::string &PackageDatabasePaths::PackageLibraryDirectory() const {
 
 const std::string &PackageDatabasePaths::CydiaLibexecDirectory() const {
     return cydiaLibexecDirectory_;
+}
+
+const std::string &PackageDatabasePaths::CydiaApplicationPath() const {
+    return cydiaApplicationPath_;
 }
 
 const std::string &PackageDatabasePaths::CydoPath() const {
