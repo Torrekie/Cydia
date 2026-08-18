@@ -24,7 +24,7 @@ if [ "${1-}" = inventory ]; then
 
     manifest=$2
     shift 2
-    pattern='(^|[^[:alnum:]_])(pkg(Cache|DepCache|Acquire|Records|Policy|ProblemResolver|SourceList|PackageManager|CacheFile|ArchiveCleaner)|_error|_config|_system)([^[:alnum:]_]|$)|CydiaAPT::[[:alnum:]_]+|#include[[:space:]]*[<"]apt-pkg/|#include[[:space:]]*[<"]apt\.h'
+    pattern='(^|[^[:alnum:]_])(pkg(Cache|DepCache|Acquire|AcquireStatus|Records|Policy|ProblemResolver|SourceList|PackageManager|CacheFile|ArchiveCleaner)|_error|_config|_system)([^[:alnum:]_]|$)|CydiaAPT::[[:alnum:]_]+|#include[[:space:]]*[<"]apt-pkg/|#include[[:space:]]*[<"]apt\.h'
     count=0
 
     for listed in $manifest; do
