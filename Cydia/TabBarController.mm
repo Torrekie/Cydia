@@ -26,6 +26,7 @@
 
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/DatabaseStatus.h"
 #include "Menes/ObjectHandle.h"
 #include "Substrate.hpp"
 #include "iPhonePrivate.h"

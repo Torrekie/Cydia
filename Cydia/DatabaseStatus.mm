@@ -3,6 +3,8 @@
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
  */
 
+#include "Cydia/DatabaseStatus.h"
+
 #include "Cydia/Database.h"
 
 #include "Cydia/ProgressEvent.h"

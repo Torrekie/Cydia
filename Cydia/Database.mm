@@ -5,6 +5,7 @@
 
 #include "Cydia/Database.h"
 #include "Cydia/DatabaseApt.h"
+#include "Cydia/DatabaseStatus.h"
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/AptBackend.hpp"
@@ -129,6 +130,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (void) dealloc {
     delete apt_;
     apt_ = NULL;
+    delete status_;
+    status_ = NULL;
     _assert(false);
     [self clearPackages];
     NSRecycleZone(zone_);
@@ -259,7 +262,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        apt_ = new CydiaAPT::AptBackend(status_);
+        status_ = new CydiaStatus();
+        apt_ = new CydiaAPT::AptBackend(*status_);
 
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
 
@@ -818,7 +822,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (void) update {
-    [self updateWithStatus:status_];
+    [self updateWithStatus:*status_];
 }
 
 - (void) updateWithStatus:(CancelStatus &)status {
@@ -854,7 +858,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (void) setProgressDelegate:(NSObject<ProgressDelegate> *)delegate {
     progress_ = delegate;
-    status_.setDelegate(delegate);
+    status_->setDelegate(delegate);
 }
 
 - (NSObject<ProgressDelegate> *) progressDelegate {
