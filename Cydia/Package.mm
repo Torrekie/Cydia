@@ -2,6 +2,7 @@
 #include "Cydia/Database.h"
 
 #include "Cydia/Profile.hpp"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/Section.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
@@ -477,21 +478,23 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _profile(Package$initWithVersion$Metadata)
             const char *mixed(iterator.Name());
             size_t size(strlen(mixed));
-            static const size_t prefix(sizeof("/var/lib/dpkg/info/") - 1);
-            char lower[prefix + size + 5 + 1];
+            char lower[size + 1];
 
             for (size_t i(0); i != size; ++i)
-                lower[prefix + i] = mixed[i] | 0x20;
+                lower[i] = mixed[i] | 0x20;
+            lower[size] = '\0';
 
             if (!installed_.empty()) {
-                memcpy(lower, "/var/lib/dpkg/info/", prefix);
-                memcpy(lower + prefix + size, ".list", 6);
-                struct stat info;
-                if (stat(lower, &info) != -1)
-                    upgraded_ = info.st_birthtime;
+                const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+                const std::string infoPath(paths.DpkgInfoFile(lower, ".list"));
+                if (!infoPath.empty()) {
+                    struct stat info;
+                    if (stat(infoPath.c_str(), &info) != -1)
+                        upgraded_ = info.st_birthtime;
+                }
             }
 
-            PackageValue *metadata(PackageFind(lower + prefix, size));
+            PackageValue *metadata(PackageFind(lower, size));
             if (metadata == NULL)
                 return nil;
 

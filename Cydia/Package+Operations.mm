@@ -1,5 +1,6 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
 
@@ -15,11 +16,15 @@
 @implementation Package (Operations)
 
 - (NSArray *) files {
-    NSString *path = [NSString stringWithFormat:@"/var/lib/dpkg/info/%@.list", static_cast<NSString *>(id_)];
+    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    const std::string infoPath(paths.DpkgInfoFile([static_cast<NSString *>(id_) UTF8String], ".list"));
+    if (infoPath.empty())
+        return nil;
+
     NSMutableArray *files = [NSMutableArray arrayWithCapacity:128];
 
     std::ifstream fin;
-    fin.open([path UTF8String]);
+    fin.open(infoPath.c_str());
     if (!fin.is_open())
         return nil;
 

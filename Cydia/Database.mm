@@ -6,7 +6,9 @@
 #include "Cydia/Database.h"
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/DpkgRunner.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PackageMetadata.hpp"
 #include "Cydia/Profile.hpp"
 #include "Cydia/ProgressEvent.h"
@@ -45,7 +47,9 @@ static NSString * const kCydiaProgressEventTypeStatus = @"Status";
 static NSString * const kCydiaProgressEventTypeWarning = @"Warning";
 
 static NSDate *GetStatusDate() {
-    return [[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/lib/dpkg/status" error:NULL] fileModificationDate];
+    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    NSString *status([NSString stringWithUTF8String:paths.DpkgStatusPath().c_str()]);
+    return [[[NSFileManager defaultManager] attributesOfItemAtPath:status error:NULL] fileModificationDate];
 }
 
 template <typename Type_>
@@ -672,9 +676,11 @@ class CydiaLogCleaner :
 } }
 
 - (void) configure {
-    NSString *dpkg = [NSString stringWithFormat:@"/usr/libexec/cydo --configure -a --status-fd %u", statusfd_];
     _trace();
-    system([dpkg UTF8String]);
+    Cydia::Dpkg::Runner runner(Cydia::Dpkg::Executable::Cydo);
+    Cydia::Dpkg::Result result(runner.Run({"--configure", "-a"}, statusfd_));
+    if (!result.succeeded())
+        _trace();
     _trace();
 }
 
@@ -782,7 +788,8 @@ class CydiaLogCleaner :
 
     Cydia::Apt::PackageManagerResult result(Cydia::Apt::RunPackageManager(*manager_, statusfd_));
 
-    NSString *oextended(@"/var/lib/apt/extended_states");
+    const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
+    NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
     NSString *nextended(Cache("extended_states"));
 
     struct stat info;
