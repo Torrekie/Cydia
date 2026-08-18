@@ -151,13 +151,13 @@ CFComparisonResult StringNameCompare(CFStringRef lhn, CFStringRef rhn, size_t le
         _end
 
         _profile(PackageNameCompare$Compare)
-            return CFStringCompareWithOptionsAndLocale(lhn, rhn, CFRangeMake(0, length), LaxCompareFlags_, (CFLocaleRef) (id) CollationLocale_);
+            return CFStringCompareWithOptionsAndLocale(lhn, rhn, CFRangeMake(0, length), LaxCompareFlags_, (__bridge CFLocaleRef) (id) CollationLocale_);
         _end
     _end
 }
 
 CFComparisonResult StringNameCompare(NSString *lhn, NSString*rhn, size_t length) {
-    return StringNameCompare((CFStringRef) lhn, (CFStringRef) rhn, length);
+    return StringNameCompare((__bridge CFStringRef) lhn, (__bridge CFStringRef) rhn, length);
 }
 
 CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
@@ -165,7 +165,7 @@ CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
     NSString *rhn(PackageName(rhs, @selector(cyname)));
     CFStringRef name((CFStringRef) lhn);
     size_t length(name == NULL ? 0 : CFStringGetLength(name));
-    return StringNameCompare(name, (CFStringRef) rhn, length);
+    return StringNameCompare(name, (__bridge CFStringRef) rhn, length);
 }
 
 CFComparisonResult PackageNameCompare_(Package **lhs, Package **rhs, void *arg) {
@@ -188,7 +188,6 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         delete pool_;
     if (parsed_ != NULL)
         delete parsed_;
-    [super dealloc];
 }
 
 + (NSString *) webScriptNameForSelector:(SEL)selector {
@@ -260,7 +259,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 @synchronized (database_) {
     NSMutableArray *relations([NSMutableArray arrayWithCapacity:16]);
     for (pkgCache::DepIterator dep(version_.DependsList()); !dep.end(); ++dep)
-        [relations addObject:[[[CydiaRelation alloc] initWithIterator:dep] autorelease]];
+        [relations addObject:[[CydiaRelation alloc] initWithIterator:dep]];
     return relations;
 } }
 
@@ -281,7 +280,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     if (!parser.Find([name UTF8String], start, end))
         return (NSString *) [NSNull null];
 
-    return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
+    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(start, end - start))];
 } }
 
 - (NSString *) getRecord {
@@ -294,7 +293,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     const char *start, *end;
     parser.GetRec(start, end);
 
-    return [NSString stringWithString:[(NSString *) CYStringCreate(start, end - start) autorelease]];
+    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(start, end - start))];
 } }
 
 - (void) parse {
@@ -457,11 +456,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
                 goto tag; for (; !tag.end(); ++tag) tag: {
                     const char *name(tag.Name());
-                    NSString *string((NSString *) CYStringCreate(name));
+                    NSString *string(CFBridgingRelease(CYStringCreate(name)));
                     if (string == nil)
                         continue;
 
-                    [tags_ addObject:[string autorelease]];
+                    [tags_ addObject:string];
 
                     if (role_ == 0 && strncmp(name, "role::", 6) == 0 /*&& strcmp(name, "role::leaper") != 0*/) {
                         if (strcmp(name + 6, "enduser") == 0)
@@ -585,7 +584,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
 // XXX: just in case a Cydia extension is using this (I bet this is unlikely, though, due to CYPool?)
 + (instancetype) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
-    return [[self newPackageWithIterator:iterator withZone:zone inPool:pool database:database] autorelease];
+    return [self newPackageWithIterator:iterator withZone:zone inPool:pool database:database];
 }
 
 - (pkgCache::PkgIterator) iterator {
@@ -598,7 +597,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     for (auto version(iterator_.VersionList()); !version.end(); ++version) {
         if (version == version_)
             continue;
-        Package *package([[[Package allocWithZone:NULL] initWithVersion:version withZone:NULL inPool:NULL database:database_] autorelease]);
+        Package *package([[Package allocWithZone:NULL] initWithVersion:version withZone:NULL inPool:NULL database:database_]);
         if ([package source] == nil)
             continue;
         [versions addObject:package];
@@ -704,12 +703,12 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         return nil;
     if (value.size() > 200)
         value.resize(200);
-    return [(id) CYStringCreate(value) autorelease];
+    return CFBridgingRelease(CYStringCreate(value));
 } }
 
 - (unichar) index {
     _profile(Package$index)
-        CFStringRef name((CFStringRef) [self name]);
+        CFStringRef name((__bridge CFStringRef) [self name]);
         if (CFStringGetLength(name) == 0)
             return '#';
         UniChar character(CFStringGetCharacterAtIndex(name, 0));

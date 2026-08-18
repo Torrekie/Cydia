@@ -3,6 +3,7 @@ plus :=
 link :=
 libs :=
 lapt :=
+objc_arc := -fobjc-arc
 
 ifeq ($(doIA),yes)
 kind := iphonesimulator

@@ -52,31 +52,22 @@ struct MenesObjectHandle_<Type_, 2> {
 template <typename Type_, unsigned Delegate_ = 0>
 class MenesObjectHandle {
   private:
-    Type_ *value_;
-
-    _finline void Retain_() {
-        if (value_ != nil)
-            CFRetain((CFTypeRef) value_);
-    }
+    Type_ *__strong value_;
 
     _finline void Release_(Type_ *value) {
-        if (value != nil) {
+        if (value != nil)
             MenesObjectHandle_<Type_, Delegate_>::Execute(value);
-            CFRelease((CFTypeRef) value);
-        }
     }
 
   public:
     _finline MenesObjectHandle(const MenesObjectHandle &rhs) :
-        value_(rhs.value_ == nil ? nil : (Type_ *) CFRetain((CFTypeRef) rhs.value_))
+        value_(rhs.value_)
     {
     }
 
-    _finline MenesObjectHandle(Type_ *value = NULL, bool mended = false) :
+    _finline MenesObjectHandle(Type_ *value = nil, bool = false) :
         value_(value)
     {
-        if (!mended)
-            Retain_();
     }
 
     _finline ~MenesObjectHandle() {
@@ -95,9 +86,9 @@ class MenesObjectHandle {
         if (value_ != value) {
             Type_ *old(value_);
             value_ = value;
-            Retain_();
             Release_(old);
-        } return *this;
+        }
+        return *this;
     }
 
     _finline MenesObjectHandle &operator =(const MenesObjectHandle &value) {

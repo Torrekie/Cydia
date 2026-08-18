@@ -27,7 +27,7 @@
 @interface NSString (Cyte)
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length;
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length;
-+ (NSString *) stringWithFormat:(NSString *)format :(size_t)count :(id *)args;
++ (NSString *) stringWithFormat:(NSString *)format :(size_t)count :(id const __unsafe_unretained *)args;
 @end
 
 #endif//CyteKit_stringWith_H

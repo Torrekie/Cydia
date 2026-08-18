@@ -26,33 +26,33 @@
 @implementation NSString (Cyte)
 
 + (NSString *) stringWithUTF8BytesNoCopy:(const char *)bytes length:(int)length {
-    return [[[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO] autorelease];
+    return [[NSString alloc] initWithBytesNoCopy:const_cast<char *>(bytes) length:length encoding:NSUTF8StringEncoding freeWhenDone:NO];
 }
 
 + (NSString *) stringWithUTF8Bytes:(const char *)bytes length:(int)length {
-    return [[[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding] autorelease];
+    return [[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding];
 }
 
-+ (NSString *) stringWithFormat:(NSString *)format :(size_t)count :(id *)args {
++ (NSString *) stringWithFormat:(NSString *)format :(size_t)count :(id const __unsafe_unretained *)args {
     switch (count) {
         case 0:
-            return [[[NSString alloc] initWithString:format] autorelease];;
+            return [[NSString alloc] initWithString:format];
         case 1:
-            return [[[NSString alloc] initWithFormat:format, args[0]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0]];
         case 2:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1]];
         case 3:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1], args[2]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1], args[2]];
         case 4:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3]];
         case 5:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4]];
         case 6:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4], args[5]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4], args[5]];
         case 7:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4], args[5], args[6]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4], args[5], args[6]];
         case 8:
-            return [[[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]] autorelease];;
+            return [[NSString alloc] initWithFormat:format, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]];
         default:
             _assert(false);
     }
