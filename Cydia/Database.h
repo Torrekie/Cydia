@@ -12,19 +12,8 @@
 
 #include <Foundation/Foundation.h>
 
-#include <apt-pkg/acquire.h>
-#include <apt-pkg/algorithms.h>
-#include <apt-pkg/cachefile.h>
-#include <apt-pkg/contrib/fileutl.h>
-#include <apt-pkg/packagemanager.h>
-#include <apt-pkg/pkgrecords.h>
-#include <apt-pkg/sourcelist.h>
-
 #include <cstdio>
 #include <map>
-#include <memory>
-#include <set>
-#include <string>
 
 @class Database;
 @class Package;
@@ -35,6 +24,9 @@
 namespace CydiaAPT {
 class AptBackend;
 }
+
+class CancelStatus;
+class CydiaStatus;
 
 @protocol DatabaseDelegate
 - (void) repairWithSelector:(SEL)selector;
@@ -60,60 +52,6 @@ extern NSString *Colon_;
 /* Kept here until the remaining application helpers are split out. */
 NSString *ShellEscape(NSString *value);
 
-class CancelStatus :
-    public pkgAcquireStatus
-{
-  private:
-    bool cancelled_;
-
-  public:
-    CancelStatus();
-    virtual bool MediaChange(std::string media, std::string drive);
-    virtual void IMSHit(pkgAcquire::ItemDesc &desc);
-    virtual bool Pulse_(pkgAcquire *Owner) = 0;
-    virtual bool Pulse(pkgAcquire *Owner);
-    bool WasCancelled() const;
-};
-
-class CydiaStatus :
-    public CancelStatus
-{
-  private:
-    __weak NSObject<ProgressDelegate> *delegate_;
-
-  public:
-    CydiaStatus();
-    void setDelegate(NSObject<ProgressDelegate> *delegate);
-
-    virtual void Fetch(pkgAcquire::ItemDesc &desc);
-    virtual void Done(pkgAcquire::ItemDesc &desc);
-    virtual void Fail(pkgAcquire::ItemDesc &desc);
-    virtual bool Pulse_(pkgAcquire *Owner);
-    virtual void Start();
-    virtual void Stop();
-};
-
-class SourceStatus :
-    public CancelStatus
-{
-  private:
-    __weak NSObject<FetchDelegate> *delegate_;
-    __weak Database *database_;
-    std::set<std::string> fetches_;
-
-  public:
-    SourceStatus(NSObject<FetchDelegate> *delegate, Database *database);
-    void Set(bool fetch, const std::string &uri);
-    void Set(bool fetch, pkgAcquire::Item *item);
-    void Log(const char *tag, pkgAcquire::Item *item);
-
-    virtual void Fetch(pkgAcquire::ItemDesc &desc);
-    virtual void Done(pkgAcquire::ItemDesc &desc);
-    virtual void Fail(pkgAcquire::ItemDesc &desc);
-    virtual bool Pulse_(pkgAcquire *Owner);
-    virtual void Stop();
-};
-
 typedef std::map<unsigned long, _H<Source> > SourceMap;
 
 @interface Database : NSObject {
@@ -133,7 +71,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     __weak NSObject<DatabaseDelegate> *delegate_;
     __weak NSObject<ProgressDelegate> *progress_;
 
-    CydiaStatus status_;
+    CydiaStatus *status_;
 
     int cydiafd_;
     int statusfd_;
@@ -168,7 +106,6 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (void) setProgressDelegate:(NSObject<ProgressDelegate> *)delegate;
 - (NSObject<ProgressDelegate> *) progressDelegate;
 
-- (Source *) getSource:(pkgCache::PkgFileIterator)file;
 - (void) setFetch:(bool)fetch forURI:(const char *)uri;
 - (void) resetFetch;
 - (NSString *) mappedSectionForPointer:(const char *)pointer;

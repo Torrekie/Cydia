@@ -29,7 +29,9 @@ record, resolver, acquire, lock, package-manager, and source-list handles.
 `Database` remains the Objective-C façade for this transition. Its raw handle
 accessors now live in the explicitly private `DatabaseApt.h` category instead
 of the public database API; replacing that category with DTO queries is the
-next migration seam.
+next migration seam. `Database.h` itself no longer imports `apt-pkg`; the
+acquire status adapters that still require those headers live in the private
+`DatabaseStatus.h` boundary.
 
 | Area | Legacy dependency | Backend migration seam |
 | --- | --- | --- |

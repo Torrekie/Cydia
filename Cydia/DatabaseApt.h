@@ -9,13 +9,13 @@
 #ifndef Cydia_DatabaseApt_H
 #define Cydia_DatabaseApt_H
 
+#include "Cydia/Database.h"
+
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/sourcelist.h>
-
-@class Database;
 
 @interface Database (APTCompatibility)
 - (pkgCacheFile &) cache;
@@ -24,6 +24,7 @@
 - (pkgProblemResolver *) resolver;
 - (pkgAcquire &) fetcher;
 - (pkgSourceList &) list;
+- (Source *) getSource:(pkgCache::PkgFileIterator)file;
 @end
 
 #endif //Cydia_DatabaseApt_H
