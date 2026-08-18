@@ -101,9 +101,10 @@ Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) cons
         argv.push_back(const_cast<char *>(it->c_str()));
     argv.push_back(NULL);
 
-    /* posix_spawn avoids forking a multithreaded UIKit process.  The dup2
-     * action also clears close-on-exec on a caller-supplied status descriptor,
-     * making the status-fd contract independent of how the pipe was created.
+    /* posix_spawn avoids forking a multithreaded UIKit process.  The Darwin
+     * inherit action also clears close-on-exec on a caller-supplied status
+     * descriptor, making the status-fd contract independent of how the pipe
+     * was created (unlike dup2(fd, fd), which is a no-op on some systems).
      */
     posix_spawn_file_actions_t actions;
     int actionError = posix_spawn_file_actions_init(&actions);
@@ -111,7 +112,7 @@ Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) cons
         return launchFailure(actionError);
 
     if (statusFd >= 0) {
-        actionError = posix_spawn_file_actions_adddup2(&actions, statusFd, statusFd);
+        actionError = posix_spawn_file_actions_addinherit_np(&actions, statusFd);
         if (actionError != 0) {
             (void) posix_spawn_file_actions_destroy(&actions);
             return launchFailure(actionError);
