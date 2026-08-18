@@ -7,48 +7,47 @@
 
 #include "Cydia/AptCompatibility.hpp"
 
-#include <apt-pkg/acquire.h>
-#include <apt-pkg/algorithms.h>
-#include <apt-pkg/cachefile.h>
-#include <apt-pkg/contrib/fileutl.h>
-#include <apt-pkg/packagemanager.h>
-#include <apt-pkg/pkgrecords.h>
-#include <apt-pkg/sourcelist.h>
-
 #include <memory>
 
 namespace CydiaAPT {
 
-class PackageRegistry;
-class SourceRegistry;
+class AcquireStatus;
+
+namespace Internal {
+class AptBackend;
+}
 
 /*
  * Database is an Objective-C façade; this class owns every mutable APT
- * handle belonging to one database epoch.  Raw handles are returned only to
- * Database.mm, which is the transition point for the DTO backend migration.
+ * handle belonging to one database epoch.  Its storage and all libapt-pkg
+ * headers stay in AptBackendInternal.hpp.
  */
 class AptBackend {
   private:
-    pkgAcquireStatus *status_;
-    pkgCacheFile cache_;
-    pkgDepCache::Policy *policy_;
-    pkgRecords *records_;
-    pkgProblemResolver *resolver_;
-    pkgAcquire *fetcher_;
-    FileFd *lock_;
-    std::unique_ptr<pkgPackageManager> manager_;
-    pkgSourceList *list_;
-    std::unique_ptr<PackageRegistry> packages_;
-    std::unique_ptr<SourceRegistry> sources_;
+    std::unique_ptr<Internal::AptBackend> implementation_;
 
   public:
-    explicit AptBackend(pkgAcquireStatus &status);
+    explicit AptBackend(AcquireStatus &status);
     ~AptBackend();
 
     static void KeepFileDescriptor(int descriptor);
 
     void reset();
     void createCacheViews();
+    std::vector<ErrorData> drainErrors();
+    void discardErrors();
+    bool loadSources();
+    bool openCache();
+    CacheStateSummary cacheState();
+    bool applyStatus();
+    bool fixBroken();
+    bool minimizeUpgrade();
+    bool cleanArchives();
+    bool prepareArchives();
+    SourceListData sourceList();
+    FetchResultData runFetcher(int pulseInterval);
+    PackageManagerResult runPackageManager(int statusFd);
+    UpdateResultData updateLists(AcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
@@ -63,25 +62,10 @@ class AptBackend {
     bool clearPackage(PackageHandle handle);
     bool installPackage(PackageHandle handle);
     bool removePackage(PackageHandle handle);
-    std::string archiveDirectory() const;
-    std::string listsDirectory() const;
-    bool createPackageManager();
-    pkgCache::PkgIterator packageIterator(PackageHandle handle);
     std::vector<SourceHandle> sourceHandles();
     SourceSnapshot sourceSnapshot(SourceHandle handle);
     std::string sourceField(SourceHandle handle, const std::string &name);
     std::vector<std::uint32_t> sourceFileIDs(SourceHandle handle);
-    pkgSourceList *createSourceList();
-    pkgAcquire *createFetcher();
-
-    pkgCacheFile &cache();
-    pkgDepCache::Policy *policy() const;
-    pkgRecords *records() const;
-    pkgProblemResolver *&resolver();
-    pkgAcquire *fetcher() const;
-    FileFd *&lock();
-    std::unique_ptr<pkgPackageManager> &manager();
-    pkgSourceList *list() const;
 };
 
 } // namespace CydiaAPT

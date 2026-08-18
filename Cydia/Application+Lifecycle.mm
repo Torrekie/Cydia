@@ -90,15 +90,6 @@ typedef enum {
     (void) privileged.Run({"/usr/bin/killall", "backboardd", "SpringBoard"});
 }
 
-- (void) system:(NSString *)command {
-    @autoreleasepool {
-
-    _trace();
-    system([command UTF8String]);
-    _trace();
-    }
-}
-
 - (void) applicationWillSuspend {
     [database_ clean];
     [super applicationWillSuspend];

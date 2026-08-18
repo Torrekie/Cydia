@@ -12,11 +12,6 @@
 #include <string>
 #include <vector>
 
-class pkgCache;
-class pkgDepCache;
-class pkgPackageManager;
-class pkgProblemResolver;
-
 namespace CydiaAPT {
 
 enum class PackageManagerResult {
@@ -66,6 +61,45 @@ struct AcquireItemData {
     std::string uri;
 };
 
+struct ErrorData {
+    std::string message;
+    bool warning;
+};
+
+struct CacheStateSummary {
+    std::uint64_t deletes;
+    std::uint64_t installs;
+    std::uint64_t broken;
+
+    CacheStateSummary();
+};
+
+struct FetchFailureData {
+    std::string uri;
+    std::string error;
+};
+
+struct FetchResultData {
+    std::vector<FetchFailureData> failures;
+    bool completed;
+
+    FetchResultData();
+};
+
+struct SourceListData {
+    std::vector<std::string> uris;
+    bool success;
+
+    SourceListData();
+};
+
+struct UpdateResultData {
+    bool prepared;
+    bool success;
+
+    UpdateResultData();
+};
+
 /* A copy owned by Cydia, detached from the lifetime and layout of an APT
  * record parser.  The backend creates this while its cache epoch is locked;
  * models may retain the returned values after that parser is gone. */
@@ -83,7 +117,7 @@ struct PackageRecordData {
 
 /* Stable package state/action values.  APT enum layouts and cache ownership
  * stay inside AptBackend; package controllers consume these strings and
- * booleans instead of touching pkgDepCache::StateCache. */
+ * booleans instead of touching APT's state-cache representation. */
 struct PackageStateData {
     std::string state;
     std::string selection;
@@ -169,15 +203,6 @@ struct TransactionData {
 };
 
 std::string Fingerprint(const void *data, std::size_t size);
-
-// Keep version-sensitive APT calls out of Objective-C controllers and models.
-// AptBackend now owns the mutable epoch handles; these references are a
-// transitional Database façade until the remaining cache queries become DTOs.
-PackageManagerResult RunPackageManager(pkgPackageManager &manager, int statusFd);
-bool CleanArchives(const std::string &directory, pkgCache &cache);
-bool MinimizeUpgrade(pkgDepCache &cache);
-bool PrepareDistUpgrade(pkgDepCache &cache);
-bool ResolveDependencies(pkgProblemResolver &resolver);
 
 } // namespace CydiaAPT
 

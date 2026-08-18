@@ -4,6 +4,7 @@
 
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/init.h>
+#include <apt-pkg/pkgsystem.h>
 
 namespace CydiaAPT {
 
