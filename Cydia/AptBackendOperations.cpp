@@ -2,7 +2,7 @@
  * Database operations kept behind the Cydia-owned APT boundary.
  */
 
-#include "Cydia/AptBackend.hpp"
+#include "Cydia/AptBackendInternal.hpp"
 
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/clean.h>
@@ -13,6 +13,7 @@
 #include <apt-pkg/progress.h>
 
 namespace CydiaAPT {
+namespace Internal {
 
 std::vector<ErrorData> AptBackend::drainErrors() {
     std::vector<ErrorData> result;
@@ -145,4 +146,5 @@ UpdateResultData AptBackend::updateLists(pkgAcquireStatus &status, int pulseInte
     return result;
 }
 
+} // namespace Internal
 } // namespace CydiaAPT

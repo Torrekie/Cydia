@@ -7,39 +7,24 @@
 
 #include "Cydia/AptCompatibility.hpp"
 
-#include <apt-pkg/acquire.h>
-#include <apt-pkg/algorithms.h>
-#include <apt-pkg/cachefile.h>
-#include <apt-pkg/contrib/fileutl.h>
-#include <apt-pkg/packagemanager.h>
-#include <apt-pkg/pkgrecords.h>
-#include <apt-pkg/sourcelist.h>
-
 #include <memory>
+
+class pkgAcquireStatus;
 
 namespace CydiaAPT {
 
-class PackageRegistry;
-class SourceRegistry;
+namespace Internal {
+class AptBackend;
+}
 
 /*
  * Database is an Objective-C façade; this class owns every mutable APT
- * handle belonging to one database epoch.  Raw handles are returned only to
- * Database.mm, which is the transition point for the DTO backend migration.
+ * handle belonging to one database epoch.  Its storage and all libapt-pkg
+ * headers stay in AptBackendInternal.hpp.
  */
 class AptBackend {
   private:
-    pkgAcquireStatus *status_;
-    pkgCacheFile cache_;
-    pkgDepCache::Policy *policy_;
-    pkgRecords *records_;
-    pkgProblemResolver *resolver_;
-    pkgAcquire *fetcher_;
-    FileFd *lock_;
-    std::unique_ptr<pkgPackageManager> manager_;
-    pkgSourceList *list_;
-    std::unique_ptr<PackageRegistry> packages_;
-    std::unique_ptr<SourceRegistry> sources_;
+    std::unique_ptr<Internal::AptBackend> implementation_;
 
   public:
     explicit AptBackend(pkgAcquireStatus &status);
