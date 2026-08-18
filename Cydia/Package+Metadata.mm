@@ -4,6 +4,8 @@
 #include "CyteKit/Localize.h"
 #include "iPhonePrivate.h"
 
+#include <unicode/uchar.h>
+
 #include <apt-pkg/pkgrecords.h>
 
 #include <cctype>
@@ -143,7 +145,7 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         UniChar character(CFStringGetCharacterAtIndex(name, 0));
         if (!PackageIsLetterCharacter_(character))
             return '#';
-        return toupper(character);
+        return u_toupper(character);
     _end
 }
 
@@ -153,15 +155,18 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 
 - (time_t) seen {
     PackageValue *metadata([self metadata]);
-    return metadata->subscribed_ ? metadata->last_ : metadata->first_;
+    return metadata == NULL ? 0 : metadata->subscribed_ ? metadata->last_ : metadata->first_;
 }
 
 - (bool) subscribed {
-    return [self metadata]->subscribed_;
+    PackageValue *metadata([self metadata]);
+    return metadata != NULL && metadata->subscribed_;
 }
 
 - (bool) setSubscribed:(bool)subscribed {
     PackageValue *metadata([self metadata]);
+    if (metadata == NULL)
+        return false;
     if (metadata->subscribed_ == subscribed)
         return false;
     metadata->subscribed_ = subscribed;
@@ -286,7 +291,7 @@ static bool PackageIsLetterCharacter_(UniChar character) {
                 return @"REINSTALL";
             else*/ switch (state.Status) {
                 case -1:
-#ifndef __arm__
+#if CYDIA_APT_MODERN
                     return [database_ cache].Policy->GetCandidateVer(iterator_)==state.CandidateVerIter([database_ cache])?@"UPGRADE":@"DOWNGRADE";
 #else
                     return @"DOWNGRADE";

@@ -10,8 +10,6 @@
 #include <apt-pkg/fileutl.h>
 #include <apt-pkg/tagfile.h>
 
-#include <cctype>
-
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 
 @implementation Source
@@ -77,11 +75,13 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
         std::string file(dindex->MetaIndexURI(""));
         base_.set(pool, file);
 
+        size_t first(acquire->ItemsEnd() - acquire->ItemsBegin());
+
         _profile(Source$setMetaIndex$GetIndexes)
         dindex->GetIndexes(acquire, true);
         _end
         _profile(Source$setMetaIndex$DescURI)
-        for (pkgAcquire::ItemIterator item(acquire->ItemsBegin()); item != acquire->ItemsEnd(); item++) {
+        for (pkgAcquire::ItemIterator item(acquire->ItemsBegin() + first); item != acquire->ItemsEnd(); item++) {
             std::string file((*item)->DescURI());
             auto slash(file.rfind('/'));
             if (slash == std::string::npos)
@@ -183,10 +183,13 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
     if ([lhs length] != 0 && [rhs length] != 0) {
         unichar lhc = [lhs characterAtIndex:0];
         unichar rhc = [rhs characterAtIndex:0];
+        NSCharacterSet *letters([NSCharacterSet letterCharacterSet]);
+        bool lha([letters characterIsMember:lhc]);
+        bool rha([letters characterIsMember:rhc]);
 
-        if (isalpha(lhc) && !isalpha(rhc))
+        if (lha && !rha)
             return NSOrderedAscending;
-        else if (!isalpha(lhc) && isalpha(rhc))
+        else if (!lha && rha)
             return NSOrderedDescending;
     }
 
@@ -324,10 +327,13 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (bool) fetch {
+@synchronized (self) {
     return !fetches_.empty();
-}
+} }
 
 - (void) setFetch:(bool)fetch forURI:(const char *)uri {
+    bool fetching;
+@synchronized (self) {
     if (!fetch) {
         if (fetches_.erase(uri) == 0)
             return;
@@ -336,11 +342,16 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
     else if (!fetches_.insert(uri).second)
         return;
 
-    [delegate_ performSelectorOnMainThread:@selector(setFetch:) withObject:[NSNumber numberWithBool:[self fetch]] waitUntilDone:NO];
+    fetching = !fetches_.empty();
+}
+
+    [delegate_ performSelectorOnMainThread:@selector(setFetch:) withObject:[NSNumber numberWithBool:fetching] waitUntilDone:NO];
 }
 
 - (void) resetFetch {
+@synchronized (self) {
     fetches_.clear();
+}
     [delegate_ performSelectorOnMainThread:@selector(setFetch:) withObject:[NSNumber numberWithBool:NO] waitUntilDone:NO];
 }
 
