@@ -145,7 +145,9 @@
 
 - (void) _uicache {
     _trace();
-    system("/usr/bin/uicache");
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    CydiaRuntime::Dpkg::Runner runner(paths.CydoPath());
+    (void) runner.Run({paths.BootstrapBinaryPath("uicache")});
     _trace();
 }
 
