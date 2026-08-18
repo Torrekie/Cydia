@@ -1,16 +1,19 @@
 #!/bin/bash
 
-export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
+shopt -s nullglob
+. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+export PATH=${CYDIA_BIN}:$PATH:/usr/sbin:/usr/bin:/sbin:/bin
 
-if [[ ! -e /var/lib/cydia/firmware.ver ]]; then
+if [[ ! -e "${CYDIA_STATE}/firmware.ver" ]]; then
     cache=
 fi
 
-/usr/libexec/cydia/firmware.sh
+"${CYDIA_LIBEXEC}/firmware.sh"
 
-debs=(/var/root/Media/Cydia/AutoInstall/*.deb)
+autoinstall=${CYDIA_AUTOINSTALL_DIR:-/var/root/Media/Cydia/AutoInstall}
+debs=("${autoinstall}"/*.deb)
 if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
-    dpkg -i "${debs[@]}" 2>/tmp/dpkg.log 1>&2
+    "${CYDIA_LIBEXEC}/cydo" -i "${debs[@]}" 2>/tmp/dpkg.log 1>&2
     rm -f "${debs[@]}"
     cache=
 
