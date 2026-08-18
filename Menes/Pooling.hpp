@@ -23,6 +23,7 @@
 #define Menes_Pooling_HPP
 
 #include <cstdarg>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
