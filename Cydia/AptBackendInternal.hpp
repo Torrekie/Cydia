@@ -1,30 +1,41 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * APT lifetime and transaction ownership boundary.
+ * Private libapt-pkg storage for AptBackend.
  */
 
-#ifndef Cydia_AptBackend_HPP
-#define Cydia_AptBackend_HPP
+#ifndef Cydia_AptBackendInternal_HPP
+#define Cydia_AptBackendInternal_HPP
 
 #include "Cydia/AptCompatibility.hpp"
 
+#include <apt-pkg/acquire.h>
+#include <apt-pkg/algorithms.h>
+#include <apt-pkg/cachefile.h>
+#include <apt-pkg/contrib/fileutl.h>
+#include <apt-pkg/packagemanager.h>
+#include <apt-pkg/pkgrecords.h>
+#include <apt-pkg/sourcelist.h>
+
 #include <memory>
 
-class pkgAcquireStatus;
-
 namespace CydiaAPT {
-
 namespace Internal {
-class AptBackend;
-}
 
-/*
- * Database is an Objective-C façade; this class owns every mutable APT
- * handle belonging to one database epoch.  Its storage and all libapt-pkg
- * headers stay in AptBackendInternal.hpp.
- */
+class PackageRegistry;
+class SourceRegistry;
+
 class AptBackend {
   private:
-    std::unique_ptr<Internal::AptBackend> implementation_;
+    pkgAcquireStatus *status_;
+    pkgCacheFile cache_;
+    pkgDepCache::Policy *policy_;
+    pkgRecords *records_;
+    pkgProblemResolver *resolver_;
+    pkgAcquire *fetcher_;
+    FileFd *lock_;
+    std::unique_ptr<pkgPackageManager> manager_;
+    pkgSourceList *list_;
+    std::unique_ptr<PackageRegistry> packages_;
+    std::unique_ptr<SourceRegistry> sources_;
 
   public:
     explicit AptBackend(pkgAcquireStatus &status);
@@ -68,6 +79,7 @@ class AptBackend {
     std::vector<std::uint32_t> sourceFileIDs(SourceHandle handle);
 };
 
+} // namespace Internal
 } // namespace CydiaAPT
 
-#endif // Cydia_AptBackend_HPP
+#endif // Cydia_AptBackendInternal_HPP

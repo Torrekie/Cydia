@@ -2,7 +2,7 @@
  * APT lifetime and transaction ownership boundary.
  */
 
-#include "Cydia/AptBackend.hpp"
+#include "Cydia/AptBackendInternal.hpp"
 
 #include <apt-pkg/policy.h>
 #include <apt-pkg/acquire-item.h>
@@ -81,6 +81,7 @@ class ParserView {
 } // namespace
 
 namespace CydiaAPT {
+namespace Internal {
 
 class PackageRegistry {
   public:
@@ -763,4 +764,5 @@ std::vector<std::uint32_t> AptBackend::sourceFileIDs(SourceHandle handle) {
     return result;
 }
 
+} // namespace Internal
 } // namespace CydiaAPT
