@@ -135,6 +135,8 @@ extern "C" {
 #include "Cydia/PackageViews.h"
 #include "Cydia/Profile.hpp"
 #include "Cydia/Database.h"
+#include "Cydia/DpkgRunner.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/ProgressData.h"
 #include "Cydia/ProgressController.h"
 #include "Cydia/ProgressEvent.h"
@@ -938,6 +940,9 @@ int main(int argc, char *argv[]) {
     }
     /* }}} */
     /* Load Database {{{ */
+    const CydiaRuntime::PackageDatabasePaths &packagePaths(CydiaRuntime::PackageDatabasePaths::Current());
+    CydiaRuntime::Dpkg::Runner privileged(CydiaRuntime::Dpkg::Executable::Cydo);
+
     SectionMap_ = [[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]];
 
     _trace();
@@ -951,7 +956,8 @@ int main(int argc, char *argv[]) {
     Version_ = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("CydiaVersion"), CFSTR("com.saurik.Cydia")));
 
     _trace();
-    NSDictionary *metadata([[NSMutableDictionary alloc] initWithContentsOfFile:@"/var/lib/cydia/metadata.plist"]);
+    NSString *metadataPath([NSString stringWithUTF8String:packagePaths.CydiaMetadataPath().c_str()]);
+    NSDictionary *metadata([[NSMutableDictionary alloc] initWithContentsOfFile:metadataPath]);
 
     if (Values_ == nil)
         Values_ = [metadata objectForKey:@"Values"];
@@ -1007,19 +1013,20 @@ int main(int argc, char *argv[]) {
     broken = nil;
 
     SaveConfig(nil);
-    system("/usr/libexec/cydia/cydo /bin/rm -f /var/lib/cydia/metadata.plist");
+    (void) privileged.Run({"/bin/rm", "-f", packagePaths.CydiaMetadataPath()});
     /* }}} */
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
 
     if (kCFCoreFoundationVersionNumber > 1000)
-        system("/usr/libexec/cydia/cydo /usr/libexec/cydia/setnsfpn /var/lib");
+        (void) privileged.Run({packagePaths.CydiaHelperPath("setnsfpn"), packagePaths.PackageLibraryDirectory()});
 
-    int version([[NSString stringWithContentsOfFile:@"/var/lib/cydia/firmware.ver"] intValue]);
+    NSString *firmwareVersionPath([NSString stringWithUTF8String:packagePaths.CydiaFirmwareVersionPath().c_str()]);
+    int version([[NSString stringWithContentsOfFile:firmwareVersionPath] intValue]);
 
     if (access("/User", F_OK) != 0 || version != 6) {
         _trace();
-        system("/usr/libexec/cydia/cydo /usr/libexec/cydia/firmware.sh");
+        (void) privileged.Run({packagePaths.CydiaHelperPath("firmware.sh")});
         _trace();
     }
 
@@ -1030,10 +1037,12 @@ int main(int argc, char *argv[]) {
             _assert(errno == ENOENT);
     }
 
-    system([[NSString stringWithFormat:@"/usr/libexec/cydia/cydo /bin/ln -sf %@ /etc/apt/sources.list.d/cydia.list", Cache("sources.list")] UTF8String]);
+    (void) privileged.Run({"/bin/ln", "-sf", [Cache("sources.list") UTF8String],
+                           packagePaths.CydiaSourcesListPath()});
 
     /* APT Initialization {{{ */
     _assert(pkgInitConfig(*_config));
+    _config->Set("Dir::Etc", packagePaths.AptConfigDirectory());
     _assert(pkgInitSystem(*_config, _system));
 
     const Configuration::Item *arch = _config->Tree("APT::Architecture");
@@ -1063,7 +1072,7 @@ int main(int argc, char *argv[]) {
     mkdir([Cache("archives/partial") UTF8String], 0755);
     _config->Set("Dir::Cache", [Cache_ UTF8String]);
 
-    symlink("/var/lib/apt/extended_states", [Cache("extended_states") UTF8String]);
+    symlink(packagePaths.AptExtendedStatesPath().c_str(), [Cache("extended_states") UTF8String]);
     _config->Set("Dir::State", [Cache_ UTF8String]);
 
     mkdir([Cache("lists") UTF8String], 0755);
@@ -1075,7 +1084,7 @@ int main(int argc, char *argv[]) {
     mkdir(logs.c_str(), 0755);
     _config->Set("Dir::Log", logs);
 
-    _config->Set("Dir::Bin::dpkg", "/usr/libexec/cydia/cydo");
+    _config->Set("Dir::Bin::dpkg", packagePaths.CydoPath());
     /* }}} */
     /* Color Choices {{{ */
     space_ = CGColorSpaceCreateDeviceRGB();
