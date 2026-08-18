@@ -37,5 +37,6 @@ extern _H<UIFont> Font18Bold_;
 extern _H<UIFont> Font22Bold_;
 
 UIColor *whiteIfNotDark(bool white);
+void overrideUserInterfaceStyle(NSInteger style);
 
 #endif//Cydia_Appearance_H
