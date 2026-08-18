@@ -12,18 +12,25 @@ responsibilities:
   shell-free `cydo` runner and selects rooted/rootless paths before database
   access.
 
-The adapter canary currently passes the pinned ABI 5/C++11 tree and a clean
-upstream-main ABI 7/C++23 checkout. The complete UI/model layer is not yet
-portable to that canary because it still exposes raw APT objects. A direct
-syntax probe identifies these blockers in the old layer:
+The source-compatibility canary currently passes the pinned ABI 5/C++11 tree
+and a clean upstream-main ABI 7/C++23 checkout. The compatibility boundary
+absorbs archive cleanup, upgrade minimization, resolver execution,
+package-manager progress, package-record fields/tags, and content
+fingerprinting. All current app-owned C++/Objective-C++ translation units
+syntax-check against that upstream-main checkout.
+
+That result is deliberately narrower than an APT update: the canary does not
+replace, link, or run the embedded tree. The UI/model layer still exposes raw
+APT iterators and cache lifetimes, so those objects must move behind
+`AptBackend` before the gitlink can advance safely.
 
 | Area | Legacy dependency | Backend migration seam |
 | --- | --- | --- |
-| package records | `pkgRecords::Parser::Find` and old display helpers | return Cydia-owned metadata/value DTOs |
+| package records | compatibility wrapper still receives an opaque parser handle | move lookup and parser lifetime entirely into `AptBackend` DTO queries |
 | package cache | iterator fields and tag-list internals | opaque package/version handles plus query methods |
 | archive cleanup | old `pkgArchiveCleaner::Erase` virtual signature | `AptArchiveCleaner` adapter with version-gated implementation |
 | package manager setup | direct `pkgSystem::CreatePM` and `pkgCacheFile` assumptions | `AptBackend` owns initialization and transaction handles |
-| policy/upgrade | free functions and policy internals in controllers | backend methods returning Cydia result enums |
+| policy/upgrade | policy comparisons and cache mutation still occur outside the adapter | backend methods returning Cydia result enums |
 | source/update flow | raw acquire/source-list objects in UI callbacks | backend progress events and source DTOs |
 
 ## Migration order

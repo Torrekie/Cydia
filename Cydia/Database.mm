@@ -531,7 +531,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         }
 
         _profile(pkgApplyStatus$pkgMinimizeUpgrade)
-        if ([self popErrorWithTitle:title forOperation:Cydia::Apt::MinimizeUpgrade(cache_)])
+        if ([self popErrorWithTitle:title forOperation:CydiaAPT::MinimizeUpgrade(cache_)])
             return;
         _end
     }
@@ -693,7 +693,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     pkgAcquire fetcher;
     fetcher.Clean(_config->FindDir("Dir::Cache::Archives"));
 
-    if ([self popErrorWithTitle:title forOperation:Cydia::Apt::CleanArchives(
+    if ([self popErrorWithTitle:title forOperation:CydiaAPT::CleanArchives(
         _config->FindDir("Dir::Cache::Archives") + "partial/", cache_)])
         return false;
 
@@ -779,7 +779,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     delock_ = nil;
 
-    Cydia::Apt::PackageManagerResult result(Cydia::Apt::RunPackageManager(*manager_, statusfd_));
+    CydiaAPT::PackageManagerResult result(CydiaAPT::RunPackageManager(*manager_, statusfd_));
 
     const Cydia::PackageDatabasePaths &paths(Cydia::PackageDatabasePaths::Current());
     NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
@@ -795,12 +795,12 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if ([self popErrorWithTitle:title])
         return;
 
-    if (result == Cydia::Apt::PackageManagerResult::Failed) {
+    if (result == CydiaAPT::PackageManagerResult::Failed) {
         _trace();
         return;
     }
 
-    if (result != Cydia::Apt::PackageManagerResult::Completed) {
+    if (result != CydiaAPT::PackageManagerResult::Completed) {
         _trace();
         return;
     }
@@ -823,7 +823,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (bool) upgrade {
     NSString *title(UCLocalize("UPGRADE"));
-    if ([self popErrorWithTitle:title forOperation:Cydia::Apt::PrepareDistUpgrade(cache_)])
+    if ([self popErrorWithTitle:title forOperation:CydiaAPT::PrepareDistUpgrade(cache_)])
         return false;
     return true;
 }

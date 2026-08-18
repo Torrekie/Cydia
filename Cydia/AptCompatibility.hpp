@@ -5,20 +5,39 @@
 #ifndef Cydia_AptCompatibility_H
 #define Cydia_AptCompatibility_H
 
+#include <cstddef>
 #include <string>
+#include <vector>
 
 class pkgCache;
 class pkgDepCache;
 class pkgPackageManager;
+class pkgProblemResolver;
 
-namespace Cydia {
-namespace Apt {
+namespace CydiaAPT {
 
 enum class PackageManagerResult {
     Failed,
     Incomplete,
     Completed,
 };
+
+// Stable record view used while Package is moved behind AptBackend.  The
+// opaque handle is a pkgRecords::Parser owned by the current database epoch;
+// no parser methods or record-layout details escape through this header.
+class PackageRecord {
+  private:
+    void *parser_;
+
+  public:
+    explicit PackageRecord(void *parser);
+
+    std::string Field(const char *name) const;
+    std::string DisplayName() const;
+    std::vector<std::string> Tags() const;
+};
+
+std::string Fingerprint(const void *data, std::size_t size);
 
 // Keep version-sensitive APT calls out of Objective-C controllers and models.
 // The cache references are transitional handles; the next AptBackend slice
@@ -27,8 +46,8 @@ PackageManagerResult RunPackageManager(pkgPackageManager &manager, int statusFd)
 bool CleanArchives(const std::string &directory, pkgCache &cache);
 bool MinimizeUpgrade(pkgDepCache &cache);
 bool PrepareDistUpgrade(pkgDepCache &cache);
+bool ResolveDependencies(pkgProblemResolver &resolver);
 
-} // namespace Apt
-} // namespace Cydia
+} // namespace CydiaAPT
 
 #endif // Cydia_AptCompatibility_H
