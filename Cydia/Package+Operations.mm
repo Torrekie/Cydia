@@ -5,8 +5,6 @@
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
 
-#include <apt-pkg/algorithms.h>
-
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -41,26 +39,8 @@
     if ([database_ era] != era_ || file_.end())
         return nil;
 
-    switch (iterator_->CurrentState) {
-        case pkgCache::State::NotInstalled:
-            return @"NotInstalled";
-        case pkgCache::State::UnPacked:
-            return @"UnPacked";
-        case pkgCache::State::HalfConfigured:
-            return @"HalfConfigured";
-        case pkgCache::State::HalfInstalled:
-            return @"HalfInstalled";
-        case pkgCache::State::ConfigFiles:
-            return @"ConfigFiles";
-        case pkgCache::State::Installed:
-            return @"Installed";
-        case pkgCache::State::TriggersAwaited:
-            return @"TriggersAwaited";
-        case pkgCache::State::TriggersPending:
-            return @"TriggersPending";
-    }
-
-    return (NSString *) [NSNull null];
+    CydiaAPT::PackageStateData state([database_ stateForPackageHandle:&iterator_ versionHandle:&version_]);
+    return state.state.empty() ? (NSString *) [NSNull null] : [NSString stringWithUTF8String:state.state.c_str()];
 } }
 
 - (NSString *) selection {
@@ -68,20 +48,8 @@
     if ([database_ era] != era_ || file_.end())
         return nil;
 
-    switch (iterator_->SelectedState) {
-        case pkgCache::State::Unknown:
-            return @"Unknown";
-        case pkgCache::State::Install:
-            return @"Install";
-        case pkgCache::State::Hold:
-            return @"Hold";
-        case pkgCache::State::DeInstall:
-            return @"DeInstall";
-        case pkgCache::State::Purge:
-            return @"Purge";
-    }
-
-    return (NSString *) [NSNull null];
+    CydiaAPT::PackageStateData state([database_ stateForPackageHandle:&iterator_ versionHandle:&version_]);
+    return state.selection.empty() ? (NSString *) [NSNull null] : [NSString stringWithUTF8String:state.selection.c_str()];
 } }
 
 - (NSArray *) warnings {
@@ -90,7 +58,7 @@
         return nil;
 
     NSMutableArray *warnings([NSMutableArray arrayWithCapacity:4]);
-    const char *name(iterator_.Name());
+    const char *name([[self id] UTF8String]);
 
     size_t length(strlen(name));
     if (length < 2) invalid:
@@ -191,12 +159,7 @@
     if ([database_ era] != era_ || file_.end())
         return;
 
-    pkgProblemResolver *resolver = [database_ resolver];
-    resolver->Clear(iterator_);
-
-    pkgCacheFile &cache([database_ cache]);
-    cache->SetReInstall(iterator_, false);
-    cache->MarkKeep(iterator_, false);
+    (void) [database_ clearPackageForHandle:&iterator_];
 } }
 
 - (void) install {
@@ -204,18 +167,7 @@
     if ([database_ era] != era_ || file_.end())
         return;
 
-    pkgProblemResolver *resolver = [database_ resolver];
-    resolver->Clear(iterator_);
-    resolver->Protect(iterator_);
-
-    pkgCacheFile &cache([database_ cache]);
-    cache->SetCandidateVersion(version_);
-    cache->SetReInstall(iterator_, false);
-    cache->MarkInstall(iterator_, false);
-
-    pkgDepCache::StateCache &state((*cache)[iterator_]);
-    if (!state.Install())
-        cache->SetReInstall(iterator_, true);
+    (void) [database_ installPackageForHandle:&iterator_ versionHandle:&version_];
 } }
 
 - (void) remove {
@@ -223,14 +175,7 @@
     if ([database_ era] != era_ || file_.end())
         return;
 
-    pkgProblemResolver *resolver = [database_ resolver];
-    resolver->Clear(iterator_);
-    resolver->Remove(iterator_);
-    resolver->Protect(iterator_);
-
-    pkgCacheFile &cache([database_ cache]);
-    cache->SetReInstall(iterator_, false);
-    cache->MarkDelete(iterator_, true);
+    (void) [database_ removePackageForHandle:&iterator_];
 } }
 
 @end

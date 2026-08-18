@@ -317,6 +317,22 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->recordData(handle);
 }
 
+- (CydiaAPT::PackageStateData) stateForPackageHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle {
+    return apt_->packageState(packageHandle, versionHandle);
+}
+
+- (bool) clearPackageForHandle:(const void *)packageHandle {
+    return apt_->clearPackage(packageHandle);
+}
+
+- (bool) installPackageForHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle {
+    return apt_->installPackage(packageHandle, versionHandle);
+}
+
+- (bool) removePackageForHandle:(const void *)packageHandle {
+    return apt_->removePackage(packageHandle);
+}
+
 - (pkgDepCache::Policy *) policy {
     return apt_->policy();
 }

@@ -20,6 +20,10 @@
 
 @interface Database (APTCompatibility)
 - (CydiaAPT::PackageRecordData) recordForHandle:(const void *)handle;
+- (CydiaAPT::PackageStateData) stateForPackageHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle;
+- (bool) clearPackageForHandle:(const void *)packageHandle;
+- (bool) installPackageForHandle:(const void *)packageHandle versionHandle:(const void *)versionHandle;
+- (bool) removePackageForHandle:(const void *)packageHandle;
 - (pkgCacheFile &) cache;
 - (pkgDepCache::Policy *) policy;
 - (pkgRecords *) records;
