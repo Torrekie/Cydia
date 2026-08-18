@@ -142,6 +142,7 @@ extern "C" {
 #include "Cydia/SectionControllers.h"
 #include "Cydia/Source.h"
 #include "Cydia/SourceControllers.h"
+#include "Cydia/StashController.h"
 #include "Cydia/TabBarController.h"
 #include "Cydia/URLHelpers.h"
 #include "Cydia/URLProtocol.h"
@@ -673,75 +674,6 @@ static void SaveConfig(NSObject *lock) {
 
     CydiaWriteSources();
 }
-
-/* Stash Controller {{{ */
-@interface StashController : CyteViewController {
-    _H<UIActivityIndicatorView> spinner_;
-    _H<UILabel> status_;
-    _H<UILabel> caption_;
-}
-
-@end
-
-@implementation StashController
-
-- (void) loadView {
-    UIView *view([[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]]);
-    [view setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
-    [self setView:view];
-
-    [view setBackgroundColor:[UIColor viewFlipsideBackgroundColor]];
-
-    spinner_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    CGRect spinrect = [spinner_ frame];
-    spinrect.origin.x = Retina([[self view] frame].size.width / 2 - spinrect.size.width / 2);
-    spinrect.origin.y = [[self view] frame].size.height - 80.0f;
-    [spinner_ setFrame:spinrect];
-    [spinner_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin];
-    [view addSubview:spinner_];
-    [spinner_ startAnimating];
-
-    CGRect captrect;
-    captrect.size.width = [[self view] frame].size.width;
-    captrect.size.height = 40.0f;
-    captrect.origin.x = 0;
-    captrect.origin.y = Retina([[self view] frame].size.height / 2 - captrect.size.height * 2);
-    caption_ = [[UILabel alloc] initWithFrame:captrect];
-    [caption_ setText:UCLocalize("PREPARING_FILESYSTEM")];
-    [caption_ setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
-    [caption_ setFont:[UIFont boldSystemFontOfSize:28.0f]];
-    [caption_ setTextColor:whiteIfNotDark(1)];
-    [caption_ setBackgroundColor:[UIColor clearColor]];
-    [caption_ setShadowColor:whiteIfNotDark(0)];
-    [caption_ setTextAlignment:NSTextAlignmentCenter];
-    [view addSubview:caption_];
-
-    CGRect statusrect;
-    statusrect.size.width = [[self view] frame].size.width;
-    statusrect.size.height = 30.0f;
-    statusrect.origin.x = 0;
-    statusrect.origin.y = Retina([[self view] frame].size.height / 2 - statusrect.size.height);
-    status_ = [[UILabel alloc] initWithFrame:statusrect];
-    [status_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin];
-    [status_ setText:UCLocalize("EXIT_WHEN_COMPLETE")];
-    [status_ setFont:[UIFont systemFontOfSize:16.0f]];
-    [status_ setTextColor:whiteIfNotDark(1)];
-    [status_ setBackgroundColor:[UIColor clearColor]];
-    [status_ setShadowColor:whiteIfNotDark(0)];
-    [status_ setTextAlignment:NSTextAlignmentCenter];
-    [view addSubview:status_];
-}
-
-- (void) releaseSubviews {
-    spinner_ = nil;
-    status_ = nil;
-    caption_ = nil;
-
-    [super releaseSubviews];
-}
-
-@end
-/* }}} */
 
 @interface Cydia : CyteApplication <
     ConfirmationControllerDelegate,
