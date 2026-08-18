@@ -8,6 +8,8 @@
 #include "Cydia/AppState.h"
 #include "Cydia/Appearance.h"
 #include "Cydia/Database.h"
+#include "Cydia/DpkgRunner.h"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/StashController.h"
 #include "Cydia/TabBarController.h"
 #include "Sources.h"
@@ -78,12 +80,14 @@ typedef enum {
             if (kill(sb_pid, 0)) sleep(5);
         }
     }
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    CydiaRuntime::Dpkg::Runner privileged(paths.CydoPath());
     if (kCFCoreFoundationVersionNumber >= 700) // XXX: iOS 6.x
-        system("/usr/libexec/cydia/cydo /bin/launchctl stop com.apple.backboardd");
+        (void) privileged.Run({"/bin/launchctl", "stop", "com.apple.backboardd"});
     else
-        system("/usr/libexec/cydia/cydo /bin/launchctl stop com.apple.SpringBoard");
+        (void) privileged.Run({"/bin/launchctl", "stop", "com.apple.SpringBoard"});
     sleep(15);
-    system("/usr/bin/killall backboardd SpringBoard");
+    (void) privileged.Run({"/usr/bin/killall", "backboardd", "SpringBoard"});
 }
 
 - (void) system:(NSString *)command {
@@ -254,11 +258,17 @@ typedef enum {
 - (void) stash {
     [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     UpdateExternalStatus(1);
-    [self yieldToSelector:@selector(system:) withObject:@"/usr/libexec/cydia/cydo /usr/libexec/cydia/free.sh"];
+    [self yieldToSelector:@selector(runStashHelper)];
     UpdateExternalStatus(0);
 
     [self removeStashController];
     [self reloadSpringBoard];
+}
+
+- (void) runStashHelper {
+    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    CydiaRuntime::Dpkg::Runner privileged(paths.CydoPath());
+    (void) privileged.Run({paths.CydiaHelperPath("free.sh")});
 }
 
 @end
