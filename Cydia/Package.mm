@@ -123,10 +123,10 @@ CFComparisonResult StringNameCompare(CFStringRef lhn, CFStringRef rhn, size_t le
         else if (rhn == NULL)
             return kCFCompareGreaterThan;
 
-        CFIndex length(CFStringGetLength(lhn));
+        CFIndex lhsLength(CFStringGetLength(lhn));
 
         _profile(PackageNameCompare$NumbersLast)
-            if (length != 0 && CFStringGetLength(rhn) != 0) {
+            if (lhsLength != 0 && CFStringGetLength(rhn) != 0) {
                 UniChar lhc(CFStringGetCharacterAtIndex(lhn, 0));
                 UniChar rhc(CFStringGetCharacterAtIndex(rhn, 0));
                 bool lha(IsLetterCharacter_(lhc));
@@ -141,14 +141,16 @@ CFComparisonResult StringNameCompare(CFStringRef lhn, CFStringRef rhn, size_t le
     _end
 }
 
-_finline CFComparisonResult StringNameCompare(NSString *lhn, NSString*rhn, size_t length) {
+CFComparisonResult StringNameCompare(NSString *lhn, NSString*rhn, size_t length) {
     return StringNameCompare((__bridge CFStringRef) lhn, (__bridge CFStringRef) rhn, length);
 }
 
 CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
     CYString &lhn(PackageName(lhs, @selector(cyname)));
     NSString *rhn(PackageName(rhs, @selector(cyname)));
-    return StringNameCompare(lhn, rhn, lhn.size());
+    CFStringRef name((CFStringRef) lhn);
+    size_t length(name == NULL ? 0 : CFStringGetLength(name));
+    return StringNameCompare(name, (__bridge CFStringRef) rhn, length);
 }
 
 CFComparisonResult PackageNameCompare_(Package **lhs, Package **rhs, void *arg) {
@@ -346,7 +348,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     _end
 } }
 
-- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
+- (instancetype) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
         if (pool == NULL)
@@ -433,7 +435,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         } while (false); _end
 
         _profile(Package$initWithVersion$Tags)
-#ifndef __arm__
+#if CYDIA_APT_MODERN
             pkgCache::TagIterator tag(version_.TagList());
 #else
             pkgCache::TagIterator tag(iterator.TagList());
@@ -490,6 +492,9 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             }
 
             PackageValue *metadata(PackageFind(lower + prefix, size));
+            if (metadata == NULL)
+                return nil;
+
             metadata_ = metadata;
 
             id_.set(NULL, metadata->name_, size);
@@ -522,7 +527,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             ignored_ = iterator->SelectedState == pkgCache::State::Hold;
         _end
 
-#ifndef __arm__
+#if CYDIA_APT_MODERN
         _profile(Package$initWithVersion$Priority)
             // ignore "essential" tags from non-pinned repos
             if (essential_ && [database cache].Policy->GetPriority(version, true) == 500) {
@@ -534,11 +539,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     _end } return self;
 }
 
-+ (Package *) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
++ (instancetype) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     pkgCache::VerIterator version;
 
     _profile(Package$packageWithIterator$GetCandidateVer)
-#ifndef __arm__
+#if CYDIA_APT_MODERN
         version = [database cache]->GetCandidateVersion(iterator);
 #else
         version = [database policy]->GetCandidateVer(iterator);
@@ -567,7 +572,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 }
 
 // XXX: just in case a Cydia extension is using this (I bet this is unlikely, though, due to CYPool?)
-+ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
++ (instancetype) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     return [self newPackageWithIterator:iterator withZone:zone inPool:pool database:database];
 }
 

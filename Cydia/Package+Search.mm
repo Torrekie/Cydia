@@ -88,7 +88,7 @@ static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSC
 }
 
 - (void) setIndex:(size_t)index {
-    if (metadata_->index_ != index + 1)
+    if (metadata_ != NULL && metadata_->index_ != index + 1)
         metadata_->index_ = index + 1;
 }
 
