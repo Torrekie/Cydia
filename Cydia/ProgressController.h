@@ -31,7 +31,7 @@
 @class Database;
 
 @interface ProgressController : CydiaWebViewController <ProgressDelegate> {
-    _transient Database *database_;
+    __weak Database *database_;
     _H<CydiaProgressData, 1> progress_;
     unsigned cancel_;
 }

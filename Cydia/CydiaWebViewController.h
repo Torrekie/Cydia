@@ -31,7 +31,7 @@
 @class CydiaObject;
 
 @interface CydiaObject : CyteObject {
-    _transient id delegate_;
+    __weak id delegate_;
 }
 
 - (void) setDelegate:(id)delegate;
