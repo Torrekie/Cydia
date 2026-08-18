@@ -298,7 +298,7 @@
     NSNumber *value(nil);
 
     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const std::string helper(paths.CydiaHelperPath("du"));
+    const std::string helper(paths.BootstrapBinaryPath("du"));
     if (path == nil || helper.empty())
         return nil;
 

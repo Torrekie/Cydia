@@ -218,4 +218,14 @@ std::string PackageDatabasePaths::CydiaHelperPath(const char *name) const {
     return IsLeafName(name) ? JoinPath(cydiaLibexecDirectory_, name) : std::string();
 }
 
+std::string PackageDatabasePaths::BootstrapBinaryPath(const char *name) const {
+    if (!IsLeafName(name))
+        return std::string();
+
+    const std::string::size_type slash(dpkgBinaryPath_.rfind('/'));
+    if (slash == std::string::npos)
+        return std::string();
+    return JoinPath(dpkgBinaryPath_.substr(0, slash), name);
+}
+
 } // namespace CydiaRuntime
