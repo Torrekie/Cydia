@@ -10,6 +10,7 @@
 #include <apt-pkg/debmetaindex.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/fileutl.h>
+#include <apt-pkg/init.h>
 #include <apt-pkg/tagfile.h>
 
 #include <cstring>
@@ -196,6 +197,11 @@ AptBackend::AptBackend(pkgAcquireStatus &status) :
 
 AptBackend::~AptBackend() {
     reset();
+}
+
+void AptBackend::KeepFileDescriptor(int descriptor) {
+    if (descriptor >= 0)
+        _config->Set("APT::Keep-Fds::", descriptor);
 }
 
 void AptBackend::reset() {
@@ -625,6 +631,19 @@ bool AptBackend::removePackage(PackageHandle handle) {
     cache.SetReInstall(package, false);
     cache.MarkDelete(package, true);
     return true;
+}
+
+std::string AptBackend::archiveDirectory() const {
+    return _config->FindDir("Dir::Cache::Archives");
+}
+
+std::string AptBackend::listsDirectory() const {
+    return _config->FindDir("Dir::State::Lists");
+}
+
+bool AptBackend::createPackageManager() {
+    manager_.reset(_system->CreatePM(cache_));
+    return manager_.get() != NULL;
 }
 
 pkgCache::PkgIterator AptBackend::packageIterator(PackageHandle handle) {

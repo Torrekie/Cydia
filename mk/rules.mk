@@ -110,6 +110,11 @@ $(apt_compat_object): Cydia/AptCompatibility.cpp $(header) apt.h apt-extra/*.h
 	@echo "[cycc] $<"
 	@$(apt64) $(apt_plus) -c -o $@ $<
 
+$(OBJECT_DIR)/Cydia/AptRuntime.o: Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp $(header) apt.h apt-extra/*.h
+	@mkdir -p $(dir $@)
+	@echo "[cycc] $<"
+	@$(apt64) $(plus) -c -o $@ $< $(flag)
+
 $(OBJECT_DIR)/%.o: %.cc $(header)
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
