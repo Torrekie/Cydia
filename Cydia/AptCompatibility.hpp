@@ -40,8 +40,8 @@ class PackageRecord {
 std::string Fingerprint(const void *data, std::size_t size);
 
 // Keep version-sensitive APT calls out of Objective-C controllers and models.
-// The cache references are transitional handles; the next AptBackend slice
-// will replace them with Cydia-owned transaction objects and DTOs.
+// AptBackend now owns the mutable epoch handles; these references are a
+// transitional Database façade until the remaining cache queries become DTOs.
 PackageManagerResult RunPackageManager(pkgPackageManager &manager, int statusFd);
 bool CleanArchives(const std::string &directory, pkgCache &cache);
 bool MinimizeUpgrade(pkgDepCache &cache);
