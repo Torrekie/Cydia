@@ -6,6 +6,7 @@
 #include "CyteKit/RegEx.hpp"
 #include "iPhonePrivate.h"
 
+#include <unicode/uchar.h>
 #include <unicode/ustring.h>
 
 #include <apt-pkg/algorithms.h>
@@ -23,6 +24,9 @@
 
 static const NSStringCompareOptions MatchCompareOptions_ = NSLiteralSearch | NSCaseInsensitiveSearch;
 static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
+
+// The supported apt64 input exposes the modern candidate/version APIs.
+#define CYDIA_APT_MODERN 1
 
 static bool IsLetterCharacter_(UniChar character) {
     return [[NSCharacterSet letterCharacterSet] characterIsMember:character];
@@ -134,10 +138,10 @@ CFComparisonResult StringNameCompare(CFStringRef lhn, CFStringRef rhn, size_t le
         else if (rhn == NULL)
             return kCFCompareGreaterThan;
 
-        CFIndex length(CFStringGetLength(lhn));
+        CFIndex lhsLength(CFStringGetLength(lhn));
 
         _profile(PackageNameCompare$NumbersLast)
-            if (length != 0 && CFStringGetLength(rhn) != 0) {
+            if (lhsLength != 0 && CFStringGetLength(rhn) != 0) {
                 UniChar lhc(CFStringGetCharacterAtIndex(lhn, 0));
                 UniChar rhc(CFStringGetCharacterAtIndex(rhn, 0));
                 bool lha(IsLetterCharacter_(lhc));
@@ -152,14 +156,16 @@ CFComparisonResult StringNameCompare(CFStringRef lhn, CFStringRef rhn, size_t le
     _end
 }
 
-_finline CFComparisonResult StringNameCompare(NSString *lhn, NSString*rhn, size_t length) {
+CFComparisonResult StringNameCompare(NSString *lhn, NSString*rhn, size_t length) {
     return StringNameCompare((CFStringRef) lhn, (CFStringRef) rhn, length);
 }
 
 CFComparisonResult PackageNameCompare(Package *lhs, Package *rhs, void *arg) {
     CYString &lhn(PackageName(lhs, @selector(cyname)));
     NSString *rhn(PackageName(rhs, @selector(cyname)));
-    return StringNameCompare(lhn, rhn, lhn.size());
+    CFStringRef name((CFStringRef) lhn);
+    size_t length(name == NULL ? 0 : CFStringGetLength(name));
+    return StringNameCompare(name, (CFStringRef) rhn, length);
 }
 
 CFComparisonResult PackageNameCompare_(Package **lhs, Package **rhs, void *arg) {
@@ -354,7 +360,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     _end
 } }
 
-- (Package *) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
+- (instancetype) initWithVersion:(pkgCache::VerIterator)version withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithVersion)
         if (pool == NULL)
@@ -441,7 +447,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         } while (false); _end
 
         _profile(Package$initWithVersion$Tags)
-#ifndef __arm__
+#if CYDIA_APT_MODERN
             pkgCache::TagIterator tag(version_.TagList());
 #else
             pkgCache::TagIterator tag(iterator.TagList());
@@ -498,6 +504,9 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             }
 
             PackageValue *metadata(PackageFind(lower + prefix, size));
+            if (metadata == NULL)
+                return nil;
+
             metadata_ = metadata;
 
             id_.set(NULL, metadata->name_, size);
@@ -530,7 +539,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             ignored_ = iterator->SelectedState == pkgCache::State::Hold;
         _end
 
-#ifndef __arm__
+#if CYDIA_APT_MODERN
         _profile(Package$initWithVersion$Priority)
             // ignore "essential" tags from non-pinned repos
             if (essential_ && [database cache].Policy->GetPriority(version, true) == 500) {
@@ -542,11 +551,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     _end } return self;
 }
 
-+ (Package *) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
++ (instancetype) newPackageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     pkgCache::VerIterator version;
 
     _profile(Package$packageWithIterator$GetCandidateVer)
-#ifndef __arm__
+#if CYDIA_APT_MODERN
         version = [database cache]->GetCandidateVersion(iterator);
 #else
         version = [database policy]->GetCandidateVer(iterator);
@@ -575,7 +584,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 }
 
 // XXX: just in case a Cydia extension is using this (I bet this is unlikely, though, due to CYPool?)
-+ (Package *) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
++ (instancetype) packageWithIterator:(pkgCache::PkgIterator)iterator withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
     return [[self newPackageWithIterator:iterator withZone:zone inPool:pool database:database] autorelease];
 }
 
@@ -706,7 +715,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         UniChar character(CFStringGetCharacterAtIndex(name, 0));
         if (!IsLetterCharacter_(character))
             return '#';
-        return toupper(character);
+        return u_toupper(character);
     _end
 }
 
@@ -716,15 +725,18 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
 - (time_t) seen {
     PackageValue *metadata([self metadata]);
-    return metadata->subscribed_ ? metadata->last_ : metadata->first_;
+    return metadata == NULL ? 0 : metadata->subscribed_ ? metadata->last_ : metadata->first_;
 }
 
 - (bool) subscribed {
-    return [self metadata]->subscribed_;
+    PackageValue *metadata([self metadata]);
+    return metadata != NULL && metadata->subscribed_;
 }
 
 - (bool) setSubscribed:(bool)subscribed {
     PackageValue *metadata([self metadata]);
+    if (metadata == NULL)
+        return false;
     if (metadata->subscribed_ == subscribed)
         return false;
     metadata->subscribed_ = subscribed;
@@ -849,7 +861,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
                 return @"REINSTALL";
             else*/ switch (state.Status) {
                 case -1:
-#ifndef __arm__
+#if CYDIA_APT_MODERN
                     return [database_ cache].Policy->GetCandidateVer(iterator_)==state.CandidateVerIter([database_ cache])?@"UPGRADE":@"DOWNGRADE";
 #else
                     return @"DOWNGRADE";
@@ -1172,7 +1184,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 }
 
 - (void) setIndex:(size_t)index {
-    if (metadata_->index_ != index + 1)
+    if (metadata_ != NULL && metadata_->index_ != index + 1)
         metadata_->index_ = index + 1;
 }
 

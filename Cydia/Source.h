@@ -19,7 +19,7 @@ extern _H<NSMutableDictionary> Sources_;
 
 @interface Source : NSObject {
     unsigned era_;
-    Database *database_;
+    _transient Database *database_;
     metaIndex *index_;
 
     CYString depiction_;

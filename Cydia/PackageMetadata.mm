@@ -2,41 +2,56 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
+#include <new>
 
 Cytore::File<MetaValue> MetaFile_;
+
+static PackageValue *PackageAllocate_(size_t length) {
+    if (length > std::numeric_limits<size_t>::max() - sizeof(PackageValue) - 1)
+        return NULL;
+
+    void *storage(::operator new(sizeof(PackageValue) + length + 1, std::nothrow));
+    if (storage == NULL)
+        return NULL;
+
+    return new (storage) PackageValue();
+}
 
 PackageValue *PackageFind(const char *name, size_t length, bool *fail) {
     SplitHash nhash = { hashlittle(name, length) };
 
-    PackageValue *metadata;
-
     Cytore::Offset<PackageValue> *offset(&MetaFile_->packages_[nhash.u16[0]]);
-    for (;; offset = &metadata->next_) { if (offset->IsNull()) {
-        *offset = MetaFile_.New<PackageValue>(length + 1);
-        metadata = &MetaFile_.Get(*offset);
+    for (;;) {
+        PackageValue *metadata;
+        if (offset->IsNull()) {
+            *offset = MetaFile_.New<PackageValue>(length + 1);
+            if (offset->IsNull()) {
+                // Keep running with transient metadata when the persistent file
+                // cannot grow, while telling import callers not to trust it.
+                metadata = PackageAllocate_(length);
+                if (fail != NULL)
+                    *fail = true;
+                if (metadata == NULL)
+                    return NULL;
+            } else {
+                metadata = &MetaFile_.Get(*offset);
+            }
 
-        if (metadata == NULL) {
-            if (fail != NULL)
-                *fail = true;
-
-            metadata = new PackageValue();
-            memset(metadata, 0, sizeof(*metadata));
+            memcpy(metadata->name_, name, length);
+            metadata->name_[length] = '\0';
+            metadata->nhash_ = nhash.u16[1];
+            return metadata;
         }
 
-        memcpy(metadata->name_, name, length);
-        metadata->name_[length] = '\0';
-        metadata->nhash_ = nhash.u16[1];
-    } else {
         metadata = &MetaFile_.Get(*offset);
-        if (metadata->nhash_ != nhash.u16[1])
-            continue;
-        if (strncmp(metadata->name_, name, length) != 0)
-            continue;
-        if (metadata->name_[length] != '\0')
-            continue;
-    } break; }
+        if (metadata->nhash_ == nhash.u16[1] &&
+            strncmp(metadata->name_, name, length) == 0 &&
+            metadata->name_[length] == '\0')
+            return metadata;
 
-    return metadata;
+        offset = &metadata->next_;
+    }
 }
 
 void PackageImport(const void *key, const void *value, void *context) {
@@ -49,6 +64,12 @@ void PackageImport(const void *key, const void *value, void *context) {
     }
 
     PackageValue *metadata(PackageFind(buffer, strlen(buffer), &fail));
+    if (metadata == NULL) {
+        fail = true;
+        NSLog(@"failed to allocate metadata for package %@", key);
+        return;
+    }
+
     NSDictionary *package((NSDictionary *) value);
 
     if (NSNumber *subscribed = [package objectForKey:@"IsSubscribed"])
