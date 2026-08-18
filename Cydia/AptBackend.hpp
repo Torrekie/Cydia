@@ -9,9 +9,9 @@
 
 #include <memory>
 
-class pkgAcquireStatus;
-
 namespace CydiaAPT {
+
+class AcquireStatus;
 
 namespace Internal {
 class AptBackend;
@@ -27,7 +27,7 @@ class AptBackend {
     std::unique_ptr<Internal::AptBackend> implementation_;
 
   public:
-    explicit AptBackend(pkgAcquireStatus &status);
+    explicit AptBackend(AcquireStatus &status);
     ~AptBackend();
 
     static void KeepFileDescriptor(int descriptor);
@@ -47,7 +47,7 @@ class AptBackend {
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
     PackageManagerResult runPackageManager(int statusFd);
-    UpdateResultData updateLists(pkgAcquireStatus &status, int pulseInterval);
+    UpdateResultData updateLists(AcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);

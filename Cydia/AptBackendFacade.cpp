@@ -4,11 +4,12 @@
 
 #include "Cydia/AptBackend.hpp"
 #include "Cydia/AptBackendInternal.hpp"
+#include "Cydia/AptAcquireStatusBridge.hpp"
 
 namespace CydiaAPT {
 
-AptBackend::AptBackend(pkgAcquireStatus &status) :
-    implementation_(new Internal::AptBackend(status))
+AptBackend::AptBackend(AcquireStatus &status) :
+    implementation_(new Internal::AptBackend(*static_cast<pkgAcquireStatus *>(Internal::NativeAcquireStatus(status))))
 {
 }
 
@@ -79,8 +80,8 @@ PackageManagerResult AptBackend::runPackageManager(int statusFd) {
     return implementation_->runPackageManager(statusFd);
 }
 
-UpdateResultData AptBackend::updateLists(pkgAcquireStatus &status, int pulseInterval) {
-    return implementation_->updateLists(status, pulseInterval);
+UpdateResultData AptBackend::updateLists(AcquireStatus &status, int pulseInterval) {
+    return implementation_->updateLists(*static_cast<pkgAcquireStatus *>(Internal::NativeAcquireStatus(status)), pulseInterval);
 }
 
 std::vector<PackageHandle> AptBackend::packageHandles() {

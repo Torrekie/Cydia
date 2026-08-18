@@ -107,7 +107,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (void) _readOutput:(NSNumber *)fd;
 - (bool) popErrorWithTitle:(NSString *)title;
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success;
-- (void) updateWithStatus:(CancelStatus &)status;
+- (void) updateWithStatus:(CydiaAPT::AcquireStatus &)status;
 @end
 
 @implementation Database
@@ -255,7 +255,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (id) init {
     if ((self = [super init]) != nil) {
-        status_ = new CydiaStatus();
+        status_ = new CydiaAPT::ProgressStatus();
         apt_ = new CydiaAPT::AptBackend(*status_);
 
         zone_ = NSCreateZone(1024 * 1024, 256 * 1024, NO);
@@ -459,7 +459,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     bool attemptedDpkgRepair(false);
   open:
     delock_ = GetStatusDate();
-    _profile(reloadDataWithInvocation$pkgCacheFile)
+    _profile(reloadDataWithInvocation$AptBackend$openCache)
         opened = apt_->openCache();
     _end
     if (!opened) {
@@ -778,11 +778,11 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return;
     }
 
-    SourceStatus status(fetchDelegate, self);
+    CydiaAPT::SourceStatus status(fetchDelegate, self);
     [self updateWithStatus:status];
 }
 
-- (void) updateWithStatus:(CancelStatus &)status {
+- (void) updateWithStatus:(CydiaAPT::AcquireStatus &)status {
     NSString *title(UCLocalize("REFRESHING_DATA"));
 
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
@@ -793,7 +793,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
         return;
     }
-    if (status.WasCancelled())
+    if (status.wasCancelled())
         apt_->discardErrors();
     else {
         [self popErrorWithTitle:title forOperation:result.success];
