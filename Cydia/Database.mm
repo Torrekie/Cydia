@@ -39,7 +39,6 @@
 #include <vector>
 
 #include <cstdio>
-#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -382,28 +381,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (bool) popErrorWithTitle:(NSString *)title forReadList:(pkgSourceList &)list {
-    if ([self popErrorWithTitle:title forOperation:list.ReadMainList()])
-        return true;
-    return false;
-
-    list.Reset();
-
-    bool error(false);
-
-    if (access("/etc/apt/sources.list", F_OK) == 0)
-        error |= [self popErrorWithTitle:title forOperation:list.ReadAppend("/etc/apt/sources.list")];
-
-    std::string base("/etc/apt/sources.list.d");
-    if (DIR *sources = opendir(base.c_str())) {
-        while (dirent *source = readdir(sources))
-            if (source->d_name[0] != '.' && source->d_namlen > 5 && strcmp(source->d_name + source->d_namlen - 5, ".list") == 0 && strcmp(source->d_name, "cydia.list") != 0)
-                error |= [self popErrorWithTitle:title forOperation:list.ReadAppend((base + "/" + source->d_name).c_str())];
-        closedir(sources);
-    }
-
-    error |= [self popErrorWithTitle:title forOperation:list.ReadAppend([SOURCES_LIST UTF8String])];
-
-    return error;
+    return [self popErrorWithTitle:title forOperation:list.ReadMainList()];
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {

@@ -32,17 +32,34 @@ class PackageDatabasePaths {
     const std::string &DpkgStatusPath() const;
     const std::string &DpkgInfoDirectory() const;
     const std::string &AptExtendedStatesPath() const;
+    const std::string &AptConfigDirectory() const;
+    const std::string &CydiaStateDirectory() const;
+    const std::string &PackageLibraryDirectory() const;
+    const std::string &CydiaLibexecDirectory() const;
     const std::string &CydoPath() const;
     const std::string &DpkgBinaryPath() const;
 
+    std::string AptSourcesListPath() const;
+    std::string AptSourcesDirectory() const;
+    std::string CydiaSourcesListPath() const;
+    std::string CydiaMetadataPath() const;
+    std::string CydiaFirmwareVersionPath() const;
+
     /* Returns an empty string for an invalid package name or suffix. */
     std::string DpkgInfoFile(const char *packageName, const char *suffix) const;
+
+    /* Returns an empty string unless name is a single helper filename. */
+    std::string CydiaHelperPath(const char *name) const;
 
   private:
     PackageDatabasePaths(PackageDatabaseLayout layout,
                          const char *dpkgStatus,
                          const char *dpkgInfoDirectory,
                          const char *aptExtendedStates,
+                         const char *aptConfigDirectory,
+                         const char *cydiaStateDirectory,
+                         const char *packageLibraryDirectory,
+                         const char *cydiaLibexecDirectory,
                          const char *cydo,
                          const char *dpkgBinary);
 
@@ -50,6 +67,10 @@ class PackageDatabasePaths {
     std::string dpkgStatusPath_;
     std::string dpkgInfoDirectory_;
     std::string aptExtendedStatesPath_;
+    std::string aptConfigDirectory_;
+    std::string cydiaStateDirectory_;
+    std::string packageLibraryDirectory_;
+    std::string cydiaLibexecDirectory_;
     std::string cydoPath_;
     std::string dpkgBinaryPath_;
 };
