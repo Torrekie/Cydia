@@ -6,6 +6,7 @@
 #define Cydia_AptCompatibility_H
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -21,6 +22,16 @@ enum class PackageManagerResult {
     Failed,
     Incomplete,
     Completed,
+};
+
+/* An index into AptBackend's current cache epoch.  It is deliberately not an
+ * APT map pointer or iterator: Database's era check is the lifetime token,
+ * while AptBackend alone resolves this value to version-specific APT types. */
+struct PackageHandle {
+    std::uint32_t value;
+
+    explicit PackageHandle(std::uint32_t value = 0) : value(value) {}
+    bool valid() const { return value != 0; }
 };
 
 /* A copy owned by Cydia, detached from the lifetime and layout of an APT
@@ -57,6 +68,34 @@ struct PackageStateData {
     bool candidateMatchesVersion;
 
     PackageStateData();
+};
+
+struct PackageSnapshot {
+    PackageHandle handle;
+    PackageRecordData record;
+    PackageStateData state;
+    std::string identifier;
+    std::string version;
+    std::string installedVersion;
+    std::string section;
+    std::string architecture;
+    std::uint64_t installedSize;
+    std::uint32_t sourceFileID;
+    bool hasSourceFile;
+    bool defaultPriority;
+
+    PackageSnapshot();
+};
+
+struct RelationClauseData {
+    std::string package;
+    std::string comparison;
+    std::string version;
+};
+
+struct RelationData {
+    std::string relationship;
+    std::vector<RelationClauseData> clauses;
 };
 
 std::string Fingerprint(const void *data, std::size_t size);

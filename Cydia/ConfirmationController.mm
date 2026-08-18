@@ -125,7 +125,7 @@ static bool DepSubstrate(const pkgCache::VerIterator &iterator) {
         issues_ = [NSMutableArray arrayWithCapacity:4];
 
         for (Package *package in packages) {
-            pkgCache::PkgIterator iterator([package iterator]);
+            pkgCache::PkgIterator iterator([database_ iteratorForPackageHandle:[package handle]]);
             NSString *name([package id]);
 
             if ([package broken]) {

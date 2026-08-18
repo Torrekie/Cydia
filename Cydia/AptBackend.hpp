@@ -19,6 +19,8 @@
 
 namespace CydiaAPT {
 
+class PackageRegistry;
+
 /*
  * Database is an Objective-C façade; this class owns every mutable APT
  * handle belonging to one database epoch.  Raw handles are returned only to
@@ -35,6 +37,7 @@ class AptBackend {
     FileFd *lock_;
     std::unique_ptr<pkgPackageManager> manager_;
     pkgSourceList *list_;
+    std::unique_ptr<PackageRegistry> packages_;
 
   public:
     explicit AptBackend(pkgAcquireStatus &status);
@@ -42,11 +45,17 @@ class AptBackend {
 
     void reset();
     void createCacheViews();
-    CydiaAPT::PackageRecordData recordData(const void *verFileIterator);
-    CydiaAPT::PackageStateData packageState(const void *pkgIterator, const void *verIterator);
-    bool clearPackage(const void *pkgIterator);
-    bool installPackage(const void *pkgIterator, const void *verIterator);
-    bool removePackage(const void *pkgIterator);
+    std::vector<PackageHandle> packageHandles();
+    PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
+    std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
+    PackageSnapshot packageSnapshot(PackageHandle handle);
+    PackageRecordData recordData(PackageHandle handle);
+    PackageStateData packageState(PackageHandle handle);
+    std::vector<RelationData> relations(PackageHandle handle);
+    bool clearPackage(PackageHandle handle);
+    bool installPackage(PackageHandle handle);
+    bool removePackage(PackageHandle handle);
+    pkgCache::PkgIterator packageIterator(PackageHandle handle);
     pkgSourceList *createSourceList();
     pkgAcquire *createFetcher();
 
