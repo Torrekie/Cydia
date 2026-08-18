@@ -647,11 +647,6 @@ bool AptBackend::createPackageManager() {
     return manager_.get() != NULL;
 }
 
-pkgCache::PkgIterator AptBackend::packageIterator(PackageHandle handle) {
-    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
-    return entry == NULL ? pkgCache::PkgIterator() : entry->package;
-}
-
 std::vector<SourceHandle> AptBackend::sourceHandles() {
     std::vector<SourceHandle> handles;
     if (list_ == NULL || fetcher_ == NULL)

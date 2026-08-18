@@ -4,7 +4,6 @@
  */
 
 #include "Cydia/Database.h"
-#include "Cydia/DatabaseApt.h"
 #include "Cydia/DatabaseStatus.h"
 
 #include "Cydia/AptCompatibility.hpp"
@@ -298,10 +297,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     } return self;
 }
 
-- (pkgCacheFile &) cache {
-    return apt_->cache();
-}
-
 - (CydiaAPT::PackageSnapshot) packageSnapshot:(CydiaAPT::PackageHandle)handle {
     return apt_->packageSnapshot(handle);
 }
@@ -348,30 +343,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle {
     return apt_->removePackage(handle);
-}
-
-- (pkgCache::PkgIterator) iteratorForPackageHandle:(CydiaAPT::PackageHandle)handle {
-    return apt_->packageIterator(handle);
-}
-
-- (pkgDepCache::Policy *) policy {
-    return apt_->policy();
-}
-
-- (pkgRecords *) records {
-    return apt_->records();
-}
-
-- (pkgProblemResolver *) resolver {
-    return apt_->resolver();
-}
-
-- (pkgAcquire &) fetcher {
-    return *apt_->fetcher();
-}
-
-- (pkgSourceList &) list {
-    return *apt_->list();
 }
 
 - (NSArray *) packages {

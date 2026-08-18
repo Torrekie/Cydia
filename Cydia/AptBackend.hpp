@@ -66,7 +66,6 @@ class AptBackend {
     std::string archiveDirectory() const;
     std::string listsDirectory() const;
     bool createPackageManager();
-    pkgCache::PkgIterator packageIterator(PackageHandle handle);
     std::vector<SourceHandle> sourceHandles();
     SourceSnapshot sourceSnapshot(SourceHandle handle);
     std::string sourceField(SourceHandle handle, const std::string &name);
