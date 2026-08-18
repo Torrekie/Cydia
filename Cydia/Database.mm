@@ -518,13 +518,13 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     }
 
     _profile(reloadDataWithInvocation$pkgApplyStatus)
-    if ([self popErrorWithTitle:title forOperation:pkgApplyStatus(cache)])
+    if ([self popErrorWithTitle:title forOperation:CydiaAPT::ApplyStatus(static_cast<pkgDepCache &>(cache))])
         return;
     _end
 
     if (cache->BrokenCount() != 0) {
         _profile(pkgApplyStatus$pkgFixBroken)
-        if ([self popErrorWithTitle:title forOperation:pkgFixBroken(cache)])
+        if ([self popErrorWithTitle:title forOperation:CydiaAPT::FixBroken(static_cast<pkgDepCache &>(cache))])
             return;
         _end
 
@@ -853,7 +853,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
-    bool success(ListUpdate(status, list, PulseInterval_));
+    bool success(CydiaAPT::UpdateLists(status, list, PulseInterval_));
     if (status.WasCancelled())
         _error->Discard();
     else {
