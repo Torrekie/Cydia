@@ -10,6 +10,7 @@
 #define Cydia_DatabaseApt_H
 
 #include "Cydia/Database.h"
+#include "Cydia/AptCompatibility.hpp"
 
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/algorithms.h>
@@ -18,6 +19,7 @@
 #include <apt-pkg/sourcelist.h>
 
 @interface Database (APTCompatibility)
+- (CydiaAPT::PackageRecordData) recordForHandle:(const void *)handle;
 - (pkgCacheFile &) cache;
 - (pkgDepCache::Policy *) policy;
 - (pkgRecords *) records;

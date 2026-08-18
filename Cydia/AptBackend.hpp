@@ -5,6 +5,8 @@
 #ifndef Cydia_AptBackend_HPP
 #define Cydia_AptBackend_HPP
 
+#include "Cydia/AptCompatibility.hpp"
+
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/cachefile.h>
@@ -40,6 +42,7 @@ class AptBackend {
 
     void reset();
     void createCacheViews();
+    CydiaAPT::PackageRecordData recordData(const void *verFileIterator);
     pkgSourceList *createSourceList();
     pkgAcquire *createFetcher();
 

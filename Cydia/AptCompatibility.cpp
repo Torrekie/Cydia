@@ -12,7 +12,6 @@
 #include <apt-pkg/macros.h>
 #include <apt-pkg/packagemanager.h>
 #include <apt-pkg/pkgcache.h>
-#include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/upgrade.h>
 
 #if !defined(APT_PKG_ABI) || APT_PKG_ABI < 500
@@ -20,72 +19,21 @@
 #endif
 
 #include <sys/stat.h>
+#include <strings.h>
 #include <unistd.h>
 
 namespace CydiaAPT {
 
-namespace {
-
-pkgRecords::Parser *ParserFrom(void *parser) {
-    return static_cast<pkgRecords::Parser *>(parser);
-}
-
-void TrimAsciiWhitespace(std::string &value) {
-    std::string::size_type first(value.find_first_not_of(" \t\r\n"));
-    if (first == std::string::npos) {
-        value.clear();
-        return;
-    }
-
-    std::string::size_type last(value.find_last_not_of(" \t\r\n"));
-    value.assign(value, first, last - first + 1);
-}
-
-} // namespace
-
-PackageRecord::PackageRecord(void *parser) : parser_(parser) {
-}
-
-std::string PackageRecord::Field(const char *name) const {
-    if (parser_ == NULL || name == NULL || name[0] == '\0')
+std::string PackageRecordData::Field(const char *name) const {
+    if (name == NULL)
         return std::string();
-#if APT_PKG_MAJOR < 7
-    const char *start;
-    const char *end;
-    if (!ParserFrom(parser_)->Find(name, start, end))
-        return std::string();
-    return std::string(start, end);
-#else
-    return ParserFrom(parser_)->RecordField(name);
-#endif
-}
-
-std::string PackageRecord::DisplayName() const {
-    if (parser_ == NULL)
-        return std::string();
-    std::string display(ParserFrom(parser_)->RecordField("Name"));
-    if (display.empty())
-        display = ParserFrom(parser_)->RecordField("Maemo-Display-Name");
-    return display;
-}
-
-std::vector<std::string> PackageRecord::Tags() const {
-    std::vector<std::string> tags;
-    std::string field(parser_ == NULL ? std::string() : ParserFrom(parser_)->RecordField("Tag"));
-    std::string::size_type begin(0);
-
-    while (begin <= field.size()) {
-        std::string::size_type comma(field.find(',', begin));
-        std::string tag(field.substr(begin, comma == std::string::npos ? comma : comma - begin));
-        TrimAsciiWhitespace(tag);
-        if (!tag.empty())
-            tags.push_back(tag);
-        if (comma == std::string::npos)
-            break;
-        begin = comma + 1;
-    }
-
-    return tags;
+    std::map<std::string, std::string>::const_iterator field(fields.find(name));
+    if (field != fields.end())
+        return field->second;
+    for (field = fields.begin(); field != fields.end(); ++field)
+        if (strcasecmp(field->first.c_str(), name) == 0)
+            return field->second;
+    return std::string();
 }
 
 std::string Fingerprint(const void *data, std::size_t size) {

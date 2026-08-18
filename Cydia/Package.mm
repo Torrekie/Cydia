@@ -15,7 +15,6 @@
 #include <apt-pkg/algorithms.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/policy.h>
-#include <apt-pkg/pkgrecords.h>
 #include <apt-pkg/sourcelist.h>
 #include <apt-pkg/strutl.h>
 
@@ -267,9 +266,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     if ([database_ era] != era_ || file_.end())
         return nil;
 
-    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
-
-    CydiaAPT::PackageRecord record(&parser);
+    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
     std::string value(record.Field([name UTF8String]));
     if (value.empty())
         return (NSString *) [NSNull null];
@@ -282,12 +279,8 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     if ([database_ era] != era_ || file_.end())
         return nil;
 
-    pkgRecords::Parser &parser([database_ records]->Lookup(file_));
-
-    const char *start, *end;
-    parser.GetRec(start, end);
-
-    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(start, end - start))];
+    CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
+    return [NSString stringWithString:CFBridgingRelease(CYStringCreate(record.raw))];
 } }
 
 - (void) parse {
@@ -301,17 +294,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     parsed_ = parsed;
 
     _profile(Package$parse)
-        pkgRecords::Parser *parser;
-
-        _profile(Package$parse$Lookup)
-            parser = &[database_ records]->Lookup(file_);
-        _end
-
         CYString bugs;
         CYString website;
+        CydiaAPT::PackageRecordData record([database_ recordForHandle:&file_]);
 
         _profile(Package$parse$Find)
-            CydiaAPT::PackageRecord record(parser);
             struct {
                 const char *name_;
                 CYString *value_;
@@ -339,7 +326,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _end
 
         _profile(Package$parse$Tagline)
-            parsed->tagline_.set(pool_, parser->ShortDesc());
+            parsed->tagline_.set(pool_, record.shortDescription);
         _end
 
         _profile(Package$parse$Retain)
@@ -376,9 +363,8 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _end
 
         _profile(Package$initWithVersion$Cache)
-            pkgRecords::Parser &parser([database records]->Lookup(file_));
-            CydiaAPT::PackageRecord record(&parser);
-            name_.set(NULL, record.DisplayName());
+            CydiaAPT::PackageRecordData record([database recordForHandle:&file_]);
+            name_.set(NULL, record.displayName);
 
             latest_.set(NULL, StripVersion_(version_.VerStr()));
 
@@ -442,9 +428,8 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         } while (false); _end
 
         _profile(Package$initWithVersion$Tags)
-            pkgRecords::Parser &tagParser([database records]->Lookup(file_));
-            CydiaAPT::PackageRecord tagRecord(&tagParser);
-            std::vector<std::string> aptTags(tagRecord.Tags());
+            CydiaAPT::PackageRecordData record([database recordForHandle:&file_]);
+            std::vector<std::string> aptTags(record.tags);
             if (!aptTags.empty()) {
                 tags_ = [NSMutableArray arrayWithCapacity:8];
 

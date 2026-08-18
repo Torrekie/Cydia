@@ -6,6 +6,7 @@
 #define Cydia_AptCompatibility_H
 
 #include <cstddef>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -22,19 +23,19 @@ enum class PackageManagerResult {
     Completed,
 };
 
-// Stable record view used while Package is moved behind AptBackend.  The
-// opaque handle is a pkgRecords::Parser owned by the current database epoch;
-// no parser methods or record-layout details escape through this header.
-class PackageRecord {
-  private:
-    void *parser_;
-
-  public:
-    explicit PackageRecord(void *parser);
+/* A copy owned by Cydia, detached from the lifetime and layout of an APT
+ * record parser.  The backend creates this while its cache epoch is locked;
+ * models may retain the returned values after that parser is gone. */
+struct PackageRecordData {
+    std::map<std::string, std::string> fields;
+    std::vector<std::string> tags;
+    std::string displayName;
+    std::string maintainer;
+    std::string shortDescription;
+    std::string longDescription;
+    std::string raw;
 
     std::string Field(const char *name) const;
-    std::string DisplayName() const;
-    std::vector<std::string> Tags() const;
 };
 
 std::string Fingerprint(const void *data, std::size_t size);
