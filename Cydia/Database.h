@@ -104,6 +104,10 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (NSArray *) sources;
 - (Source *) sourceWithKey:(NSString *)key;
 - (Source *) sourceWithFileID:(unsigned long)identifier;
+- (std::vector<CydiaAPT::SourceHandle>) sourceHandles;
+- (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle;
+- (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name;
+- (std::vector<std::uint32_t>) sourceFileIDs:(CydiaAPT::SourceHandle)handle;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 
 - (void) clear;

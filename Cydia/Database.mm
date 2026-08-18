@@ -394,6 +394,23 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return source == sourceMap_.end() ? nil : source->second;
 }
 
+- (std::vector<CydiaAPT::SourceHandle>) sourceHandles {
+    return apt_->sourceHandles();
+}
+
+- (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle {
+    return apt_->sourceSnapshot(handle);
+}
+
+- (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name {
+    const std::string value(apt_->sourceField(handle, [name UTF8String]));
+    return value.empty() ? (NSString *) [NSNull null] : [NSString stringWithUTF8String:value.c_str()];
+}
+
+- (std::vector<std::uint32_t>) sourceFileIDs:(CydiaAPT::SourceHandle)handle {
+    return apt_->sourceFileIDs(handle);
+}
+
 - (bool) popErrorWithTitle:(NSString *)title {
     bool fatal(false);
 
@@ -465,11 +482,13 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return;
     _end
 
-    pkgAcquire *fetcher(apt_->createFetcher());
+    apt_->createFetcher();
 
+    std::vector<CydiaAPT::SourceHandle> sourceHandles;
     _profile(reloadDataWithInvocation$Source$initWithMetaIndex)
-    for (pkgSourceList::const_iterator source = list->begin(); source != list->end(); ++source) {
-        Source *object([[Source alloc] initWithMetaIndex:*source forDatabase:self inPool:&pool_ withAcquire:fetcher]);
+    sourceHandles = apt_->sourceHandles();
+    for (std::vector<CydiaAPT::SourceHandle>::const_iterator source(sourceHandles.begin()); source != sourceHandles.end(); ++source) {
+        Source *object([[Source alloc] initWithHandle:*source forDatabase:self inPool:&pool_]);
         [sourceList_ addObject:object];
     }
     _end
@@ -548,16 +567,11 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         _end
     }
 
-    for (Source *object in (id) sourceList_) {
-        metaIndex *source([object metaIndex]);
-        std::vector<pkgIndexFile *> *indices = source->GetIndexFiles();
-        for (std::vector<pkgIndexFile *>::const_iterator index = indices->begin(); index != indices->end(); ++index)
-            // XXX: this could be more intelligent
-            if (dynamic_cast<debPackagesIndex *>(*index) != NULL) {
-                pkgCache::PkgFileIterator cached((*index)->FindInCache(*cache));
-                if (!cached.end())
-                    sourceMap_[cached->ID] = object;
-            }
+    for (size_t index(0); index != sourceHandles.size() && index != [sourceList_ count]; ++index) {
+        Source *object([sourceList_ objectAtIndex:index]);
+        std::vector<std::uint32_t> fileIDs(apt_->sourceFileIDs(sourceHandles[index]));
+        for (std::vector<std::uint32_t>::const_iterator file(fileIDs.begin()); file != fileIDs.end(); ++file)
+            sourceMap_[*file] = object;
     }
 
     {

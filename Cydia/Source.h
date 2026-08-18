@@ -1,13 +1,11 @@
 #ifndef Cydia_Source_H
 #define Cydia_Source_H
 
+#include "Cydia/AptCompatibility.hpp"
 #include "Cydia/CYString.hpp"
 #include "Menes/ObjectHandle.h"
 
 #include <Foundation/Foundation.h>
-
-#include <apt-pkg/acquire.h>
-#include <apt-pkg/sourcelist.h>
 
 #include <set>
 #include <string>
@@ -23,7 +21,7 @@ extern _H<NSMutableDictionary> Sources_;
 @interface Source : NSObject {
     unsigned era_;
     __weak Database *database_;
-    metaIndex *index_;
+    CydiaAPT::SourceHandle handle_;
 
     CYString depiction_;
     CYString description_;
@@ -50,7 +48,7 @@ extern _H<NSMutableDictionary> Sources_;
     __weak NSObject<SourceDelegate> *delegate_;
 }
 
-- (Source *) initWithMetaIndex:(metaIndex *)index forDatabase:(Database *)database inPool:(CYPool *)pool withAcquire:(pkgAcquire *)acquire;
+- (Source *) initWithHandle:(CydiaAPT::SourceHandle)handle forDatabase:(Database *)database inPool:(CYPool *)pool;
 
 - (NSString *) getField:(NSString *)name;
 - (NSArray *) sections;
@@ -63,7 +61,6 @@ extern _H<NSMutableDictionary> Sources_;
 - (NSString *) depictionForPackage:(NSString *)package;
 - (NSString *) supportForPackage:(NSString *)package;
 
-- (metaIndex *) metaIndex;
 - (NSDictionary *) record;
 - (BOOL) trusted;
 

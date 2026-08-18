@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,32 @@ struct PackageHandle {
 
     explicit PackageHandle(std::uint32_t value = 0) : value(value) {}
     bool valid() const { return value != 0; }
+};
+
+struct SourceHandle {
+    std::uint32_t value;
+
+    explicit SourceHandle(std::uint32_t value = 0) : value(value) {}
+    bool valid() const { return value != 0; }
+};
+
+struct SourceSnapshot {
+    SourceHandle handle;
+    std::string uri;
+    std::string distribution;
+    std::string type;
+    std::string base;
+    std::string defaultIcon;
+    std::string depiction;
+    std::string description;
+    std::string label;
+    std::string origin;
+    std::string support;
+    std::string version;
+    std::set<std::string> files;
+    bool trusted;
+
+    SourceSnapshot();
 };
 
 /* A copy owned by Cydia, detached from the lifetime and layout of an APT

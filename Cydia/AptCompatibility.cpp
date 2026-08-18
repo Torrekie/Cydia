@@ -71,6 +71,11 @@ TransactionData::TransactionData() :
 {
 }
 
+SourceSnapshot::SourceSnapshot() :
+    trusted(false)
+{
+}
+
 std::string Fingerprint(const void *data, std::size_t size) {
     if (data == NULL && size != 0)
         return std::string();
