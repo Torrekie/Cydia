@@ -62,6 +62,7 @@
 
 - (void) loadRequest:(NSURLRequest *)request;
 - (bool) isLoading;
+- (bool) usesDocumentAppearanceFallback;
 
 - (id) init;
 
