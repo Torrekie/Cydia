@@ -266,10 +266,12 @@ static _H<NSString> UserAgent_;
 }
 
 - (void) applyColorAppearance {
-    if ([self pageColorIsDefault])
+    if ([self pageColorIsDefault] && !pageColorFromDocument_)
         [super setPageColor:nil];
 
-    UIColor *pageColor = self.pageColor ?: UIColor.cydiaGroupedBackgroundColor;
+    UIColor *pageColor = [self pageColorIsDefault] ?
+        [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection] :
+        self.pageColor;
     [scroller_ setBackgroundColor:pageColor];
     [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
                                     traitCollection:self.traitCollection]];
@@ -280,6 +282,8 @@ static _H<NSString> UserAgent_;
             @"document.documentElement.setAttribute('data-cydia-appearance','%@');", style];
         [webview_ stringByEvaluatingJavaScriptFromString:script];
         [self dispatchEvent:@"CydiaAppearanceChanged"];
+        if (pageColorFromDocument_)
+            [self refreshDocumentPageColorForFrame:nil];
     }
 }
 

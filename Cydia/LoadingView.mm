@@ -28,7 +28,8 @@
 @implementation CydiaLoadingView
 
 - (void) applyColorAppearance {
-    [self setBackgroundColor:UIColor.cydiaGroupedBackgroundColor];
+    [self setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground
+                                       traitCollection:self.traitCollection]];
     [spinner_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
                                   traitCollection:self.traitCollection]];
     [label_ setTextColor:[UIColor cydiaColorForRole:CydiaColorRoleLabel

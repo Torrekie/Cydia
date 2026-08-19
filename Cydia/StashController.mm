@@ -20,7 +20,8 @@
 
 - (void) applyColorAppearance {
     UIView *view = self.view;
-    [view setBackgroundColor:UIColor.cydiaBackgroundColor];
+    [view setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                        traitCollection:self.traitCollection]];
     [spinner_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleLabel
                                   traitCollection:self.traitCollection]];
     UIColor *labelColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel

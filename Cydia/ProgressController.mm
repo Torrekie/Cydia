@@ -89,7 +89,8 @@ static std::string FileFingerprint(const char *path) {
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
 
-        [self setPageColor:UIColor.cydiaBackgroundColor];
+        [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                      traitCollection:self.traitCollection]];
 
         [[self navigationItem] setHidesBackButton:YES];
 
@@ -108,7 +109,8 @@ static std::string FileFingerprint(const char *path) {
 
 - (void) viewWillAppear:(BOOL)animated {
     [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
-    [self setPageColor:UIColor.cydiaBackgroundColor];
+    [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                  traitCollection:self.traitCollection]];
     [super viewWillAppear:animated];
 }
 
