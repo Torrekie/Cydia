@@ -23,8 +23,25 @@
 #include "CyteKit/Localize.h"
 
 #include "Cydia/LoadingView.h"
+#include "Cydia/UIColor+Cydia.h"
 
 @implementation CydiaLoadingView
+
+- (void) applyColorAppearance {
+    [self setBackgroundColor:UIColor.cydiaGroupedBackgroundColor];
+    [spinner_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                  traitCollection:self.traitCollection]];
+    [label_ setTextColor:[UIColor cydiaColorForRole:CydiaColorRoleLabel
+                                   traitCollection:self.traitCollection]];
+    [label_ setShadowColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                      traitCollection:self.traitCollection]];
+}
+
+- (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection))
+        [self applyColorAppearance];
+}
 
 - (id) initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame]) != nil) {
@@ -37,9 +54,7 @@
 
         label_ = [[UILabel alloc] init];
         [label_ setFont:[UIFont boldSystemFontOfSize:15.0f]];
-        [label_ setBackgroundColor:[UIColor clearColor]];
-        [label_ setTextColor:[UIColor viewFlipsideBackgroundColor]];
-        [label_ setShadowColor:[UIColor whiteColor]];
+        [label_ setBackgroundColor:UIColor.clearColor];
         [label_ setShadowOffset:CGSizeMake(0, 1)];
         [label_ setText:[NSString stringWithFormat:Elision_, UCLocalize("LOADING"), nil]];
         [container_ addSubview:label_];
@@ -66,6 +81,7 @@
         [spinner_ setFrame:spinrect];
         [label_ setFrame:textrect];
         [self addSubview:container_];
+        [self applyColorAppearance];
     } return self;
 }
 
