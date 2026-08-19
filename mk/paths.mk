@@ -1,5 +1,6 @@
 dpkg := dpkg-deb --root-owner-group -Zxz
 version := $(shell ./version.sh)
+PACKAGE_EPOCH ?= 1
 DEPLOYMENT_TARGET ?= 12.0
 BUILD_DIR ?= build
 PACKAGE_LAYOUT ?= rootful

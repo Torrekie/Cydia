@@ -40,7 +40,7 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	ln -s $(PACKAGE_PREFIX)/usr/share/bigboss/icons/planetiphones.png $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sections/"Planet-iPhones Mods.png"
 
 	mkdir -p $(CYDIA_STAGE)/DEBIAN
-	./control.sh cydia.control $(CYDIA_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(CYDIA_STAGE)/DEBIAN/control
+	CYDIA_PACKAGE_EPOCH=$(PACKAGE_EPOCH) ./control.sh cydia.control $(CYDIA_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(CYDIA_STAGE)/DEBIAN/control
 	cp -a preinst triggers $(CYDIA_STAGE)/DEBIAN/
 	cp -a $(POSTINST_BINARY) $(CYDIA_STAGE)/DEBIAN/postinst
 
@@ -67,7 +67,7 @@ $(LPROJ_DEB): $(shell find MobileCydia.app -name '*.strings') cydia-lproj.contro
 	cp -a MobileCydia.app/*.lproj $(LPROJ_STAGE_ROOT)/Applications/Cydia.app
 
 	mkdir -p $(LPROJ_STAGE)/DEBIAN
-	./control.sh cydia-lproj.control $(LPROJ_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(LPROJ_STAGE)/DEBIAN/control
+	CYDIA_PACKAGE_EPOCH=$(PACKAGE_EPOCH) ./control.sh cydia-lproj.control $(LPROJ_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(LPROJ_STAGE)/DEBIAN/control
 
 	mkdir -p $(dir $@)
 	$(dpkg) -b $(LPROJ_STAGE) $@

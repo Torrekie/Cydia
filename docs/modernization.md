@@ -123,13 +123,17 @@ The embedded `apt64` gitlink is initialized over HTTPS; `SDURLCache` is already
 vendored at the reviewed Cydia revision. ICU headers come from the pinned
 iPhoneOS SDK, so the legacy ICU submodule is not required by this build.
 
-Each matrix leg checks the generated control architecture, package prefix,
-launchd executable path, translations, and maintainer files. Rootless archives
+Each matrix leg checks the generated Debian epoch (`1:`), identity fields
+(`Name: Cydia Refurbished`, `Maintainer: Torrekie <me@torrekie.dev>`, and the
+preserved upstream `Author`), architecture, package prefix, launchd executable
+path, translations, and maintainer files. Rootless archives
 must keep every data path below `/var/jb`; rooted archives must contain no
 `/var/jb` path. The resulting `.deb` files and `SHA256SUMS` are retained as CI
 candidate artifacts only. The workflow does not publish a release or submit a
 package to a repository.
-Because the public fork has no release-tag refs, CI sets an explicit candidate
-version (`1.1.36+git.<merge-sha>`). This is intentionally distinct from a
-release version and can be replaced when a signed release process is
-introduced.
+Because the public fork has no release-tag refs, CI sets an explicit raw
+candidate version (`1.1.36+git.<merge-sha>`). The package control generator
+adds Debian epoch `1:` to that value (for example,
+`1:1.1.36+git.<merge-sha>`), while keeping the filename and embedded app
+version free of the colon. This is intentionally distinct from a release
+version and can be replaced when a signed release process is introduced.
