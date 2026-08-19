@@ -49,10 +49,19 @@
         [self setDelegate:self];
 
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteTiny];
+        [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSelectedLabel
+                                       traitCollection:self.traitCollection]];
         [indicator_ setOrigin:CGPointMake(kCFCoreFoundationVersionNumber >= 800 ? 2 : 4, 2)];
 
         [[self view] setAutoresizingMask:CydiaAutoresizingFlexibleBoth];
     } return self;
+}
+
+- (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection))
+        [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSelectedLabel
+                                       traitCollection:self.traitCollection]];
 }
 
 - (void) beginUpdate {

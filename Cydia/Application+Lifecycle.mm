@@ -247,7 +247,6 @@ typedef enum {
 }
 
 - (void) stash {
-    [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
     UpdateExternalStatus(1);
     [self yieldToSelector:@selector(runStashHelper)];
     UpdateExternalStatus(0);

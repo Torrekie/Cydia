@@ -28,6 +28,7 @@
 #include "Cydia/Package.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivateServices.h"
+#include "Cydia/URLHelpers.h"
 #include "CyteKit/countByEnumeratingWithState.h"
 #include "CyteKit/extern.h"
 #include "CyteKit/Localize.h"
@@ -376,6 +377,15 @@
 
 /* Cydia Browser Controller {{{ */
 @implementation CydiaWebViewController
+
+- (bool) usesDocumentAppearanceFallback {
+    NSURL *url([[self request] URL]);
+    NSString *scheme([[url scheme] lowercaseString]);
+    if ([scheme isEqualToString:@"file"])
+        return true;
+    NSString *cydiaHost([[NSURL URLWithString:CydiaURL(@"")] host]);
+    return [[url host] caseInsensitiveCompare:cydiaHost] == NSOrderedSame;
+}
 
 - (NSURL *) navigationURL {
     if (NSURLRequest *request = self.request)
