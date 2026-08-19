@@ -9,7 +9,7 @@ VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 ifeq ($(HOST_OS),Linux)
-host_cxx ?= c++
+host_cxx ?= $(or $(HOST_CXX),c++)
 host_cxx_flags :=
 else
 host_cxx ?= $(shell xcrun --sdk macosx -f clang++)

@@ -93,6 +93,8 @@ jobs:
           for tool in clang++ ar strip ldid install_name_tool; do
             test -x "$tools/$tool"
           done
+          host_cxx=$(command -v g++ || command -v c++)
+          test -x "$host_cxx"
           ldd "$tools/clang++" | tee "$RUNNER_TEMP/clang-ldd.txt"
           if grep -F 'not found' "$RUNNER_TEMP/clang-ldd.txt"; then
             exit 1
@@ -102,6 +104,7 @@ jobs:
           echo "LINUX_TOOLCHAIN=$root/toolchain/linux/iphone" >>"$GITHUB_ENV"
           echo "IOS_SDK=$sdk" >>"$GITHUB_ENV"
           echo "ICU_INCLUDE_DIR=$sdk/usr/include" >>"$GITHUB_ENV"
+          echo "HOST_CXX=$host_cxx" >>"$GITHUB_ENV"
 
       - name: Verify build policy
         shell: bash
