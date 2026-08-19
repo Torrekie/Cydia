@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Syntax-check Cydia's APT compatibility surface against a pre-fetched tree.
 
 set -u

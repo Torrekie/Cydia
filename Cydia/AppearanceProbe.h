@@ -1,4 +1,7 @@
-/* Cydia - iPhone UIKit Front-End for Debian APT */
+/* Cydia - iPhone UIKit Front-End for Debian APT
+ * Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 #ifndef Cydia_AppearanceProbe_H
 #define Cydia_AppearanceProbe_H

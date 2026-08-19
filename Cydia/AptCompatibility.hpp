@@ -1,5 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * APT API compatibility boundary owned by Cydia.
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #ifndef Cydia_AptCompatibility_H

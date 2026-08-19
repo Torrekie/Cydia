@@ -1,5 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Stable startup configuration boundary for the embedded APT runtime.
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #ifndef Cydia_AptRuntime_HPP

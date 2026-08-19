@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Compatibility wrapper Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #ifndef CYTEKIT_IOKIT_COMPAT_H

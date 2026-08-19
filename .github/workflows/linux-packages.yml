@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 name: Linux packages
 
 on:

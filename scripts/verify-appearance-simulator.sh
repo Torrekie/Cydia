@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Build and install Cydia's real appearance probe using the existing Make graph.
 # The modern simulator is switched light -> dark without relaunching; an
 # optional iOS 12 simulator verifies the calibrated fallback and API safety.

@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Static and command-graph checks for the Makefile-based Cydia build.
 #
 # This intentionally uses only POSIX shell utilities already present on the

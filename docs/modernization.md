@@ -4,6 +4,11 @@ The project deliberately remains Makefile-based. No Xcode project or additional
 build system is required: `make all`, `make package`, and the existing helper
 targets continue to be the build interface.
 
+Copyright and package-role attribution are recorded in `NOTICE`. Extracted
+upstream code retains its Jay Freeman and Sam Bingner notices. New 2026
+refurbishment code is marked for Torrekie without claiming ownership of the
+upstream or vendored portions.
+
 ## Structure
 
 App-owned code is organized by domain under `Cydia/`:
