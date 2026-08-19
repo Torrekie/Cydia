@@ -7,7 +7,6 @@
 #define Cydia_Appearance_H
 
 #include "CyteKit/UCPlatform.h"
-#include "Cydia/CYColor.hpp"
 #include "Cydia/UIColor+Cydia.h"
 #include "Menes/ObjectHandle.h"
 
@@ -15,20 +14,6 @@
 
 // Shared UIKit layout value used by controllers outside MobileCydia.mm.
 static const NSUInteger CydiaAutoresizingFlexibleBoth = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-
-extern CYColor Blue_;
-extern CYColor Blueish_;
-extern CYColor Black_;
-extern CYColor Folder_;
-extern CYColor Off_;
-extern CYColor White_;
-extern CYColor Gray_;
-extern CYColor Green_;
-extern CYColor Purple_;
-extern CYColor Purplish_;
-
-extern UIColor *InstallingColor_;
-extern UIColor *RemovingColor_;
 
 extern _H<UIFont> Font12_;
 extern _H<UIFont> Font12Bold_;
