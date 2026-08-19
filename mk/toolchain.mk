@@ -26,7 +26,7 @@ sdk ?= $(IOS_SDK)
 # the native compiler and deliberately do not inherit this sysroot.
 mac ?= $(sdk)
 
-CYAR ?= $(LINUX_TOOLCHAIN)/bin/ar
+CYAR ?= $(LINUX_TOOLCHAIN)/bin/llvm-ar
 CYSTRIP ?= $(LINUX_TOOLCHAIN)/bin/strip
 LDID ?= $(LINUX_TOOLCHAIN)/bin/ldid
 INSTALL_NAME_TOOL ?= $(firstword $(wildcard \
