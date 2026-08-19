@@ -3,8 +3,11 @@
 #include "Cydia/AppearanceProbe.h"
 
 #include "Cydia/Appearance.h"
+#include "Cydia/LoadingView.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/UIColor+Cydia.h"
+#include "CyteKit/Localize.h"
+#include "CyteKit/WebViewController.h"
 #include "CyteKit/extern.h"
 
 #include <UIKit/UIKit.h>
@@ -15,7 +18,15 @@
 
 #if TARGET_OS_SIMULATOR
 
-@interface CydiaAppearanceProbeViewController : UIViewController
+@class CydiaAppearanceProbeViewController;
+
+@interface CydiaAppearanceProbeWebController : CyteWebViewController
+@property(nonatomic, weak) CydiaAppearanceProbeViewController *probeController;
+@end
+
+@interface CydiaAppearanceProbeViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+- (void) scheduleProbeStateWrite;
+- (void) webProbeDidLoad;
 @end
 
 @interface PackageCell (CydiaAppearanceProbe)
@@ -73,8 +84,10 @@ static void EnsureProbeMetrics(void) {
     Font18_ = [UIFont systemFontOfSize:18];
     Font18Bold_ = [UIFont boldSystemFontOfSize:18];
     Font22Bold_ = [UIFont boldSystemFontOfSize:22];
+    Elision_ = UCLocalize("ELISION");
     EnsureProbeMetrics();
 
+    [CyteWebViewController _initialize];
     ProbePalettePassed = ProbePaletteAssertions();
 
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
@@ -85,15 +98,31 @@ static void EnsureProbeMetrics(void) {
 
 @end
 
+@implementation CydiaAppearanceProbeWebController
+
+- (bool) retainsNetworkActivityIndicator {
+    return false;
+}
+
+- (void) didFinishLoading {
+    [self.probeController webProbeDidLoad];
+}
+
+@end
+
 @implementation CydiaAppearanceProbeViewController {
-    UIScrollView *scrollView_;
+    UITableView *tableView_;
+    UIView *headerView_;
     UILabel *titleLabel_;
     UILabel *styleLabel_;
     UILabel *resultLabel_;
-    UILabel *cellsLabel_;
     PackageCell *packageCell_;
     SectionCell *sectionCell_;
-    UIView *sourceCell_;
+    CyteTableViewCell *sourceCell_;
+    UITableViewCell *loadingCell_;
+    CydiaLoadingView *loadingView_;
+    UITableViewCell *webCell_;
+    CydiaAppearanceProbeWebController *webController_;
     NSArray<UIView *> *swatches_;
     NSArray<UILabel *> *swatchLabels_;
     NSUInteger appearanceUpdateCount_;
@@ -101,30 +130,31 @@ static void EnsureProbeMetrics(void) {
 
 - (void) loadView {
     EnsureProbeMetrics();
-    UIView *view([[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds]);
-    view.backgroundColor = UIColor.cydiaGroupedBackgroundColor;
-    self.view = view;
+    tableView_ = [[UITableView alloc] initWithFrame:[UIScreen mainScreen].bounds style:UITableViewStylePlain];
+    tableView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    tableView_.dataSource = self;
+    tableView_.delegate = self;
+    tableView_.tableFooterView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.view = tableView_;
 
-    scrollView_ = [[UIScrollView alloc] initWithFrame:view.bounds];
-    scrollView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [view addSubview:scrollView_];
+    headerView_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView_.bounds.size.width, 278)];
 
     titleLabel_ = [[UILabel alloc] init];
     titleLabel_.text = @"Cydia Color Compatibility Test";
     titleLabel_.font = Font22Bold_;
     titleLabel_.textColor = UIColor.cydiaLabelColor;
-    [scrollView_ addSubview:titleLabel_];
+    [headerView_ addSubview:titleLabel_];
 
     styleLabel_ = [[UILabel alloc] init];
     styleLabel_.font = Font14_;
     styleLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    [scrollView_ addSubview:styleLabel_];
+    [headerView_ addSubview:styleLabel_];
 
     resultLabel_ = [[UILabel alloc] init];
     resultLabel_.font = Font12_;
     resultLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    resultLabel_.text = @"Live trait changes redraw custom Cydia cells";
-    [scrollView_ addSubview:resultLabel_];
+    resultLabel_.text = @"Cells, UIKit, and web content update live";
+    [headerView_ addSubview:resultLabel_];
 
     NSArray *roles = @[
         @(CydiaColorRoleBackground),
@@ -146,35 +176,66 @@ static void EnsureProbeMetrics(void) {
         label.text = [roleNames objectAtIndex:index];
         label.font = Font12Bold_;
         [swatch addSubview:label];
-        [scrollView_ addSubview:swatch];
+        [headerView_ addSubview:swatch];
         [swatches addObject:swatch];
         [swatchLabels addObject:label];
     }
     swatches_ = [swatches copy];
     swatchLabels_ = [swatchLabels copy];
-
-    cellsLabel_ = [[UILabel alloc] init];
-    cellsLabel_.text = @"Real custom-drawn Cydia cells";
-    cellsLabel_.font = Font14_;
-    cellsLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    [scrollView_ addSubview:cellsLabel_];
+    tableView_.tableHeaderView = headerView_;
 
     packageCell_ = [[PackageCell alloc] init];
     [packageCell_ configureAppearanceProbe];
-    [scrollView_ addSubview:packageCell_];
 
     sectionCell_ = [[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"AppearanceProbeSection"];
     [sectionCell_ setSection:nil editing:NO];
-    [scrollView_ addSubview:sectionCell_];
 
     Class sourceClass = NSClassFromString(@"SourceCell");
     if (sourceClass != Nil) {
-        sourceCell_ = [[sourceClass alloc] initWithFrame:CGRectMake(0, 0, 320, 58) reuseIdentifier:@"AppearanceProbeSource"];
+        sourceCell_ = [[sourceClass alloc] initWithFrame:CGRectZero reuseIdentifier:@"AppearanceProbeSource"];
         if ([sourceCell_ respondsToSelector:@selector(setAllSource)])
             [sourceCell_ performSelector:@selector(setAllSource)];
-        [scrollView_ addSubview:sourceCell_];
     }
 
+    loadingCell_ = [[UITableViewCell alloc] initWithFrame:CGRectMake(0, 0, 320, 72)
+                                           reuseIdentifier:@"AppearanceProbeLoading"];
+    loadingCell_.selectionStyle = UITableViewCellSelectionStyleNone;
+    loadingView_ = [[CydiaLoadingView alloc] initWithFrame:loadingCell_.contentView.bounds];
+    loadingView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [loadingCell_.contentView addSubview:loadingView_];
+
+    webCell_ = [[UITableViewCell alloc] initWithFrame:CGRectMake(0, 0, 320, 112)
+                                       reuseIdentifier:@"AppearanceProbeWeb"];
+    webCell_.selectionStyle = UITableViewCellSelectionStyleNone;
+    webController_ = [[CydiaAppearanceProbeWebController alloc] init];
+    webController_.probeController = self;
+    [self addChildViewController:webController_];
+    UIView *webView(webController_.view);
+    webView.frame = webCell_.contentView.bounds;
+    webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    webView.userInteractionEnabled = NO;
+    [webCell_.contentView addSubview:webView];
+    [webController_ didMoveToParentViewController:self];
+
+    NSString *html =
+        @"<!doctype html><html><head><meta name='viewport' content='width=device-width'>"
+        @"<style>html,body{height:100%;margin:0}body{display:flex;align-items:center;"
+        @"justify-content:center;font:600 16px -apple-system}</style><script>"
+        @"window.cydiaAppearanceEvents=0;"
+        @"function applyCydiaAppearance(){var dark=document.documentElement."
+        @"getAttribute('data-cydia-appearance')==='dark';document.body.style."
+        @"backgroundColor=dark?'rgb(17,17,17)':'rgb(255,255,255)';document.body."
+        @"style.color=dark?'rgb(242,242,247)':'rgb(28,28,30)';}"
+        @"document.addEventListener('CydiaAppearanceChanged',function(){"
+        @"window.cydiaAppearanceEvents++;applyCydiaAppearance();},false);"
+        @"window.addEventListener('load',applyCydiaAppearance,false);"
+        @"</script></head><body>Cyte Web Appearance Event</body></html>";
+    NSString *base64([[html dataUsingEncoding:NSUTF8StringEncoding]
+        base64EncodedStringWithOptions:0]);
+    NSURL *probeURL([NSURL URLWithString:[@"data:text/html;base64," stringByAppendingString:base64]]);
+    [webController_ loadRequest:[NSURLRequest requestWithURL:probeURL]];
+
+    [tableView_ reloadData];
     [self updateProbeAppearance];
 }
 
@@ -182,11 +243,11 @@ static void EnsureProbeMetrics(void) {
     [super viewDidLayoutSubviews];
     EnsureProbeMetrics();
 
-    UIEdgeInsets safe(self.view.safeAreaInsets);
-    CGFloat width(self.view.bounds.size.width);
+    UIEdgeInsets safe(tableView_.safeAreaInsets);
+    CGFloat width(tableView_.bounds.size.width);
     CGFloat left(safe.left + 18);
     CGFloat contentWidth(width - safe.left - safe.right - 36);
-    CGFloat y(safe.top + 12);
+    CGFloat y(12);
     titleLabel_.frame = CGRectMake(left, y, contentWidth, 28);
     y += 34;
     styleLabel_.frame = CGRectMake(left, y, contentWidth, 22);
@@ -202,56 +263,117 @@ static void EnsureProbeMetrics(void) {
         y += 38;
     }
 
-    y += 4;
-    cellsLabel_.frame = CGRectMake(left, y, contentWidth, 20);
-    y += 26;
-    packageCell_.frame = CGRectMake(0, y, width, 74);
-    y += 82;
-    sectionCell_.frame = CGRectMake(0, y, width, 50);
-    y += 58;
-    if (sourceCell_ != nil) {
-        sourceCell_.frame = CGRectMake(0, y, width, 58);
-        y += 66;
+    CGRect headerFrame(headerView_.frame);
+    headerFrame.size.width = width;
+    headerFrame.size.height = y + 8;
+    if (!CGRectEqualToRect(headerView_.frame, headerFrame)) {
+        headerView_.frame = headerFrame;
+        tableView_.tableHeaderView = headerView_;
     }
-    scrollView_.contentSize = CGSizeMake(width, y + 20);
 }
 
 - (void) updateProbeAppearance {
     ++appearanceUpdateCount_;
     UIUserInterfaceStyle style(self.traitCollection.userInterfaceStyle);
+    UIColor *labelColor([UIColor cydiaColorForRole:CydiaColorRoleLabel
+                                    traitCollection:self.traitCollection]);
+    UIColor *secondaryLabelColor([UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                             traitCollection:self.traitCollection]);
+    UIColor *groupedBackgroundColor([UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground
+                                                traitCollection:self.traitCollection]);
+    UIColor *separatorColor([UIColor cydiaColorForRole:CydiaColorRoleSeparator
+                                        traitCollection:self.traitCollection]);
     styleLabel_.text = style == UIUserInterfaceStyleDark ? @"Trait: dark" : @"Trait: light (iOS 12 fallback when unavailable)";
-    styleLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    resultLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    cellsLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    titleLabel_.textColor = UIColor.cydiaLabelColor;
-    self.view.backgroundColor = UIColor.cydiaGroupedBackgroundColor;
+    styleLabel_.textColor = secondaryLabelColor;
+    resultLabel_.textColor = secondaryLabelColor;
+    titleLabel_.textColor = labelColor;
+    tableView_.backgroundColor = groupedBackgroundColor;
+    headerView_.backgroundColor = groupedBackgroundColor;
+    styleLabel_.backgroundColor = groupedBackgroundColor;
+    resultLabel_.backgroundColor = groupedBackgroundColor;
     for (NSUInteger index(0); index != [swatches_ count]; ++index) {
         UIView *swatch([swatches_ objectAtIndex:index]);
         CydiaColorRole role = index == 0 ? CydiaColorRoleBackground :
             index == 1 ? CydiaColorRoleGroupedBackground :
             index == 2 ? CydiaColorRoleInstallingBackground : CydiaColorRoleRemovingBackground;
-        swatch.backgroundColor = [UIColor cydiaColorForRole:role];
-        swatch.layer.borderColor = UIColor.cydiaSeparatorColor.CGColor;
+        swatch.backgroundColor = [UIColor cydiaColorForRole:role traitCollection:self.traitCollection];
+        swatch.layer.borderColor = separatorColor.CGColor;
         UILabel *label([swatchLabels_ objectAtIndex:index]);
-        label.textColor = UIColor.cydiaLabelColor;
+        label.textColor = labelColor;
     }
-    [packageCell_ applyColorAppearance];
-    [sectionCell_ applyColorAppearance];
-    if ([sourceCell_ respondsToSelector:@selector(applyColorAppearance)])
-        [sourceCell_ performSelector:@selector(applyColorAppearance)];
-    [packageCell_.content setNeedsDisplay];
-    [sectionCell_.content setNeedsDisplay];
-    [[(CyteTableViewCell *) sourceCell_ content] setNeedsDisplay];
 
+    [self scheduleProbeStateWrite];
+}
+
+- (void) scheduleProbeStateWrite {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 200 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        [self writeProbeState];
+    });
+}
+
+- (void) webProbeDidLoad {
+    [self scheduleProbeStateWrite];
+}
+
+- (void) writeProbeState {
+    UIUserInterfaceStyle style(self.traitCollection.userInterfaceStyle);
+    CyteWebView *webView(webController_.webView);
+    NSString *webReady([webView stringByEvaluatingJavaScriptFromString:@"document.readyState"] ?: @"");
+    NSString *webStyle([webView stringByEvaluatingJavaScriptFromString:
+        @"document.documentElement.getAttribute('data-cydia-appearance')||''"] ?: @"");
+    NSString *webEvents([webView stringByEvaluatingJavaScriptFromString:
+        @"String(window.cydiaAppearanceEvents||0)"] ?: @"0");
+    NSString *webLuminance([webView stringByEvaluatingJavaScriptFromString:
+        @"(function(){var c=getComputedStyle(document.body).backgroundColor.match(/\\d+/g);"
+        @"return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
     NSDictionary *state = @{
         @"style": style == UIUserInterfaceStyleDark ? @"dark" : @"light",
         @"updates": @(appearanceUpdateCount_),
         @"paletteAssertions": @(ProbePalettePassed),
-        @"packageBackgroundLuminance": @(ProbeLuminance(packageCell_.content.backgroundColor)),
-        @"sectionBackgroundLuminance": @(ProbeLuminance(sectionCell_.content.backgroundColor)),
-        @"sourceBackgroundLuminance": @(ProbeLuminance([(CyteTableViewCell *) sourceCell_ content].backgroundColor)),
+        @"packageBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(packageCell_.content.backgroundColor) * 1000)),
+        @"sectionBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(sectionCell_.content.backgroundColor) * 1000)),
+        @"sourceBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(sourceCell_.content.backgroundColor) * 1000)),
+        @"loadingBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(loadingView_.backgroundColor) * 1000)),
+        @"webReady": @([webReady isEqualToString:@"complete"]),
+        @"webStyle": webStyle,
+        @"webAppearanceEvents": @([webEvents integerValue]),
+        @"webBackgroundLuminance": @([webLuminance integerValue]),
     };
     [state writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:@"cydia-appearance-probe.plist"] atomically:YES];
+}
+
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void) tableView;
+    (void) section;
+    return 5;
+}
+
+- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void) tableView;
+    (void) section;
+    return @"Real Cydia appearance surfaces";
+}
+
+- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void) tableView;
+    switch (indexPath.row) {
+        case 0: return 74;
+        case 1: return 50;
+        case 2: return 58;
+        case 3: return 72;
+        default: return 112;
+    }
+}
+
+- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void) tableView;
+    switch (indexPath.row) {
+        case 0: return packageCell_;
+        case 1: return sectionCell_;
+        case 2: return sourceCell_;
+        case 3: return loadingCell_;
+        default: return webCell_;
+    }
 }
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {

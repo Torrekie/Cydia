@@ -78,8 +78,11 @@ appearance event. No dynamic color is cached as a process-wide `CGColor`.
 The opt-in simulator gate builds Cydia through Make, installs a uniquely
 identified probe app, and switches a running iOS 13+ simulator from light to
 dark without relaunching it. Supplying an iOS 12 simulator also checks fallback
-resolution and unavailable-selector safety. It restores the modern simulator's
-original appearance and removes the probe app on exit:
+resolution and unavailable-selector safety. The probe hosts Cydia's custom
+cells in a real table, a native loading view, and a Cyte web controller; the
+gate checks their resolved luminance and the page's JavaScript appearance event
+before accepting a live transition. It restores the modern simulator's original
+appearance and removes the probe app on exit:
 
 ```sh
 make verify-appearance-simulator \
