@@ -96,7 +96,7 @@ jobs:
           sdk="$root/sdks/iPhoneOS14.5.sdk"
           tools="$root/toolchain/linux/iphone/bin"
           test -f "$sdk/System/Library/Frameworks/UIKit.framework/Headers/UIKit.h"
-          for tool in clang++ ar strip ldid install_name_tool; do
+          for tool in clang++ llvm-ar strip ldid install_name_tool; do
             test -x "$tools/$tool"
           done
           host_cxx=$(command -v g++ || command -v c++)
