@@ -8,6 +8,7 @@ extern NSString * const kCAFilterNearest;
 #include "CyteKit/WebCore/WebCoreThread.h"
 
 #include <dlfcn.h>
+#include <cmath>
 #include <objc/runtime.h>
 
 #include "Substrate.hpp"
@@ -55,6 +56,10 @@ float CYScrollViewDecelerationRateNormal;
     return true;
 }
 
+- (bool) usesDocumentAppearanceFallback {
+    return false;
+}
+
 - (void) releaseNetworkActivityIndicator {
     if ([loading_ count] != 0) {
         [loading_ removeAllObjects];
@@ -83,6 +88,96 @@ float CYScrollViewDecelerationRateNormal;
 
 - (CyteWebViewController *) indirect {
     return (CyteWebViewController *) (IndirectDelegate *) indirect_;
+}
+
+static NSString *CydiaCSSColor(UIColor *color) {
+    CGFloat red(0), green(0), blue(0), alpha(0);
+    if (![color getRed:&red green:&green blue:&blue alpha:&alpha]) {
+        CGFloat white(0);
+        if (![color getWhite:&white alpha:&alpha])
+            return @"rgba(0,0,0,0)";
+        red = green = blue = white;
+    }
+
+    return [NSString stringWithFormat:@"rgba(%d,%d,%d,%.3f)",
+        (int) lround(red * 255),
+        (int) lround(green * 255),
+        (int) lround(blue * 255),
+        alpha];
+}
+
+- (void) evaluateAppearanceScriptInAllFrames:(NSString *)script {
+    if (webview_ == nil)
+        return;
+
+    WebThreadLocked lock;
+    WebFrame *mainFrame([[[webview_ _documentView] webView] mainFrame]);
+    if (mainFrame == nil)
+        return;
+    NSMutableArray *frames([NSMutableArray arrayWithObject:mainFrame]);
+    while ([frames count] != 0) {
+        WebFrame *frame([frames lastObject]);
+        [frames removeLastObject];
+        [[frame windowObject] evaluateWebScript:script];
+        [frames addObjectsFromArray:[frame childFrames]];
+    }
+}
+
+- (void) applyDocumentAppearanceFallback {
+    if (webview_ == nil || ![self usesDocumentAppearanceFallback])
+        return;
+
+    UIColor *background([UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                    traitCollection:self.traitCollection]);
+    UIColor *surface([UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                 traitCollection:self.traitCollection]);
+    UIColor *label([UIColor cydiaColorForRole:CydiaColorRoleLabel
+                              traitCollection:self.traitCollection]);
+    UIColor *secondary([UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                traitCollection:self.traitCollection]);
+    UIColor *separator([UIColor cydiaColorForRole:CydiaColorRoleSeparator
+                                  traitCollection:self.traitCollection]);
+    UIColor *accent([UIColor cydiaColorForRole:CydiaColorRoleAccent
+                                traitCollection:self.traitCollection]);
+
+    NSString *backgroundCSS(CydiaCSSColor(background));
+    NSString *surfaceCSS(CydiaCSSColor(surface));
+    NSString *labelCSS(CydiaCSSColor(label));
+    NSString *secondaryCSS(CydiaCSSColor(secondary));
+    NSString *separatorCSS(CydiaCSSColor(separator));
+    NSString *accentCSS(CydiaCSSColor(accent));
+    BOOL dark(self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
+    NSString *darkBackgroundImage(dark ? @"background-image:none !important;" : @"");
+    NSString *script([NSString stringWithFormat:
+        @"(function(){var root=document.documentElement,body=document.body;"
+         "if(!root||!body||root.getAttribute('data-cydia-appearance-managed'))return;"
+         "root.style.setProperty('background-color','%@','important');"
+         "body.style.setProperty('background-color','%@','important');"
+         "body.style.setProperty('color','%@','important');"
+         "var style=document.getElementById('cydia-appearance-fallback');"
+         "if(!style){style=document.createElement('style');"
+         "style.id='cydia-appearance-fallback';"
+         "(document.head||root).appendChild(style);}"
+         "style.textContent='html,body{background-color:%@ !important;"
+         "color:%@ !important;border-color:%@ !important;%@}"
+         "body.pinstripe{%@}"
+         "panel>fieldset:not(.terminal),panel>block{background-color:%@ !important;"
+         "border-color:%@ !important;color:%@ !important;}"
+         "panel>fieldset:not(.terminal)>a,panel>fieldset:not(.terminal)>div,"
+         "panel>fieldset:not(.terminal)>textarea{border-color:%@ !important;}"
+         "panel>fieldset:not(.terminal) label,panel>fieldset:not(.terminal) p,"
+         "panel>fieldset:not(.terminal) span{color:%@ !important;}"
+         "panel>fieldset:not(.terminal) label+label,panel>footer,"
+         "panel>label{color:%@ !important;}"
+         "panel>fieldset:not(.terminal) a{color:%@ !important;}"
+         "#progress,#button{border-color:%@ !important;color:%@ !important;}"
+         "#bar{background-color:%@ !important;}.type-Status{color:%@ !important;}';"
+         "})()", backgroundCSS, backgroundCSS, labelCSS, backgroundCSS,
+         labelCSS, separatorCSS, darkBackgroundImage, darkBackgroundImage,
+         surfaceCSS, separatorCSS, labelCSS, separatorCSS, labelCSS,
+         secondaryCSS, accentCSS, separatorCSS, labelCSS, accentCSS,
+         labelCSS]);
+    [self evaluateAppearanceScriptInAllFrames:script];
 }
 
 - (void) mailComposeController:(MFMailComposeViewController*)controller didFinishWithResult:(MFMailComposeResult)result error:(NSError*)error {
@@ -280,8 +375,9 @@ static _H<NSString> UserAgent_;
         NSString *style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? @"dark" : @"light";
         NSString *script = [NSString stringWithFormat:
             @"document.documentElement.setAttribute('data-cydia-appearance','%@');", style];
-        [webview_ stringByEvaluatingJavaScriptFromString:script];
+        [self evaluateAppearanceScriptInAllFrames:script];
         [self dispatchEvent:@"CydiaAppearanceChanged"];
+        [self applyDocumentAppearanceFallback];
         if (pageColorFromDocument_)
             [self refreshDocumentPageColorForFrame:nil];
     }

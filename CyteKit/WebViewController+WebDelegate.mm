@@ -237,8 +237,11 @@
 
     if ([frame parentFrame] == nil) {
         [self refreshDocumentPageColorForFrame:frame];
-        [self applyColorAppearance];
     }
+
+    // A child frame can finish after the top-level page. Reapply to the frame
+    // tree so every document receives the current attribute before the event.
+    [self applyColorAppearance];
 
     [self _didFinishLoading];
 }
