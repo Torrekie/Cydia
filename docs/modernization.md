@@ -110,3 +110,20 @@ make --no-print-directory -B -j6 doIA=yes \
 make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootful package
 make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootless package
 ```
+
+## Linux package CI
+
+`.github/workflows/linux-packages.yml` builds both package layouts on
+Ubuntu 22.04 using the same Make targets as local builds. The public iPhoneOS
+14.5 SDK snapshot and Linux-hosted iOS toolchain are pinned by URL and SHA-256;
+the job refuses a changed download instead of silently taking a newer toolchain.
+Only the reviewed `SDURLCache` and embedded `apt64` gitlinks are initialized.
+ICU headers come from the pinned iPhoneOS SDK, so the legacy ICU submodule is
+not required by this build.
+
+Each matrix leg checks the generated control architecture, package prefix,
+launchd executable path, translations, and maintainer files. Rootless archives
+must keep every data path below `/var/jb`; rooted archives must contain no
+`/var/jb` path. The resulting `.deb` files and `SHA256SUMS` are retained as CI
+candidate artifacts only. The workflow does not publish a release or submit a
+package to a repository.
