@@ -80,6 +80,7 @@ extern float CYScrollViewDecelerationRateNormal;
 - (void) _didFinishLoading;
 - (void) _setViewportWidth;
 - (void) setViewportWidth:(float)width;
+- (void) applyColorAppearance;
 - (void) applyLoadingTitle;
 - (void) layoutRightButton;
 - (UIBarButtonItemStyle) rightButtonStyle;

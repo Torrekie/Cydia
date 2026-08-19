@@ -227,7 +227,7 @@
                     }
 
                     [super setPageColor:uic];
-                    [scroller_ setBackgroundColor:self.pageColor];
+                    [self applyColorAppearance];
                     break;
                 }
     }
