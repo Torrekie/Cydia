@@ -2,6 +2,7 @@
 # from `all` and `package`: existing build and packaging behavior is unchanged.
 
 VERIFY_SCRIPT := scripts/verify-modernization.sh
+APPEARANCE_VERIFY_SCRIPT := scripts/verify-appearance-simulator.sh
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
@@ -31,6 +32,7 @@ verify_size_sources += postinst.mm cfversion.mm
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-package-paths verify-dpkg-runner
+.PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
 verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-dpkg-runner verify-static verify-compile
@@ -123,3 +125,13 @@ verify-size: $(VERIFY_SCRIPT)
 # migration proof used between source-splitting commits.
 verify-compile: $(verify_objc_objects) $(POSTINST_BINARY) $(CFVERSION_BINARY)
 	@echo "[verify] Objective-C/Objective-C++ compile graph is up to date"
+
+# Runtime UI verification is intentionally opt-in because it installs a probe
+# app and changes simulator appearance. The script restores appearance and
+# removes its uniquely identified app when it exits.
+verify-appearance-simulator: $(APPEARANCE_VERIFY_SCRIPT)
+	@test -n "$(SIMULATOR_UDID)" || { \
+		echo "SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(APPEARANCE_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
+		"$(IOS12_SIMULATOR_UDID)" "$(MAKE)" "$(BUILD_DIR)/appearance-simulator"

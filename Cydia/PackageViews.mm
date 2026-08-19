@@ -35,6 +35,23 @@
 
 @implementation PackageCell
 
+#if TARGET_OS_SIMULATOR
+- (void) configureAppearanceProbe {
+    summarized_ = false;
+    name_ = @"Semantic Package Row";
+    source_ = @"From Cydia Appearance Probe";
+    description_ = @"Already-visible custom drawing updates live";
+    commercial_ = false;
+    installing_ = true;
+    removing_ = false;
+    icon_ = [UIImage imageNamed:@"folder.png"];
+    badge_ = nil;
+    placard_ = nil;
+    [self applyColorAppearance];
+    [self.content setNeedsDisplay];
+}
+#endif
+
 - (void) applyColorAppearance {
     UIColor *color = UIColor.cydiaBackgroundColor;
     if (installing_)
