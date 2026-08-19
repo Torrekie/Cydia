@@ -15,6 +15,7 @@
 #include "CyteKit/WebThreadLocked.hpp"
 #include "CyteKit/WebViewController.h"
 
+#include "Cydia/UIColor+Cydia.h"
 #include "iPhonePrivate.h"
 #include "Menes/ObjectHandle.h"
 
@@ -38,6 +39,7 @@ extern float CYScrollViewDecelerationRateNormal;
     _H<NSURLAuthenticationChallenge> challenge_;
 
     bool error_;
+    bool pageColorFromDocument_;
     _H<NSURLRequest> request_;
     bool ready_;
 
@@ -81,6 +83,7 @@ extern float CYScrollViewDecelerationRateNormal;
 - (void) _setViewportWidth;
 - (void) setViewportWidth:(float)width;
 - (void) applyColorAppearance;
+- (void) refreshDocumentPageColorForFrame:(WebFrame *)frame;
 - (void) applyLoadingTitle;
 - (void) layoutRightButton;
 - (UIBarButtonItemStyle) rightButtonStyle;
