@@ -28,7 +28,24 @@
  * declaration is sufficient and keeps the SDK-independent boundary narrow. */
 #ifndef CYDIA_HAS_ICU_REPLACEABLE_HEADER
 typedef void *UReplaceable;
-typedef struct UReplaceableCallbacks UReplaceableCallbacks;
+typedef struct UReplaceableCallbacks {
+    int32_t (*length)(const UReplaceable *rep);
+    UChar (*charAt)(const UReplaceable *rep, int32_t offset);
+    UChar32 (*char32At)(const UReplaceable *rep, int32_t offset);
+    void (*replace)(UReplaceable *rep,
+                    int32_t start,
+                    int32_t limit,
+                    const UChar *text,
+                    int32_t textLength);
+    void (*extract)(UReplaceable *rep,
+                    int32_t start,
+                    int32_t limit,
+                    UChar *dst);
+    void (*copy)(UReplaceable *rep,
+                 int32_t start,
+                 int32_t limit,
+                 int32_t dest);
+} UReplaceableCallbacks;
 #endif
 
 U_CDECL_BEGIN
