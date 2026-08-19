@@ -49,7 +49,8 @@
 @implementation SourceCell
 
 - (void) applyColorAppearance {
-    [self.content setBackgroundColor:UIColor.cydiaBackgroundColor];
+    [self.content setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                                  traitCollection:self.traitCollection]];
     [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleFolderLabel
                                     traitCollection:self.traitCollection]];
 }
@@ -114,6 +115,8 @@
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGraySmall];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin];// | UIViewAutoresizingFlexibleBottomMargin];
         [[self contentView] addSubview:indicator_];
+
+        [self applyColorAppearance];
 
         [[self.content layer] setContentsGravity:kCAGravityTopLeft];
     } return self;
