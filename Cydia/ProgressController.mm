@@ -26,12 +26,12 @@
 #include "Cydia/Appearance.h"
 #include "Cydia/Database.h"
 #include "Cydia/PrivateServices.h"
+#include "Cydia/RebootCompat.h"
 #include "CyteKit/Localize.h"
 #include "Menes/yieldToSelector.h"
 #include "iPhonePrivate.h"
 
 #include <notify.h>
-#include <sys/reboot.h>
 
 extern const NSString *UI_;
 extern bool RestartSubstrate_;

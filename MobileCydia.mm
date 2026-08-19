@@ -70,7 +70,7 @@
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <sys/mount.h>
-#include <sys/reboot.h>
+#include "Cydia/RebootCompat.h"
 
 #include <dirent.h>
 #include <fcntl.h>
