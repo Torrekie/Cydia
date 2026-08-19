@@ -36,11 +36,14 @@
 @implementation PackageCell
 
 - (void) applyColorAppearance {
-    UIColor *color = UIColor.cydiaBackgroundColor;
+    UIColor *color = [UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                traitCollection:self.traitCollection];
     if (installing_)
-        color = UIColor.cydiaInstallingBackgroundColor;
+        color = [UIColor cydiaColorForRole:CydiaColorRoleInstallingBackground
+                            traitCollection:self.traitCollection];
     else if (removing_)
-        color = UIColor.cydiaRemovingBackgroundColor;
+        color = [UIColor cydiaColorForRole:CydiaColorRoleRemovingBackground
+                            traitCollection:self.traitCollection];
     [self.content setBackgroundColor:color];
 }
 
@@ -234,7 +237,8 @@
 @implementation SectionCell
 
 - (void) applyColorAppearance {
-    [self.content setBackgroundColor:UIColor.cydiaBackgroundColor];
+    [self.content setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                                  traitCollection:self.traitCollection]];
 }
 
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
