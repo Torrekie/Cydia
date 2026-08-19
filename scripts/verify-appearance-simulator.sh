@@ -82,6 +82,7 @@ install_probe() {
     log=$artifact_dir/$name.install.log
     attempt=1
     : >"$log"
+    terminate_and_uninstall "$udid"
     while [ "$attempt" -le 2 ]; do
         if simctl_with_timeout 30 install "$udid" "$probe_app" >>"$log" 2>&1; then
             return 0
@@ -131,7 +132,7 @@ wait_for_style() {
     expected=$2
     minimum_updates=$3
     attempts=0
-    while [ "$attempts" -lt 40 ]; do
+    while [ "$attempts" -lt 120 ]; do
         if [ -f "$file" ]; then
             style=$(read_state "$file" style || true)
             updates=$(read_state "$file" updates || true)
@@ -164,7 +165,7 @@ launch_probe() {
     udid=$1
     stdout_file=$2
     stderr_file=$3
-    result=$(simctl_with_timeout 30 launch --terminate-running-process \
+    result=$(simctl_with_timeout 30 launch \
         --stdout="$stdout_file" --stderr="$stderr_file" \
         "$udid" "$bundle_id" --cydia-appearance-probe "$probe_launch_argument") || return 1
     printf '%s\n' "$result" | sed -n 's/.*: //p'
