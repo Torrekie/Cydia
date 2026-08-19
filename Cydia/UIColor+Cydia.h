@@ -59,6 +59,11 @@ typedef NS_ENUM(NSUInteger, CydiaColorRole) {
 FOUNDATION_EXPORT BOOL CydiaColorAppearanceDidChange(UITraitCollection *current,
                                                       UITraitCollection * _Nullable previous);
 
+/* Apply a resolved role to the current UIKit drawing context.  This avoids
+ * converting a dynamic UIColor to a long-lived CGColor. */
+FOUNDATION_EXPORT void CydiaSetColor(CydiaColorRole role,
+                                     UITraitCollection * _Nullable traitCollection);
+
 NS_ASSUME_NONNULL_END
 
 #endif // Cydia_UIColor_Cydia_H

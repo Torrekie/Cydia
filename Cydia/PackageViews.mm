@@ -35,6 +35,15 @@
 
 @implementation PackageCell
 
+- (void) applyColorAppearance {
+    UIColor *color = UIColor.cydiaBackgroundColor;
+    if (installing_)
+        color = UIColor.cydiaInstallingBackgroundColor;
+    else if (removing_)
+        color = UIColor.cydiaRemovingBackgroundColor;
+    [self.content setBackgroundColor:color];
+}
+
 - (PackageCell *) init {
     CGRect frame(CGRectMake(0, 0, 320, 74));
     if ((self = [super initWithFrame:frame reuseIdentifier:@"Package"]) != nil) {
@@ -55,9 +64,11 @@
     source_ = nil;
     badge_ = nil;
     placard_ = nil;
+    installing_ = false;
+    removing_ = false;
 
     if (package == nil)
-        [self.content setBackgroundColor:whiteIfNotDark(1)];
+        [self applyColorAppearance];
     else {
         [package parse];
 
@@ -94,32 +105,28 @@
         if (NSString *purpose = [package primaryPurpose])
             badge_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/Purposes/%@.png", App_, purpose]];
 
-        UIColor *color;
         NSString *placard;
 
         if (NSString *mode = [package mode]) {
             if ([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) {
-                color = RemovingColor_;
+                removing_ = true;
                 placard = @"removing";
             } else {
-                color = InstallingColor_;
+                installing_ = true;
                 placard = @"installing";
             }
         } else {
-            color = whiteIfNotDark(1);
-
             if ([package installed] != nil)
                 placard = @"installed";
             else
                 placard = nil;
         }
 
-        [self.content setBackgroundColor:color];
-
         if (placard != nil)
             placard_ = [UIImage imageAtPath:[NSString stringWithFormat:@"%@/%@.png", App_, placard]];
     }
 
+    [self applyColorAppearance];
     [self setNeedsDisplay];
     [self.content setNeedsDisplay];
 }
@@ -157,10 +164,10 @@
     }
 
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
-        UISetColor(White_);
+        CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
     if (!highlighted)
-        UISetColor(commercial_ ? Purple_ : Black_);
+        CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(36, 8) forWidth:(width - (placard_ == nil ? 68 : 94)) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     if (placard_ != nil)
@@ -200,15 +207,15 @@
     }
 
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
-        UISetColor(White_);
+        CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
     if (!highlighted)
-        UISetColor(commercial_ ? Purple_ : Black_);
+        CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
     [source_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     if (!highlighted)
-        UISetColor(commercial_ ? Purplish_ : Gray_);
+        CydiaSetColor(commercial_ ? CydiaColorRoleCommercialSecondaryLabel : CydiaColorRoleSecondaryLabel, self.traitCollection);
     [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 46) withFont:Font14_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     if (placard_ != nil)
@@ -226,6 +233,10 @@
 
 @implementation SectionCell
 
+- (void) applyColorAppearance {
+    [self.content setBackgroundColor:UIColor.cydiaBackgroundColor];
+}
+
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
         icon_ = [UIImage imageNamed:@"folder.png"];
@@ -233,7 +244,7 @@
         switch_ = [[UISwitch alloc] initWithFrame:CGRectMake(218, 9, 60, 25)];
         [switch_ addTarget:self action:@selector(onSwitch:) forEvents:UIControlEventValueChanged];
 
-        [self.content setBackgroundColor:whiteIfNotDark(1)];
+        [self applyColorAppearance];
     } return self;
 }
 
@@ -298,19 +309,19 @@
     [icon_ drawInRect:CGRectMake(7, 7, 32, 32)];
 
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
-        UISetColor(White_);
+        CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
     float width(rect.size.width);
     if (editing_)
         width -= 9 + [switch_ frame].size.width;
 
     if (!highlighted)
-        UISetColor(Black_);
+        CydiaSetColor(CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(48, 12) forWidth:(width - 58) withFont:Font18_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     CGSize size = [count_ sizeWithFont:Font14_];
 
-    UISetColor(Folder_);
+    CydiaSetColor(CydiaColorRoleFolderLabel, self.traitCollection);
     if (count_ != nil)
         [count_ drawAtPoint:CGPointMake(Retina(10 + (30 - size.width) / 2), 18) withFont:Font12Bold_];
 }

@@ -161,3 +161,8 @@ BOOL CydiaColorAppearanceDidChange(UITraitCollection *current, UITraitCollection
         return [current hasDifferentColorAppearanceComparedToTraitCollection:previous];
     return current.userInterfaceStyle != previous.userInterfaceStyle;
 }
+
+void CydiaSetColor(CydiaColorRole role, UITraitCollection *traitCollection) {
+    UIColor *color = [UIColor cydiaColorForRole:role traitCollection:traitCollection];
+    [color set];
+}
