@@ -33,7 +33,7 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 
 	cd $(IMAGE_DIR)/MobileCydia.app && find . -name '*.png' -exec cp -af {} $(abspath $(CYDIA_STAGE_ROOT))/Applications/Cydia.app/{} ';'
 	@echo "[sign] Cydia.app"
-	@ldid -T0 -Sentitlements.xml $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
+	@$(LDID) -T0 -Sentitlements.xml $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sources
 	ln -s $(PACKAGE_PREFIX)/usr/share/bigboss/icons/bigboss.png $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sources/apt.bigboss.us.com.png
@@ -45,8 +45,13 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	cp -a $(POSTINST_BINARY) $(CYDIA_STAGE)/DEBIAN/postinst
 
 	@commit_epoch="$$(git log -1 --no-patch --format='%ct' 2>/dev/null || true)"; \
-	if test -n "$$commit_epoch" && stamp="$$(date -j -f "%s" +"%Y%m%d%H%M.%S" "$$commit_epoch" 2>/dev/null)" && test -n "$$stamp"; then \
-		find $(CYDIA_STAGE) -exec touch -t "$$stamp" {} ';'; \
+	stamp=""; \
+	if test -n "$$commit_epoch"; then \
+		stamp="$$(date -u -d "@$$commit_epoch" +"%Y%m%d%H%M.%S" 2>/dev/null || \
+			date -u -j -f "%s" +"%Y%m%d%H%M.%S" "$$commit_epoch" 2>/dev/null || true)"; \
+	fi; \
+	if test -n "$$stamp"; then \
+		TZ=UTC find $(CYDIA_STAGE) -exec touch -t "$$stamp" {} ';'; \
 	fi
 
 	chmod 6755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo

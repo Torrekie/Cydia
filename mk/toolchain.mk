@@ -13,11 +13,41 @@ kind := iphoneos
 arch := arm64
 endif
 
-gxx := $(shell xcrun --sdk $(kind) -f g++)
-cycc := $(gxx)
+HOST_OS ?= $(shell uname -s)
 
-sdk := $(shell xcodebuild -sdk $(kind) -version Path)
-mac := $(shell xcodebuild -sdk macosx -version Path)
+ifeq ($(HOST_OS),Linux)
+THEOS ?= $(CURDIR)/.theos
+LINUX_TOOLCHAIN ?= $(THEOS)/toolchain/linux/iphone
+IOS_SDK ?= $(firstword $(wildcard $(THEOS)/sdks/iPhoneOS*.sdk))
+
+gxx ?= $(LINUX_TOOLCHAIN)/bin/clang++
+sdk ?= $(IOS_SDK)
+# App sources only need target SDK headers. Host-side verification programs use
+# the native compiler and deliberately do not inherit this sysroot.
+mac ?= $(sdk)
+
+CYAR ?= $(LINUX_TOOLCHAIN)/bin/ar
+CYSTRIP ?= $(LINUX_TOOLCHAIN)/bin/strip
+LDID ?= $(LINUX_TOOLCHAIN)/bin/ldid
+INSTALL_NAME_TOOL ?= $(firstword $(wildcard \
+    $(LINUX_TOOLCHAIN)/bin/llvm-install-name-tool \
+    $(LINUX_TOOLCHAIN)/bin/install_name_tool))
+
+ifeq ($(strip $(sdk)),)
+$(error IOS_SDK must name an extracted iPhoneOS SDK when building on Linux)
+endif
+else
+gxx ?= $(shell xcrun --sdk $(kind) -f g++)
+sdk ?= $(shell xcodebuild -sdk $(kind) -version Path)
+mac ?= $(shell xcodebuild -sdk macosx -version Path)
+
+CYAR ?= ar
+CYSTRIP ?= strip
+LDID ?= ldid
+INSTALL_NAME_TOOL ?= install_name_tool
+endif
+
+cycc := $(gxx)
 
 cycc += -isysroot $(sdk)
 cycc += -idirafter $(mac)/usr/include
@@ -50,7 +80,11 @@ flag += -isystem sysroot/usr/include
 # Apple removed unicode/utrans.h from newer SDKs while retaining the ICU C
 # ABI.  Prefer the locally supplied iPhoneOS 14.5 SDK headers when present;
 # callers can override ICU_INCLUDE_DIR for another Apple SDK checkout.
+ifeq ($(HOST_OS),Linux)
+ICU_SDK ?= $(sdk)
+else
 ICU_SDK ?= $(HOME)/iPhoneOS14.5.sdk
+endif
 ICU_INCLUDE_DIR ?= $(if $(wildcard $(ICU_SDK)/usr/include/unicode/utypes.h),$(ICU_SDK)/usr/include,$(mac)/usr/include)
 ifneq ($(wildcard $(ICU_INCLUDE_DIR)/unicode/utypes.h),)
 flag += -idirafter $(ICU_INCLUDE_DIR)

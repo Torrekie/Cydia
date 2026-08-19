@@ -167,9 +167,11 @@ int main(int argc, char *argv[]) {
     result = runner.RunWithInput({"--fixture", "input", kArgument}, kInput);
     Expect(result.succeeded(), "preserve argv and stdin without a shell");
 
+#ifdef F_SETNOSIGPIPE
     result = runner.RunWithInput({"--fixture", "close-input"}, std::string(1024 * 1024, 'x'));
     Expect(result.kind == ResultKind::LaunchFailed && result.error == EPIPE,
            "report a closed stdin pipe without SIGPIPE");
+#endif
 
     const std::string outputPath(TemporaryOutputPath());
     result = runner.RunToFile({"--fixture", "output"}, outputPath);

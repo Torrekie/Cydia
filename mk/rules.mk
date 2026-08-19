@@ -160,7 +160,7 @@ $(APT_LIBRARY): $(APT_PROVENANCE_STAMP) $(libapt64)
 	@mkdir -p $(dir $@)
 	@echo "[arch] $@"
 	@tmp="$@.tmp"; rm -f "$$tmp"; \
-		ar -rc "$$tmp" $(filter %.o,$^) && mv -f "$$tmp" "$@"
+		$(CYAR) -rc "$$tmp" $(filter %.o,$^) && mv -f "$$tmp" "$@"
 
 $(APP_BINARY): $(object) entitlements.xml $(lapt)
 	@mkdir -p $(dir $@) $(ARCHIVE_DIR)
@@ -168,33 +168,33 @@ $(APP_BINARY): $(object) entitlements.xml $(lapt)
 	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit)
 	@cp -a $@ $(ARCHIVE_DIR)/$(notdir $@)-$(version)_$(shell date +%s)
 	@echo "[strp] $@"
-	@grep '~' <<<"$(version)" >/dev/null && echo "skipping..." || strip $@
+	@printf '%s\n' "$(version)" | grep -q '~' && echo "skipping..." || $(CYSTRIP) $@
 	@echo "[uikt] $@"
 	@./uikit.sh $@
-	@install_name_tool -add_rpath /System/Library/Frameworks $@
-	@install_name_tool -add_rpath /System/Library/PrivateFrameworks $@
-	@install_name_tool -change /System/Library/Frameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
-	@install_name_tool -change /System/Library/PrivateFrameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
+	@$(INSTALL_NAME_TOOL) -add_rpath /System/Library/Frameworks $@
+	@$(INSTALL_NAME_TOOL) -add_rpath /System/Library/PrivateFrameworks $@
+	@$(INSTALL_NAME_TOOL) -change /System/Library/Frameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
+	@$(INSTALL_NAME_TOOL) -change /System/Library/PrivateFrameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
 
 $(CFVERSION_BINARY): cfversion.mm
 	@mkdir -p $(dir $@)
 	$(cycc) $(objc_arc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
-	@ldid -T0 -Sgenent.xml $@
+	@$(LDID) -T0 -Sgenent.xml $@
 
 $(SETNSFPN_BINARY): setnsfpn.cpp
 	@mkdir -p $(dir $@)
 	$(cycc) -o $@ $(filter %.cpp,$^) $(flag) $(link)
-	@ldid -T0 -Sgenent.xml $@
+	@$(LDID) -T0 -Sgenent.xml $@
 
 $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(flag) $(link) -Wno-deprecated-writable-strings
-	@ldid -T0 -Sgenent.xml $@
+	@$(LDID) -T0 -Sgenent.xml $@
 
 $(POSTINST_BINARY): postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
-	@ldid -T0 -Sgenent.xml $@
+	@$(LDID) -T0 -Sgenent.xml $@
 
 MobileCydia: $(APP_BINARY)
 postinst: $(POSTINST_BINARY)

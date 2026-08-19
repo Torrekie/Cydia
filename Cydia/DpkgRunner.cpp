@@ -110,12 +110,14 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
     int inputPipe[2] = {-1, -1};
     if (input != NULL && pipe(inputPipe) == -1)
         return launchFailure(errno);
+#ifdef F_SETNOSIGPIPE
     if (input != NULL && fcntl(inputPipe[1], F_SETNOSIGPIPE, 1) == -1) {
         const int error(errno);
         (void) close(inputPipe[0]);
         (void) close(inputPipe[1]);
         return launchFailure(error);
     }
+#endif
 
     std::vector<std::string> storage;
     storage.reserve(arguments.size() + 3);
@@ -139,6 +141,7 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
      * was created (unlike dup2(fd, fd), which is a no-op on some systems).
      */
     posix_spawn_file_actions_t actions;
+    int inheritedStatusFd = -1;
     int actionError = posix_spawn_file_actions_init(&actions);
     if (actionError != 0) {
         if (input != NULL) {
@@ -149,9 +152,24 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
     }
 
     if (statusFd >= 0) {
+#ifdef __APPLE__
         actionError = posix_spawn_file_actions_addinherit_np(&actions, statusFd);
+#else
+        /* POSIX has no addinherit action. Duplicating through another child
+         * descriptor makes dup2 clear FD_CLOEXEC on the requested number. */
+        inheritedStatusFd = dup(statusFd);
+        if (inheritedStatusFd == -1)
+            actionError = errno;
+        else {
+            actionError = posix_spawn_file_actions_adddup2(&actions, inheritedStatusFd, statusFd);
+            if (actionError == 0)
+                actionError = posix_spawn_file_actions_addclose(&actions, inheritedStatusFd);
+        }
+#endif
         if (actionError != 0) {
             (void) posix_spawn_file_actions_destroy(&actions);
+            if (inheritedStatusFd >= 0)
+                (void) close(inheritedStatusFd);
             if (input != NULL) {
                 (void) close(inputPipe[0]);
                 (void) close(inputPipe[1]);
@@ -171,6 +189,8 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
             actionError = posix_spawn_file_actions_addclose(&actions, inputPipe[1]);
         if (actionError != 0) {
             (void) posix_spawn_file_actions_destroy(&actions);
+            if (inheritedStatusFd >= 0)
+                (void) close(inheritedStatusFd);
             (void) close(inputPipe[0]);
             (void) close(inputPipe[1]);
             return launchFailure(actionError);
@@ -184,6 +204,8 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
                                                        0644);
         if (actionError != 0) {
             (void) posix_spawn_file_actions_destroy(&actions);
+            if (inheritedStatusFd >= 0)
+                (void) close(inheritedStatusFd);
             if (input != NULL) {
                 (void) close(inputPipe[0]);
                 (void) close(inputPipe[1]);
@@ -195,6 +217,8 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
     pid_t child;
     int spawnError = posix_spawn(&child, executable_.c_str(), &actions, NULL, argv.data(), environ);
     (void) posix_spawn_file_actions_destroy(&actions);
+    if (inheritedStatusFd >= 0)
+        (void) close(inheritedStatusFd);
     if (spawnError != 0) {
         if (input != NULL) {
             (void) close(inputPipe[0]);

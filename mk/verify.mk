@@ -8,7 +8,13 @@ APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
-host_cxx := $(shell xcrun --sdk macosx -f clang++)
+ifeq ($(HOST_OS),Linux)
+host_cxx ?= c++
+host_cxx_flags :=
+else
+host_cxx ?= $(shell xcrun --sdk macosx -f clang++)
+host_cxx_flags := -isysroot $(mac)
+endif
 
 verify_objc_sources := $(filter %.m %.mm,$(source))
 verify_objc_objects := $(patsubst %.m,$(OBJECT_DIR)/%.o,$(filter %.m,$(verify_objc_sources)))
@@ -39,7 +45,7 @@ verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
-	@$(host_cxx) -isysroot $(mac) -std=c++11 -Wall -Wextra -I. \
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
 		tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-package-paths: $(PACKAGE_PATHS_TEST)
@@ -47,7 +53,7 @@ verify-package-paths: $(PACKAGE_PATHS_TEST)
 
 $(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
-	@$(host_cxx) -isysroot $(mac) -std=c++11 -Wall -Wextra -I. \
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
 		tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-dpkg-runner: $(DPKG_RUNNER_TEST)
