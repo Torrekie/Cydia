@@ -37,13 +37,15 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          fetch-tags: true
           submodules: false
 
       - name: Check out reviewed submodules
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --force --tags origin
+          git fetch --force origin '+refs/tags/*:refs/tags/*'
+          test -n "$(git tag --list 'v*')"
           git config submodule.apt64.url https://git.bingner.com/apt.git
           git submodule update --init apt64
 
