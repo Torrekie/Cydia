@@ -129,3 +129,7 @@ must keep every data path below `/var/jb`; rooted archives must contain no
 `/var/jb` path. The resulting `.deb` files and `SHA256SUMS` are retained as CI
 candidate artifacts only. The workflow does not publish a release or submit a
 package to a repository.
+Because the public fork has no release-tag refs, CI sets an explicit candidate
+version (`1.1.36+git.<merge-sha>`). This is intentionally distinct from a
+release version and can be replaced when a signed release process is
+introduced.
