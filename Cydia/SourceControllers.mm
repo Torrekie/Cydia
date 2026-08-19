@@ -48,6 +48,12 @@
 
 @implementation SourceCell
 
+- (void) applyColorAppearance {
+    [self.content setBackgroundColor:UIColor.cydiaBackgroundColor];
+    [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleFolderLabel
+                                    traitCollection:self.traitCollection]];
+}
+
 - (void) _setImage:(NSArray *)data {
     if ([url_ isEqual:[data objectAtIndex:0]]) {
         icon_ = [data objectAtIndex:1];
@@ -102,7 +108,7 @@
 
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
-        [self.content setBackgroundColor:whiteIfNotDark(1)];
+        [self applyColorAppearance];
         [self.content setOpaque:YES];
 
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGraySmall];
@@ -152,14 +158,14 @@
     }
 
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
-        UISetColor(White_);
+        CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
     if (!highlighted)
-        UISetColor(Black_);
+        CydiaSetColor(CydiaColorRoleLabel, self.traitCollection);
     [origin_ drawAtPoint:CGPointMake(52, 8) forWidth:(width - 49) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     if (!highlighted)
-        UISetColor(Gray_);
+        CydiaSetColor(CydiaColorRoleSecondaryLabel, self.traitCollection);
     [label_ drawAtPoint:CGPointMake(52, 29) forWidth:(width - 49) withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
 }
 

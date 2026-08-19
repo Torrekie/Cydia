@@ -49,6 +49,13 @@
     [delegate_ drawContentRect:rect];
 }
 
+- (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if ([(id) delegate_ respondsToSelector:@selector(applyColorAppearance)])
+        [delegate_ applyColorAppearance];
+    [self setNeedsDisplay];
+}
+
 @end
 
 @implementation CyteTableViewCell {
