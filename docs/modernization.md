@@ -69,6 +69,25 @@ limit; the remaining larger inputs are either focused application/bootstrap
 files or vendored code. Device and simulator application links are also tested
 with the normal Make recipes.
 
+Appearance colors are role-based through `UIColor+Cydia`. iOS 13 and newer use
+UIKit semantic/dynamic colors; iOS 12 resolves calibrated concrete fallbacks
+against the owning view's trait collection. Custom-drawn cells invalidate and
+redraw when the color appearance changes, and web views receive the same live
+appearance event. No dynamic color is cached as a process-wide `CGColor`.
+
+The opt-in simulator gate builds Cydia through Make, installs a uniquely
+identified probe app, and switches a running iOS 13+ simulator from light to
+dark without relaunching it. Supplying an iOS 12 simulator also checks fallback
+resolution and unavailable-selector safety. It restores the modern simulator's
+original appearance and removes the probe app on exit:
+
+```sh
+make verify-appearance-simulator \
+  SIMULATOR_UDID=<modern-simulator-udid> \
+  IOS12_SIMULATOR_UDID=<ios-12-simulator-udid> \
+  BUILD_DIR=/tmp/cydia-appearance-verification
+```
+
 The expected acceptance sequence for future changes is:
 
 ```sh

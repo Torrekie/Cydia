@@ -104,6 +104,9 @@ extern "C" {
 #include "Cydia/Application.h"
 #include "Cydia/ApplicationInternal.h"
 #include "Cydia/AppState.h"
+#if TARGET_OS_SIMULATOR
+#include "Cydia/AppearanceProbe.h"
+#endif
 #include "Cydia/ChangeControllers.h"
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
@@ -715,6 +718,18 @@ int main_store(int, char *argv[]);
 
 int main_http(int, const char *argv[]);
 
+#if TARGET_OS_SIMULATOR
+static bool CydiaAppearanceProbeRequested(int argc, char *argv[]) {
+    const char *environment(getenv("CYDIA_APPEARANCE_PROBE"));
+    if (environment != NULL && strcmp(environment, "0") != 0)
+        return true;
+    for (int index(1); index < argc; ++index)
+        if (strcmp(argv[index], "--cydia-appearance-probe") == 0)
+            return true;
+    return false;
+}
+#endif
+
 int main(int argc, char *argv[]) {
     const char *argv0(argv[0]);
     if (const char *slash = strrchr(argv0, '/'))
@@ -745,6 +760,11 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv0, "https"))
         return main_http(argc, const_cast<const char **>(argv));
     else {}
+
+#if TARGET_OS_SIMULATOR
+    if (CydiaAppearanceProbeRequested(argc, argv))
+        return CydiaAppearanceProbeMain(argc, argv);
+#endif
 
     if ([WebPreferences respondsToSelector:@selector(setWebKitLinkTimeVersion:)])
                 [WebPreferences setWebKitLinkTimeVersion:PACKED_VERSION(3453,0,0)];

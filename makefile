@@ -9,4 +9,4 @@ include mk/rules.mk
 include mk/package.mk
 include mk/verify.mk
 
-.PHONY: all clean package MobileCydia postinst cfversion setnsfpn cydo FORCE
+.PHONY: all clean package MobileCydia postinst cfversion setnsfpn cydo FORCE verify-appearance-simulator
