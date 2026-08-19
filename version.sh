@@ -20,7 +20,15 @@ else
     flags=("$@")
 fi
 
-version=$(git describe --tags --match="v*" "${flags[@]}" | sed -e 's@-\([^-]*\)-\([^-]*\)$@+\1.\2@;s@^v@@;s@%@~@g')
+if [[ -n ${CYDIA_VERSION:-} ]]; then
+    version=${CYDIA_VERSION}
+else
+    version=$(git describe --tags --match="v*" "${flags[@]}" 2>/dev/null | \
+        sed -e 's@-\([^-]*\)-\([^-]*\)$@+\1.\2@;s@^v@@;s@%@~@g' || true)
+    if [[ -z ${version} ]]; then
+        version="0.0+git.$(git rev-parse --short=12 HEAD)"
+    fi
+fi
 
 if grep '#define ForRelease 0' MobileCydia.mm &>/dev/null; then
     version=${version}~srk
