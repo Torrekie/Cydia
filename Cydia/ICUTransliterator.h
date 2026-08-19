@@ -14,8 +14,22 @@
 #endif
 
 #ifndef CYDIA_HAS_ICU_TRANSLITERATOR_HEADER
+#include <unicode/utypes.h>
 #include <unicode/parseerr.h>
+#if defined(__has_include)
+#if __has_include(<unicode/urep.h>)
 #include <unicode/urep.h>
+#define CYDIA_HAS_ICU_REPLACEABLE_HEADER 1
+#endif
+#endif
+
+/* Theos' iPhoneOS SDK exports ICU's ABI but omits the deprecated urep.h.
+ * Transliteration only passes these values through to ICU, so an opaque
+ * declaration is sufficient and keeps the SDK-independent boundary narrow. */
+#ifndef CYDIA_HAS_ICU_REPLACEABLE_HEADER
+typedef void *UReplaceable;
+typedef struct UReplaceableCallbacks UReplaceableCallbacks;
+#endif
 
 U_CDECL_BEGIN
 
