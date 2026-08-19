@@ -14,10 +14,7 @@ case ${epoch} in
 esac
 
 version=$(./version.sh)
-case ${version} in
-    *:*) package_version=${version} ;;
-    *) package_version=${epoch}:${version} ;;
-esac
+package_version=${epoch}:${version}
 
 sed \
     -e "s@^\(Version:\).*@\1 ${package_version}@" \

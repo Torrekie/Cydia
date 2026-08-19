@@ -34,6 +34,14 @@ if grep '#define ForRelease 0' MobileCydia.mm &>/dev/null; then
     version=${version}~srk
 fi
 
+# Keep the upstream/app version separate from Debian's epoch.  The package
+# control generator adds epoch 1, while Mach-O/CFBundle versions and package
+# filenames must remain colon-free.
+if [[ ${version} == *:* ]]; then
+    echo "version.sh: CYDIA_VERSION must not contain a Debian epoch; the package generator adds epoch 1" >&2
+    exit 2
+fi
+
 if [[ -n ${header} ]]; then
     define="#define CYDIA_VERSION \"${version}\""
     before=$(cat "${header}" 2>/dev/null || true)

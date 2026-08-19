@@ -142,3 +142,6 @@ adds Debian epoch `1:` to that value (for example,
 `1:1.1.36+git.<merge-sha>`), while keeping the filename and embedded app
 version free of the colon. This is intentionally distinct from a release
 version and can be replaced when a signed release process is introduced.
+`CYDIA_VERSION` therefore accepts only the colon-free upstream/app portion;
+passing a Debian epoch there fails closed rather than producing an ambiguous
+filename or bundle version.
