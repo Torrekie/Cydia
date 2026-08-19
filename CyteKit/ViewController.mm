@@ -69,6 +69,7 @@
 @implementation CyteViewController {
     __weak id delegate_;
     BOOL loaded_;
+    BOOL pageColorIsDefault_;
     _H<UIColor> color_;
 }
 
@@ -122,13 +123,18 @@
 }
 
 - (void) setPageColor:(UIColor *)color {
-    if (color == nil)
+    pageColorIsDefault_ = color == nil;
+    if (pageColorIsDefault_)
         color = UIColor.cydiaGroupedBackgroundColor;
     color_ = color;
 }
 
 - (UIColor *) pageColor {
     return color_;
+}
+
+- (BOOL) pageColorIsDefault {
+    return pageColorIsDefault_;
 }
 
 #include "InterfaceOrientation.h"

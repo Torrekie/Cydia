@@ -1,4 +1,5 @@
 #include "CyteKit/WebViewControllerPrivate.h"
+#include "Cydia/UIColor+Cydia.h"
 
 //#include <QuartzCore/CALayer.h>
 // XXX: fix the minimum requirement
@@ -243,7 +244,7 @@ static _H<NSString> UserAgent_;
     [webview_ setBackgroundColor:nil];
 
     [scroller_ setFixedBackgroundPattern:YES];
-    [scroller_ setBackgroundColor:self.pageColor];
+    [self applyColorAppearance];
     [scroller_ setClipsSubviews:YES];
 
     [scroller_ setBounces:YES];
@@ -262,6 +263,30 @@ static _H<NSString> UserAgent_;
     [webview_ setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
 
     ready_ = false;
+}
+
+- (void) applyColorAppearance {
+    if ([self pageColorIsDefault])
+        [super setPageColor:nil];
+
+    UIColor *pageColor = self.pageColor ?: UIColor.cydiaGroupedBackgroundColor;
+    [scroller_ setBackgroundColor:pageColor];
+    [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                    traitCollection:self.traitCollection]];
+
+    if (ready_ && webview_ != nil) {
+        NSString *style = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? @"dark" : @"light";
+        NSString *script = [NSString stringWithFormat:
+            @"document.documentElement.setAttribute('data-cydia-appearance','%@');", style];
+        [webview_ stringByEvaluatingJavaScriptFromString:script];
+        [self dispatchEvent:@"CydiaAppearanceChanged"];
+    }
+}
+
+- (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection))
+        [self applyColorAppearance];
 }
 
 - (void) releaseSubviews {
