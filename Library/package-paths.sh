@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 # Resolve tools and state from the bootstrap that installed this helper.  An
 # explicit launcher override wins; otherwise the installed /var/jb path is the

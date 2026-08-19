@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 set -eu
 
@@ -105,6 +107,12 @@ require_path() {
 require_path "$cydia_paths" "${prefix:+$prefix/}Applications/Cydia.app/Cydia"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/cydo"
 require_path "$cydia_paths" "${prefix:+$prefix/}Library/LaunchDaemons/com.saurik.Cydia.Startup.plist"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/NOTICE"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/COPYING"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/ICU-LICENSE"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/SDURLCache-LICENCE"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/APT-COPYING"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/APT-COPYING.GPL"
 grep -E "^${prefix:+$prefix/}Applications/Cydia[.]app/[^/]+[.]lproj/Localizable[.]strings$" \
     "$lproj_paths" >/dev/null || fail "translation package has no Localizable.strings"
 

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Make-backed modernization checks.  These targets are intentionally separate
 # from `all` and `package`: existing build and packaging behavior is unchanged.
 

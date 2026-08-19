@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Small, shell-free boundary for invoking the device package manager.  APT
  * owns package-manager policy; this type only owns process construction and

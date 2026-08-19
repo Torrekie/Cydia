@@ -1,3 +1,7 @@
+/* Copyright (C) 2026 Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #include "Cydia/DpkgRunner.h"
 
 #include <cerrno>

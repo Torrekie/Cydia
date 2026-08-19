@@ -1,5 +1,9 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * APT lifetime and transaction ownership boundary.
+ * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
+ * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #include "Cydia/AptBackendInternal.hpp"

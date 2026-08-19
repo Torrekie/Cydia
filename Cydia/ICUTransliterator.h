@@ -1,3 +1,9 @@
+/* Cydia - iPhone UIKit Front-End for Debian APT
+ * Compatibility wrapper portions Copyright (C) 2026  Torrekie
+ * ICU API declarations Copyright (C) 1991-2020 Unicode, Inc. and others.
+ * See Cydia/ICU-LICENSE for the ICU permission notice.
+ */
+
 #ifndef Cydia_ICUTransliterator_H
 #define Cydia_ICUTransliterator_H
 
