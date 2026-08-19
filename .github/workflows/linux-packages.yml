@@ -137,7 +137,7 @@ jobs:
           cat "$packages/SHA256SUMS"
 
       - name: Upload package candidates
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cydia-${{ matrix.layout }}-${{ github.sha }}
           path: |
