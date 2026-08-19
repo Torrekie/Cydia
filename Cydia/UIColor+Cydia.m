@@ -3,6 +3,7 @@
  */
 
 #import "Cydia/UIColor+Cydia.h"
+#import <objc/message.h>
 
 static UIColor *RGBA8(NSUInteger red, NSUInteger green, NSUInteger blue, NSUInteger alpha) {
     return [UIColor colorWithRed:red / 255.0f
@@ -11,9 +12,19 @@ static UIColor *RGBA8(NSUInteger red, NSUInteger green, NSUInteger blue, NSUInte
                            alpha:alpha / 255.0f];
 }
 
+static BOOL SupportsDynamicColors(void) {
+    return [UIColor respondsToSelector:@selector(colorWithDynamicProvider:)] &&
+        [UIColor respondsToSelector:@selector(labelColor)];
+}
+
+static UIColor *UIColorClassColor(SEL selector) {
+    return ((UIColor *(*)(id, SEL))objc_msgSend)(UIColor.class, selector);
+}
+
 static UITraitCollection *CurrentTraitCollection(void) {
-    if (@available(iOS 13.0, *))
-        return [UITraitCollection currentTraitCollection];
+    if ([UITraitCollection respondsToSelector:@selector(currentTraitCollection)])
+        return ((UITraitCollection *(*)(id, SEL))objc_msgSend)(
+            UITraitCollection.class, @selector(currentTraitCollection));
     return [UIScreen mainScreen].traitCollection;
 }
 
@@ -53,30 +64,32 @@ static UIColor *FixedColor(CydiaColorRole role, UIUserInterfaceStyle style) {
     }
 }
 
-static UIColor *CustomDynamicColor(CydiaColorRole role) API_AVAILABLE(ios(13.0)) {
-    return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+static UIColor *CustomDynamicColor(CydiaColorRole role) {
+    UIColor *(^provider)(UITraitCollection *) = ^UIColor *(UITraitCollection *traits) {
         return FixedColor(role, InterfaceStyle(traits));
-    }];
+    };
+    return ((UIColor *(*)(id, SEL, UIColor *(^)(UITraitCollection *)))objc_msgSend)(
+        UIColor.class, @selector(colorWithDynamicProvider:), provider);
 }
 
-static UIColor *DynamicColor(CydiaColorRole role) API_AVAILABLE(ios(13.0)) {
+static UIColor *DynamicColor(CydiaColorRole role) {
     switch (role) {
         case CydiaColorRoleBackground:
-            return UIColor.systemBackgroundColor;
+            return UIColorClassColor(@selector(systemBackgroundColor));
         case CydiaColorRoleGroupedBackground:
-            return UIColor.systemGroupedBackgroundColor;
+            return UIColorClassColor(@selector(systemGroupedBackgroundColor));
         case CydiaColorRoleLabel:
-            return UIColor.labelColor;
+            return UIColorClassColor(@selector(labelColor));
         case CydiaColorRoleSecondaryLabel:
-            return UIColor.secondaryLabelColor;
+            return UIColorClassColor(@selector(secondaryLabelColor));
         case CydiaColorRoleFolderLabel:
-            return UIColor.systemGrayColor;
+            return UIColorClassColor(@selector(systemGrayColor));
         case CydiaColorRoleCommercialLabel:
-            return UIColor.systemPurpleColor;
+            return UIColorClassColor(@selector(systemPurpleColor));
         case CydiaColorRoleSeparator:
-            return UIColor.separatorColor;
+            return UIColorClassColor(@selector(separatorColor));
         case CydiaColorRoleAccent:
-            return UIColor.systemBlueColor;
+            return UIColorClassColor(@selector(systemBlueColor));
         case CydiaColorRoleSelectedLabel:
         case CydiaColorRoleCommercialSecondaryLabel:
         case CydiaColorRoleInstallingBackground:
@@ -88,18 +101,20 @@ static UIColor *DynamicColor(CydiaColorRole role) API_AVAILABLE(ios(13.0)) {
 @implementation UIColor (CydiaAppearance)
 
 + (UIColor *)cydiaColorForRole:(CydiaColorRole)role {
-    if (@available(iOS 13.0, *))
+    if (SupportsDynamicColors())
         return DynamicColor(role);
     return FixedColor(role, InterfaceStyle([UIScreen mainScreen].traitCollection));
 }
 
 + (UIColor *)cydiaColorForRole:(CydiaColorRole)role
                traitCollection:(UITraitCollection *)traitCollection {
-    if (@available(iOS 13.0, *)) {
+    if (SupportsDynamicColors()) {
         UITraitCollection *traits = traitCollection;
         if (traits == nil)
             traits = CurrentTraitCollection();
-        return [[self cydiaColorForRole:role] resolvedColorWithTraitCollection:traits];
+        UIColor *color = [self cydiaColorForRole:role];
+        return ((UIColor *(*)(id, SEL, UITraitCollection *))objc_msgSend)(
+            color, @selector(resolvedColorWithTraitCollection:), traits);
     }
     return FixedColor(role, InterfaceStyle(traitCollection));
 }
@@ -157,8 +172,11 @@ static UIColor *DynamicColor(CydiaColorRole role) API_AVAILABLE(ios(13.0)) {
 BOOL CydiaColorAppearanceDidChange(UITraitCollection *current, UITraitCollection *previous) {
     if (previous == nil)
         return YES;
-    if (@available(iOS 13.0, *))
-        return [current hasDifferentColorAppearanceComparedToTraitCollection:previous];
+    if ([current respondsToSelector:@selector(hasDifferentColorAppearanceComparedToTraitCollection:)])
+        return ((BOOL (*)(id, SEL, UITraitCollection *))objc_msgSend)(
+            current,
+            @selector(hasDifferentColorAppearanceComparedToTraitCollection:),
+            previous);
     return current.userInterfaceStyle != previous.userInterfaceStyle;
 }
 
