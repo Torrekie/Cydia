@@ -193,6 +193,42 @@
     [self _didFailWithError:error forFrame:frame];
 }
 
+- (void) refreshDocumentPageColorForFrame:(WebFrame *)frame {
+    if (frame == nil && webview_ != nil)
+        frame = [[[[self webView] _documentView] webView] mainFrame];
+    if (frame == nil || [frame parentFrame] != nil)
+        return;
+
+    UIColor *uic(nil);
+    if (DOMDocument *document = [frame DOMDocument])
+        if (DOMNodeList *bodies = [document getElementsByTagName:@"body"])
+            for (DOMHTMLBodyElement *body in (id) bodies) {
+                DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
+                if (DOMCSSPrimitiveValue *color = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-color"])) {
+                    if ([color primitiveType] == DOM_CSS_RGBCOLOR) {
+                        DOMRGBColor *rgb([color getRGBColorValue]);
+                        float red([[rgb red] getFloatValue:DOM_CSS_NUMBER]);
+                        float green([[rgb green] getFloatValue:DOM_CSS_NUMBER]);
+                        float blue([[rgb blue] getFloatValue:DOM_CSS_NUMBER]);
+                        float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
+                        if (alpha == 1)
+                            uic = [UIColor colorWithRed:(red / 255)
+                                                  green:(green / 255)
+                                                   blue:(blue / 255)
+                                                  alpha:alpha];
+                    }
+                }
+                break;
+            }
+
+    pageColorFromDocument_ = uic != nil;
+    [super setPageColor:uic];
+    UIColor *pageColor = [self pageColorIsDefault] ?
+        [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection] :
+        self.pageColor;
+    [scroller_ setBackgroundColor:pageColor];
+}
+
 - (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame {
     NSValue *object([NSValue valueWithNonretainedObject:frame]);
     if (![loading_ containsObject:object])
@@ -200,37 +236,12 @@
     [loading_ removeObject:object];
 
     if ([frame parentFrame] == nil) {
-        if (DOMDocument *document = [frame DOMDocument])
-            if (DOMNodeList *bodies = [document getElementsByTagName:@"body"])
-                for (DOMHTMLBodyElement *body in (id) bodies) {
-                    DOMCSSStyleDeclaration *style([document getComputedStyle:body pseudoElement:nil]);
-
-                    UIColor *uic(nil);
-
-                    if (DOMCSSPrimitiveValue *color = static_cast<DOMCSSPrimitiveValue *>([style getPropertyCSSValue:@"background-color"])) {
-                        if ([color primitiveType] == DOM_CSS_RGBCOLOR) {
-                            DOMRGBColor *rgb([color getRGBColorValue]);
-
-                            float red([[rgb red] getFloatValue:DOM_CSS_NUMBER]);
-                            float green([[rgb green] getFloatValue:DOM_CSS_NUMBER]);
-                            float blue([[rgb blue] getFloatValue:DOM_CSS_NUMBER]);
-                            float alpha([[rgb alpha] getFloatValue:DOM_CSS_NUMBER]);
-
-                            if (alpha == 1)
-                                uic = [UIColor
-                                    colorWithRed:(red / 255)
-                                    green:(green / 255)
-                                    blue:(blue / 255)
-                                    alpha:alpha
-                                ];
-                        }
-                    }
-
-                    [super setPageColor:uic];
-                    [scroller_ setBackgroundColor:self.pageColor];
-                    break;
-                }
+        [self refreshDocumentPageColorForFrame:frame];
     }
+
+    // A child frame can finish after the top-level page. Reapply to the frame
+    // tree so every document receives the current attribute before the event.
+    [self applyColorAppearance];
 
     [self _didFinishLoading];
 }
@@ -252,6 +263,7 @@
     [loading_ addObject:[NSValue valueWithNonretainedObject:frame]];
 
     if ([frame parentFrame] == nil) {
+        pageColorFromDocument_ = false;
         title_ = nil;
         custom_ = nil;
         style_ = nil;

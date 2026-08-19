@@ -59,6 +59,7 @@
 
 - (void) setPageColor:(UIColor *)color;
 - (UIColor *) pageColor;
+- (BOOL) pageColorIsDefault;
 
 @end
 

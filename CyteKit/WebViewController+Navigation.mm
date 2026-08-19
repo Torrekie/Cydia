@@ -121,7 +121,7 @@
     }
 
     [page setDelegate:self.delegate];
-    [page setPageColor:self.pageColor];
+    [page setPageColor:([self pageColorIsDefault] || pageColorFromDocument_) ? nil : self.pageColor];
 
     if (!pop) {
         [[self navigationItem] setTitle:title_];

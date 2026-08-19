@@ -49,8 +49,10 @@
 @implementation SourceCell
 
 - (void) applyColorAppearance {
-    [self.content setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
-                                                  traitCollection:self.traitCollection]];
+    UIColor *color([UIColor cydiaColorForRole:CydiaColorRoleBackground
+                              traitCollection:self.traitCollection]);
+    [self setBackgroundColor:color];
+    [self.content setBackgroundColor:color];
     [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleFolderLabel
                                     traitCollection:self.traitCollection]];
 }

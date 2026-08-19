@@ -104,6 +104,9 @@ extern "C" {
 #include "Cydia/Application.h"
 #include "Cydia/ApplicationInternal.h"
 #include "Cydia/AppState.h"
+#if TARGET_OS_SIMULATOR
+#include "Cydia/AppearanceProbe.h"
+#endif
 #include "Cydia/ChangeControllers.h"
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
@@ -313,20 +316,6 @@ NSArray *Finishes_;
 
 bool Queuing_;
 
-CYColor Blue_;
-CYColor Blueish_;
-CYColor Black_;
-CYColor Folder_;
-CYColor Off_;
-CYColor White_;
-CYColor Gray_;
-CYColor Green_;
-CYColor Purple_;
-CYColor Purplish_;
-
-UIColor *InstallingColor_;
-UIColor *RemovingColor_;
-
 NSString *App_;
 
 BOOL Advanced_;
@@ -393,8 +382,6 @@ struct UReplaceableCallbacks CollationUCalls_ = {
 
 CFLocaleRef Locale_;
 static NSArray *Languages_;
-static CGColorSpaceRef space_;
-
 #define CacheState_ Cache("CacheState.plist")
 #define SavedState_ Cache("SavedState.plist")
 
@@ -731,6 +718,18 @@ int main_store(int, char *argv[]);
 
 int main_http(int, const char *argv[]);
 
+#if TARGET_OS_SIMULATOR
+static bool CydiaAppearanceProbeRequested(int argc, char *argv[]) {
+    const char *environment(getenv("CYDIA_APPEARANCE_PROBE"));
+    if (environment != NULL && strcmp(environment, "0") != 0)
+        return true;
+    for (int index(1); index < argc; ++index)
+        if (strcmp(argv[index], "--cydia-appearance-probe") == 0)
+            return true;
+    return false;
+}
+#endif
+
 int main(int argc, char *argv[]) {
     const char *argv0(argv[0]);
     if (const char *slash = strrchr(argv0, '/'))
@@ -761,6 +760,11 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv0, "https"))
         return main_http(argc, const_cast<const char **>(argv));
     else {}
+
+#if TARGET_OS_SIMULATOR
+    if (CydiaAppearanceProbeRequested(argc, argv))
+        return CydiaAppearanceProbeMain(argc, argv);
+#endif
 
     if ([WebPreferences respondsToSelector:@selector(setWebKitLinkTimeVersion:)])
                 [WebPreferences setWebKitLinkTimeVersion:PACKED_VERSION(3453,0,0)];
@@ -1043,23 +1047,6 @@ int main(int argc, char *argv[]) {
     std::string logs("/var/mobile/Library/Logs/Cydia");
     mkdir(logs.c_str(), 0755);
     /* }}} */
-    /* Color Choices {{{ */
-    space_ = CGColorSpaceCreateDeviceRGB();
-
-    Blue_.Set(space_, 0.2, 0.2, 1.0, 1.0);
-    Blueish_.Set(space_, 0x19/255.f, 0x32/255.f, 0x50/255.f, 1.0);
-    Black_.Set(space_, 0.0, 0.0, 0.0, 1.0);
-    Folder_.Set(space_, 0x8e/255.f, 0x8e/255.f, 0x93/255.f, 1.0);
-    Off_.Set(space_, 0.9, 0.9, 0.9, 1.0);
-    White_.Set(space_, 1.0, 1.0, 1.0, 1.0);
-    Gray_.Set(space_, 0.4, 0.4, 0.4, 1.0);
-    Green_.Set(space_, 0.0, 0.5, 0.0, 1.0);
-    Purple_.Set(space_, 0.0, 0.0, 0.7, 1.0);
-    Purplish_.Set(space_, 0.4, 0.4, 0.8, 1.0);
-
-    InstallingColor_ = [UIColor colorWithRed:0.88f green:1.00f blue:0.88f alpha:1.00f];
-    RemovingColor_ = [UIColor colorWithRed:1.00f green:0.88f blue:0.88f alpha:1.00f];
-    /* }}}*/
     /* UIKit Configuration {{{ */
     // XXX: I have a feeling this was important
     //UIKeyboardDisableAutomaticAppearance();
@@ -1082,7 +1069,6 @@ int main(int argc, char *argv[]) {
     _trace();
     int value(UIApplicationMain(argc, argv, @"Cydia", @"Cydia"));
 
-    CGColorSpaceRelease(space_);
     CFRelease(Locale_);
     return value;
     }

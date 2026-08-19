@@ -35,6 +35,23 @@
 
 @implementation PackageCell
 
+#if TARGET_OS_SIMULATOR
+- (void) configureAppearanceProbe {
+    summarized_ = false;
+    name_ = @"Semantic Package Row";
+    source_ = @"From Cydia Appearance Probe";
+    description_ = @"Already-visible custom drawing updates live";
+    commercial_ = false;
+    installing_ = true;
+    removing_ = false;
+    icon_ = [UIImage imageNamed:@"folder.png"];
+    badge_ = nil;
+    placard_ = nil;
+    [self applyColorAppearance];
+    [self.content setNeedsDisplay];
+}
+#endif
+
 - (void) applyColorAppearance {
     UIColor *color = [UIColor cydiaColorForRole:CydiaColorRoleBackground
                                 traitCollection:self.traitCollection];
@@ -44,6 +61,7 @@
     else if (removing_)
         color = [UIColor cydiaColorForRole:CydiaColorRoleRemovingBackground
                             traitCollection:self.traitCollection];
+    [self setBackgroundColor:color];
     [self.content setBackgroundColor:color];
 }
 
@@ -237,8 +255,10 @@
 @implementation SectionCell
 
 - (void) applyColorAppearance {
-    [self.content setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
-                                                  traitCollection:self.traitCollection]];
+    UIColor *color([UIColor cydiaColorForRole:CydiaColorRoleBackground
+                              traitCollection:self.traitCollection]);
+    [self setBackgroundColor:color];
+    [self.content setBackgroundColor:color];
 }
 
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {

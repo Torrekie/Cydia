@@ -23,6 +23,7 @@
 #include "Cydia/ProgressController.h"
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/Appearance.h"
 #include "Cydia/Database.h"
 #include "Cydia/PrivateServices.h"
 #include "CyteKit/Localize.h"
@@ -35,7 +36,6 @@
 extern const NSString *UI_;
 extern bool RestartSubstrate_;
 extern void UpdateExternalStatus(uint64_t newStatus);
-extern UIColor *whiteIfNotDark(bool white);
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
 #define NotifyConfig_ "/etc/notify.conf"
@@ -89,7 +89,8 @@ static std::string FileFingerprint(const char *path) {
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
 
-        [self setPageColor:whiteIfNotDark(0)];
+        [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                      traitCollection:self.traitCollection]];
 
         [[self navigationItem] setHidesBackButton:YES];
 
@@ -107,8 +108,23 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (void) viewWillAppear:(BOOL)animated {
-    [[[self navigationController] navigationBar] setBarStyle:UIBarStyleBlack];
+    [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
+    [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                  traitCollection:self.traitCollection]];
     [super viewWillAppear:animated];
+}
+
+- (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    BOOL appearanceChanged = CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection);
+    if (appearanceChanged)
+        [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                      traitCollection:self.traitCollection]];
+
+    // CyteWebViewController repaints its scroller from pageColor in its trait
+    // callback, so update the explicit progress color before calling super.
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (appearanceChanged)
+        [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
 }
 
 - (void) close {
