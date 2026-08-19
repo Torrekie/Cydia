@@ -3,6 +3,7 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia
 	cp -a NOTICE COPYING $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/
+	cp -a NOTICE $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/copyright
 	cp -a Cydia/ICU-LICENSE $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/
 	cp -a SDURLCache/LICENCE $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/SDURLCache-LICENCE
 	cp -a apt64/COPYING $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/APT-COPYING
