@@ -116,7 +116,6 @@
 
 - (void) viewDidLoad {
     [super viewDidLoad];
-    overrideUserInterfaceStyle(self.traitCollection.userInterfaceStyle);
     [self setLeftBarButtonItem];
 }
 
