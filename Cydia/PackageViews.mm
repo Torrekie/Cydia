@@ -61,6 +61,7 @@
     else if (removing_)
         color = [UIColor cydiaColorForRole:CydiaColorRoleRemovingBackground
                             traitCollection:self.traitCollection];
+    [self setBackgroundColor:color];
     [self.content setBackgroundColor:color];
 }
 
@@ -254,8 +255,10 @@
 @implementation SectionCell
 
 - (void) applyColorAppearance {
-    [self.content setBackgroundColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
-                                                  traitCollection:self.traitCollection]];
+    UIColor *color([UIColor cydiaColorForRole:CydiaColorRoleBackground
+                              traitCollection:self.traitCollection]);
+    [self setBackgroundColor:color];
+    [self.content setBackgroundColor:color];
 }
 
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
