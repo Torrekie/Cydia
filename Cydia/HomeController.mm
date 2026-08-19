@@ -66,7 +66,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         "Sam Bingner (sbingner)\n"
         "sam@bingner.com\n"
         "http://www.bingner.com/\n\n"
-        "Refurbished work Copyright © 2026\n"
+        "Refurbished work Copyright \u00a9 2026\n"
         "Torrekie\n"
         "me@torrekie.dev\n"
         "https://torrekie.dev/"
