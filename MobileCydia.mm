@@ -327,22 +327,6 @@ CYColor Purplish_;
 UIColor *InstallingColor_;
 UIColor *RemovingColor_;
 
-static NSInteger CydiaUserInterfaceStyle;
-UIColor *whiteIfNotDark(bool white)
-{
-  UIColor *color = (white) ? [UIColor whiteColor] : [UIColor blackColor];
-  if (CydiaUserInterfaceStyle == UIUserInterfaceStyleDark)
-  {
-    color = (white) ? [UIColor blackColor] : [UIColor whiteColor];
-  }
-  return color;
-}
-
-void overrideUserInterfaceStyle(NSInteger style)
-{
-    CydiaUserInterfaceStyle = style;
-}
-
 NSString *App_;
 
 BOOL Advanced_;
