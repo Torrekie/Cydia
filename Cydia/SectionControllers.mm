@@ -223,7 +223,6 @@
 
 - (void) viewDidLoad {
     [super viewDidLoad];
-    overrideUserInterfaceStyle(self.traitCollection.userInterfaceStyle);
     [[self navigationItem] setTitle:UCLocalize("SECTIONS")];
 }
 

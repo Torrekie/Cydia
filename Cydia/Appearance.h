@@ -8,6 +8,7 @@
 
 #include "CyteKit/UCPlatform.h"
 #include "Cydia/CYColor.hpp"
+#include "Cydia/UIColor+Cydia.h"
 #include "Menes/ObjectHandle.h"
 
 #include <UIKit/UIKit.h>
@@ -37,6 +38,5 @@ extern _H<UIFont> Font18Bold_;
 extern _H<UIFont> Font22Bold_;
 
 UIColor *whiteIfNotDark(bool white);
-void overrideUserInterfaceStyle(NSInteger style);
 
 #endif//Cydia_Appearance_H
