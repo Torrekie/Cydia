@@ -115,12 +115,16 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
-    [super traitCollectionDidChange:previousTraitCollection];
-    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection)) {
+    BOOL appearanceChanged = CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection);
+    if (appearanceChanged)
         [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
                                       traitCollection:self.traitCollection]];
+
+    // CyteWebViewController repaints its scroller from pageColor in its trait
+    // callback, so update the explicit progress color before calling super.
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (appearanceChanged)
         [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
-    }
 }
 
 - (void) close {
