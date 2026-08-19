@@ -26,6 +26,7 @@
 
 #include "CyteKit/ViewController.h"
 
+#include "Cydia/UIColor+Cydia.h"
 #include "iPhonePrivate.h"
 #include <Menes/ObjectHandle.h>
 
@@ -122,7 +123,7 @@
 
 - (void) setPageColor:(UIColor *)color {
     if (color == nil)
-        color = [UIColor groupTableViewBackgroundColor];
+        color = UIColor.cydiaGroupedBackgroundColor;
     color_ = color;
 }
 
