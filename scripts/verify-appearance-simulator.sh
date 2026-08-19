@@ -21,7 +21,10 @@ case "$build_dir" in
     *) build_dir=$source_root/$build_dir ;;
 esac
 
-bundle_id=com.saurik.Cydia.AppearanceProbe
+# Keep each run isolated from CoreSimulator's occasionally stale application
+# registration cache.  The probe is test-only; production Cydia keeps its
+# normal bundle identifier.
+bundle_id=com.saurik.Cydia.AppearanceProbe.$$
 artifact_dir=$build_dir/appearance-artifacts
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/cydia-appearance.XXXXXX") || exit 2
 probe_app=$temporary/CydiaAppearanceProbe.app
