@@ -1,7 +1,7 @@
 Package: cydia
 Priority: required
 Section: Packaging
-Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
+Maintainer: Torrekie <me@torrekie.dev>
 Architecture: iphoneos-arm
 Version: 
 Replaces: bigboss, bigbossbetarepo, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, saurik, ste, yellowsn0w.com, zodttd
@@ -10,7 +10,7 @@ Conflicts: bigboss, bigbossbetarepo, com.sosiphone.addcydia, cydia-sources, ispa
 Pre-Depends: debianutils, dpkg (>= 1.16.1), firmware (>= 12.0)
 Provides: bigbossbetarepo, cydia-sources
 Description: graphical iPhone front-end for APT
-Name: Cydia Installer
+Name: Cydia Refurbished
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Depiction: http://cydia.saurik.com/info/cydia/
 Icon: file:///Applications/Cydia.app/Icon-60.png

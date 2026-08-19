@@ -57,7 +57,7 @@ function pseudo() {
         echo "Architecture: ${arch}"
         echo "Version: ${version}"
         echo "Description: ${description}"
-        echo "Maintainer: Jay Freeman (saurik) <saurik@saurik.com>"
+        echo "Maintainer: Torrekie <me@torrekie.dev>"
         echo "Tag: role::cydia"
         [[ -n ${name} ]] && echo "Name: ${name}"
     } >"${root}/DEBIAN/control"

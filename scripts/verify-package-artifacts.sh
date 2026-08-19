@@ -63,20 +63,33 @@ trap on_signal HUP INT TERM
 check_control() {
     archive=$1
     expected_package=$2
+    expected_name=$3
 
     actual_package=$(dpkg-deb -f "$archive" Package)
     actual_architecture=$(dpkg-deb -f "$archive" Architecture)
     version=$(dpkg-deb -f "$archive" Version)
+    maintainer=$(dpkg-deb -f "$archive" Maintainer)
+    author=$(dpkg-deb -f "$archive" Author)
+    name=$(dpkg-deb -f "$archive" Name)
 
     [ "$actual_package" = "$expected_package" ] ||
         fail "$archive has package name $actual_package"
     [ "$actual_architecture" = "$architecture" ] ||
         fail "$archive has architecture $actual_architecture"
-    [ -n "$version" ] || fail "$archive has an empty version"
+    case "$version" in
+        1:*) ;;
+        *) fail "$archive has version $version; expected Debian epoch 1" ;;
+    esac
+    [ "$maintainer" = "Torrekie <me@torrekie.dev>" ] ||
+        fail "$archive has maintainer $maintainer"
+    [ "$author" = "Jay Freeman (saurik) <saurik@saurik.com>" ] ||
+        fail "$archive has author $author"
+    [ "$name" = "$expected_name" ] ||
+        fail "$archive has display name $name"
 }
 
-check_control "$cydia" cydia
-check_control "$lproj" cydia-lproj
+check_control "$cydia" cydia "Cydia Refurbished"
+check_control "$lproj" cydia-lproj "Cydia Translations"
 
 cydia_paths=$temporary/cydia.paths
 lproj_paths=$temporary/lproj.paths
@@ -136,4 +149,3 @@ expected_icon="file:///${prefix:+$prefix/}Applications/Cydia.app/Icon-60.png"
 echo "[verify-package][ ok ] $layout cydia and translation archives"
 echo "[verify-package][ ok ] architecture $architecture, prefix /${prefix}"
 echo "[verify-package][ ok ] maintainer files and launchd path"
-
