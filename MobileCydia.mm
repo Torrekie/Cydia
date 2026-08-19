@@ -33,7 +33,7 @@
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
-#include <launch.h>
+#include "Cydia/LaunchServices.h"
 
 #include <CoreGraphics/CoreGraphics.h>
 #include <Foundation/Foundation.h>

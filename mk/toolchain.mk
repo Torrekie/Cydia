@@ -72,7 +72,11 @@ iapt += -I$(APT_DEB_INCLUDE_DIR)
 iapt += -Iapt-extra
 iapt += -I$(GENERATED_DIR)/apt64
 
+ifeq ($(HOST_OS),Linux)
+flag += $(iapt)
+else
 flag += $(patsubst %,-Xarch_$(arch) %,$(iapt))
+endif
 flag += -I.
 flag += -I$(GENERATED_DIR)
 flag += -isystem sysroot/usr/include
@@ -135,7 +139,11 @@ endif
 libs += -framework SystemConfiguration
 libs += -framework CFNetwork
 libs += -framework WebKit
+ifeq ($(HOST_OS),Linux)
+libs += -Wl,-force_load,$(APT_LIBRARY)
+else
 libs += -Xarch_$(arch) -Wl,-force_load,$(APT_LIBRARY)
+endif
 lapt += $(APT_LIBRARY)
 libs += -licucore
 
@@ -143,14 +151,22 @@ uikit :=
 uikit += -framework UIKit
 
 link += -Wl,-liconv
+ifeq ($(HOST_OS),Linux)
+link += -Wl,-lz
+else
 link += -Xarch_$(arch) -Wl,-lz
+endif
 
 flag += -DAPT_PKG_EXPOSE_STRING_VIEW
 flag += -Dsighandler_t=sig_t
 
 target :=
+ifeq ($(HOST_OS),Linux)
+target += -target $(arch)-apple-ios$(DEPLOYMENT_TARGET)
+else
 target += -arch $(arch)
 target += -m$(kind)-version-min=$(DEPLOYMENT_TARGET)
+endif
 
 apt64 := $(cycc) $(target) $(flag)
 apt64 += -include apt.h

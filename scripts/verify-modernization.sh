@@ -69,8 +69,10 @@ check_command_arc() {
             fail "$label command contains -fno-objc-arc"
         elif ! contains "$command" "-fobjc-arc"; then
             fail "$label command is missing -fobjc-arc"
+        elif contains "$command" "-target $expected_arch-apple-ios$expected_deployment"; then
+            pass "$label command uses ARC, $expected_arch, and iOS $expected_deployment"
         elif ! contains "$command" "-arch $expected_arch"; then
-            fail "$label command is missing -arch $expected_arch"
+            fail "$label command is missing an $expected_arch target flag"
         elif ! contains "$command" "-miphoneos-version-min=$expected_deployment"; then
             fail "$label command is missing iOS $expected_deployment deployment flag"
         else

@@ -31,7 +31,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#include <launch.h>
+#include "Cydia/LaunchServices.h"
 
 #include <sys/stat.h>
 
