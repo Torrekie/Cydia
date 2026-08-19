@@ -18,9 +18,11 @@ App-owned code is organized by domain under `Cydia/`:
   `+Operations`, `+Lifecycle`) with a small bootstrap in `MobileCydia.mm`
 - runtime/private-service adapters (`PrivateServices`, `LockdownServices`)
 
-`CyteKit/` and `Menes/` remain reusable framework/support layers. `apt64/` and
-`SDURLCache/` remain vendored inputs; they are compiled by the existing Make
-graph but are not forced into the app-owned module-size policy.
+`CyteKit/` and `Menes/` remain reusable framework/support layers. `apt64/`
+remains a pinned submodule, while the Cydia-maintained ARC/iOS 12
+`SDURLCache/` runtime sources are vendored directly because their historical
+gitlink is not published by the external mirror. Both are compiled by the
+existing Make graph but are not forced into the app-owned module-size policy.
 
 The embedded APT gitlink, ABI, licenses, and reviewed source groups are recorded
 in `mk/apt.mk`. The update and backend-boundary policy is documented in
@@ -117,9 +119,9 @@ make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootless package
 Ubuntu 22.04 using the same Make targets as local builds. The public iPhoneOS
 14.5 SDK snapshot and Linux-hosted iOS toolchain are pinned by URL and SHA-256;
 the job refuses a changed download instead of silently taking a newer toolchain.
-Only the reviewed `SDURLCache` and embedded `apt64` gitlinks are initialized.
-ICU headers come from the pinned iPhoneOS SDK, so the legacy ICU submodule is
-not required by this build.
+The embedded `apt64` gitlink is initialized over HTTPS; `SDURLCache` is already
+vendored at the reviewed Cydia revision. ICU headers come from the pinned
+iPhoneOS SDK, so the legacy ICU submodule is not required by this build.
 
 Each matrix leg checks the generated control architecture, package prefix,
 launchd executable path, translations, and maintainer files. Rootless archives

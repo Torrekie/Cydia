@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           git config submodule.apt64.url https://git.bingner.com/apt.git
-          git submodule update --init SDURLCache apt64
+          git submodule update --init apt64
 
       - name: Install Linux build dependencies
         shell: bash
@@ -137,4 +137,3 @@ jobs:
             build/linux-${{ matrix.layout }}/packages/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
-
