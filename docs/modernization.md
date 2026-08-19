@@ -79,10 +79,18 @@ The opt-in simulator gate builds Cydia through Make, installs a uniquely
 identified probe app, and switches a running iOS 13+ simulator from light to
 dark without relaunching it. Supplying an iOS 12 simulator also checks fallback
 resolution and unavailable-selector safety. The probe hosts Cydia's custom
-cells in a real table, a native loading view, and a Cyte web controller; the
-gate checks their resolved luminance and the page's JavaScript appearance event
-before accepting a live transition. It restores the modern simulator's original
-appearance and removes the probe app on exit:
+cells in a real table, a native loading view, and a Cyte web controller with a
+hard-coded page-body fallback; the gate checks their resolved luminance and the
+page's JavaScript appearance event before accepting a live transition. Cyte
+injects a resolved host fallback for legacy pages that do not provide their own
+appearance CSS, while pages marked as appearance-managed retain their own
+listener-driven styling. It restores the modern simulator's original appearance
+and removes the probe app on exit:
+
+When a runtime does not implement `simctl ui appearance`, the gate uses a
+simulator-only parent trait override triggered through the probe data container.
+This keeps the process alive and exercises the same callbacks, including both
+branches of the explicit iOS 12 fallback.
 
 ```sh
 make verify-appearance-simulator \

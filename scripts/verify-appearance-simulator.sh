@@ -26,6 +26,8 @@ artifact_dir=$build_dir/appearance-artifacts
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/cydia-appearance.XXXXXX") || exit 2
 probe_app=$temporary/CydiaAppearanceProbe.app
 original_appearance=
+appearance_control=system
+probe_launch_argument=--cydia-appearance-probe
 
 fail() {
     echo "[verify-appearance][FAIL] $*" >&2
@@ -136,17 +138,25 @@ wait_for_style() {
             web_ready=$(read_state "$file" webReady || true)
             web_style=$(read_state "$file" webStyle || true)
             web_events=$(read_state "$file" webAppearanceEvents || true)
+            web_child_style=$(read_state "$file" webChildStyle || true)
+            web_child_events=$(read_state "$file" webChildAppearanceEvents || true)
             case "$updates" in ''|*[!0-9]*) updates=0 ;; esac
             case "$web_events" in ''|*[!0-9]*) web_events=0 ;; esac
+            case "$web_child_events" in ''|*[!0-9]*) web_child_events=0 ;; esac
             if [ "$style" = "$expected" ] && [ "$updates" -ge "$minimum_updates" ] && \
                [ "$web_ready" = "true" ] && [ "$web_style" = "$expected" ] && \
-               [ "$web_events" -ge 1 ]; then
+               [ "$web_events" -ge 1 ] && [ "$web_child_style" = "$expected" ] && \
+               [ "$web_child_events" -ge 1 ]; then
                 return 0
             fi
         fi
         attempts=$((attempts + 1))
         sleep 0.25
     done
+    if [ -f "$file" ]; then
+        echo "[verify-appearance][state] timed out waiting for $expected:" >&2
+        plutil -p "$file" >&2 || true
+    fi
     return 1
 }
 
@@ -156,7 +166,7 @@ launch_probe() {
     stderr_file=$3
     result=$(simctl_with_timeout 30 launch --terminate-running-process \
         --stdout="$stdout_file" --stderr="$stderr_file" \
-        "$udid" "$bundle_id" --cydia-appearance-probe) || return 1
+        "$udid" "$bundle_id" --cydia-appearance-probe "$probe_launch_argument") || return 1
     printf '%s\n' "$result" | sed -n 's/.*: //p'
 }
 
@@ -175,10 +185,19 @@ plutil -replace CFBundleIdentifier -string "$bundle_id" "$probe_app/Info.plist"
 plutil -lint "$probe_app/Info.plist" >/dev/null || fail "probe Info.plist is invalid"
 [ -x "$probe_app/Cydia" ] || fail "probe executable is missing or not executable"
 
-original_appearance=$(simctl_with_timeout 15 ui "$modern_udid" appearance 2>/dev/null) ||
-    fail "modern simulator $modern_udid does not support appearance switching"
+original_appearance=$(simctl_with_timeout 15 ui "$modern_udid" appearance 2>/dev/null || true)
+case "$original_appearance" in
+    light|dark) appearance_control=system ;;
+    *)
+        original_appearance=
+        appearance_control=probe
+        probe_launch_argument=--cydia-appearance-probe-controlled-traits
+    ;;
+esac
 install_probe "$modern_udid" modern || fail "could not install on modern simulator"
-simctl_with_timeout 15 ui "$modern_udid" appearance light || fail "could not select light appearance"
+if [ "$appearance_control" = system ]; then
+    simctl_with_timeout 15 ui "$modern_udid" appearance light || fail "could not select light appearance"
+fi
 modern_pid=$(launch_probe "$modern_udid" "$artifact_dir/modern.stdout.log" "$artifact_dir/modern.stderr.log") ||
     fail "could not launch appearance probe on modern simulator"
 
@@ -194,18 +213,33 @@ light_section=$(read_state "$modern_state" sectionBackgroundLuminance)
 light_source=$(read_state "$modern_state" sourceBackgroundLuminance)
 light_loading=$(read_state "$modern_state" loadingBackgroundLuminance)
 light_web=$(read_state "$modern_state" webBackgroundLuminance)
+light_web_label=$(read_state "$modern_state" webLabelLuminance)
+light_web_image=$(read_state "$modern_state" webBackgroundImage)
 light_web_events=$(read_state "$modern_state" webAppearanceEvents)
+light_child=$(read_state "$modern_state" webChildBackgroundLuminance)
+light_child_events=$(read_state "$modern_state" webChildAppearanceEvents)
 require_integer light_package "$light_package"
 require_integer light_section "$light_section"
 require_integer light_source "$light_source"
 require_integer light_loading "$light_loading"
 require_integer light_web "$light_web"
+require_integer light_web_label "$light_web_label"
 require_integer light_web_events "$light_web_events"
+require_integer light_child "$light_child"
+require_integer light_child_events "$light_child_events"
+if [ -z "$light_web_image" ] || [ "$light_web_image" = "none" ]; then
+    fail "light legacy web fixture did not retain its background image"
+fi
 sleep 1
 simctl_with_timeout 30 io "$modern_udid" screenshot "$artifact_dir/modern-light.png" >/dev/null ||
     fail "could not capture light appearance"
+cp "$modern_state" "$artifact_dir/modern-light-state.plist" || fail "could not preserve modern light state"
 
-simctl_with_timeout 15 ui "$modern_udid" appearance dark || fail "could not select dark appearance"
+if [ "$appearance_control" = system ]; then
+    simctl_with_timeout 15 ui "$modern_udid" appearance dark || fail "could not select dark appearance"
+else
+    : >"$modern_data/tmp/cydia-appearance-probe-dark" || fail "could not trigger controlled dark trait"
+fi
 wait_for_style "$modern_state" dark $((light_updates + 1)) ||
     fail "already-visible probe did not receive a live dark trait update"
 dark_package=$(read_state "$modern_state" packageBackgroundLuminance)
@@ -213,13 +247,20 @@ dark_section=$(read_state "$modern_state" sectionBackgroundLuminance)
 dark_source=$(read_state "$modern_state" sourceBackgroundLuminance)
 dark_loading=$(read_state "$modern_state" loadingBackgroundLuminance)
 dark_web=$(read_state "$modern_state" webBackgroundLuminance)
+dark_web_label=$(read_state "$modern_state" webLabelLuminance)
+dark_web_image=$(read_state "$modern_state" webBackgroundImage)
 dark_web_events=$(read_state "$modern_state" webAppearanceEvents)
+dark_child=$(read_state "$modern_state" webChildBackgroundLuminance)
+dark_child_events=$(read_state "$modern_state" webChildAppearanceEvents)
 require_integer dark_package "$dark_package"
 require_integer dark_section "$dark_section"
 require_integer dark_source "$dark_source"
 require_integer dark_loading "$dark_loading"
 require_integer dark_web "$dark_web"
+require_integer dark_web_label "$dark_web_label"
 require_integer dark_web_events "$dark_web_events"
+require_integer dark_child "$dark_child"
+require_integer dark_child_events "$dark_child_events"
 if [ "$light_package" -le "$dark_package" ] || \
    [ "$light_section" -le "$dark_section" ] || \
    [ "$light_source" -le "$dark_source" ]; then
@@ -228,16 +269,23 @@ fi
 if [ "$light_loading" -le "$dark_loading" ]; then
     fail "native loading view did not resolve through its own trait hook"
 fi
-if [ "$light_web" -le "$dark_web" ] || [ "$dark_web_events" -le "$light_web_events" ]; then
-    fail "Cyte web content did not receive and render the live appearance event"
+if [ "$light_web" -le "$dark_web" ] || [ "$light_web_label" -ge "$dark_web_label" ] || \
+   [ "$light_child" -le "$dark_child" ] || \
+   [ "$dark_web_events" -le "$light_web_events" ] || \
+   [ "$dark_child_events" -le "$light_child_events" ]; then
+    fail "Cyte main/child web content did not receive and render the live appearance event"
+fi
+if [ "$dark_web_image" != "none" ]; then
+    fail "dark legacy web fallback did not clear its pinstripe background image (got: $dark_web_image)"
 fi
 kill -0 "$modern_pid" 2>/dev/null || fail "probe relaunched or exited during live appearance switch"
 sleep 1
 simctl_with_timeout 30 io "$modern_udid" screenshot "$artifact_dir/modern-dark.png" >/dev/null ||
     fail "could not capture dark appearance"
+cp "$modern_state" "$artifact_dir/modern-dark-state.plist" || fail "could not preserve modern dark state"
 cmp -s "$artifact_dir/modern-light.png" "$artifact_dir/modern-dark.png" &&
     fail "light and dark screenshots are byte-identical"
-pass "same process redrew already-visible cells, UIKit, and web content from light to dark"
+pass "same process redrew already-visible cells, UIKit, and web content from light to dark ($appearance_control traits)"
 
 if [ -n "$ios12_udid" ]; then
     install_probe "$ios12_udid" ios12 || fail "could not install on iOS 12 simulator"
@@ -251,14 +299,20 @@ if [ -n "$ios12_udid" ]; then
     [ "$palette" = "true" ] || fail "iOS 12 explicit trait fallback assertions failed"
     ios12_loading=$(read_state "$ios12_state" loadingBackgroundLuminance)
     ios12_web=$(read_state "$ios12_state" webBackgroundLuminance)
+    ios12_web_label=$(read_state "$ios12_state" webLabelLuminance)
+    ios12_child=$(read_state "$ios12_state" webChildBackgroundLuminance)
     require_integer ios12_loading "$ios12_loading"
     require_integer ios12_web "$ios12_web"
-    [ "$ios12_loading" -ge 0 ] && [ "$ios12_web" -ge 0 ] ||
+    require_integer ios12_web_label "$ios12_web_label"
+    require_integer ios12_child "$ios12_child"
+    [ "$ios12_loading" -ge 0 ] && [ "$ios12_web" -ge 0 ] && \
+        [ "$ios12_web_label" -ge 0 ] && [ "$ios12_child" -ge 0 ] ||
         fail "iOS 12 UIKit/web fallbacks did not resolve"
     kill -0 "$ios12_pid" 2>/dev/null || fail "appearance probe exited on iOS 12"
     sleep 1
     simctl_with_timeout 30 io "$ios12_udid" screenshot "$artifact_dir/ios12-light.png" >/dev/null ||
         fail "could not capture iOS 12 fallback"
+    cp "$ios12_state" "$artifact_dir/ios12-state.plist" || fail "could not preserve iOS 12 probe state"
     pass "iOS 12 launched safely and resolved calibrated light/dark fallbacks"
 fi
 

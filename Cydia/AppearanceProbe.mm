@@ -29,6 +29,10 @@
 - (void) webProbeDidLoad;
 @end
 
+@interface CydiaAppearanceProbeHostController : UIViewController
+- (id) initWithControlledTraits:(BOOL)controlledTraits;
+@end
+
 @interface PackageCell (CydiaAppearanceProbe)
 - (void) configureAppearanceProbe;
 @end
@@ -91,9 +95,65 @@ static void EnsureProbeMetrics(void) {
     ProbePalettePassed = ProbePaletteAssertions();
 
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    self.window.rootViewController = [[CydiaAppearanceProbeViewController alloc] init];
+    BOOL controlledTraits = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-appearance-probe-controlled-traits"];
+    self.window.rootViewController = [[CydiaAppearanceProbeHostController alloc]
+        initWithControlledTraits:controlledTraits];
     [self.window makeKeyAndVisible];
     return YES;
+}
+
+@end
+
+@implementation CydiaAppearanceProbeHostController {
+    BOOL controlledTraits_;
+    CydiaAppearanceProbeViewController *probeController_;
+    NSTimer *traitTimer_;
+}
+
+- (UIStatusBarStyle) preferredStatusBarStyle {
+    return probeController_.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ?
+        UIStatusBarStyleLightContent : UIStatusBarStyleDefault;
+}
+
+- (id) initWithControlledTraits:(BOOL)controlledTraits {
+    if ((self = [super init]) != nil)
+        controlledTraits_ = controlledTraits;
+    return self;
+}
+
+- (void) loadView {
+    self.view = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    probeController_ = [[CydiaAppearanceProbeViewController alloc] init];
+    [self addChildViewController:probeController_];
+    probeController_.view.frame = self.view.bounds;
+    probeController_.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:probeController_.view];
+    [probeController_ didMoveToParentViewController:self];
+
+    if (controlledTraits_) {
+        [self setOverrideTraitCollection:
+            [UITraitCollection traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleLight]
+            forChildViewController:probeController_];
+        traitTimer_ = [NSTimer scheduledTimerWithTimeInterval:0.1
+            target:self selector:@selector(checkControlledTraitTrigger:)
+            userInfo:nil repeats:YES];
+    }
+}
+
+- (void) checkControlledTraitTrigger:(NSTimer *)timer {
+    (void) timer;
+    NSString *path([NSTemporaryDirectory()
+        stringByAppendingPathComponent:@"cydia-appearance-probe-dark"]);
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path])
+        return;
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    [traitTimer_ invalidate];
+    traitTimer_ = nil;
+    [self setOverrideTraitCollection:
+        [UITraitCollection traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleDark]
+        forChildViewController:probeController_];
+    [self setNeedsStatusBarAppearanceUpdate];
 }
 
 @end
@@ -102,6 +162,10 @@ static void EnsureProbeMetrics(void) {
 
 - (bool) retainsNetworkActivityIndicator {
     return false;
+}
+
+- (bool) usesDocumentAppearanceFallback {
+    return true;
 }
 
 - (void) didFinishLoading {
@@ -116,6 +180,8 @@ static void EnsureProbeMetrics(void) {
     UILabel *titleLabel_;
     UILabel *styleLabel_;
     UILabel *resultLabel_;
+    UIView *sectionHeaderView_;
+    UILabel *sectionHeaderLabel_;
     PackageCell *packageCell_;
     SectionCell *sectionCell_;
     CyteTableViewCell *sourceCell_;
@@ -134,8 +200,16 @@ static void EnsureProbeMetrics(void) {
     tableView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     tableView_.dataSource = self;
     tableView_.delegate = self;
+    tableView_.sectionHeaderHeight = 44;
     tableView_.tableFooterView = [[UIView alloc] initWithFrame:CGRectZero];
     self.view = tableView_;
+
+    sectionHeaderView_ = [[UIView alloc] init];
+    sectionHeaderLabel_ = [[UILabel alloc] init];
+    sectionHeaderLabel_.font = Font14_;
+    sectionHeaderLabel_.text = @"Real Cydia appearance surfaces";
+    sectionHeaderLabel_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [sectionHeaderView_ addSubview:sectionHeaderLabel_];
 
     headerView_ = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView_.bounds.size.width, 278)];
 
@@ -220,16 +294,18 @@ static void EnsureProbeMetrics(void) {
     NSString *html =
         @"<!doctype html><html><head><meta name='viewport' content='width=device-width'>"
         @"<style>html,body{height:100%;margin:0}body{display:flex;align-items:center;"
-        @"justify-content:center;font:600 16px -apple-system}</style><script>"
+        @"justify-content:center;font:600 16px -apple-system;background:#000;color:#fff;"
+        @"background-image:-webkit-linear-gradient(#fff,#fff)}</style><script>"
         @"window.cydiaAppearanceEvents=0;"
-        @"function applyCydiaAppearance(){var dark=document.documentElement."
-        @"getAttribute('data-cydia-appearance')==='dark';document.body.style."
-        @"backgroundColor=dark?'rgb(17,17,17)':'rgb(255,255,255)';document.body."
-        @"style.color=dark?'rgb(242,242,247)':'rgb(28,28,30)';}"
+        @"window.cydiaChildAppearanceEvents=0;"
         @"document.addEventListener('CydiaAppearanceChanged',function(){"
-        @"window.cydiaAppearanceEvents++;applyCydiaAppearance();},false);"
-        @"window.addEventListener('load',applyCydiaAppearance,false);"
-        @"</script></head><body>Cyte Web Appearance Event</body></html>";
+        @"window.cydiaAppearanceEvents++;},false);"
+        @"</script></head><body class='pinstripe'>Cyte Web Appearance Event"
+        @"<iframe id='appearance-child' style='display:none' srcdoc=\""
+        @"<style>html,body{background:#000;color:#fff}</style>"
+        @"<script>document.addEventListener('CydiaAppearanceChanged',function(){"
+        @"parent.cydiaChildAppearanceEvents++;},false);</script>\"></iframe>"
+        @"</body></html>";
     NSString *base64([[html dataUsingEncoding:NSUTF8StringEncoding]
         base64EncodedStringWithOptions:0]);
     NSURL *probeURL([NSURL URLWithString:[@"data:text/html;base64," stringByAppendingString:base64]]);
@@ -286,6 +362,8 @@ static void EnsureProbeMetrics(void) {
     styleLabel_.text = style == UIUserInterfaceStyleDark ? @"Trait: dark" : @"Trait: light (iOS 12 fallback when unavailable)";
     styleLabel_.textColor = secondaryLabelColor;
     resultLabel_.textColor = secondaryLabelColor;
+    sectionHeaderView_.backgroundColor = groupedBackgroundColor;
+    sectionHeaderLabel_.textColor = secondaryLabelColor;
     titleLabel_.textColor = labelColor;
     tableView_.backgroundColor = groupedBackgroundColor;
     headerView_.backgroundColor = groupedBackgroundColor;
@@ -326,6 +404,20 @@ static void EnsureProbeMetrics(void) {
     NSString *webLuminance([webView stringByEvaluatingJavaScriptFromString:
         @"(function(){var c=getComputedStyle(document.body).backgroundColor.match(/\\d+/g);"
         @"return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
+    NSString *webLabelLuminance([webView stringByEvaluatingJavaScriptFromString:
+        @"(function(){var c=getComputedStyle(document.body).color.match(/\\d+/g);"
+        @"return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
+    NSString *webBackgroundImage([webView stringByEvaluatingJavaScriptFromString:
+        @"getComputedStyle(document.body).backgroundImage || ''"] ?: @"");
+    NSString *childStyle([webView stringByEvaluatingJavaScriptFromString:
+        @"(function(){var f=document.getElementById('appearance-child');return f&&f.contentDocument?"
+         "(f.contentDocument.documentElement.getAttribute('data-cydia-appearance')||''):'';})()"] ?: @"");
+    NSString *childEvents([webView stringByEvaluatingJavaScriptFromString:
+        @"String(window.cydiaChildAppearanceEvents||0)"] ?: @"0");
+    NSString *childLuminance([webView stringByEvaluatingJavaScriptFromString:
+        @"(function(){var f=document.getElementById('appearance-child');if(!f||!f.contentWindow)return'-1';"
+         "var c=f.contentWindow.getComputedStyle(f.contentDocument.body).backgroundColor.match(/\\d+/g);"
+         "return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
     NSDictionary *state = @{
         @"style": style == UIUserInterfaceStyleDark ? @"dark" : @"light",
         @"updates": @(appearanceUpdateCount_),
@@ -338,6 +430,11 @@ static void EnsureProbeMetrics(void) {
         @"webStyle": webStyle,
         @"webAppearanceEvents": @([webEvents integerValue]),
         @"webBackgroundLuminance": @([webLuminance integerValue]),
+        @"webLabelLuminance": @([webLabelLuminance integerValue]),
+        @"webBackgroundImage": webBackgroundImage,
+        @"webChildStyle": childStyle,
+        @"webChildAppearanceEvents": @([childEvents integerValue]),
+        @"webChildBackgroundLuminance": @([childLuminance integerValue]),
     };
     [state writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:@"cydia-appearance-probe.plist"] atomically:YES];
 }
@@ -348,10 +445,19 @@ static void EnsureProbeMetrics(void) {
     return 5;
 }
 
-- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+- (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
     (void) tableView;
     (void) section;
-    return @"Real Cydia appearance surfaces";
+    return 44;
+}
+
+- (UIView *) tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    (void) tableView;
+    (void) section;
+    CGFloat width(tableView.bounds.size.width);
+    sectionHeaderView_.frame = CGRectMake(0, 0, width, 44);
+    sectionHeaderLabel_.frame = CGRectMake(18, 0, width - 36, 44);
+    return sectionHeaderView_;
 }
 
 - (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
