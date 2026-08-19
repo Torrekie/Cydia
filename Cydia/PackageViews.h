@@ -40,6 +40,8 @@
     _H<NSString> source_;
     _H<UIImage> badge_;
     _H<UIImage> placard_;
+    bool installing_;
+    bool removing_;
     bool summarized_;
 }
 

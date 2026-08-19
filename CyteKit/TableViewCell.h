@@ -26,6 +26,8 @@
 
 @protocol CyteTableViewCellDelegate
 - (void) drawContentRect:(CGRect)rect;
+@optional
+- (void) applyColorAppearance;
 @end
 
 @interface CyteTableViewCellContentView : UIView
