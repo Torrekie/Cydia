@@ -184,8 +184,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         if (!state.hasCurrent) {
             if (essential && essential_) {
                 const char *architecture(selectedArchitecture_);
-                return architecture != NULL &&
-                    (strcmp(architecture, common_arch) == 0 || strcmp(architecture, "all") == 0);
+                return architecture != NULL && CydiaAPT::IsNativeOrArchitectureIndependent(
+                    architecture, common_arch == NULL ? std::string() : common_arch);
             } else {
                 return false;
             }

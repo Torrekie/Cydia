@@ -73,5 +73,11 @@ the installed crash report.
   than treating every colon as a delimiter. Qualified `Multi-Arch: same`,
   foreign, and `:any` package names therefore remain attached to status and
   error events, including messages that themselves contain colons.
+- `make verify-multiarch-fixture` loads disposable package and progress stanzas
+  covering native `iphoneos-arm64`, `Architecture: all`, native/foreign
+  coinstallable `Multi-Arch: same`, `foreign`, `allowed`, `:any`, a versionless
+  proxy route, and qualified status/error records. The APT runtime fixture also
+  proves stale vectors are cleared before config while configured foreign
+  architectures survive. No device dpkg architecture state is changed.
 - Rooted/rootless artifacts: pending.
 - Updated real-device launch proof: pending.

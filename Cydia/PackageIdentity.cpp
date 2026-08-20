@@ -29,6 +29,12 @@ std::string BuildPackageRouteName(const std::string &baseName,
     return baseName + ":" + packageArchitecture;
 }
 
+bool IsNativeOrArchitectureIndependent(const std::string &versionArchitecture,
+                                       const std::string &nativeArchitecture) {
+    return !versionArchitecture.empty() && !nativeArchitecture.empty() &&
+        (versionArchitecture == nativeArchitecture || versionArchitecture == "all");
+}
+
 PackageIdentity BuildPackageIdentity(const std::string &baseName,
                                      const std::string &packageArchitecture,
                                      const std::string &versionArchitecture,

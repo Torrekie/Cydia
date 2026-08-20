@@ -71,6 +71,9 @@ std::string BuildPackageRouteName(const std::string &baseName,
                                   const std::string &packageArchitecture,
                                   const std::string &nativeArchitecture);
 
+bool IsNativeOrArchitectureIndependent(const std::string &versionArchitecture,
+                                       const std::string &nativeArchitecture);
+
 struct SourceHandle {
     std::uint32_t value;
 

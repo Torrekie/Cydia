@@ -75,6 +75,9 @@ int main() {
     Expect(!rootless.RequiresLegacyUserMigration(false), "rootless install must not own /User migration");
     Expect(!rootless.RequiresLegacyUserMigration(true), "rootless existing /User does not require migration");
     Expect(rootless.DpkgInfoFile("apt", ".list") == "/var/jb/var/lib/dpkg/info/apt.list", "rootless package info path");
+    Expect(rootless.DpkgInfoFile("bash-builtins:iphoneos-arm64", ".list") ==
+               "/var/jb/var/lib/dpkg/info/bash-builtins:iphoneos-arm64.list",
+           "rootless Multi-Arch: same package info path");
 
     Expect(rootless.DpkgInfoFile("../apt", ".list").empty(), "reject package traversal");
     Expect(rootless.DpkgInfoFile("apt", "/list").empty(), "reject invalid package-info suffix");
