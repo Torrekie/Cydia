@@ -502,8 +502,8 @@ TransactionData AptBackend::transactionData() {
             TransactionIssueData issue;
             issue.package = name;
 
-            pkgCache::VerIterator installed(entry->package.CurrentVer());
-            for (pkgCache::DepIterator dependency(installed.end() ? pkgCache::DepIterator() : installed.DependsList()); !dependency.end(); ) {
+            pkgCache::VerIterator planned(cache[entry->package].InstVerIter(cache));
+            for (pkgCache::DepIterator dependency(planned.end() ? pkgCache::DepIterator() : planned.DependsList()); !dependency.end(); ) {
                 pkgCache::DepIterator first;
                 pkgCache::DepIterator last;
                 dependency.GlobOr(first, last);
@@ -524,10 +524,10 @@ TransactionData AptBackend::transactionData() {
                     if (target.end() || target->ProvidesList != 0)
                         clause.reason = "missing";
                     else {
-                        pkgCache::VerIterator targetInstalled(target.CurrentVer());
-                        if (!targetInstalled.end()) {
+                        pkgCache::VerIterator targetPlanned(cache[target].InstVerIter(cache));
+                        if (!targetPlanned.end()) {
                             clause.reason = "installed";
-                            clause.installed = targetInstalled.VerStr();
+                            clause.installed = targetPlanned.VerStr();
                         } else if (!cache[target].CandidateVerIter(cache).end())
                             clause.reason = "uninstalled";
                         else if (target->ProvidesList == 0)
