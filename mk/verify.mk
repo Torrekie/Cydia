@@ -14,6 +14,7 @@ PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
+REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -49,12 +50,13 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
 .PHONY: verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers
+.PHONY: verify-regex-arc
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-exec-compat verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -85,6 +87,19 @@ verify-dpkg-runner: $(DPKG_RUNNER_TEST)
 
 verify-bootstrap-helpers:
 	@tests/BootstrapHelpersTests.sh
+
+ifeq ($(HOST_OS),Darwin)
+$(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h CyteKit/stringWith.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/RegExArcTests.mm CyteKit/stringWith.mm -framework Foundation -licucore -o $@
+
+verify-regex-arc: $(REGEX_ARC_TEST)
+	@$<
+else
+verify-regex-arc:
+	@echo "[verify] RegEx ARC runtime test requires a Darwin host; iOS compile coverage remains enabled"
+endif
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
