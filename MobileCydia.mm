@@ -1003,10 +1003,18 @@ int main(int argc, char *argv[]) {
 
     NSString *firmwareVersionPath([NSString stringWithUTF8String:packagePaths.CydiaFirmwareVersionPath().c_str()]);
     int version([[NSString stringWithContentsOfFile:firmwareVersionPath] intValue]);
+    const bool needsUserMigration(packagePaths.RequiresLegacyUserMigration(access("/User", F_OK) == 0));
 
-    if (access("/User", F_OK) != 0 || version != 6) {
+    if (needsUserMigration || version != 6) {
         _trace();
-        (void) privileged.Run({packagePaths.CydiaHelperPath("firmware.sh")});
+        const CydiaRuntime::Dpkg::Result firmwareRefresh(privileged.Run({
+            packagePaths.CydiaHelperPath("firmware.sh"),
+        }));
+        if (!firmwareRefresh.succeeded()) {
+            NSLog(@"Cydia firmware maintenance failed (kind=%d, code=%d, error=%d)",
+                  static_cast<int>(firmwareRefresh.kind), firmwareRefresh.code, firmwareRefresh.error);
+            return 1;
+        }
         _trace();
     }
 
@@ -1023,9 +1031,11 @@ int main(int argc, char *argv[]) {
         [Cache("sources.list") UTF8String],
         packagePaths.CydiaSourcesListPath(),
     }));
-    if (!sourceLink.succeeded())
+    if (!sourceLink.succeeded()) {
         NSLog(@"Unable to install the Cydia sources link (kind=%d, code=%d, error=%d)",
               static_cast<int>(sourceLink.kind), sourceLink.code, sourceLink.error);
+        return 1;
+    }
 
     /* APT Initialization {{{ */
     int64_t usermem(0);

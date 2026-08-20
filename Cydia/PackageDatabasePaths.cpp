@@ -34,7 +34,7 @@ const PackageDatabaseLayoutValues kRootfulLayout = {
     "/var/lib/dpkg/status",
     "/var/lib/dpkg/info",
     "/usr/share/dpkg",
-    "/usr/sbin:/usr/bin:/sbin:/bin",
+    "/bin:/usr/bin:/sbin:/usr/sbin",
     "/var/lib/apt/extended_states",
     "/var/lib/apt/lists",
     "/etc/apt",
@@ -51,7 +51,7 @@ const PackageDatabaseLayoutValues kRootlessLayout = {
     "/var/jb/var/lib/dpkg/status",
     "/var/jb/var/lib/dpkg/info",
     "/var/jb/usr/share/dpkg",
-    "/var/jb/usr/sbin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "/var/jb/bin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/usr/sbin:/bin:/usr/bin:/sbin:/usr/sbin",
     "/var/jb/var/lib/apt/extended_states",
     "/var/jb/var/lib/apt/lists",
     "/var/jb/etc/apt",
@@ -256,6 +256,10 @@ std::string PackageDatabasePaths::CydiaMetadataPath() const {
 
 std::string PackageDatabasePaths::CydiaFirmwareVersionPath() const {
     return JoinPath(cydiaStateDirectory_, "firmware.ver");
+}
+
+bool PackageDatabasePaths::RequiresLegacyUserMigration(bool userDirectoryExists) const {
+    return layout_ == PackageDatabaseLayout::Rootful && !userDirectoryExists;
 }
 
 std::string PackageDatabasePaths::DpkgInfoFile(const char *packageName, const char *suffix) const {
