@@ -57,12 +57,17 @@ struct ParsedPackage {
     bool hasSourceFile_;
 
     CYString id_;
+    CYString baseId_;
+    CYString aptId_;
+    CYString dpkgId_;
+    CYString installedDpkgId_;
     CYString name_;
     CYString transform_;
     CYString latest_;
     CYString installed_;
     CYString selectedArchitecture_;
     CYString section_;
+    CydiaAPT::MultiArchMode multiArch_;
     time_t upgraded_;
 
     __strong NSString *section$_;
@@ -113,6 +118,10 @@ struct ParsedPackage {
 - (BOOL) hasMode;
 - (NSString *) mode;
 - (NSString *) id;
+- (NSString *) baseId;
+- (NSString *) aptId;
+- (NSString *) dpkgId;
+- (NSString *) multiArch;
 - (NSString *) name;
 - (UIImage *) icon;
 - (NSString *) homepage;

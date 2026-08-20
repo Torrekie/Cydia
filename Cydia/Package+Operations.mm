@@ -15,7 +15,7 @@
 
 - (NSArray *) files {
     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const std::string infoPath(paths.DpkgInfoFile([static_cast<NSString *>(id_) UTF8String], ".list"));
+    const std::string infoPath(paths.DpkgInfoFile([[self dpkgId] UTF8String], ".list"));
     if (infoPath.empty())
         return nil;
 
@@ -57,7 +57,7 @@
         return nil;
 
     NSMutableArray *warnings([NSMutableArray arrayWithCapacity:4]);
-    const char *name([[self id] UTF8String]);
+    const char *name([[self baseId] UTF8String]);
 
     size_t length(strlen(name));
     if (length < 2) invalid:
