@@ -13,6 +13,7 @@ VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
+DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
@@ -50,14 +51,14 @@ verify_size_sources += postinst.mm cfversion.mm
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
-.PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers
+.PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
 .PHONY: verify-regex-arc
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -92,6 +93,14 @@ $(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRu
 		tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-dpkg-runner: $(DPKG_RUNNER_TEST)
+	@$<
+
+$(DPKG_STATUS_TEST): tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
+		tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp -o $@
+
+verify-dpkg-status: $(DPKG_STATUS_TEST)
 	@$<
 
 verify-bootstrap-helpers:
