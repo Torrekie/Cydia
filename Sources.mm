@@ -25,7 +25,9 @@
 #include <Menes/ObjectHandle.h>
 
 #include <cstdio>
+#include <string>
 
+#include "Cydia/AptRuntime.hpp"
 #include "Sources.h"
 
 NSString *Cache_;
@@ -42,11 +44,16 @@ void CydiaWriteSources() {
     FILE *file(fopen(sources, "w"));
     _assert(file != NULL);
 
+    const std::string architectureOption(CydiaAPT::SourceArchitectureOption());
+    const std::string binaryOptions(
+        architectureOption.empty() ? std::string() : architectureOption + ' ');
+
     if (kCFCoreFoundationVersionNumber >= 1443) {
-        fprintf(file, "deb https://apt.bingner.com/ ./\n");
+        fprintf(file, "deb %shttps://apt.bingner.com/ ./\n", binaryOptions.c_str());
     } else {
-        fprintf(file, "deb http://apt.saurik.com/ ios/%.2f main\n", kCFCoreFoundationVersionNumber);
-        fprintf(file, "deb https://apt.bingner.com/ ./\n");
+        fprintf(file, "deb %shttp://apt.saurik.com/ ios/%.2f main\n",
+                binaryOptions.c_str(), kCFCoreFoundationVersionNumber);
+        fprintf(file, "deb %shttps://apt.bingner.com/ ./\n", binaryOptions.c_str());
     }
 
     for (NSString *key in [Sources_ allKeys]) {
@@ -59,9 +66,12 @@ void CydiaWriteSources() {
             continue;
 
         NSArray *sections([source objectForKey:@"Sections"] ?: [NSArray array]);
+        NSString *type([source objectForKey:@"Type"]);
+        const char *options([type isEqualToString:@"deb"] ? binaryOptions.c_str() : "");
 
-        fprintf(file, "%s %s %s%s%s\n",
-            [[source objectForKey:@"Type"] UTF8String],
+        fprintf(file, "%s %s%s %s%s%s\n",
+            [type UTF8String],
+            options,
             [[source objectForKey:@"URI"] UTF8String],
             [[source objectForKey:@"Distribution"] UTF8String],
             [sections count] == 0 ? "" : " ",

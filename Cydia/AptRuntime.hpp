@@ -41,6 +41,7 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
 const std::string &Architecture();
 const std::vector<std::string> &Architectures();
 bool IsArchitectureSupported(const std::string &architecture);
+std::string SourceArchitectureOption();
 
 } // namespace CydiaAPT
 

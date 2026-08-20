@@ -1065,6 +1065,11 @@ int main(int argc, char *argv[]) {
     NSLog(@"Common Arch: %s\n", architecture.c_str());
     common_arch = CydiaAPT::Architecture().c_str();
 
+    /* SaveConfig runs once before APT is initialized. Rewrite the managed
+     * source list now that the selected dpkg's native and foreign
+     * architectures are known, before Database asks APT to parse sources. */
+    CydiaWriteSources();
+
     mkdir([Cache("archives") UTF8String], 0755);
     mkdir([Cache("archives/partial") UTF8String], 0755);
     symlink(packagePaths.AptExtendedStatesPath().c_str(), [Cache("extended_states") UTF8String]);

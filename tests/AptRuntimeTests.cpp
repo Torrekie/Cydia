@@ -134,6 +134,9 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
            std::string(name) + " unsupported architecture rejection");
     Expect(!CydiaAPT::IsArchitectureSupported("any"),
            std::string(name) + " dependency proxy is not a dpkg architecture");
+    Expect(CydiaAPT::SourceArchitectureOption() ==
+               "[arch=" + options.architecture + ",iphoneos-foreign-test]",
+           std::string(name) + " managed source architecture option");
 }
 
 } // namespace
