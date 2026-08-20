@@ -96,6 +96,12 @@ echo "firmware helper must not derive package names from uname" >&2
 exit 75
 EOF
 
+cat >"${mock_bin}/dirname" <<'EOF'
+#!/bin/bash
+echo "bootstrap helpers must locate companion files without dirname" >&2
+exit 78
+EOF
+
 cat >"${mock_bin}/sysctl" <<'EOF'
 #!/bin/bash
 case "$2" in
@@ -147,7 +153,8 @@ EOF
 
 chmod +x "${fixture}/firmware.sh" "${fixture}/startup" \
     "${mock_bin}/dpkg-deb" "${mock_bin}/dpkg-query" "${mock_bin}/dpkg" \
-    "${mock_bin}/sw_vers" "${mock_bin}/uname" "${mock_bin}/sysctl" \
+    "${mock_bin}/sw_vers" "${mock_bin}/uname" "${mock_bin}/dirname" \
+    "${mock_bin}/sysctl" \
     "${mock_bin}/gssc" "${mock_bin}/cp" "${mock_bin}/rm" \
     "${mock_bin}/ln" "${mock_bin}/mv" "${mock_libexec}/cfversion"
 

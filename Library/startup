@@ -1,7 +1,12 @@
 #!/bin/bash
 
 shopt -s nullglob
-. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+case ${BASH_SOURCE[0]} in
+    */*) cydia_startup_dir=${BASH_SOURCE[0]%/*} ;;
+    *) cydia_startup_dir=. ;;
+esac
+. "${cydia_startup_dir}/package-paths.sh"
+unset cydia_startup_dir
 export PATH=${CYDIA_BOOTSTRAP_PATH}
 
 if [[ ! -e "${CYDIA_STATE}/firmware.ver" ]]; then

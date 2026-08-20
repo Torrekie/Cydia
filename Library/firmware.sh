@@ -7,7 +7,12 @@ set -e
 shopt -s extglob
 shopt -s nullglob
 
-. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+case ${BASH_SOURCE[0]} in
+    */*) cydia_firmware_dir=${BASH_SOURCE[0]%/*} ;;
+    *) cydia_firmware_dir=. ;;
+esac
+. "${cydia_firmware_dir}/package-paths.sh"
+unset cydia_firmware_dir
 export PATH=${CYDIA_BOOTSTRAP_PATH}
 
 readonly firmware_owner='cydia-refurbished.torrekie.dev/v1'
