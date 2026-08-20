@@ -986,7 +986,14 @@ int main(int argc, char *argv[]) {
     broken = nil;
 
     SaveConfig(nil);
-    (void) privileged.Run({"/bin/rm", "-f", packagePaths.CydiaMetadataPath()});
+    const CydiaRuntime::Dpkg::Result metadataRemoval(privileged.Run({
+        packagePaths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Remove),
+        "-f",
+        packagePaths.CydiaMetadataPath(),
+    }));
+    if (!metadataRemoval.succeeded())
+        NSLog(@"Unable to remove migrated Cydia metadata (kind=%d, code=%d, error=%d)",
+              static_cast<int>(metadataRemoval.kind), metadataRemoval.code, metadataRemoval.error);
     /* }}} */
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
@@ -1010,8 +1017,15 @@ int main(int argc, char *argv[]) {
             _assert(errno == ENOENT);
     }
 
-    (void) privileged.Run({"/bin/ln", "-sf", [Cache("sources.list") UTF8String],
-                           packagePaths.CydiaSourcesListPath()});
+    const CydiaRuntime::Dpkg::Result sourceLink(privileged.Run({
+        packagePaths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Link),
+        "-sf",
+        [Cache("sources.list") UTF8String],
+        packagePaths.CydiaSourcesListPath(),
+    }));
+    if (!sourceLink.succeeded())
+        NSLog(@"Unable to install the Cydia sources link (kind=%d, code=%d, error=%d)",
+              static_cast<int>(sourceLink.kind), sourceLink.code, sourceLink.error);
 
     /* APT Initialization {{{ */
     int64_t usermem(0);

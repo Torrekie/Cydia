@@ -729,8 +729,21 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     struct stat info;
     if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG) {
         CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
-        (void) runner.Run({"/bin/cp", "--remove-destination",
-                           [nextended UTF8String], [oextended UTF8String]});
+        const CydiaRuntime::Dpkg::Result copyResult(runner.Run({
+            paths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Copy),
+            "-f",
+            [nextended UTF8String],
+            [oextended UTF8String],
+        }));
+        if (!copyResult.succeeded()) {
+            NSString *message([NSString stringWithFormat:
+                @"Unable to persist APT extended state (kind=%d, code=%d, error=%d)",
+                static_cast<int>(copyResult.kind), copyResult.code, copyResult.error]);
+            [delegate_ addProgressEventOnMainThread:
+                [CydiaProgressEvent eventWithMessage:message ofType:kCydiaProgressEventTypeError]
+                forTask:title];
+            return;
+        }
     }
 
     unlink([nextended UTF8String]);

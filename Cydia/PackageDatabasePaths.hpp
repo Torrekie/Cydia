@@ -22,6 +22,18 @@ enum class PackageDatabaseLayout {
     Rootless,
 };
 
+/*
+ * The bootstrap supplies the BSD implementations of these commands in
+ * /bin.  GNU coreutils may coexist under g-prefixed names, so privileged
+ * callers select the command by purpose instead of constructing an
+ * executable path from an arbitrary filename.
+ */
+enum class BootstrapBSDCommand {
+    Copy,
+    Link,
+    Remove,
+};
+
 class PackageDatabasePaths {
   public:
     static PackageDatabasePaths ForLayout(PackageDatabaseLayout layout);
@@ -59,6 +71,9 @@ class PackageDatabasePaths {
 
     /* Returns a tool supplied by the selected bootstrap's /usr/bin. */
     std::string BootstrapBinaryPath(const char *name) const;
+
+    /* Returns a BSD system command from /bin or the rootless /var/jb/bin. */
+    std::string BootstrapBSDCommandPath(BootstrapBSDCommand command) const;
 
   private:
     PackageDatabasePaths(PackageDatabaseLayout layout,
