@@ -57,14 +57,16 @@ InitializationOptions::InitializationOptions() :
 
 bool Initialize(const InitializationOptions &options, std::string *architecture) {
     /* Configuration is process-global. Remove any vector inherited from a
-     * previous/rootful setup before reading the selected bootstrap's files.
-     * Do not clear it afterward: a legitimate foreign architecture configured
-     * by that bootstrap must survive into pkgInitSystem. */
+     * previous/rootful setup before reading the selected bootstrap's files. */
     ApplyBootstrapConfiguration(options, true);
     if (!pkgInitConfig(*_config))
         return false;
 
-    ApplyBootstrapConfiguration(options, false);
+    /* The selected dpkg is the authority for native and foreign architecture
+     * state. Clear a stale/partial apt.conf vector again so libapt asks the
+     * initialized pkgSystem (and therefore this exact dpkg) when it constructs
+     * the cache. */
+    ApplyBootstrapConfiguration(options, true);
     if (!pkgInitSystem(*_config, _system))
         return false;
 

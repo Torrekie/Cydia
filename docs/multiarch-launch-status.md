@@ -66,9 +66,9 @@ the installed crash report.
 - APT relation and confirmation data now retain foreign and `:any` route
   qualifiers. Versionless `:any` proxy links resolve to the preferred concrete
   package for navigation, `Architecture: all` Essential candidates are no
-  longer hidden, and startup clears only inherited architecture-vector state
-  before reading the selected bootstrap so configured foreign architectures
-  survive initialization.
+  longer hidden, and startup clears stale architecture-vector state around
+  config loading so the selected dpkg remains authoritative for configured
+  foreign architectures.
 - Package-manager progress parsing now locates its numeric percent field rather
   than treating every colon as a delimiter. Qualified `Multi-Arch: same`,
   foreign, and `:any` package names therefore remain attached to status and
@@ -77,7 +77,7 @@ the installed crash report.
   covering native `iphoneos-arm64`, `Architecture: all`, native/foreign
   coinstallable `Multi-Arch: same`, `foreign`, `allowed`, `:any`, a versionless
   proxy route, and qualified status/error records. The APT runtime fixture also
-  proves stale vectors are cleared before config while configured foreign
-  architectures survive. No device dpkg architecture state is changed.
+  proves stale apt.conf vectors are discarded before selected-dpkg native and
+  foreign discovery. No device dpkg architecture state is changed.
 - Rooted/rootless artifacts: pending.
 - Updated real-device launch proof: pending.
