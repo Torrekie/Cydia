@@ -18,7 +18,12 @@ upstream notices and may identify the refurbished portion separately.
 
 Cydia and the refurbished project-owned additions are distributed under the
 GNU General Public License, version 3 or later; see COPYING.  Embedded APT has
-its own notices and license files under apt64.  The fallback declarations in
+its own notices and license files under apt64.  The cydo helper statically
+embeds the reviewed execv.c, get_new_argv.c, and utils.c subset of Remorix
+libiosexec; its Procursus Team copyright and BSD 2-Clause terms are retained in
+libiosexec/LICENSE; its source classification is recorded by
+libiosexec/debian/copyright.  Both are copied into the package as
+LIBIOSEXEC-LICENSE and LIBIOSEXEC-COPYRIGHT.  The fallback declarations in
 Cydia/ICUTransliterator.h retain the Unicode/ICU permission notice in
 Cydia/ICU-LICENSE; the Torrekie notice covers only the compatibility wrapper.
 SDURLCache remains Copyright (c) 2010 Olivier Poitrey and is distributed under

@@ -8,16 +8,22 @@ VERIFY_SCRIPT := scripts/verify-modernization.sh
 APPEARANCE_VERIFY_SCRIPT := scripts/verify-appearance-simulator.sh
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
+EXEC_COMPAT_VERIFY_SCRIPT := scripts/verify-exec-compat.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
+EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
+host_cc ?= $(or $(HOST_CC),cc)
 host_cxx_flags :=
+host_cc_flags :=
 else
 host_cxx ?= $(shell xcrun --sdk macosx -f clang++)
+host_cc ?= $(shell xcrun --sdk macosx -f clang)
 host_cxx_flags := -isysroot $(mac)
+host_cc_flags := -isysroot $(mac)
 endif
 
 verify_objc_sources := $(filter %.m %.mm,$(source))
@@ -43,10 +49,12 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
 .PHONY: verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers
+.PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
+.PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-exec-compat verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -77,6 +85,44 @@ verify-dpkg-runner: $(DPKG_RUNNER_TEST)
 
 verify-bootstrap-helpers:
 	@tests/BootstrapHelpersTests.sh
+
+$(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
+		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
+		$(EXEC_COMPAT_SOURCE_DIR)/libiosexec.h $(EXEC_COMPAT_SOURCE_DIR)/utils.h \
+		$(EXEC_COMPAT_PRIVATE_HEADER) $(EXEC_COMPAT_PATHS_HEADER) \
+		tests/exec-compat-stubs/sys/paths.h
+	@mkdir -p $(dir $@)
+	@$(host_cc) $(host_cc_flags) -std=gnu11 -Wall -Wextra \
+		-Itests/exec-compat-stubs -I$(EXEC_COMPAT_GENERATED_DIR) \
+		-I$(EXEC_COMPAT_SOURCE_DIR) \
+		-DLIBIOSEXEC_INTERNAL=1 \
+		-DLIBIOSEXEC_PREFIXED_ROOT=$(EXEC_COMPAT_PREFIXED_ROOT) \
+		tests/ExecCompatParserTests.c $(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c -o $@
+
+verify-exec-compat: verify-exec-compat-provenance verify-exec-compat-archive \
+	verify-exec-compat-parser verify-exec-compat-binary
+
+verify-exec-compat-provenance: $(EXEC_COMPAT_VERIFY_SCRIPT) \
+		$(EXEC_COMPAT_PROVENANCE_STAMP) $(EXEC_COMPAT_CONFIG_STAMP)
+	@$(EXEC_COMPAT_VERIFY_SCRIPT) provenance \
+		"$(EXEC_COMPAT_SOURCE_DIR)" "$(EXEC_COMPAT_SOURCE_COMMIT)" \
+		"$(EXEC_COMPAT_SOURCE_URL)" "$(EXEC_COMPAT_SOURCE_NAMES)" \
+		"$(EXEC_COMPAT_LICENSE)" "$(EXEC_COMPAT_COPYRIGHT)" \
+		"$(EXEC_COMPAT_PROVENANCE_STAMP)" "$(EXEC_COMPAT_CONFIG_STAMP)" \
+		"$(PACKAGE_LAYOUT)" \
+		"$(PACKAGE_PREFIX)" "$(EXEC_COMPAT_SHEBANG_REDIRECT)" \
+		"$(EXEC_COMPAT_DEFAULT_PATH)" "$(EXEC_COMPAT_STD_PATH)"
+
+verify-exec-compat-archive: $(EXEC_COMPAT_VERIFY_SCRIPT) $(EXEC_COMPAT_LIBRARY)
+	@$(EXEC_COMPAT_VERIFY_SCRIPT) archive "$(CYAR)" "$(EXEC_COMPAT_LIBRARY)"
+
+verify-exec-compat-parser: $(EXEC_COMPAT_PARSER_TEST) Library/firmware.sh
+	@$(EXEC_COMPAT_PARSER_TEST) Library/firmware.sh "$(if $(filter 1,$(EXEC_COMPAT_PREFIXED_ROOT)),$(PACKAGE_PREFIX),)/bin/bash"
+
+verify-exec-compat-binary: $(EXEC_COMPAT_VERIFY_SCRIPT) $(CYDO_BINARY)
+	@test -n "$(CYNM)" || { echo "CYNM is required" >&2; exit 2; }
+	@test -n "$(CYOTOOL)" || { echo "CYOTOOL is required" >&2; exit 2; }
+	@$(EXEC_COMPAT_VERIFY_SCRIPT) binary "$(CYNM)" "$(CYOTOOL)" "$(CYDO_BINARY)"
 
 verify-apt: verify-apt-provenance verify-apt-sources verify-apt-config
 
@@ -137,7 +183,7 @@ verify-static: $(VERIFY_SCRIPT)
 verify-config: $(VERIFY_SCRIPT)
 	@$(VERIFY_SCRIPT) config "$(DEPLOYMENT_TARGET)" "$(arch)" "$(objc_arc)" "$(MAKE)" \
 		"$(OBJECT_DIR)" "$(POSTINST_BINARY)" "$(CFVERSION_BINARY)" \
-		"makefile mk/apt.mk mk/toolchain.mk mk/rules.mk mk/verify.mk"
+		"makefile mk/apt.mk mk/toolchain.mk mk/exec-compat.mk mk/rules.mk mk/verify.mk"
 
 verify-ownership: $(VERIFY_SCRIPT)
 	@$(VERIFY_SCRIPT) ownership $(verify_ownership_files)

@@ -29,6 +29,8 @@ mac ?= $(sdk)
 CYAR ?= $(LINUX_TOOLCHAIN)/bin/llvm-ar
 CYSTRIP ?= $(LINUX_TOOLCHAIN)/bin/strip
 LDID ?= $(LINUX_TOOLCHAIN)/bin/ldid
+CYNM ?= $(firstword $(wildcard $(LINUX_TOOLCHAIN)/bin/llvm-nm $(LINUX_TOOLCHAIN)/bin/nm))
+CYOTOOL ?= $(firstword $(wildcard $(LINUX_TOOLCHAIN)/bin/llvm-otool $(LINUX_TOOLCHAIN)/bin/otool))
 INSTALL_NAME_TOOL ?= $(firstword $(wildcard \
     $(LINUX_TOOLCHAIN)/bin/llvm-install-name-tool \
     $(LINUX_TOOLCHAIN)/bin/install_name_tool))
@@ -44,6 +46,8 @@ mac ?= $(shell xcodebuild -sdk macosx -version Path)
 CYAR ?= ar
 CYSTRIP ?= strip
 LDID ?= ldid
+CYNM ?= $(shell xcrun --sdk $(kind) -f nm)
+CYOTOOL ?= $(shell xcrun --sdk $(kind) -f otool)
 INSTALL_NAME_TOOL ?= install_name_tool
 endif
 
