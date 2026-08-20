@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <map>
 #include <string>
+#include <vector>
 
 class Configuration {
   public:
@@ -32,6 +33,29 @@ class Configuration {
         if (value != values_.end())
             return value->second;
         return defaultValue == NULL ? std::string() : std::string(defaultValue);
+    }
+
+    void Clear(const std::string &name) {
+        for (std::map<std::string, std::string>::iterator value(values_.begin());
+             value != values_.end(); ) {
+            if (value->first == name ||
+                (value->first.size() > name.size() &&
+                 value->first.compare(0, name.size(), name) == 0 &&
+                 value->first.compare(name.size(), 2, "::") == 0))
+                values_.erase(value++);
+            else
+                ++value;
+        }
+    }
+
+    std::vector<std::string> FindVector(const char *name) const {
+        std::vector<std::string> result;
+        const std::string prefix(std::string(name) + "::");
+        for (std::map<std::string, std::string>::const_iterator value(values_.begin());
+             value != values_.end(); ++value)
+            if (value->first.compare(0, prefix.size(), prefix) == 0)
+                result.push_back(value->second);
+        return result;
     }
 
   private:

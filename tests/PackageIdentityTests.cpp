@@ -54,6 +54,22 @@ int main() {
     Require(allowed.routingName == "runtime:iphoneos-arm", "foreign allowed route is ambiguous");
     Require(allowed.dpkgName == "runtime:iphoneos-arm", "foreign allowed dpkg name is ambiguous");
 
+    Require(BuildPackageRouteName("dependency", "any", native) == "dependency:any",
+            "versionless :any dependency proxy lost its qualifier");
+    Require(BuildPackageRouteName("dependency", "all", native) == "dependency",
+            "Architecture: all route was qualified");
+
+    PackageIdentity anyNative(BuildPackageIdentity("runtime", "any", native, native,
+                                                   MultiArchMode::Allowed));
+    Require(anyNative.routingName == "runtime:any", ":any route was normalized away");
+    Require(anyNative.dpkgName == "runtime", "native :any target has a qualified dpkg name");
+
+    PackageIdentity anyForeign(BuildPackageIdentity("runtime", "any", "iphoneos-arm", native,
+                                                    MultiArchMode::Allowed));
+    Require(anyForeign.routingName == "runtime:any", "foreign :any route was normalized away");
+    Require(anyForeign.dpkgName == "runtime:iphoneos-arm",
+            "foreign :any target lost its concrete dpkg architecture");
+
     PackageIdentity invalid(BuildPackageIdentity("", native, native, native,
                                                  MultiArchMode::None));
     Require(!invalid.valid(), "empty package identity is valid");

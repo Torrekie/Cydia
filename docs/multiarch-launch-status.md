@@ -63,5 +63,11 @@ the installed crash report.
   Cydia no longer opens dpkg's `.list` database files for that UI. Repository
   depiction/support lookups and identifier validation continue using the base
   package name.
+- APT relation and confirmation data now retain foreign and `:any` route
+  qualifiers. Versionless `:any` proxy links resolve to the preferred concrete
+  package for navigation, `Architecture: all` Essential candidates are no
+  longer hidden, and startup clears only inherited architecture-vector state
+  before reading the selected bootstrap so configured foreign architectures
+  survive initialization.
 - Rooted/rootless artifacts: pending.
 - Updated real-device launch proof: pending.

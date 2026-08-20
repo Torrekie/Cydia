@@ -65,6 +65,12 @@ PackageIdentity BuildPackageIdentity(const std::string &baseName,
                                      const std::string &nativeArchitecture,
                                      MultiArchMode multiArch);
 
+/* Route names preserve explicit dependency proxy architectures such as :any,
+ * while retaining historical unqualified native and Architecture: all URLs. */
+std::string BuildPackageRouteName(const std::string &baseName,
+                                  const std::string &packageArchitecture,
+                                  const std::string &nativeArchitecture);
+
 struct SourceHandle {
     std::uint32_t value;
 

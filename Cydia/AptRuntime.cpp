@@ -23,12 +23,15 @@ std::string JoinPath(const std::string &directory, const char *leaf) {
     return path;
 }
 
-void ApplyBootstrapConfiguration(const InitializationOptions &options) {
+void ApplyBootstrapConfiguration(const InitializationOptions &options,
+                                 bool resetArchitectureVector) {
     /* pkgInitConfig supplies compile-time defaults and then reads apt.conf.
      * Seed the selected bootstrap before that read, and call this again before
      * pkgInitSystem so a config file cannot redirect system discovery to the
      * other layout. */
     _config->Set("APT::Architecture", options.architecture);
+    if (resetArchitectureVector)
+        _config->Clear("APT::Architectures");
     _config->Set("Dir::Etc", options.aptConfigDirectory);
     _config->Set("Dir::Bin::Methods", options.methodsDirectory);
     _config->Set("Dir::Cache", options.cacheDirectory);
@@ -53,11 +56,15 @@ InitializationOptions::InitializationOptions() :
 }
 
 bool Initialize(const InitializationOptions &options, std::string *architecture) {
-    ApplyBootstrapConfiguration(options);
+    /* Configuration is process-global. Remove any vector inherited from a
+     * previous/rootful setup before reading the selected bootstrap's files.
+     * Do not clear it afterward: a legitimate foreign architecture configured
+     * by that bootstrap must survive into pkgInitSystem. */
+    ApplyBootstrapConfiguration(options, true);
     if (!pkgInitConfig(*_config))
         return false;
 
-    ApplyBootstrapConfiguration(options);
+    ApplyBootstrapConfiguration(options, false);
     if (!pkgInitSystem(*_config, _system))
         return false;
 

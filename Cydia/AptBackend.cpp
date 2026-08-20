@@ -148,6 +148,13 @@ PackageIdentity GetPackageIdentity(pkgCache::PkgIterator package,
                                 nativeArchitecture, GetMultiArchMode(version));
 }
 
+std::string GetPackageRouteName(pkgCache::PkgIterator package) {
+    if (package.end() || package.Cache()->NativeArch() == NULL)
+        return std::string();
+    return BuildPackageRouteName(package.Name(), package.Arch(),
+                                 package.Cache()->NativeArch());
+}
+
 std::string RegistryKey(pkgCache::PkgIterator package, pkgCache::VerIterator version) {
     std::string key(package.Name());
     key.push_back('\n');
@@ -314,7 +321,22 @@ PackageHandle AptBackend::packageHandle(const std::string &name, const std::stri
     if (package.end())
         return PackageHandle();
 
-    return RegisterPackage(*packages_, package, cache_->GetCandidateVersion(package));
+    pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
+    const std::string::size_type qualifier(name.rfind(':'));
+    if (version.end() && qualifier != std::string::npos &&
+        name.compare(qualifier + 1, std::string::npos, "any") == 0) {
+        pkgCache::GrpIterator group(cache_->FindGrp(name.substr(0, qualifier)));
+        if (!group.end()) {
+            pkgCache::PkgIterator preferred(group.FindPreferredPkg(true));
+            pkgCache::VerIterator preferredVersion(cache_->GetCandidateVersion(preferred));
+            if (!preferred.end() && !preferredVersion.end()) {
+                package = preferred;
+                version = preferredVersion;
+            }
+        }
+    }
+
+    return RegisterPackage(*packages_, package, version);
 }
 
 std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
@@ -477,7 +499,7 @@ std::vector<RelationData> AptBackend::relations(PackageHandle handle) {
         relation.relationship = first.DepType();
         for (;;) {
             RelationClauseData clause;
-            clause.package = first.TargetPkg().Name();
+            clause.package = GetPackageRouteName(first.TargetPkg());
             if (const char *version = first.TargetVer()) {
                 clause.comparison = first.CompType();
                 clause.version = version;
@@ -529,7 +551,10 @@ TransactionData AptBackend::transactionData() {
         if (entry == NULL)
             continue;
 
-        const std::string name(entry->package.Name());
+        PackageIdentity identity(GetPackageIdentity(entry->package, entry->version,
+                                                     entry->package.Cache()->NativeArch()));
+        const std::string name(identity.valid() ? identity.routingName :
+                                                  GetPackageRouteName(entry->package));
         const PackageStateData state(packageState(*handle));
 
         if (state.broken) {
@@ -549,7 +574,7 @@ TransactionData AptBackend::transactionData() {
                 for (;;) {
                     TransactionClauseData clause;
                     pkgCache::PkgIterator target(first.TargetPkg());
-                    clause.package = target.end() ? std::string() : target.Name();
+                    clause.package = GetPackageRouteName(target);
                     if (const char *required = first.TargetVer()) {
                         clause.comparison = first.CompType();
                         clause.version = required;
