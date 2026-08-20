@@ -80,7 +80,7 @@
     bool on([ignoredSwitch_ isOn]);
 
     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const char *name([name_ UTF8String]);
+    const char *name([[package_ dpkgId] UTF8String]);
     std::string input(name == NULL ? "" : name);
     input += on ? " hold\n" : " install\n";
 

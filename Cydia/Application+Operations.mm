@@ -213,7 +213,7 @@
                 for (Package *broken in (id) broken_) {
                     [broken remove];
                     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-                    const char *name([[broken id] UTF8String]);
+                    const char *name([[broken dpkgId] UTF8String]);
                     std::vector<std::string> files;
                     const char *suffixes[] = {".prerm", ".postrm", ".preinst", ".postinst", ".extrainst_"};
                     for (const char *suffix : suffixes) {

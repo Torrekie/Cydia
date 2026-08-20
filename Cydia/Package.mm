@@ -201,8 +201,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     return [NSArray arrayWithObjects:
         @"applications",
         @"architecture",
+        @"aptId",
         @"author",
+        @"baseId",
         @"depiction",
+        @"dpkgId",
         @"essential",
         @"homepage",
         @"icon",
@@ -214,6 +217,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         @"maintainer",
         @"md5sum",
         @"mode",
+        @"multiArch",
         @"name",
         @"purposes",
         @"relations",
@@ -357,6 +361,12 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         sourceFileID_ = snapshot.sourceFileID;
         hasSourceFile_ = snapshot.hasSourceFile;
         selectedArchitecture_.set(NULL, snapshot.architecture);
+        baseId_.set(NULL, snapshot.identity.baseName);
+        aptId_.set(NULL, snapshot.identity.aptName);
+        dpkgId_.set(NULL, snapshot.identity.dpkgName);
+        if (snapshot.installedIdentity.valid())
+            installedDpkgId_.set(NULL, snapshot.installedIdentity.dpkgName);
+        multiArch_ = snapshot.identity.multiArch;
 
         _profile(Package$initWithHandle$Cache)
             const CydiaAPT::PackageRecordData &record(snapshot.record);
@@ -469,7 +479,10 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
             if (!installed_.empty()) {
                 const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-                const std::string infoPath(paths.DpkgInfoFile(lower, ".list"));
+                const char *dpkgName(installedDpkgId_.empty() ?
+                    static_cast<const char *>(dpkgId_) :
+                    static_cast<const char *>(installedDpkgId_));
+                const std::string infoPath(paths.DpkgInfoFile(dpkgName, ".list"));
                 if (!infoPath.empty()) {
                     struct stat info;
                     if (stat(infoPath.c_str(), &info) != -1)
