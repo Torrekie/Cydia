@@ -68,7 +68,7 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 			date -u -j -f "%s" +"%Y%m%d%H%M.%S" "$$commit_epoch" 2>/dev/null || true)"; \
 	fi; \
 	if test -n "$$stamp"; then \
-		TZ=UTC find $(CYDIA_STAGE) -exec touch -t "$$stamp" {} ';'; \
+		TZ=UTC find $(CYDIA_STAGE) -exec touch -h -t "$$stamp" {} +; \
 	fi
 
 	chmod 6755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
