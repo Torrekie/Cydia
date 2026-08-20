@@ -6,6 +6,7 @@
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 
+#include <algorithm>
 #include <cerrno>
 
 #include <fcntl.h>
@@ -80,29 +81,41 @@ const std::string &Runner::executable() const {
 }
 
 Result Runner::Run(const std::vector<std::string> &arguments, int statusFd) const {
-    return RunInternal(arguments, statusFd, NULL, NULL);
+    return RunInternal(arguments, statusFd, NULL, NULL, NULL, 0);
 }
 
 Result Runner::RunWithInput(const std::vector<std::string> &arguments,
     const std::string &input,
     int statusFd) const {
-    return RunInternal(arguments, statusFd, &input, NULL);
+    return RunInternal(arguments, statusFd, &input, NULL, NULL, 0);
 }
 
 Result Runner::RunToFile(const std::vector<std::string> &arguments,
                          const std::string &outputPath,
                          int statusFd) const {
-    return RunInternal(arguments, statusFd, NULL, &outputPath);
+    return RunInternal(arguments, statusFd, NULL, &outputPath, NULL, 0);
+}
+
+Result Runner::RunAndCapture(const std::vector<std::string> &arguments,
+                             std::string *output,
+                             std::size_t maxBytes,
+                             int statusFd) const {
+    if (output == NULL) return launchFailure(EINVAL);
+    output->clear();
+    return RunInternal(arguments, statusFd, NULL, NULL, output, maxBytes);
 }
 
 Result Runner::RunInternal(const std::vector<std::string> &arguments,
                            int statusFd,
                            const std::string *input,
-                           const std::string *outputPath) const {
+                           const std::string *outputPath,
+                           std::string *capturedOutput,
+                           std::size_t maxCapturedBytes) const {
     if (executable_.empty() || statusFd < -1 ||
         (outputPath != NULL && outputPath->empty()) ||
+        (outputPath != NULL && capturedOutput != NULL) ||
         (input != NULL && statusFd == STDIN_FILENO) ||
-        (outputPath != NULL && statusFd == STDOUT_FILENO))
+        ((outputPath != NULL || capturedOutput != NULL) && statusFd == STDOUT_FILENO))
         return launchFailure(EINVAL);
 
     if (statusFd >= 0 && fcntl(statusFd, F_GETFD) == -1)
@@ -111,6 +124,16 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
     int inputPipe[2] = {-1, -1};
     if (input != NULL && pipe(inputPipe) == -1)
         return launchFailure(errno);
+
+    int outputPipe[2] = {-1, -1};
+    if (capturedOutput != NULL && pipe(outputPipe) == -1) {
+        const int error(errno);
+        if (input != NULL) {
+            (void) close(inputPipe[0]);
+            (void) close(inputPipe[1]);
+        }
+        return launchFailure(error);
+    }
 #ifdef F_SETNOSIGPIPE
     if (input != NULL && fcntl(inputPipe[1], F_SETNOSIGPIPE, 1) == -1) {
         const int error(errno);
@@ -149,6 +172,10 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
             (void) close(inputPipe[0]);
             (void) close(inputPipe[1]);
         }
+        if (capturedOutput != NULL) {
+            (void) close(outputPipe[0]);
+            (void) close(outputPipe[1]);
+        }
         return launchFailure(actionError);
     }
 
@@ -175,6 +202,10 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
                 (void) close(inputPipe[0]);
                 (void) close(inputPipe[1]);
             }
+            if (capturedOutput != NULL) {
+                (void) close(outputPipe[0]);
+                (void) close(outputPipe[1]);
+            }
             return launchFailure(actionError);
         }
     }
@@ -194,6 +225,10 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
                 (void) close(inheritedStatusFd);
             (void) close(inputPipe[0]);
             (void) close(inputPipe[1]);
+            if (capturedOutput != NULL) {
+                (void) close(outputPipe[0]);
+                (void) close(outputPipe[1]);
+            }
             return launchFailure(actionError);
         }
     }
@@ -211,6 +246,30 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
                 (void) close(inputPipe[0]);
                 (void) close(inputPipe[1]);
             }
+            if (capturedOutput != NULL) {
+                (void) close(outputPipe[0]);
+                (void) close(outputPipe[1]);
+            }
+            return launchFailure(actionError);
+        }
+    }
+
+    if (capturedOutput != NULL) {
+        actionError = posix_spawn_file_actions_adddup2(&actions, outputPipe[1], STDOUT_FILENO);
+        if (actionError == 0 && outputPipe[1] != STDOUT_FILENO)
+            actionError = posix_spawn_file_actions_addclose(&actions, outputPipe[1]);
+        if (actionError == 0 && outputPipe[0] != STDOUT_FILENO)
+            actionError = posix_spawn_file_actions_addclose(&actions, outputPipe[0]);
+        if (actionError != 0) {
+            (void) posix_spawn_file_actions_destroy(&actions);
+            if (inheritedStatusFd >= 0)
+                (void) close(inheritedStatusFd);
+            if (input != NULL) {
+                (void) close(inputPipe[0]);
+                (void) close(inputPipe[1]);
+            }
+            (void) close(outputPipe[0]);
+            (void) close(outputPipe[1]);
             return launchFailure(actionError);
         }
     }
@@ -224,6 +283,10 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
         if (input != NULL) {
             (void) close(inputPipe[0]);
             (void) close(inputPipe[1]);
+        }
+        if (capturedOutput != NULL) {
+            (void) close(outputPipe[0]);
+            (void) close(outputPipe[1]);
         }
         return launchFailure(spawnError);
     }
@@ -246,6 +309,30 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
         (void) close(inputPipe[1]);
     }
 
+    int outputError = 0;
+    if (capturedOutput != NULL) {
+        (void) close(outputPipe[1]);
+        char buffer[4096];
+        for (;;) {
+            const ssize_t count(read(outputPipe[0], buffer, sizeof(buffer)));
+            if (count > 0) {
+                const std::size_t available(maxCapturedBytes > capturedOutput->size() ?
+                    maxCapturedBytes - capturedOutput->size() : 0);
+                const std::size_t copy(std::min<std::size_t>(available, static_cast<std::size_t>(count)));
+                capturedOutput->append(buffer, copy);
+                if (copy != static_cast<std::size_t>(count) && outputError == 0)
+                    outputError = EFBIG;
+                continue;
+            }
+            if (count == -1 && errno == EINTR)
+                continue;
+            if (count == -1)
+                outputError = errno;
+            break;
+        }
+        (void) close(outputPipe[0]);
+    }
+
     int status;
     pid_t waited;
     do {
@@ -257,6 +344,8 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
 
     if (inputError != 0)
         return launchFailure(inputError);
+    if (outputError != 0)
+        return launchFailure(outputError);
     return fromWaitStatus(status);
 }
 

@@ -58,7 +58,9 @@ the installed crash report.
 - Multi-Arch identity boundary and Objective-C model propagation: implemented.
   Native/all routes remain unqualified, foreign routes remain distinct, while
   package holds, maintainer-script repair, upgrade timestamps, and installed
-  file metadata use dpkg's non-ambiguous binary-package name. Repository
+  file queries use dpkg's non-ambiguous binary-package name. Installed file
+  lists now come from the stable, shell-free `dpkg-query --listfiles` CLI;
+  Cydia no longer opens dpkg's `.list` database files for that UI. Repository
   depiction/support lookups and identifier validation continue using the base
   package name.
 - Rooted/rootless artifacts: pending.

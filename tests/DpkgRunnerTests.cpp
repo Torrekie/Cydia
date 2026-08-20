@@ -183,6 +183,21 @@ int main(int argc, char *argv[]) {
     Expect(ReadFile(outputPath) == kOutput, "preserve redirected stdout");
     Expect(unlink(outputPath.c_str()) == 0, "remove temporary output");
 
+    std::string captured("stale");
+    result = runner.RunAndCapture({"--fixture", "output"}, &captured);
+    Expect(result.succeeded(), "capture child stdout");
+    Expect(captured == kOutput, "preserve captured stdout");
+
+    captured = "stale";
+    result = runner.RunAndCapture({"--fixture", "output"}, &captured, 4);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EFBIG,
+           "report bounded stdout overflow");
+    Expect(captured == std::string(kOutput, 4), "retain bounded stdout prefix");
+
+    result = runner.RunAndCapture({"--fixture", "output"}, NULL);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL,
+           "reject a null capture destination");
+
     VerifyStatusDescriptor(runner, false);
     VerifyStatusDescriptor(runner, true);
 
