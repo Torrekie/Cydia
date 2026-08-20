@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -1018,13 +1019,17 @@ int main(int argc, char *argv[]) {
     if (sysctlbyname("hw.usermem", &usermem, &size, NULL, 0) == -1)
         usermem = 0;
     CydiaAPT::InitializationOptions aptOptions;
+    aptOptions.architecture = packagePaths.AptArchitecture();
     aptOptions.aptConfigDirectory = packagePaths.AptConfigDirectory();
     aptOptions.methodsDirectory = packagePaths.CydiaApplicationDirectory();
     aptOptions.cacheDirectory = [Cache_ UTF8String];
     aptOptions.stateDirectory = [Cache_ UTF8String];
     aptOptions.listsDirectory = [Cache("lists") UTF8String];
     aptOptions.logDirectory = "/var/mobile/Library/Logs/Cydia";
+    aptOptions.dpkgStatusPath = packagePaths.DpkgStatusPath();
     aptOptions.dpkgPath = packagePaths.CydoPath();
+    aptOptions.dpkgDataDirectory = packagePaths.DpkgDataDirectory();
+    aptOptions.dpkgExecutableSearchPath = packagePaths.DpkgExecutableSearchPath();
     aptOptions.translation = translation == NULL ? std::string() : translation;
     aptOptions.languages = languages;
     aptOptions.maxParallel = usermem >= 384 * 1024 * 1024 ? 16 : 3;

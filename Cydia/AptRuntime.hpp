@@ -12,13 +12,17 @@
 namespace CydiaAPT {
 
 struct InitializationOptions {
+    std::string architecture;
     std::string aptConfigDirectory;
     std::string methodsDirectory;
     std::string cacheDirectory;
     std::string stateDirectory;
     std::string listsDirectory;
     std::string logDirectory;
+    std::string dpkgStatusPath;
     std::string dpkgPath;
+    std::string dpkgDataDirectory;
+    std::string dpkgExecutableSearchPath;
     std::string translation;
     std::string languages;
     int maxParallel;

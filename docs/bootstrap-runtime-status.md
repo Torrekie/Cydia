@@ -17,14 +17,15 @@ resume safely after context compaction.
 
 - Branch: `fix/bootstrap-runtime-compatibility`
 - Base: `77caf89` (`identity/cydia-refurbished`)
-- State: helper/package hardening, planned dependency diagnostics, and private
-  service loading are committed; APT/static-link slices remain in progress.
+- State: APT pre-initialization, helper/package hardening, planned dependency
+  diagnostics, and private service loading are committed; static exec-compat
+  and direct application BSD-tool migrations remain in progress.
 - Device inspected read-only: `root@192.168.1.8`, Remorix dpkg 1.23.7,
   APT 2.9.4, native architecture `iphoneos-arm64`.
 
 ## Planned commits
 
-- [ ] Seed APT architecture, dpkg paths/tables, and `DPkg::Path` before init.
+- [x] Seed APT architecture, dpkg paths/tables, and `DPkg::Path` before init.
 - [ ] Add static exec-compat integration without dylib load commands.
 - [x] Make root firmware and AutoInstall helper transactions failure-safe.
 - [ ] Resolve privileged BSD tools used directly by the application.
@@ -54,6 +55,8 @@ resume safely after context compaction.
   `scripts/verify-package-artifacts.sh rootful ...`
 - Targeted AptBackend and PrivateServices object builds.
 - `make --no-print-directory verify-apt-api-inventory verify-static`
+- `make --no-print-directory verify-package-paths verify-apt-runtime`
+- Targeted iOS 12 AptRuntime, PackageDatabasePaths, and MobileCydia objects.
 
 ## Remaining risks
 

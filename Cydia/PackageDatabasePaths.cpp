@@ -13,8 +13,11 @@
 namespace {
 
 struct PackageDatabaseLayoutValues {
+    const char *aptArchitecture;
     const char *dpkgStatus;
     const char *dpkgInfoDirectory;
+    const char *dpkgDataDirectory;
+    const char *dpkgExecutableSearchPath;
     const char *aptExtendedStates;
     const char *aptListsDirectory;
     const char *aptConfigDirectory;
@@ -27,8 +30,11 @@ struct PackageDatabaseLayoutValues {
 };
 
 const PackageDatabaseLayoutValues kRootfulLayout = {
+    "iphoneos-arm",
     "/var/lib/dpkg/status",
     "/var/lib/dpkg/info",
+    "/usr/share/dpkg",
+    "/usr/sbin:/usr/bin:/sbin:/bin",
     "/var/lib/apt/extended_states",
     "/var/lib/apt/lists",
     "/etc/apt",
@@ -41,8 +47,11 @@ const PackageDatabaseLayoutValues kRootfulLayout = {
 };
 
 const PackageDatabaseLayoutValues kRootlessLayout = {
+    "iphoneos-arm64",
     "/var/jb/var/lib/dpkg/status",
     "/var/jb/var/lib/dpkg/info",
+    "/var/jb/usr/share/dpkg",
+    "/var/jb/usr/sbin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "/var/jb/var/lib/apt/extended_states",
     "/var/jb/var/lib/apt/lists",
     "/var/jb/etc/apt",
@@ -87,8 +96,11 @@ bool IsLeafName(const char *name) {
 namespace CydiaRuntime {
 
 PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
+                                           const char *aptArchitecture,
                                            const char *dpkgStatus,
                                            const char *dpkgInfoDirectory,
+                                           const char *dpkgDataDirectory,
+                                           const char *dpkgExecutableSearchPath,
                                            const char *aptExtendedStates,
                                            const char *aptListsDirectory,
                                            const char *aptConfigDirectory,
@@ -99,8 +111,11 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *cydo,
                                            const char *dpkgBinary) :
     layout_(layout),
+    aptArchitecture_(aptArchitecture),
     dpkgStatusPath_(dpkgStatus),
     dpkgInfoDirectory_(dpkgInfoDirectory),
+    dpkgDataDirectory_(dpkgDataDirectory),
+    dpkgExecutableSearchPath_(dpkgExecutableSearchPath),
     aptExtendedStatesPath_(aptExtendedStates),
     aptListsDirectory_(aptListsDirectory),
     aptConfigDirectory_(aptConfigDirectory),
@@ -115,7 +130,8 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
 
 PackageDatabasePaths PackageDatabasePaths::ForLayout(PackageDatabaseLayout layout) {
     const PackageDatabaseLayoutValues &values(ValuesForLayout(layout));
-    return PackageDatabasePaths(layout, values.dpkgStatus, values.dpkgInfoDirectory, values.aptExtendedStates,
+    return PackageDatabasePaths(layout, values.aptArchitecture, values.dpkgStatus, values.dpkgInfoDirectory,
+                                values.dpkgDataDirectory, values.dpkgExecutableSearchPath, values.aptExtendedStates,
                                 values.aptListsDirectory,
                                 values.aptConfigDirectory, values.cydiaStateDirectory,
                                 values.packageLibraryDirectory, values.cydiaLibexecDirectory,
@@ -148,12 +164,24 @@ PackageDatabaseLayout PackageDatabasePaths::layout() const {
     return layout_;
 }
 
+const std::string &PackageDatabasePaths::AptArchitecture() const {
+    return aptArchitecture_;
+}
+
 const std::string &PackageDatabasePaths::DpkgStatusPath() const {
     return dpkgStatusPath_;
 }
 
 const std::string &PackageDatabasePaths::DpkgInfoDirectory() const {
     return dpkgInfoDirectory_;
+}
+
+const std::string &PackageDatabasePaths::DpkgDataDirectory() const {
+    return dpkgDataDirectory_;
+}
+
+const std::string &PackageDatabasePaths::DpkgExecutableSearchPath() const {
+    return dpkgExecutableSearchPath_;
 }
 
 const std::string &PackageDatabasePaths::AptExtendedStatesPath() const {
