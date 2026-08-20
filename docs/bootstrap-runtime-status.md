@@ -17,8 +17,8 @@ resume safely after context compaction.
 
 - Branch: `fix/bootstrap-runtime-compatibility`
 - Base: `77caf89` (`identity/cydia-refurbished`)
-- State: root helper transaction hardening implemented and covered by a
-  failure-ordering fixture; APT/static-link slices remain in progress.
+- State: helper/package hardening, planned dependency diagnostics, and private
+  service loading are committed; APT/static-link slices remain in progress.
 - Device inspected read-only: `root@192.168.1.8`, Remorix dpkg 1.23.7,
   APT 2.9.4, native architecture `iphoneos-arm64`.
 
@@ -29,8 +29,8 @@ resume safely after context compaction.
 - [x] Make root firmware and AutoInstall helper transactions failure-safe.
 - [ ] Resolve privileged BSD tools used directly by the application.
 - [x] Generate correct rooted/rootless package triggers and dependencies.
-- [ ] Diagnose planned dependency versions.
-- [ ] Load SpringBoardServices explicitly and safely.
+- [x] Diagnose planned dependency versions.
+- [x] Load SpringBoardServices explicitly and safely.
 - [ ] Complete Make, package, artifact, and device verification.
 
 ## Confirmed runtime policy
@@ -52,6 +52,8 @@ resume safely after context compaction.
   `scripts/verify-package-artifacts.sh rootless ...`
 - Rootful package build plus
   `scripts/verify-package-artifacts.sh rootful ...`
+- Targeted AptBackend and PrivateServices object builds.
+- `make --no-print-directory verify-apt-api-inventory verify-static`
 
 ## Remaining risks
 
