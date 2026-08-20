@@ -41,12 +41,20 @@ function hyphenate() {
     local value=$1 result= character index
     for ((index = 0; index < ${#value}; ++index)); do
         character=${value:index:1}
-        if [[ ${character} == [[:upper:]] ]]; then
-            [[ -n ${result} ]] && result+=-
-            result+=$(lower <<<"${character}")
-        else
-            result+=${character}
-        fi
+        case ${character} in
+            A) character=a ;; B) character=b ;; C) character=c ;;
+            D) character=d ;; E) character=e ;; F) character=f ;;
+            G) character=g ;; H) character=h ;; I) character=i ;;
+            J) character=j ;; K) character=k ;; L) character=l ;;
+            M) character=m ;; N) character=n ;; O) character=o ;;
+            P) character=p ;; Q) character=q ;; R) character=r ;;
+            S) character=s ;; T) character=t ;; U) character=u ;;
+            V) character=v ;; W) character=w ;; X) character=x ;;
+            Y) character=y ;; Z) character=z ;;
+            *) result+=${character}; continue ;;
+        esac
+        [[ -n ${result} ]] && result+=-
+        result+=${character}
     done
     printf '%s\n' "${result}"
 }
@@ -116,7 +124,10 @@ function pseudo() {
 # from Procursus or another bootstrap are deliberately preserved.
 function ensure_pseudo() {
     local package=$1 version=$2 description=$3 name=$4
-    contains_name "${package}" "${desired_names[@]}" || desired_names+=("${package}")
+    if [[ ${desired_name_index} != *$'\n'"${package}"$'\n'* ]]; then
+        desired_names+=("${package}")
+        desired_name_index+=${package}$'\n'
+    fi
 
     inspect_package "${package}"
     if [[ ${package_installed} == 1 && ${package_owned} != 1 ]]; then
@@ -125,7 +136,10 @@ function ensure_pseudo() {
     fi
 
     pseudo "${package}" "${version}" "${description}" "${name}"
-    contains_name "${package}" "${next_managed_names[@]}" || next_managed_names+=("${package}")
+    if [[ ${next_managed_name_index} != *$'\n'"${package}"$'\n'* ]]; then
+        next_managed_names+=("${package}")
+        next_managed_name_index+=${package}$'\n'
+    fi
 }
 
 function write_managed_manifest() {
@@ -187,6 +201,7 @@ function firmware_main() {
     local managed_manifest installed_snapshot package_installed package_owned
     local preserved_external_count=0
     local installed_package_index=$'\n' owned_package_index=$'\n'
+    local desired_name_index=$'\n' next_managed_name_index=$'\n'
 
     version=$(sw_vers -productVersion)
     arch=$("${CYDIA_DPKG}" --print-architecture)
