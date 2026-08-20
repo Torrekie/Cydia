@@ -6,6 +6,7 @@ shopt -s extglob
 shopt -s nullglob
 
 . "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+export PATH=${CYDIA_BOOTSTRAP_PATH}
 
 version=$(sw_vers -productVersion)
 cpu=$(uname -p)
@@ -38,6 +39,7 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/cydia-firmware.XXXXXX")
 trap 'rm -rf "${tmp}"' EXIT
 
 declare -a packages
+declare -a replacement_names
 
 # Generate an empty package and let dpkg own its status/database bookkeeping.
 # This deliberately avoids writing status or info files directly: those files
@@ -64,21 +66,30 @@ function pseudo() {
 
     "${CYDIA_DPKG_DEB}" -Zxz -b "${root}" "${deb}" >/dev/null
     packages+=("${deb}")
+    replacement_names+=("${package}")
 }
 
-# Remove only the synthetic packages managed by this helper.  The package
-# manager, rather than a hand-written status parser, decides how removal is
-# represented in its current database format.
-declare -a obsolete
-while IFS= read -r package; do
-    if [[ ${package} == firmware || ${package} == gsc.* || ${package} == cy+* ]]; then
-        obsolete+=("${package}")
-    fi
-done < <("${CYDIA_DPKG_QUERY}" -W -f='${Package}\n' 2>/dev/null || true)
+function is_replacement() {
+    local expected
+    for expected in "${replacement_names[@]}"; do
+        [[ ${expected} == "$1" ]] && return 0
+    done
+    return 1
+}
 
-if [[ ${#obsolete[@]} -ne 0 ]]; then
-    "${CYDIA_LIBEXEC}/cydo" --purge --force-all "${obsolete[@]}" || true
-fi
+function hyphenate() {
+    local value=$1 result= character index
+    for ((index = 0; index < ${#value}; ++index)); do
+        character=${value:index:1}
+        if [[ ${character} == [[:upper:]] ]]; then
+            [[ -n ${result} ]] && result+=-
+            result+=$(lower <<<"${character}")
+        else
+            result+=${character}
+        fi
+    done
+    printf '%s\n' "${result}"
+}
 
 if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
     pseudo "firmware" "${version}" "almost impressive Apple frameworks" "iOS Firmware"
@@ -91,7 +102,17 @@ if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
         sleep 1
     done
 
-    while read -r name value; do case "${name}" in
+    gssc_pattern='^[[:space:]]+([^[:space:]]+)[[:space:]]*=[[:space:]]*([0-9.]+);$'
+    while IFS= read -r line; do
+        [[ ${line} =~ ${gssc_pattern} ]] || continue
+        name=${BASH_REMATCH[1]}
+        value=${BASH_REMATCH[2]}
+        name=${name#\"}
+        name=${name%\"}
+        [[ ${value} == 0 ]] && continue
+        name=$(hyphenate "${name}")
+
+        case "${name}" in
         (ipad) for name in ipad wildcat; do
             pseudo "gsc.${name}" "${value}" "this device has a very large screen" "iPad"
         done;;
@@ -99,14 +120,8 @@ if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
         (*)
             pseudo "gsc.${name}" "${value}" "virtual GraphicsServices dependency"
             ;;
-    esac; done < <(echo "${gssc}" | sed -re '
-        /^    [^ ]* = [0-9.]*;$/ ! d;
-        s/^    ([^ ]*) = ([0-9.]*);$/\1 \2/;
-        s/([A-Z])/-\L\1/g;
-        s/^"([^ ]*)"/\1/;
-        s/^-//;
-        / 0$/ d;
-    ')
+        esac
+    done <<<"${gssc}"
 fi
 
 pseudo "cy+os.${os}" "${version}" "virtual operating system dependency"
@@ -123,13 +138,29 @@ pseudo "cy+kernel.$(lower <<<$(sysctl -n kern.ostype))" \
 pseudo "cy+lib.corefoundation" "$(${CYDIA_LIBEXEC}/cfversion)" \
     "virtual corefoundation dependency"
 
-"${CYDIA_LIBEXEC}/cydo" --install "${packages[@]}"
+"${CYDIA_DPKG}" --install "${packages[@]}"
+
+# Installing a replacement upgrades an existing synthetic package in place.
+# Only purge stale names after every replacement package has been built and
+# installed successfully, so a generator or disk failure cannot leave the
+# package database without its Essential firmware metadata.
+declare -a obsolete
+while IFS= read -r package; do
+    if [[ ${package} == firmware || ${package} == gsc.* || ${package} == cy+* ]]; then
+        is_replacement "${package}" || obsolete+=("${package}")
+    fi
+done < <("${CYDIA_DPKG_QUERY}" -W -f='${Package}\n' 2>/dev/null || true)
+
+if [[ ${#obsolete[@]} -ne 0 ]]; then
+    "${CYDIA_DPKG}" --purge --force-all "${obsolete[@]}"
+fi
 
 if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
     if [[ -z ${CYDIA_PREFIX} ]]; then
         if [[ ! -h /User && -d /User ]]; then
-            cp -afT /User /var/mobile
-        fi && rm -rf /User && ln -s "/var/mobile" /User
+            "${CYDIA_BSD_BIN}/cp" -a /User/. /var/mobile/
+        fi && "${CYDIA_BSD_BIN}/rm" -rf /User && \
+            "${CYDIA_BSD_BIN}/ln" -s "/var/mobile" /User
     fi
 
     echo 6 >"${CYDIA_STATE}/firmware.ver"
