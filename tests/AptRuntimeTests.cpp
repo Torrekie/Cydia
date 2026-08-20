@@ -121,6 +121,19 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
     ExpectBootstrapConfiguration(configuration, "after initialization");
     ExpectArchitectures(configuration, {options.architecture, "iphoneos-foreign-test"},
                         "after initialization");
+    Expect(CydiaAPT::Architectures() ==
+               std::vector<std::string>({options.architecture, "iphoneos-foreign-test"}),
+           std::string(name) + " materialized architecture vector");
+    Expect(CydiaAPT::IsArchitectureSupported(options.architecture),
+           std::string(name) + " native architecture support");
+    Expect(CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test"),
+           std::string(name) + " foreign architecture support");
+    Expect(CydiaAPT::IsArchitectureSupported("all"),
+           std::string(name) + " Architecture: all support");
+    Expect(!CydiaAPT::IsArchitectureSupported("iphoneos-unsupported-test"),
+           std::string(name) + " unsupported architecture rejection");
+    Expect(!CydiaAPT::IsArchitectureSupported("any"),
+           std::string(name) + " dependency proxy is not a dpkg architecture");
 }
 
 } // namespace
@@ -137,13 +150,23 @@ bool pkgInitSystem(Configuration &configuration, pkgSystem *&system) {
     ++gSystemInitCalls;
     ExpectBootstrapConfiguration(configuration, "before pkgInitSystem");
     ExpectArchitectures(configuration, {}, "before pkgInitSystem");
-    /* Simulate libapt's selected debSystem querying the configured dpkg after
-     * pkgInitSystem. This must replace, not append to, the apt.conf sentinel. */
-    configuration.Set("APT::Architectures::0", gExpectedOptions->architecture);
-    configuration.Set("APT::Architectures::1", "iphoneos-foreign-test");
     system = &gTestSystem;
     return true;
 }
+
+namespace APT {
+namespace Configuration {
+
+std::vector<std::string> getArchitectures(bool cached) {
+    (void) cached;
+    Expect(_system == &gTestSystem,
+           std::string(gExpectedLayout) + " architecture discovery preceded pkgInitSystem");
+    return {gExpectedOptions->architecture, "iphoneos-foreign-test",
+            gExpectedOptions->architecture, "", "all", "any"};
+}
+
+} // namespace Configuration
+} // namespace APT
 
 int main() {
     const char *existingRoot(getenv("DPKG_ROOT"));
