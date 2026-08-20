@@ -10,6 +10,7 @@ APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
+APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
@@ -40,11 +41,12 @@ verify_size_sources += postinst.mm cfversion.mm
 # reviewed `apt_api_sources` manifest above.
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
-.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-package-paths verify-dpkg-runner verify-bootstrap-helpers
+.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
+.PHONY: verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-dpkg-runner verify-bootstrap-helpers verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -52,6 +54,17 @@ $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabase
 		tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-package-paths: $(PACKAGE_PATHS_TEST)
+	@$<
+
+$(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \
+		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
+		tests/apt-stubs/apt-pkg/configuration.h tests/apt-stubs/apt-pkg/init.h \
+		tests/apt-stubs/apt-pkg/pkgsystem.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Itests/apt-stubs -I. \
+		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/PackageDatabasePaths.cpp -o $@
+
+verify-apt-runtime: $(APT_RUNTIME_TEST)
 	@$<
 
 $(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp

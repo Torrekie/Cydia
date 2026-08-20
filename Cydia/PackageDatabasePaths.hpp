@@ -29,8 +29,11 @@ class PackageDatabasePaths {
     static const PackageDatabasePaths &Current();
 
     PackageDatabaseLayout layout() const;
+    const std::string &AptArchitecture() const;
     const std::string &DpkgStatusPath() const;
     const std::string &DpkgInfoDirectory() const;
+    const std::string &DpkgDataDirectory() const;
+    const std::string &DpkgExecutableSearchPath() const;
     const std::string &AptExtendedStatesPath() const;
     const std::string &AptListsDirectory() const;
     const std::string &AptConfigDirectory() const;
@@ -59,8 +62,11 @@ class PackageDatabasePaths {
 
   private:
     PackageDatabasePaths(PackageDatabaseLayout layout,
+                         const char *aptArchitecture,
                          const char *dpkgStatus,
                          const char *dpkgInfoDirectory,
+                         const char *dpkgDataDirectory,
+                         const char *dpkgExecutableSearchPath,
                          const char *aptExtendedStates,
                          const char *aptListsDirectory,
                          const char *aptConfigDirectory,
@@ -72,8 +78,11 @@ class PackageDatabasePaths {
                          const char *dpkgBinary);
 
     PackageDatabaseLayout layout_;
+    std::string aptArchitecture_;
     std::string dpkgStatusPath_;
     std::string dpkgInfoDirectory_;
+    std::string dpkgDataDirectory_;
+    std::string dpkgExecutableSearchPath_;
     std::string aptExtendedStatesPath_;
     std::string aptListsDirectory_;
     std::string aptConfigDirectory_;

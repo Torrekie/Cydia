@@ -15,7 +15,34 @@ namespace CydiaAPT {
 
 namespace {
 std::string gArchitecture;
+
+std::string JoinPath(const std::string &directory, const char *leaf) {
+    std::string path(directory);
+    path += '/';
+    path += leaf;
+    return path;
 }
+
+void ApplyBootstrapConfiguration(const InitializationOptions &options) {
+    /* pkgInitConfig supplies compile-time defaults and then reads apt.conf.
+     * Seed the selected bootstrap before that read, and call this again before
+     * pkgInitSystem so a config file cannot redirect system discovery to the
+     * other layout. */
+    _config->Set("APT::Architecture", options.architecture);
+    _config->Set("Dir::Etc", options.aptConfigDirectory);
+    _config->Set("Dir::Bin::Methods", options.methodsDirectory);
+    _config->Set("Dir::Cache", options.cacheDirectory);
+    _config->Set("Dir::State", options.stateDirectory);
+    _config->Set("Dir::State::Lists", options.listsDirectory);
+    _config->Set("Dir::State::status", options.dpkgStatusPath);
+    _config->Set("Dir::Log", options.logDirectory);
+    _config->Set("Dir::Bin::dpkg", options.dpkgPath);
+    _config->Set("Dir::dpkg::cputable", JoinPath(options.dpkgDataDirectory, "cputable"));
+    _config->Set("Dir::dpkg::tupletable", JoinPath(options.dpkgDataDirectory, "tupletable"));
+    _config->Set("Dir::dpkg::triplettable", JoinPath(options.dpkgDataDirectory, "triplettable"));
+    _config->Set("DPkg::Path", options.dpkgExecutableSearchPath);
+}
+} // namespace
 
 InitializationOptions::InitializationOptions() :
     maxParallel(0),
@@ -26,10 +53,11 @@ InitializationOptions::InitializationOptions() :
 }
 
 bool Initialize(const InitializationOptions &options, std::string *architecture) {
+    ApplyBootstrapConfiguration(options);
     if (!pkgInitConfig(*_config))
         return false;
 
-    _config->Set("Dir::Etc", options.aptConfigDirectory);
+    ApplyBootstrapConfiguration(options);
     if (!pkgInitSystem(*_config, _system))
         return false;
 
@@ -44,11 +72,6 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     _config->Set("Acquire::Languages", options.languages);
     if (options.maxParallel > 0)
         _config->Set("Acquire::http::MaxParallel", options.maxParallel);
-    _config->Set("Dir::Cache", options.cacheDirectory);
-    _config->Set("Dir::State", options.stateDirectory);
-    _config->Set("Dir::State::Lists", options.listsDirectory);
-    _config->Set("Dir::Log", options.logDirectory);
-    _config->Set("Dir::Bin::dpkg", options.dpkgPath);
 
     gArchitecture = _config->Find("APT::Architecture");
     if (architecture != NULL)
