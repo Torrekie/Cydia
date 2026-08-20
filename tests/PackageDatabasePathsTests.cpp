@@ -28,7 +28,7 @@ int main() {
     Expect(rootful.AptArchitecture() == "iphoneos-arm", "rootful APT architecture");
     Expect(rootful.DpkgStatusPath() == "/var/lib/dpkg/status", "rootful dpkg status path");
     Expect(rootful.DpkgDataDirectory() == "/usr/share/dpkg", "rootful dpkg data path");
-    Expect(rootful.DpkgExecutableSearchPath() == "/usr/sbin:/usr/bin:/sbin:/bin",
+    Expect(rootful.DpkgExecutableSearchPath() == "/bin:/usr/bin:/sbin:/usr/sbin",
            "rootful dpkg executable search path");
     Expect(rootful.AptListsDirectory() == "/var/lib/apt/lists", "rootful APT lists path");
     Expect(rootful.AptConfigDirectory() == "/etc/apt", "rootful APT configuration path");
@@ -46,13 +46,15 @@ int main() {
     Expect(rootful.DpkgBinaryPath() == "/usr/bin/dpkg", "rootful dpkg binary path");
     Expect(rootful.CydiaApplicationPath() == "/Applications/Cydia.app/Cydia", "rootful application path");
     Expect(rootful.CydiaApplicationDirectory() == "/Applications/Cydia.app", "rootful application directory");
+    Expect(rootful.RequiresLegacyUserMigration(false), "rootful missing /User requires migration");
+    Expect(!rootful.RequiresLegacyUserMigration(true), "rootful existing /User skips migration");
 
     const PackageDatabasePaths rootless(PackageDatabasePaths::ForLayout(PackageDatabaseLayout::Rootless));
     Expect(rootless.AptArchitecture() == "iphoneos-arm64", "rootless APT architecture");
     Expect(rootless.DpkgStatusPath() == "/var/jb/var/lib/dpkg/status", "rootless dpkg status path");
     Expect(rootless.DpkgDataDirectory() == "/var/jb/usr/share/dpkg", "rootless dpkg data path");
     Expect(rootless.DpkgExecutableSearchPath() ==
-               "/var/jb/usr/sbin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+               "/var/jb/bin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/usr/sbin:/bin:/usr/bin:/sbin:/usr/sbin",
            "rootless dpkg executable search path");
     Expect(rootless.AptListsDirectory() == "/var/jb/var/lib/apt/lists", "rootless APT lists path");
     Expect(rootless.AptConfigDirectory() == "/var/jb/etc/apt", "rootless APT configuration path");
@@ -70,6 +72,8 @@ int main() {
     Expect(rootless.DpkgBinaryPath() == "/var/jb/usr/bin/dpkg", "rootless dpkg binary path");
     Expect(rootless.CydiaApplicationPath() == "/var/jb/Applications/Cydia.app/Cydia", "rootless application path");
     Expect(rootless.CydiaApplicationDirectory() == "/var/jb/Applications/Cydia.app", "rootless application directory");
+    Expect(!rootless.RequiresLegacyUserMigration(false), "rootless install must not own /User migration");
+    Expect(!rootless.RequiresLegacyUserMigration(true), "rootless existing /User does not require migration");
     Expect(rootless.DpkgInfoFile("apt", ".list") == "/var/jb/var/lib/dpkg/info/apt.list", "rootless package info path");
 
     Expect(rootless.DpkgInfoFile("../apt", ".list").empty(), "reject package traversal");

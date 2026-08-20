@@ -8,7 +8,10 @@ if [[ ! -e "${CYDIA_STATE}/firmware.ver" ]]; then
     cache=
 fi
 
-"${CYDIA_LIBEXEC}/firmware.sh"
+if ! "${CYDIA_LIBEXEC}/firmware.sh"; then
+    echo "Cydia firmware maintenance failed; skipping AutoInstall" >&2
+    exit 1
+fi
 
 autoinstall=${CYDIA_AUTOINSTALL_DIR:-${CYDIA_PREFIX}/var/root/Media/Cydia/AutoInstall}
 debs=("${autoinstall}"/*.deb)

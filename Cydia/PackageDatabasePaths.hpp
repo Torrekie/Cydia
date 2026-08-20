@@ -63,6 +63,9 @@ class PackageDatabasePaths {
     std::string CydiaMetadataPath() const;
     std::string CydiaFirmwareVersionPath() const;
 
+    /* Rootless installs do not own the historical /User compatibility link. */
+    bool RequiresLegacyUserMigration(bool userDirectoryExists) const;
+
     /* Returns an empty string for an invalid package name or suffix. */
     std::string DpkgInfoFile(const char *packageName, const char *suffix) const;
 
