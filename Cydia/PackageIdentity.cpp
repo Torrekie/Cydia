@@ -19,6 +19,16 @@ bool PackageIdentity::valid() const {
         !routingName.empty() && !dpkgName.empty();
 }
 
+std::string BuildPackageRouteName(const std::string &baseName,
+                                  const std::string &packageArchitecture,
+                                  const std::string &nativeArchitecture) {
+    if (baseName.empty() || packageArchitecture.empty() || nativeArchitecture.empty())
+        return std::string();
+    if (packageArchitecture == nativeArchitecture || packageArchitecture == "all")
+        return baseName;
+    return baseName + ":" + packageArchitecture;
+}
+
 PackageIdentity BuildPackageIdentity(const std::string &baseName,
                                      const std::string &packageArchitecture,
                                      const std::string &versionArchitecture,
@@ -36,16 +46,13 @@ PackageIdentity BuildPackageIdentity(const std::string &baseName,
     identity.architectureIndependent = versionArchitecture == "all";
 
     identity.aptName = baseName + ":" + packageArchitecture;
-    if (packageArchitecture == nativeArchitecture ||
-        packageArchitecture == "all")
-        identity.routingName = baseName;
-    else
-        identity.routingName = identity.aptName;
+    identity.routingName = BuildPackageRouteName(baseName, packageArchitecture,
+                                                 nativeArchitecture);
 
-    const bool foreignPackage = packageArchitecture != nativeArchitecture &&
-        packageArchitecture != "all" && packageArchitecture != "any";
+    const bool foreignVersion = versionArchitecture != nativeArchitecture &&
+        versionArchitecture != "all";
     if (!identity.architectureIndependent &&
-        (multiArch == MultiArchMode::Same || foreignPackage))
+        (multiArch == MultiArchMode::Same || foreignVersion))
         identity.dpkgName = baseName + ":" + versionArchitecture;
     else
         identity.dpkgName = baseName;

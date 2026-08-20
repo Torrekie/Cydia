@@ -61,6 +61,14 @@ void ExpectBootstrapConfiguration(const Configuration &configuration, const char
     ExpectValue(configuration, "DPkg::Path", options.dpkgExecutableSearchPath, stage);
 }
 
+void ExpectArchitectures(const Configuration &configuration,
+                         const std::vector<std::string> &expected,
+                         const char *stage) {
+    const std::vector<std::string> actual(configuration.FindVector("APT::Architectures"));
+    if (actual != expected)
+        Fail(std::string(gExpectedLayout) + ' ' + stage + " architecture vector mismatch");
+}
+
 void OverrideBootstrapConfiguration(Configuration &configuration) {
     configuration.Set("APT::Architecture", "apt-conf-override");
     configuration.Set("Dir::Etc", "/apt-conf-override");
@@ -70,6 +78,7 @@ void OverrideBootstrapConfiguration(Configuration &configuration) {
     configuration.Set("Dir::dpkg::tupletable", "/apt-conf-override/tupletable");
     configuration.Set("Dir::dpkg::triplettable", "/apt-conf-override/triplettable");
     configuration.Set("DPkg::Path", "/apt-conf-override/bin");
+    configuration.Set("APT::Architectures::configured", "iphoneos-foreign-test");
 }
 
 CydiaAPT::InitializationOptions OptionsForLayout(
@@ -95,6 +104,7 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
         CydiaRuntime::PackageDatabasePaths::ForLayout(layout));
     const CydiaAPT::InitializationOptions options(OptionsForLayout(paths));
     Configuration configuration;
+    configuration.Set("APT::Architectures::stale", "stale-rootful-architecture");
     _config = &configuration;
     _system = NULL;
     gExpectedOptions = &options;
@@ -109,6 +119,7 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
     Expect(_system == &gTestSystem, std::string(name) + " selected package system");
     Expect(architecture == options.architecture, std::string(name) + " reported architecture");
     ExpectBootstrapConfiguration(configuration, "after initialization");
+    ExpectArchitectures(configuration, {"iphoneos-foreign-test"}, "after initialization");
 }
 
 } // namespace
@@ -116,6 +127,7 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
 bool pkgInitConfig(Configuration &configuration) {
     ++gConfigInitCalls;
     ExpectBootstrapConfiguration(configuration, "before pkgInitConfig");
+    ExpectArchitectures(configuration, {}, "before pkgInitConfig");
     OverrideBootstrapConfiguration(configuration);
     return true;
 }
@@ -123,6 +135,7 @@ bool pkgInitConfig(Configuration &configuration) {
 bool pkgInitSystem(Configuration &configuration, pkgSystem *&system) {
     ++gSystemInitCalls;
     ExpectBootstrapConfiguration(configuration, "before pkgInitSystem");
+    ExpectArchitectures(configuration, {"iphoneos-foreign-test"}, "before pkgInitSystem");
     system = &gTestSystem;
     return true;
 }

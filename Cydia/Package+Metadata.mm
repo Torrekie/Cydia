@@ -183,7 +183,9 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         CydiaAPT::PackageStateData state([database_ packageState:handle_]);
         if (!state.hasCurrent) {
             if (essential && essential_) {
-                return (selectedArchitecture_ == common_arch);
+                const char *architecture(selectedArchitecture_);
+                return architecture != NULL &&
+                    (strcmp(architecture, common_arch) == 0 || strcmp(architecture, "all") == 0);
             } else {
                 return false;
             }
