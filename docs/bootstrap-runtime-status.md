@@ -17,22 +17,22 @@ resume safely after context compaction.
 
 - Branch: `fix/bootstrap-runtime-compatibility`
 - Base: `77caf89` (`identity/cydia-refurbished`)
-- State: APT pre-initialization, helper/package hardening, planned dependency
-  diagnostics, and private service loading are committed; static exec-compat
-  and direct application BSD-tool migrations remain in progress.
+- State: implementation and host/artifact verification are complete. No package
+  was installed and no dpkg transaction was performed on the device.
 - Device inspected read-only: `root@192.168.1.8`, Remorix dpkg 1.23.7,
   APT 2.9.4, native architecture `iphoneos-arm64`.
 
 ## Planned commits
 
 - [x] Seed APT architecture, dpkg paths/tables, and `DPkg::Path` before init.
-- [ ] Add static exec-compat integration without dylib load commands.
+- [x] Add static exec-compat integration without dylib load commands.
 - [x] Make root firmware and AutoInstall helper transactions failure-safe.
-- [ ] Resolve privileged BSD tools used directly by the application.
+- [x] Resolve privileged BSD tools used directly by the application.
 - [x] Generate correct rooted/rootless package triggers and dependencies.
 - [x] Diagnose planned dependency versions.
 - [x] Load SpringBoardServices explicitly and safely.
-- [ ] Complete Make, package, artifact, and device verification.
+- [x] Complete Make, package, artifact, simulator, and read-only device
+  verification.
 
 ## Confirmed runtime policy
 
@@ -42,26 +42,46 @@ resume safely after context compaction.
   configured administrative database).
 - Rootless BSD `cp`, `ln`, and `rm` are under `/var/jb/bin`.
 - Rootless file triggers use literal `/var/jb/...` paths.
-- Installed librecompat does not interpose native `exec*` automatically; static
-  consumers must opt into the libiosexec API at build time.
+- APT and maintainer-script search paths put bootstrap BSD `/bin` before
+  `/usr/bin`; GNU coreutils/findutils remain explicitly `g*` commands.
+- Canonical helper shebangs remain unchanged. `cydo` opts into the statically
+  embedded libiosexec API, which performs the Remorix `/var/jb` interpreter
+  redirect without a compatibility dylib or added rpath.
+- The static archive is pinned to libiosexec commit
+  `9953dfb10a92415301dbb9cf2f79e4a01591c708` and contains only `execv.c`,
+  `get_new_argv.c`, and `utils.c`. Librecompat is not linked.
+- Firmware pseudo-package cleanup is ownership-scoped. Cydia records generated
+  package names and an ownership marker, and never purges unrelated Procursus
+  or Remorix `firmware`, `gsc.*`, or `cy+*` packages.
 
 ## Verification completed
 
+- `make --no-print-directory -j6 verify`
+- `make --no-print-directory -j6 PACKAGE_LAYOUT=rootless verify`
+- Rootful and rootless `build/bin/MobileCydia` links.
+- An x86_64 iOS Simulator `MobileCydia` link with deployment target 12.0.
 - `make --no-print-directory verify-bootstrap-helpers`
 - `/bin/bash -n Library/package-paths.sh Library/startup Library/firmware.sh`
-- Rootless package build plus
-  `scripts/verify-package-artifacts.sh rootless ...`
-- Rootful package build plus
-  `scripts/verify-package-artifacts.sh rootful ...`
-- Targeted AptBackend and PrivateServices object builds.
-- `make --no-print-directory verify-apt-api-inventory verify-static`
-- `make --no-print-directory verify-package-paths verify-apt-runtime`
-- Targeted iOS 12 AptRuntime, PackageDatabasePaths, and MobileCydia objects.
+- Rooted `iphoneos-arm` and rootless `iphoneos-arm64` package builds, followed
+  by `scripts/verify-package-artifacts.sh` for each layout.
+- Both extracted package copies of `cydo` pass
+  `scripts/verify-exec-compat.sh binary`: embedded `_ie_execv` and
+  `_ie_execve`, no unresolved `_ie_*`, no libiosexec/librecompat load command,
+  no `LC_RPATH`, and minimum iOS 12.0.
+- Package controls carry epoch `1`, `Cydia Refurbished`, Torrekie as
+  Maintainer, and Jay Freeman as Author; `cydia-lproj` retains
+  `Cydia Translations`.
+- Read-only device inspection confirmed Remorix's dpkg/APT architecture and
+  paths, Essential Bash/librecompat packages, BSD tool locations, and the
+  installed dpkg's own statically embedded libiosexec symbols.
 
 ## Remaining risks
 
-- Determine the exact static archive closure and license-compatible build path
-  for libiosexec/librecompat before changing cydo linkage.
-- Test canonical shebang execution through the statically integrated caller.
+- The embedded APT source remains the inherited, reproducible but
+  `legacy-unverified` fork. Its separate compatibility/update policy and canary
+  lane remain required before changing the pin.
+- Host tests prove canonical shebang rewriting and package binaries prove the
+  static link. A harmless authorized Cydia-to-cydo execution should still be
+  exercised during an approved rootless-device install test.
 - Do not perform package installation or destructive dpkg transactions on the
   device without separate approval.
