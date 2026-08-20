@@ -93,6 +93,11 @@ check_control() {
 check_control "$cydia" cydia "Cydia Refurbished"
 check_control "$lproj" cydia-lproj "Cydia Translations"
 
+depends=$(dpkg-deb -f "$cydia" Depends)
+printf '%s\n' "$depends" | tr ',' '\n' | \
+    grep -E '^[[:space:]]*bash([[:space:](]|$)' >/dev/null || \
+    fail "cydia package does not declare its Bash runtime dependency"
+
 cydia_paths=$temporary/cydia.paths
 lproj_paths=$temporary/lproj.paths
 dpkg-deb --fsys-tarfile "$cydia" | tar -tf - | sed 's@^\./@@' >"$cydia_paths"
@@ -150,6 +155,26 @@ launchd=$data_directory/${prefix:+$prefix/}Library/LaunchDaemons/com.saurik.Cydi
 expected_launch_path=/${prefix:+$prefix/}usr/libexec/cydia/startup
 grep -F "$expected_launch_path" "$launchd" >/dev/null ||
     fail "launch daemon does not use $expected_launch_path"
+expected_launch_shell=/${prefix:+$prefix/}bin/bash
+grep -F "$expected_launch_shell" "$launchd" >/dev/null ||
+    fail "launch daemon does not use $expected_launch_shell"
+
+expected_trigger_prefix=/${prefix:+$prefix/}
+grep -Fx "interest-noawait ${expected_trigger_prefix}Applications" \
+    "$control_directory/triggers" >/dev/null || \
+    fail "package has the wrong Applications trigger for $layout"
+grep -Fx "interest-noawait ${expected_trigger_prefix}Library/Themes" \
+    "$control_directory/triggers" >/dev/null || \
+    fail "package has the wrong themes trigger for $layout"
+
+expected_shebang='#!/bin/bash'
+[ "$(sed -n '1p' "$control_directory/preinst")" = "$expected_shebang" ] ||
+    fail "preinst shebang was rewritten"
+for helper in firmware.sh package-paths.sh startup; do
+    helper_path=$data_directory/${prefix:+$prefix/}usr/libexec/cydia/$helper
+    [ "$(sed -n '1p' "$helper_path")" = "$expected_shebang" ] ||
+        fail "$helper shebang was rewritten"
+done
 
 icon=$(dpkg-deb -f "$cydia" Icon)
 expected_icon="file:///${prefix:+$prefix/}Applications/Cydia.app/Icon-60.png"
@@ -157,4 +182,4 @@ expected_icon="file:///${prefix:+$prefix/}Applications/Cydia.app/Icon-60.png"
 
 echo "[verify-package][ ok ] $layout cydia and translation archives"
 echo "[verify-package][ ok ] architecture $architecture, prefix /${prefix}"
-echo "[verify-package][ ok ] maintainer files and launchd path"
+echo "[verify-package][ ok ] dependencies, canonical shebangs, triggers, and launchd paths"

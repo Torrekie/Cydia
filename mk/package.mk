@@ -27,7 +27,10 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	cp -a LaunchDaemons $(CYDIA_STAGE_ROOT)/Library/LaunchDaemons
 	@if test -n "$(PACKAGE_PREFIX)"; then \
 		file=$(CYDIA_STAGE_ROOT)/Library/LaunchDaemons/com.saurik.Cydia.Startup.plist; \
-		sed 's@/usr/libexec/cydia@$(PACKAGE_PREFIX)/usr/libexec/cydia@g' "$$file" >"$$file.tmp"; \
+		sed \
+			-e 's@/bin/bash@$(PACKAGE_PREFIX)/bin/bash@g' \
+			-e 's@/usr/libexec/cydia@$(PACKAGE_PREFIX)/usr/libexec/cydia@g' \
+			"$$file" >"$$file.tmp"; \
 		mv -f "$$file.tmp" "$$file"; \
 	fi
 
@@ -48,7 +51,12 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 
 	mkdir -p $(CYDIA_STAGE)/DEBIAN
 	CYDIA_PACKAGE_EPOCH=$(PACKAGE_EPOCH) ./control.sh cydia.control $(CYDIA_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(CYDIA_STAGE)/DEBIAN/control
-	cp -a preinst triggers $(CYDIA_STAGE)/DEBIAN/
+	cp -a preinst $(CYDIA_STAGE)/DEBIAN/
+	@if test -n "$(PACKAGE_PREFIX)"; then \
+		sed 's@ /@ $(PACKAGE_PREFIX)/@g' triggers >$(CYDIA_STAGE)/DEBIAN/triggers; \
+	else \
+		cp -a triggers $(CYDIA_STAGE)/DEBIAN/triggers; \
+	fi
 	cp -a $(POSTINST_BINARY) $(CYDIA_STAGE)/DEBIAN/postinst
 
 	@commit_epoch="$$(git log -1 --no-patch --format='%ct' 2>/dev/null || true)"; \
