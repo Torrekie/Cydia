@@ -17,7 +17,8 @@ resume safely after context compaction.
 
 - Branch: `fix/bootstrap-runtime-compatibility`
 - Base: `77caf89` (`identity/cydia-refurbished`)
-- State: implementation started; no behavioral fix committed yet.
+- State: root helper transaction hardening implemented and covered by a
+  failure-ordering fixture; APT/static-link slices remain in progress.
 - Device inspected read-only: `root@192.168.1.8`, Remorix dpkg 1.23.7,
   APT 2.9.4, native architecture `iphoneos-arm64`.
 
@@ -25,7 +26,8 @@ resume safely after context compaction.
 
 - [ ] Seed APT architecture, dpkg paths/tables, and `DPkg::Path` before init.
 - [ ] Add static exec-compat integration without dylib load commands.
-- [ ] Resolve privileged BSD tools and harden root helper transactions.
+- [x] Make root firmware and AutoInstall helper transactions failure-safe.
+- [ ] Resolve privileged BSD tools used directly by the application.
 - [ ] Generate correct rooted/rootless package triggers and dependencies.
 - [ ] Diagnose planned dependency versions.
 - [ ] Load SpringBoardServices explicitly and safely.
@@ -41,6 +43,11 @@ resume safely after context compaction.
 - Rootless file triggers use literal `/var/jb/...` paths.
 - Installed librecompat does not interpose native `exec*` automatically; static
   consumers must opt into the libiosexec API at build time.
+
+## Verification completed
+
+- `make --no-print-directory verify-bootstrap-helpers`
+- `/bin/bash -n Library/package-paths.sh Library/startup Library/firmware.sh`
 
 ## Remaining risks
 

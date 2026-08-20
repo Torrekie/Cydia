@@ -40,11 +40,11 @@ verify_size_sources += postinst.mm cfversion.mm
 # reviewed `apt_api_sources` manifest above.
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
-.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-package-paths verify-dpkg-runner
+.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-package-paths verify-dpkg-runner verify-bootstrap-helpers
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-dpkg-runner verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-dpkg-runner verify-bootstrap-helpers verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -61,6 +61,9 @@ $(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRu
 
 verify-dpkg-runner: $(DPKG_RUNNER_TEST)
 	@$<
+
+verify-bootstrap-helpers:
+	@tests/BootstrapHelpersTests.sh
 
 verify-apt: verify-apt-provenance verify-apt-sources verify-apt-config
 
