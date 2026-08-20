@@ -15,6 +15,7 @@ APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
+PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -49,14 +50,14 @@ verify_size_sources += postinst.mm cfversion.mm
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
-.PHONY: verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers
+.PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers
 .PHONY: verify-regex-arc
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -64,6 +65,14 @@ $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabase
 		tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-package-paths: $(PACKAGE_PATHS_TEST)
+	@$<
+
+$(PACKAGE_IDENTITY_TEST): tests/PackageIdentityTests.cpp Cydia/PackageIdentity.cpp Cydia/AptCompatibility.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
+		tests/PackageIdentityTests.cpp Cydia/PackageIdentity.cpp -o $@
+
+verify-package-identity: $(PACKAGE_IDENTITY_TEST)
 	@$<
 
 $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \

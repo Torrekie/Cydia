@@ -32,6 +32,39 @@ struct PackageHandle {
     bool valid() const { return value != 0; }
 };
 
+enum class MultiArchMode {
+    None,
+    Same,
+    Foreign,
+    Allowed,
+};
+
+/* Cydia keeps presentation, APT cache, and dpkg command identities separate.
+ * A native package retains its historical unqualified route, while foreign
+ * package instances are architecture-qualified and therefore cannot alias the
+ * native row.  dpkgName follows dpkg's non-ambiguous binary-package naming
+ * rules, including the qualifier required by native Multi-Arch: same records.
+ */
+struct PackageIdentity {
+    std::string baseName;
+    std::string packageArchitecture;
+    std::string versionArchitecture;
+    std::string aptName;
+    std::string routingName;
+    std::string dpkgName;
+    MultiArchMode multiArch;
+    bool architectureIndependent;
+
+    PackageIdentity();
+    bool valid() const;
+};
+
+PackageIdentity BuildPackageIdentity(const std::string &baseName,
+                                     const std::string &packageArchitecture,
+                                     const std::string &versionArchitecture,
+                                     const std::string &nativeArchitecture,
+                                     MultiArchMode multiArch);
+
 struct SourceHandle {
     std::uint32_t value;
 
@@ -145,6 +178,8 @@ struct PackageStateData {
 
 struct PackageSnapshot {
     PackageHandle handle;
+    PackageIdentity identity;
+    PackageIdentity installedIdentity;
     PackageRecordData record;
     PackageStateData state;
     std::string identifier;

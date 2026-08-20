@@ -55,6 +55,7 @@ the installed crash report.
   arm64 device/x86_64 simulator object builds pass.
 - BigBoss icons dependency removal: implemented and verified in rooted and
   rootless archives; Cydia's bundled `unknown.png` remains the fallback.
-- Multi-Arch identity implementation: pending.
+- Multi-Arch identity boundary: implemented with separate route, APT, and dpkg
+  names; Objective-C model/operation propagation is pending.
 - Rooted/rootless artifacts: pending.
 - Updated real-device launch proof: pending.
