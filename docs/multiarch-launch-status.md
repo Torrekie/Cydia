@@ -19,7 +19,7 @@ the Make verification targets.
 
 ## Launch blocker
 
-The installed `1:1.1.36+177.gb684728` rootless package repeatedly traps during
+The installed `1:1.1.36+177.gb684728` rootless package repeatedly trapped during
 locale setup before APT initialization. Crash incident
 `E98F7BEF-B495-46E8-A318-6C9A10B6FFE8` resolves to RegEx replacement formatting
 for `%1$@%2$@`. `RegEx::operator->*` stored captured strings through
@@ -33,6 +33,22 @@ The exact rollback package is retained at:
 
 Its Cydia executable UUID is `F8C02EBB-A40F-3F54-96B8-FB2201BEF115`, matching
 the installed crash report.
+
+Three later first-launch failures were found only after that crash was removed:
+
+- firmware maintenance exited 127 because `dirname` was unavailable before the
+  helper had loaded the bootstrap PATH;
+- repeated dpkg-record scans and per-character `sed` processes exceeded the
+  20-second FrontBoard process-launch watchdog;
+- persisted `CYString` values borrowed storage from a temporary APT snapshot,
+  producing incident `61D6A43B-F769-493C-B919-A831502A2141` in
+  `-[Package installed]` after database loading began.
+
+Companion scripts now use shell path expansion, firmware ownership is indexed
+once, capability names are normalized without subprocesses, and every Package
+field retained beyond `PackageSnapshot` initialization is copied into its
+Package pool. Static verification rejects new non-owning `snapshot` string
+assignments.
 
 ## Planned checkpoints
 
@@ -79,5 +95,30 @@ the installed crash report.
   proxy route, and qualified status/error records. The APT runtime fixture also
   proves stale apt.conf vectors are discarded before selected-dpkg native and
   foreign discovery. No device dpkg architecture state is changed.
-- Rooted/rootless artifacts: pending.
-- Updated real-device launch proof: pending.
+- Rooted and rootless artifact verification passes for `iphoneos-arm` and
+  `iphoneos-arm64`. Both packages retain iOS 12.0, ARC, epoch `1`, bundled icon
+  fallbacks, and no `org.thebigboss.repo.icons` dependency.
+- Rootless package `1:1.1.36+190.gf5194a6` was hash-checked, installed with its
+  matching `cydia-lproj`, and launched on the recorded Remorix device. PID
+  `1089` remained unchanged through a 35-second home launch and subsequent
+  architecture-aware routes for `bash-builtins:iphoneos-arm64`,
+  `ncurses-base` (`Architecture: all`), and the cached foreign record
+  `com.mpg13.flashback:iphoneos-arm`. No crash report newer than the expected
+  pre-fix incident appeared.
+- The cold first launch completed firmware reconciliation in about 10 seconds,
+  wrote schema version 6, preserved 277 externally owned virtual packages, and
+  recorded only three newly generated Cydia-owned `gsc.*` packages. The live
+  dpkg foreign-architecture configuration remained untouched.
+
+## Remaining observations
+
+- Repository refresh on the test device still reports legacy runtime issues
+  unrelated to package identity: embedded APT invokes rootful
+  `/usr/bin/apt-key`, `lzma` compressor lookup fails, and one configured source
+  currently returns HTTP 403. Old indexes allowed route validation, but these
+  errors need a separate APT-method/tool-path follow-up before claiming a clean
+  online refresh.
+- No package install/remove transaction was initiated from the Cydia UI during
+  this goal. Resolver, relation, progress, and dpkg-identity behavior are
+  covered by disposable fixtures and compile checks; a future harmless device
+  transaction should retain its own rollback plan.

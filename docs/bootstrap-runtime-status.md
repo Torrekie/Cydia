@@ -17,8 +17,10 @@ resume safely after context compaction.
 
 - Branch: `fix/bootstrap-runtime-compatibility`
 - Base: `77caf89` (`identity/cydia-refurbished`)
-- State: implementation and host/artifact verification are complete. No package
-  was installed and no dpkg transaction was performed on the device.
+- State: implementation and host/artifact verification are complete. A later
+  rollback-protected multiarch validation installed a rootless Cydia candidate
+  and exercised the authorized Cydia-to-cydo helper path; see
+  `docs/multiarch-launch-status.md`.
 - Device inspected read-only: `root@192.168.1.8`, Remorix dpkg 1.23.7,
   APT 2.9.4, native architecture `iphoneos-arm64`.
 
@@ -74,14 +76,16 @@ resume safely after context compaction.
 - Read-only device inspection confirmed Remorix's dpkg/APT architecture and
   paths, Essential Bash/librecompat packages, BSD tool locations, and the
   installed dpkg's own statically embedded libiosexec symbols.
+- A subsequent rootless cold launch proved the canonical `#!/bin/bash` firmware
+  helper executes through cydo's static libiosexec integration, completes its
+  ownership-scoped reconciliation, and preserves bootstrap-owned virtual
+  packages.
 
 ## Remaining risks
 
 - The embedded APT source remains the inherited, reproducible but
   `legacy-unverified` fork. Its separate compatibility/update policy and canary
   lane remain required before changing the pin.
-- Host tests prove canonical shebang rewriting and package binaries prove the
-  static link. A harmless authorized Cydia-to-cydo execution should still be
-  exercised during an approved rootless-device install test.
-- Do not perform package installation or destructive dpkg transactions on the
-  device without separate approval.
+- Repository refresh still exposes separate rootless APT tool-path failures
+  (`apt-key` and `lzma`); those are recorded for a follow-up and are not covered
+  by the successful helper execution proof.
