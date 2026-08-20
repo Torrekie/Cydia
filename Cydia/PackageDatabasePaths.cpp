@@ -91,6 +91,19 @@ bool IsLeafName(const char *name) {
         strchr(name, '/') == NULL;
 }
 
+const char *BSDCommandLeaf(CydiaRuntime::BootstrapBSDCommand command) {
+    switch (command) {
+        case CydiaRuntime::BootstrapBSDCommand::Copy:
+            return "cp";
+        case CydiaRuntime::BootstrapBSDCommand::Link:
+            return "ln";
+        case CydiaRuntime::BootstrapBSDCommand::Remove:
+            return "rm";
+    }
+
+    return NULL;
+}
+
 } // namespace
 
 namespace CydiaRuntime {
@@ -269,6 +282,14 @@ std::string PackageDatabasePaths::BootstrapBinaryPath(const char *name) const {
     if (slash == std::string::npos)
         return std::string();
     return JoinPath(dpkgBinaryPath_.substr(0, slash), name);
+}
+
+std::string PackageDatabasePaths::BootstrapBSDCommandPath(BootstrapBSDCommand command) const {
+    const char *leaf(BSDCommandLeaf(command));
+    if (leaf == NULL)
+        return std::string();
+
+    return JoinPath(layout_ == PackageDatabaseLayout::Rootless ? "/var/jb/bin" : "/bin", leaf);
 }
 
 } // namespace CydiaRuntime

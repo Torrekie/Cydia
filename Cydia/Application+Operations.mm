@@ -223,11 +223,14 @@
                     }
 
                     std::vector<std::string> arguments;
-                    arguments.push_back("/bin/rm");
+                    arguments.push_back(paths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Remove));
                     arguments.push_back("-f");
                     arguments.insert(arguments.end(), files.begin(), files.end());
                     CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
-                    (void) runner.Run(arguments);
+                    const CydiaRuntime::Dpkg::Result result(runner.Run(arguments));
+                    if (!result.succeeded())
+                        NSLog(@"Unable to remove failed package scripts for %@ (kind=%d, code=%d, error=%d)",
+                              [broken id], static_cast<int>(result.kind), result.code, result.error);
                 }
 
                 [self resolve];

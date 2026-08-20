@@ -22,6 +22,7 @@ void Expect(bool condition, const char *message) {
 int main() {
     using CydiaRuntime::PackageDatabaseLayout;
     using CydiaRuntime::PackageDatabasePaths;
+    using CydiaRuntime::BootstrapBSDCommand;
 
     const PackageDatabasePaths rootful(PackageDatabasePaths::ForLayout(PackageDatabaseLayout::Rootful));
     Expect(rootful.AptArchitecture() == "iphoneos-arm", "rootful APT architecture");
@@ -35,6 +36,12 @@ int main() {
     Expect(rootful.CydiaMetadataPath() == "/var/lib/cydia/metadata.plist", "rootful Cydia metadata path");
     Expect(rootful.CydiaHelperPath("firmware.sh") == "/usr/libexec/cydia/firmware.sh", "rootful helper path");
     Expect(rootful.BootstrapBinaryPath("du") == "/usr/bin/du", "rootful bootstrap binary path");
+    Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Copy) == "/bin/cp",
+           "rootful BSD copy path");
+    Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Link) == "/bin/ln",
+           "rootful BSD link path");
+    Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Remove) == "/bin/rm",
+           "rootful BSD remove path");
     Expect(rootful.CydoPath() == "/usr/libexec/cydia/cydo", "rootful cydo path");
     Expect(rootful.DpkgBinaryPath() == "/usr/bin/dpkg", "rootful dpkg binary path");
     Expect(rootful.CydiaApplicationPath() == "/Applications/Cydia.app/Cydia", "rootful application path");
@@ -53,6 +60,12 @@ int main() {
     Expect(rootless.CydiaMetadataPath() == "/var/jb/var/lib/cydia/metadata.plist", "rootless Cydia metadata path");
     Expect(rootless.CydiaHelperPath("firmware.sh") == "/var/jb/usr/libexec/cydia/firmware.sh", "rootless helper path");
     Expect(rootless.BootstrapBinaryPath("du") == "/var/jb/usr/bin/du", "rootless bootstrap binary path");
+    Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Copy) == "/var/jb/bin/cp",
+           "rootless BSD copy path");
+    Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Link) == "/var/jb/bin/ln",
+           "rootless BSD link path");
+    Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Remove) == "/var/jb/bin/rm",
+           "rootless BSD remove path");
     Expect(rootless.CydoPath() == "/var/jb/usr/libexec/cydia/cydo", "rootless cydo path");
     Expect(rootless.DpkgBinaryPath() == "/var/jb/usr/bin/dpkg", "rootless dpkg binary path");
     Expect(rootless.CydiaApplicationPath() == "/var/jb/Applications/Cydia.app/Cydia", "rootless application path");
@@ -64,6 +77,8 @@ int main() {
     Expect(rootless.CydiaHelperPath("../firmware.sh").empty(), "reject helper traversal");
     Expect(rootless.CydiaHelperPath("").empty(), "reject empty helper name");
     Expect(rootless.BootstrapBinaryPath("../du").empty(), "reject bootstrap binary traversal");
+    Expect(rootless.BootstrapBSDCommandPath(static_cast<BootstrapBSDCommand>(-1)).empty(),
+           "reject unknown BSD command");
 
     std::cout << "[verify-paths][ ok ] rootful and rootless package paths are explicit" << std::endl;
     return 0;
