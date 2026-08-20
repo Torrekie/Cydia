@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Embedded APT provenance and reviewed source manifest.
 #
 # These values describe the exact baseline committed by the apt64 gitlink.  An

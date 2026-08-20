@@ -1,5 +1,9 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * APT lifetime and transaction ownership boundary.
+ * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
+ * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #include "Cydia/AptBackendInternal.hpp"
@@ -118,6 +122,38 @@ class SourceRegistry {
 };
 
 namespace {
+
+MultiArchMode GetMultiArchMode(pkgCache::VerIterator version) {
+    if (version.end())
+        return MultiArchMode::None;
+
+    switch (version->MultiArch & ~pkgCache::Version::All) {
+        case pkgCache::Version::Same:
+            return MultiArchMode::Same;
+        case pkgCache::Version::Foreign:
+            return MultiArchMode::Foreign;
+        case pkgCache::Version::Allowed:
+            return MultiArchMode::Allowed;
+        default:
+            return MultiArchMode::None;
+    }
+}
+
+PackageIdentity GetPackageIdentity(pkgCache::PkgIterator package,
+                                   pkgCache::VerIterator version,
+                                   const char *nativeArchitecture) {
+    if (package.end() || version.end() || nativeArchitecture == NULL)
+        return PackageIdentity();
+    return BuildPackageIdentity(package.Name(), package.Arch(), version.Arch(),
+                                nativeArchitecture, GetMultiArchMode(version));
+}
+
+std::string GetPackageRouteName(pkgCache::PkgIterator package) {
+    if (package.end() || package.Cache()->NativeArch() == NULL)
+        return std::string();
+    return BuildPackageRouteName(package.Name(), package.Arch(),
+                                 package.Cache()->NativeArch());
+}
 
 std::string RegistryKey(pkgCache::PkgIterator package, pkgCache::VerIterator version) {
     std::string key(package.Name());
@@ -272,16 +308,35 @@ PackageHandle AptBackend::packageHandle(const std::string &name, const std::stri
         return PackageHandle();
 
     pkgCache::PkgIterator package;
-    if (!preferredArchitecture.empty())
-        package = cache_->FindPkg(name, preferredArchitecture);
-    if (package.end())
-        package = cache_->FindPkg(name, "any");
-    if (package.end())
+    if (name.rfind(':') != std::string::npos)
         package = cache_->FindPkg(name);
+    else {
+        if (!preferredArchitecture.empty())
+            package = cache_->FindPkg(name, preferredArchitecture);
+        if (package.end())
+            package = cache_->FindPkg(name, "any");
+        if (package.end())
+            package = cache_->FindPkg(name);
+    }
     if (package.end())
         return PackageHandle();
 
-    return RegisterPackage(*packages_, package, cache_->GetCandidateVersion(package));
+    pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
+    const std::string::size_type qualifier(name.rfind(':'));
+    if (version.end() && qualifier != std::string::npos &&
+        name.compare(qualifier + 1, std::string::npos, "any") == 0) {
+        pkgCache::GrpIterator group(cache_->FindGrp(name.substr(0, qualifier)));
+        if (!group.end()) {
+            pkgCache::PkgIterator preferred(group.FindPreferredPkg(true));
+            pkgCache::VerIterator preferredVersion(cache_->GetCandidateVersion(preferred));
+            if (!preferred.end() && !preferredVersion.end()) {
+                package = preferred;
+                version = preferredVersion;
+            }
+        }
+    }
+
+    return RegisterPackage(*packages_, package, version);
 }
 
 std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
@@ -311,7 +366,7 @@ CydiaAPT::PackageRecordData AptBackend::recordData(PackageHandle handle) {
 
     static const char * const fieldNames[] = {
         "Architecture", "Icon", "Depiction", "Homepage", "Website", "Bugs",
-        "Support", "Author", "MD5sum", "Name", "Maemo-Display-Name", "Tag",
+        "Support", "Author", "MD5sum", "Multi-Arch", "Name", "Maemo-Display-Name", "Tag",
     };
     for (size_t index(0); index != sizeof(fieldNames) / sizeof(fieldNames[0]); ++index)
         data.fields[fieldNames[index]] = record.field(fieldNames[index]);
@@ -340,16 +395,21 @@ CydiaAPT::PackageSnapshot AptBackend::packageSnapshot(PackageHandle handle) {
     data.handle = handle;
     data.record = recordData(handle);
     data.state = packageState(handle);
-    data.identifier = entry->package.Name();
+    data.identity = GetPackageIdentity(entry->package, entry->version,
+                                       entry->package.Cache()->NativeArch());
+    data.identifier = data.identity.routingName;
     data.version = entry->version.VerStr();
-    data.architecture = entry->version.Arch();
+    data.architecture = data.identity.versionArchitecture;
     data.installedSize = entry->version->InstalledSize;
     if (const char *section = entry->version.Section())
         data.section = section;
 
     pkgCache::VerIterator installed(entry->package.CurrentVer());
-    if (!installed.end())
+    if (!installed.end()) {
         data.installedVersion = installed.VerStr();
+        data.installedIdentity = GetPackageIdentity(entry->package, installed,
+                                                    entry->package.Cache()->NativeArch());
+    }
 
     if (!entry->file.end()) {
         pkgCache::PkgFileIterator file(entry->file.File());
@@ -439,7 +499,7 @@ std::vector<RelationData> AptBackend::relations(PackageHandle handle) {
         relation.relationship = first.DepType();
         for (;;) {
             RelationClauseData clause;
-            clause.package = first.TargetPkg().Name();
+            clause.package = GetPackageRouteName(first.TargetPkg());
             if (const char *version = first.TargetVer()) {
                 clause.comparison = first.CompType();
                 clause.version = version;
@@ -491,15 +551,18 @@ TransactionData AptBackend::transactionData() {
         if (entry == NULL)
             continue;
 
-        const std::string name(entry->package.Name());
+        PackageIdentity identity(GetPackageIdentity(entry->package, entry->version,
+                                                     entry->package.Cache()->NativeArch()));
+        const std::string name(identity.valid() ? identity.routingName :
+                                                  GetPackageRouteName(entry->package));
         const PackageStateData state(packageState(*handle));
 
         if (state.broken) {
             TransactionIssueData issue;
             issue.package = name;
 
-            pkgCache::VerIterator installed(entry->package.CurrentVer());
-            for (pkgCache::DepIterator dependency(installed.end() ? pkgCache::DepIterator() : installed.DependsList()); !dependency.end(); ) {
+            pkgCache::VerIterator planned(cache[entry->package].InstVerIter(cache));
+            for (pkgCache::DepIterator dependency(planned.end() ? pkgCache::DepIterator() : planned.DependsList()); !dependency.end(); ) {
                 pkgCache::DepIterator first;
                 pkgCache::DepIterator last;
                 dependency.GlobOr(first, last);
@@ -511,7 +574,7 @@ TransactionData AptBackend::transactionData() {
                 for (;;) {
                     TransactionClauseData clause;
                     pkgCache::PkgIterator target(first.TargetPkg());
-                    clause.package = target.end() ? std::string() : target.Name();
+                    clause.package = GetPackageRouteName(target);
                     if (const char *required = first.TargetVer()) {
                         clause.comparison = first.CompType();
                         clause.version = required;
@@ -520,10 +583,10 @@ TransactionData AptBackend::transactionData() {
                     if (target.end() || target->ProvidesList != 0)
                         clause.reason = "missing";
                     else {
-                        pkgCache::VerIterator targetInstalled(target.CurrentVer());
-                        if (!targetInstalled.end()) {
+                        pkgCache::VerIterator targetPlanned(cache[target].InstVerIter(cache));
+                        if (!targetPlanned.end()) {
                             clause.reason = "installed";
-                            clause.installed = targetInstalled.VerStr();
+                            clause.installed = targetPlanned.VerStr();
                         } else if (!cache[target].CandidateVerIter(cache).end())
                             clause.reason = "uninstalled";
                         else if (target->ProvidesList == 0)

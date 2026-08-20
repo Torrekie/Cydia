@@ -201,8 +201,11 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
     return [NSArray arrayWithObjects:
         @"applications",
         @"architecture",
+        @"aptId",
         @"author",
+        @"baseId",
         @"depiction",
+        @"dpkgId",
         @"essential",
         @"homepage",
         @"icon",
@@ -214,6 +217,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         @"maintainer",
         @"md5sum",
         @"mode",
+        @"multiArch",
         @"name",
         @"purposes",
         @"relations",
@@ -356,16 +360,26 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         installedSize_ = static_cast<size_t>(snapshot.installedSize);
         sourceFileID_ = snapshot.sourceFileID;
         hasSourceFile_ = snapshot.hasSourceFile;
-        selectedArchitecture_.set(NULL, snapshot.architecture);
+
+        // PackageSnapshot deliberately owns copies of APT data and dies at
+        // the end of this initializer. Persist every snapshot-backed string
+        // in the Package pool rather than retaining its temporary buffer.
+        selectedArchitecture_.set(pool_, snapshot.architecture);
+        baseId_.set(pool_, snapshot.identity.baseName);
+        aptId_.set(pool_, snapshot.identity.aptName);
+        dpkgId_.set(pool_, snapshot.identity.dpkgName);
+        if (snapshot.installedIdentity.valid())
+            installedDpkgId_.set(pool_, snapshot.installedIdentity.dpkgName);
+        multiArch_ = snapshot.identity.multiArch;
 
         _profile(Package$initWithHandle$Cache)
             const CydiaAPT::PackageRecordData &record(snapshot.record);
-            name_.set(NULL, record.displayName);
+            name_.set(pool_, record.displayName);
 
-            latest_.set(NULL, StripVersion_(snapshot.version.c_str()));
+            latest_.set(pool_, StripVersion_(snapshot.version.c_str()));
 
             if (!snapshot.installedVersion.empty())
-                installed_.set(NULL, StripVersion_(snapshot.installedVersion.c_str()));
+                installed_.set(pool_, StripVersion_(snapshot.installedVersion.c_str()));
         _end
 
         _profile(Package$initWithVersion$Transliterate) do {
@@ -469,7 +483,10 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
             if (!installed_.empty()) {
                 const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-                const std::string infoPath(paths.DpkgInfoFile(lower, ".list"));
+                const char *dpkgName(installedDpkgId_.empty() ?
+                    static_cast<const char *>(dpkgId_) :
+                    static_cast<const char *>(installedDpkgId_));
+                const std::string infoPath(paths.DpkgInfoFile(dpkgName, ".list"));
                 if (!infoPath.empty()) {
                     struct stat info;
                     if (stat(infoPath.c_str(), &info) != -1)

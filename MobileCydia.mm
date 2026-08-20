@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -33,7 +34,7 @@
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
-#include <launch.h>
+#include "Cydia/LaunchServices.h"
 
 #include <CoreGraphics/CoreGraphics.h>
 #include <Foundation/Foundation.h>
@@ -70,7 +71,7 @@
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <sys/mount.h>
-#include <sys/reboot.h>
+#include "Cydia/RebootCompat.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -985,7 +986,14 @@ int main(int argc, char *argv[]) {
     broken = nil;
 
     SaveConfig(nil);
-    (void) privileged.Run({"/bin/rm", "-f", packagePaths.CydiaMetadataPath()});
+    const CydiaRuntime::Dpkg::Result metadataRemoval(privileged.Run({
+        packagePaths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Remove),
+        "-f",
+        packagePaths.CydiaMetadataPath(),
+    }));
+    if (!metadataRemoval.succeeded())
+        NSLog(@"Unable to remove migrated Cydia metadata (kind=%d, code=%d, error=%d)",
+              static_cast<int>(metadataRemoval.kind), metadataRemoval.code, metadataRemoval.error);
     /* }}} */
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
@@ -995,10 +1003,18 @@ int main(int argc, char *argv[]) {
 
     NSString *firmwareVersionPath([NSString stringWithUTF8String:packagePaths.CydiaFirmwareVersionPath().c_str()]);
     int version([[NSString stringWithContentsOfFile:firmwareVersionPath] intValue]);
+    const bool needsUserMigration(packagePaths.RequiresLegacyUserMigration(access("/User", F_OK) == 0));
 
-    if (access("/User", F_OK) != 0 || version != 6) {
+    if (needsUserMigration || version != 6) {
         _trace();
-        (void) privileged.Run({packagePaths.CydiaHelperPath("firmware.sh")});
+        const CydiaRuntime::Dpkg::Result firmwareRefresh(privileged.Run({
+            packagePaths.CydiaHelperPath("firmware.sh"),
+        }));
+        if (!firmwareRefresh.succeeded()) {
+            NSLog(@"Cydia firmware maintenance failed (kind=%d, code=%d, error=%d)",
+                  static_cast<int>(firmwareRefresh.kind), firmwareRefresh.code, firmwareRefresh.error);
+            return 1;
+        }
         _trace();
     }
 
@@ -1009,8 +1025,17 @@ int main(int argc, char *argv[]) {
             _assert(errno == ENOENT);
     }
 
-    (void) privileged.Run({"/bin/ln", "-sf", [Cache("sources.list") UTF8String],
-                           packagePaths.CydiaSourcesListPath()});
+    const CydiaRuntime::Dpkg::Result sourceLink(privileged.Run({
+        packagePaths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Link),
+        "-sf",
+        [Cache("sources.list") UTF8String],
+        packagePaths.CydiaSourcesListPath(),
+    }));
+    if (!sourceLink.succeeded()) {
+        NSLog(@"Unable to install the Cydia sources link (kind=%d, code=%d, error=%d)",
+              static_cast<int>(sourceLink.kind), sourceLink.code, sourceLink.error);
+        return 1;
+    }
 
     /* APT Initialization {{{ */
     int64_t usermem(0);
@@ -1018,13 +1043,17 @@ int main(int argc, char *argv[]) {
     if (sysctlbyname("hw.usermem", &usermem, &size, NULL, 0) == -1)
         usermem = 0;
     CydiaAPT::InitializationOptions aptOptions;
+    aptOptions.architecture = packagePaths.AptArchitecture();
     aptOptions.aptConfigDirectory = packagePaths.AptConfigDirectory();
     aptOptions.methodsDirectory = packagePaths.CydiaApplicationDirectory();
     aptOptions.cacheDirectory = [Cache_ UTF8String];
     aptOptions.stateDirectory = [Cache_ UTF8String];
     aptOptions.listsDirectory = [Cache("lists") UTF8String];
     aptOptions.logDirectory = "/var/mobile/Library/Logs/Cydia";
+    aptOptions.dpkgStatusPath = packagePaths.DpkgStatusPath();
     aptOptions.dpkgPath = packagePaths.CydoPath();
+    aptOptions.dpkgDataDirectory = packagePaths.DpkgDataDirectory();
+    aptOptions.dpkgExecutableSearchPath = packagePaths.DpkgExecutableSearchPath();
     aptOptions.translation = translation == NULL ? std::string() : translation;
     aptOptions.languages = languages;
     aptOptions.maxParallel = usermem >= 384 * 1024 * 1024 ? 16 : 3;

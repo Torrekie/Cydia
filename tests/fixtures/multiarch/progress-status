@@ -1,0 +1,3 @@
+pmstatus:coinstallable-runtime:iphoneos-arm64:25:Preparing native instance
+pmstatus:coinstallable-runtime:iphoneos-arm:50:Preparing foreign instance
+pmerror:allowed-consumer:any:75:dependency failed: foreign detail

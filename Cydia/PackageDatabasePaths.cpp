@@ -1,6 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
- * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #include "Cydia/PackageDatabasePaths.hpp"
@@ -13,8 +13,11 @@
 namespace {
 
 struct PackageDatabaseLayoutValues {
+    const char *aptArchitecture;
     const char *dpkgStatus;
     const char *dpkgInfoDirectory;
+    const char *dpkgDataDirectory;
+    const char *dpkgExecutableSearchPath;
     const char *aptExtendedStates;
     const char *aptListsDirectory;
     const char *aptConfigDirectory;
@@ -27,8 +30,11 @@ struct PackageDatabaseLayoutValues {
 };
 
 const PackageDatabaseLayoutValues kRootfulLayout = {
+    "iphoneos-arm",
     "/var/lib/dpkg/status",
     "/var/lib/dpkg/info",
+    "/usr/share/dpkg",
+    "/bin:/usr/bin:/sbin:/usr/sbin",
     "/var/lib/apt/extended_states",
     "/var/lib/apt/lists",
     "/etc/apt",
@@ -41,8 +47,11 @@ const PackageDatabaseLayoutValues kRootfulLayout = {
 };
 
 const PackageDatabaseLayoutValues kRootlessLayout = {
+    "iphoneos-arm64",
     "/var/jb/var/lib/dpkg/status",
     "/var/jb/var/lib/dpkg/info",
+    "/var/jb/usr/share/dpkg",
+    "/var/jb/bin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/usr/sbin:/bin:/usr/bin:/sbin:/usr/sbin",
     "/var/jb/var/lib/apt/extended_states",
     "/var/jb/var/lib/apt/lists",
     "/var/jb/etc/apt",
@@ -82,13 +91,29 @@ bool IsLeafName(const char *name) {
         strchr(name, '/') == NULL;
 }
 
+const char *BSDCommandLeaf(CydiaRuntime::BootstrapBSDCommand command) {
+    switch (command) {
+        case CydiaRuntime::BootstrapBSDCommand::Copy:
+            return "cp";
+        case CydiaRuntime::BootstrapBSDCommand::Link:
+            return "ln";
+        case CydiaRuntime::BootstrapBSDCommand::Remove:
+            return "rm";
+    }
+
+    return NULL;
+}
+
 } // namespace
 
 namespace CydiaRuntime {
 
 PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
+                                           const char *aptArchitecture,
                                            const char *dpkgStatus,
                                            const char *dpkgInfoDirectory,
+                                           const char *dpkgDataDirectory,
+                                           const char *dpkgExecutableSearchPath,
                                            const char *aptExtendedStates,
                                            const char *aptListsDirectory,
                                            const char *aptConfigDirectory,
@@ -99,8 +124,11 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *cydo,
                                            const char *dpkgBinary) :
     layout_(layout),
+    aptArchitecture_(aptArchitecture),
     dpkgStatusPath_(dpkgStatus),
     dpkgInfoDirectory_(dpkgInfoDirectory),
+    dpkgDataDirectory_(dpkgDataDirectory),
+    dpkgExecutableSearchPath_(dpkgExecutableSearchPath),
     aptExtendedStatesPath_(aptExtendedStates),
     aptListsDirectory_(aptListsDirectory),
     aptConfigDirectory_(aptConfigDirectory),
@@ -115,7 +143,8 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
 
 PackageDatabasePaths PackageDatabasePaths::ForLayout(PackageDatabaseLayout layout) {
     const PackageDatabaseLayoutValues &values(ValuesForLayout(layout));
-    return PackageDatabasePaths(layout, values.dpkgStatus, values.dpkgInfoDirectory, values.aptExtendedStates,
+    return PackageDatabasePaths(layout, values.aptArchitecture, values.dpkgStatus, values.dpkgInfoDirectory,
+                                values.dpkgDataDirectory, values.dpkgExecutableSearchPath, values.aptExtendedStates,
                                 values.aptListsDirectory,
                                 values.aptConfigDirectory, values.cydiaStateDirectory,
                                 values.packageLibraryDirectory, values.cydiaLibexecDirectory,
@@ -148,12 +177,24 @@ PackageDatabaseLayout PackageDatabasePaths::layout() const {
     return layout_;
 }
 
+const std::string &PackageDatabasePaths::AptArchitecture() const {
+    return aptArchitecture_;
+}
+
 const std::string &PackageDatabasePaths::DpkgStatusPath() const {
     return dpkgStatusPath_;
 }
 
 const std::string &PackageDatabasePaths::DpkgInfoDirectory() const {
     return dpkgInfoDirectory_;
+}
+
+const std::string &PackageDatabasePaths::DpkgDataDirectory() const {
+    return dpkgDataDirectory_;
+}
+
+const std::string &PackageDatabasePaths::DpkgExecutableSearchPath() const {
+    return dpkgExecutableSearchPath_;
 }
 
 const std::string &PackageDatabasePaths::AptExtendedStatesPath() const {
@@ -217,6 +258,10 @@ std::string PackageDatabasePaths::CydiaFirmwareVersionPath() const {
     return JoinPath(cydiaStateDirectory_, "firmware.ver");
 }
 
+bool PackageDatabasePaths::RequiresLegacyUserMigration(bool userDirectoryExists) const {
+    return layout_ == PackageDatabaseLayout::Rootful && !userDirectoryExists;
+}
+
 std::string PackageDatabasePaths::DpkgInfoFile(const char *packageName, const char *suffix) const {
     if (packageName == NULL || suffix == NULL || packageName[0] == '\0' || suffix[0] != '.' ||
         strchr(packageName, '/') != NULL || strchr(suffix, '/') != NULL)
@@ -241,6 +286,14 @@ std::string PackageDatabasePaths::BootstrapBinaryPath(const char *name) const {
     if (slash == std::string::npos)
         return std::string();
     return JoinPath(dpkgBinaryPath_.substr(0, slash), name);
+}
+
+std::string PackageDatabasePaths::BootstrapBSDCommandPath(BootstrapBSDCommand command) const {
+    const char *leaf(BSDCommandLeaf(command));
+    if (leaf == NULL)
+        return std::string();
+
+    return JoinPath(layout_ == PackageDatabaseLayout::Rootless ? "/var/jb/bin" : "/bin", leaf);
 }
 
 } // namespace CydiaRuntime

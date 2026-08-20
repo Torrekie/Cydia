@@ -1,7 +1,7 @@
 Package: cydia-lproj
 Priority: required
 Section: Packaging
-Maintainer: Jay Freeman (saurik) <saurik@saurik.com>
+Maintainer: Torrekie <me@torrekie.dev>
 Architecture: iphoneos-arm
 Version: 
 Conflicts: org.thebigboss.russiancydia

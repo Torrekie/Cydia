@@ -1,6 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
- * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #ifndef Cydia_PackageDatabasePaths_HPP
@@ -22,6 +22,18 @@ enum class PackageDatabaseLayout {
     Rootless,
 };
 
+/*
+ * The bootstrap supplies the BSD implementations of these commands in
+ * /bin.  GNU coreutils may coexist under g-prefixed names, so privileged
+ * callers select the command by purpose instead of constructing an
+ * executable path from an arbitrary filename.
+ */
+enum class BootstrapBSDCommand {
+    Copy,
+    Link,
+    Remove,
+};
+
 class PackageDatabasePaths {
   public:
     static PackageDatabasePaths ForLayout(PackageDatabaseLayout layout);
@@ -29,8 +41,11 @@ class PackageDatabasePaths {
     static const PackageDatabasePaths &Current();
 
     PackageDatabaseLayout layout() const;
+    const std::string &AptArchitecture() const;
     const std::string &DpkgStatusPath() const;
     const std::string &DpkgInfoDirectory() const;
+    const std::string &DpkgDataDirectory() const;
+    const std::string &DpkgExecutableSearchPath() const;
     const std::string &AptExtendedStatesPath() const;
     const std::string &AptListsDirectory() const;
     const std::string &AptConfigDirectory() const;
@@ -48,6 +63,9 @@ class PackageDatabasePaths {
     std::string CydiaMetadataPath() const;
     std::string CydiaFirmwareVersionPath() const;
 
+    /* Rootless installs do not own the historical /User compatibility link. */
+    bool RequiresLegacyUserMigration(bool userDirectoryExists) const;
+
     /* Returns an empty string for an invalid package name or suffix. */
     std::string DpkgInfoFile(const char *packageName, const char *suffix) const;
 
@@ -57,10 +75,16 @@ class PackageDatabasePaths {
     /* Returns a tool supplied by the selected bootstrap's /usr/bin. */
     std::string BootstrapBinaryPath(const char *name) const;
 
+    /* Returns a BSD system command from /bin or the rootless /var/jb/bin. */
+    std::string BootstrapBSDCommandPath(BootstrapBSDCommand command) const;
+
   private:
     PackageDatabasePaths(PackageDatabaseLayout layout,
+                         const char *aptArchitecture,
                          const char *dpkgStatus,
                          const char *dpkgInfoDirectory,
+                         const char *dpkgDataDirectory,
+                         const char *dpkgExecutableSearchPath,
                          const char *aptExtendedStates,
                          const char *aptListsDirectory,
                          const char *aptConfigDirectory,
@@ -72,8 +96,11 @@ class PackageDatabasePaths {
                          const char *dpkgBinary);
 
     PackageDatabaseLayout layout_;
+    std::string aptArchitecture_;
     std::string dpkgStatusPath_;
     std::string dpkgInfoDirectory_;
+    std::string dpkgDataDirectory_;
+    std::string dpkgExecutableSearchPath_;
     std::string aptExtendedStatesPath_;
     std::string aptListsDirectory_;
     std::string aptConfigDirectory_;

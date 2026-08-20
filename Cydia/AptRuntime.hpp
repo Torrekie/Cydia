@@ -1,5 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Stable startup configuration boundary for the embedded APT runtime.
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #ifndef Cydia_AptRuntime_HPP
@@ -10,13 +12,17 @@
 namespace CydiaAPT {
 
 struct InitializationOptions {
+    std::string architecture;
     std::string aptConfigDirectory;
     std::string methodsDirectory;
     std::string cacheDirectory;
     std::string stateDirectory;
     std::string listsDirectory;
     std::string logDirectory;
+    std::string dpkgStatusPath;
     std::string dpkgPath;
+    std::string dpkgDataDirectory;
+    std::string dpkgExecutableSearchPath;
     std::string translation;
     std::string languages;
     int maxParallel;

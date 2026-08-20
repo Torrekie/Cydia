@@ -2,6 +2,11 @@
 
 # /usr/bin \
 
+case ${BASH_SOURCE[0]} in
+    */*) cydia_free_dir=${BASH_SOURCE[0]%/*} ;;
+    *) cydia_free_dir=. ;;
+esac
+
 for dir in \
     /Applications \
     /Library/Wallpaper \
@@ -9,7 +14,9 @@ for dir in \
     /usr/include \
     /usr/share \
 ; do
-    . "$(dirname "${BASH_SOURCE[0]}")/move.sh" "$@" "${dir}"
+    . "${cydia_free_dir}/move.sh" "$@" "${dir}"
 done
+
+unset cydia_free_dir
 
 sync

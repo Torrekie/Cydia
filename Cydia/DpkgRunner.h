@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
- * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Small, shell-free boundary for invoking the device package manager.  APT
  * owns package-manager policy; this type only owns process construction and
@@ -9,6 +10,7 @@
 #ifndef Cydia_DpkgRunner_H
 #define Cydia_DpkgRunner_H
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -67,13 +69,23 @@ class Runner {
                      const std::string &outputPath,
                      int statusFd = -1) const;
 
+    /* Capture a bounded stdout payload while continuing to drain the child if
+     * it exceeds the limit. This is intended for stable dpkg-query output,
+     * not transaction progress streams. */
+    Result RunAndCapture(const std::vector<std::string> &arguments,
+                         std::string *output,
+                         std::size_t maxBytes = 4 * 1024 * 1024,
+                         int statusFd = -1) const;
+
     static std::string DefaultPath(Executable executable);
 
   private:
     Result RunInternal(const std::vector<std::string> &arguments,
                        int statusFd,
                        const std::string *input,
-                       const std::string *outputPath) const;
+                       const std::string *outputPath,
+                       std::string *capturedOutput,
+                       std::size_t maxCapturedBytes) const;
 };
 
 } // namespace Dpkg

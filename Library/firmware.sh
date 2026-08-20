@@ -1,51 +1,103 @@
 #!/bin/bash
+# Modified work Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 set -e
 
 shopt -s extglob
 shopt -s nullglob
 
-. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+case ${BASH_SOURCE[0]} in
+    */*) cydia_firmware_dir=${BASH_SOURCE[0]%/*} ;;
+    *) cydia_firmware_dir=. ;;
+esac
+. "${cydia_firmware_dir}/package-paths.sh"
+unset cydia_firmware_dir
+export PATH=${CYDIA_BOOTSTRAP_PATH}
 
-version=$(sw_vers -productVersion)
-cpu=$(uname -p)
-
-if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
-    model=hw.machine
-    os=ios
-else
-    model=hw.model
-    os=macosx
-fi
-
-model=$(sysctl -n "${model}")
-
-if [[ ${CYDIA_PREFIX} == /var/jb ]]; then
-    arch=iphoneos-arm64
-else
-    arch=iphoneos-arm
-fi
-
-if [[ ${cpu} != arm && ${cpu} != arm64 ]]; then
-    arch=cydia
-fi
+readonly firmware_owner='cydia-refurbished.torrekie.dev/v1'
+readonly firmware_manifest_name='firmware-packages.list'
+firmware_tmp=
+firmware_manifest_tmp=
 
 function lower() {
     sed -e 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'
 }
 
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/cydia-firmware.XXXXXX")
-trap 'rm -rf "${tmp}"' EXIT
+function contains_name() {
+    local expected=$1 candidate
+    shift
+    for candidate in "$@"; do
+        [[ ${candidate} == "${expected}" ]] && return 0
+    done
+    return 1
+}
 
-declare -a packages
+function valid_package_name() {
+    [[ $1 =~ ^[a-z0-9][a-z0-9+.-]*$ ]]
+}
+
+function hyphenate() {
+    local value=$1 result= character index
+    for ((index = 0; index < ${#value}; ++index)); do
+        character=${value:index:1}
+        case ${character} in
+            A) character=a ;; B) character=b ;; C) character=c ;;
+            D) character=d ;; E) character=e ;; F) character=f ;;
+            G) character=g ;; H) character=h ;; I) character=i ;;
+            J) character=j ;; K) character=k ;; L) character=l ;;
+            M) character=m ;; N) character=n ;; O) character=o ;;
+            P) character=p ;; Q) character=q ;; R) character=r ;;
+            S) character=s ;; T) character=t ;; U) character=u ;;
+            V) character=v ;; W) character=w ;; X) character=x ;;
+            Y) character=y ;; Z) character=z ;;
+            *) result+=${character}; continue ;;
+        esac
+        [[ -n ${result} ]] && result+=-
+        result+=${character}
+    done
+    printf '%s\n' "${result}"
+}
+
+# Read the installed package database once. A failed query is fatal: treating
+# an unreadable database as an empty one could overwrite bootstrap-owned
+# virtual packages.
+function inspect_package() {
+    local expected=$1
+    package_installed=0
+    package_owned=0
+    if [[ ${installed_package_index} == *$'\n'"${expected}"$'\n'* ]]; then
+        package_installed=1
+    fi
+    if [[ ${owned_package_index} == *$'\n'"${expected}"$'\n'* ]]; then
+        package_owned=1
+    fi
+}
+
+# Index the database snapshot once. Shell pattern matching keeps lookups fast
+# on both the system Bash 3 used by macOS verification and modern bootstrap
+# Bash, without requiring hundreds of repeated line-by-line scans at launch.
+function index_installed_packages() {
+    local package status owner
+    installed_package_index=$'\n'
+    owned_package_index=$'\n'
+
+    while IFS='|' read -r package status owner; do
+        [[ ${status} == 'install ok installed' ]] || continue
+        installed_package_index+=${package}$'\n'
+        if [[ ${owner} == "${firmware_owner}" ]]; then
+            owned_package_index+=${package}$'\n'
+        fi
+    done <"${installed_snapshot}"
+}
 
 # Generate an empty package and let dpkg own its status/database bookkeeping.
-# This deliberately avoids writing status or info files directly: those files
-# are an implementation detail that changes across dpkg releases.
+# The ownership marker is retained by dpkg and prevents a stale manifest from
+# granting ownership over a package supplied by the bootstrap.
 function pseudo() {
     local package=$1 version=$2 description=$3 name=$4
-    local root=${tmp}/${package}
-    local deb=${tmp}/${package}.deb
+    local root=${firmware_tmp}/${package}
+    local deb=${firmware_tmp}/${package}.deb
 
     mkdir -p "${root}/DEBIAN"
     {
@@ -57,8 +109,9 @@ function pseudo() {
         echo "Architecture: ${arch}"
         echo "Version: ${version}"
         echo "Description: ${description}"
-        echo "Maintainer: Jay Freeman (saurik) <saurik@saurik.com>"
+        echo "Maintainer: Torrekie <me@torrekie.dev>"
         echo "Tag: role::cydia"
+        echo "X-Cydia-Firmware-Owner: ${firmware_owner}"
         [[ -n ${name} ]] && echo "Name: ${name}"
     } >"${root}/DEBIAN/control"
 
@@ -66,22 +119,131 @@ function pseudo() {
     packages+=("${deb}")
 }
 
-# Remove only the synthetic packages managed by this helper.  The package
-# manager, rather than a hand-written status parser, decides how removal is
-# represented in its current database format.
-declare -a obsolete
-while IFS= read -r package; do
-    if [[ ${package} == firmware || ${package} == gsc.* || ${package} == cy+* ]]; then
-        obsolete+=("${package}")
+# A missing virtual package is safe to create. An installed package is safe to
+# update only when it carries Cydia's ownership marker. Exact-name collisions
+# from Procursus or another bootstrap are deliberately preserved.
+function ensure_pseudo() {
+    local package=$1 version=$2 description=$3 name=$4
+    if [[ ${desired_name_index} != *$'\n'"${package}"$'\n'* ]]; then
+        desired_names+=("${package}")
+        desired_name_index+=${package}$'\n'
     fi
-done < <("${CYDIA_DPKG_QUERY}" -W -f='${Package}\n' 2>/dev/null || true)
 
-if [[ ${#obsolete[@]} -ne 0 ]]; then
-    "${CYDIA_LIBEXEC}/cydo" --purge --force-all "${obsolete[@]}" || true
-fi
+    inspect_package "${package}"
+    if [[ ${package_installed} == 1 && ${package_owned} != 1 ]]; then
+        preserved_external_count=$((preserved_external_count + 1))
+        return 0
+    fi
 
-if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
-    pseudo "firmware" "${version}" "almost impressive Apple frameworks" "iOS Firmware"
+    pseudo "${package}" "${version}" "${description}" "${name}"
+    if [[ ${next_managed_name_index} != *$'\n'"${package}"$'\n'* ]]; then
+        next_managed_names+=("${package}")
+        next_managed_name_index+=${package}$'\n'
+    fi
+}
+
+function write_managed_manifest() {
+    local package
+    firmware_manifest_tmp=$(mktemp "${CYDIA_STATE}/.${firmware_manifest_name}.XXXXXX")
+    for package in "${next_managed_names[@]}"; do
+        printf '%s\n' "${package}" >>"${firmware_manifest_tmp}"
+    done
+    "${CYDIA_BSD_BIN}/mv" -f "${firmware_manifest_tmp}" "${managed_manifest}"
+    firmware_manifest_tmp=
+}
+
+function write_firmware_version() {
+    local version_tmp
+    version_tmp=$(mktemp "${CYDIA_STATE}/.firmware.ver.XXXXXX")
+    if ! printf '6\n' >"${version_tmp}" ||
+       ! "${CYDIA_BSD_BIN}/mv" -f "${version_tmp}" "${CYDIA_STATE}/firmware.ver"; then
+        "${CYDIA_BSD_BIN}/rm" -f "${version_tmp}"
+        return 1
+    fi
+}
+
+function migrate_user_directory() {
+    local user_path=$1 mobile_path=$2
+
+    [[ -h ${user_path} ]] && return 0
+    if [[ -d ${user_path} ]]; then
+        if ! "${CYDIA_BSD_BIN}/cp" -a "${user_path}/." "${mobile_path}/"; then
+            return 1
+        fi
+    fi
+    if ! "${CYDIA_BSD_BIN}/rm" -rf "${user_path}"; then
+        return 1
+    fi
+    "${CYDIA_BSD_BIN}/ln" -s "${mobile_path}" "${user_path}"
+}
+
+# Kept separate so the failure ordering can be exercised without touching the
+# host's real /User path. Production always supplies /User and /var/mobile.
+function finalize_firmware_state() {
+    local user_path=$1 mobile_path=$2
+    if [[ -z ${CYDIA_PREFIX} ]]; then
+        migrate_user_directory "${user_path}" "${mobile_path}" || return 1
+    fi
+    write_firmware_version
+}
+
+function cleanup_firmware_temporary_files() {
+    if [[ -n ${firmware_manifest_tmp} ]]; then
+        "${CYDIA_BSD_BIN}/rm" -f "${firmware_manifest_tmp}"
+    fi
+    if [[ -n ${firmware_tmp} ]]; then
+        "${CYDIA_BSD_BIN}/rm" -rf "${firmware_tmp}"
+    fi
+}
+
+function firmware_main() {
+    local version model gssc line name value package status owner arch cpu
+    local managed_manifest installed_snapshot package_installed package_owned
+    local preserved_external_count=0
+    local installed_package_index=$'\n' owned_package_index=$'\n'
+    local desired_name_index=$'\n' next_managed_name_index=$'\n'
+
+    version=$(sw_vers -productVersion)
+    arch=$("${CYDIA_DPKG}" --print-architecture)
+    case "${arch}" in
+        iphoneos-arm)
+            cpu=arm
+            ;;
+        iphoneos-arm64)
+            cpu=arm64
+            ;;
+        *)
+            echo "Unsupported dpkg architecture for Cydia firmware packages: ${arch}" >&2
+            return 1
+            ;;
+    esac
+    model=$(sysctl -n hw.machine)
+
+    mkdir -p "${CYDIA_STATE}"
+    managed_manifest=${CYDIA_STATE}/${firmware_manifest_name}
+    firmware_tmp=$(mktemp -d "${TMPDIR:-/tmp}/cydia-firmware.XXXXXX")
+    installed_snapshot=${firmware_tmp}/installed-packages
+    trap cleanup_firmware_temporary_files EXIT
+
+    declare -a packages
+    declare -a desired_names
+    declare -a managed_names
+    declare -a next_managed_names
+    declare -a obsolete_names
+
+    if [[ -e ${managed_manifest} ]]; then
+        while IFS= read -r package || [[ -n ${package} ]]; do
+            if valid_package_name "${package}" && ! contains_name "${package}" "${managed_names[@]}"; then
+                managed_names+=("${package}")
+            fi
+        done <"${managed_manifest}"
+    fi
+
+    "${CYDIA_DPKG_QUERY}" -W \
+        -f='${Package}|${Status}|${X-Cydia-Firmware-Owner}\n' >"${installed_snapshot}"
+    index_installed_packages
+
+    ensure_pseudo "firmware" "${version}" "almost impressive Apple frameworks" "iOS Firmware"
 
     while [[ 1 ]]; do
         gssc=$(gssc 2>&1)
@@ -91,46 +253,75 @@ if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
         sleep 1
     done
 
-    while read -r name value; do case "${name}" in
-        (ipad) for name in ipad wildcat; do
-            pseudo "gsc.${name}" "${value}" "this device has a very large screen" "iPad"
-        done;;
+    gssc_pattern='^[[:space:]]+([^[:space:]]+)[[:space:]]*=[[:space:]]*([0-9.]+);$'
+    while IFS= read -r line; do
+        [[ ${line} =~ ${gssc_pattern} ]] || continue
+        name=${BASH_REMATCH[1]}
+        value=${BASH_REMATCH[2]}
+        name=${name#\"}
+        name=${name%\"}
+        [[ ${value} == 0 ]] && continue
+        name=$(hyphenate "${name}")
 
-        (*)
-            pseudo "gsc.${name}" "${value}" "virtual GraphicsServices dependency"
-            ;;
-    esac; done < <(echo "${gssc}" | sed -re '
-        /^    [^ ]* = [0-9.]*;$/ ! d;
-        s/^    ([^ ]*) = ([0-9.]*);$/\1 \2/;
-        s/([A-Z])/-\L\1/g;
-        s/^"([^ ]*)"/\1/;
-        s/^-//;
-        / 0$/ d;
-    ')
-fi
+        case "${name}" in
+            ipad)
+                for name in ipad wildcat; do
+                    ensure_pseudo "gsc.${name}" "${value}" \
+                        "this device has a very large screen" "iPad"
+                done
+                ;;
+            *)
+                ensure_pseudo "gsc.${name}" "${value}" \
+                    "virtual GraphicsServices dependency" ""
+                ;;
+        esac
+    done <<<"${gssc}"
 
-pseudo "cy+os.${os}" "${version}" "virtual operating system dependency"
-pseudo "cy+cpu.${cpu}" "0" "virtual CPU dependency"
+    ensure_pseudo "cy+os.iphoneos" "${version}" "virtual operating system dependency" ""
+    ensure_pseudo "cy+cpu.${cpu}" "0" "virtual CPU dependency" ""
 
-name=${model%%*([0-9]),*([0-9])}
-version=${model#${name}}
-name=$(lower <<<${name})
-version=${version/,/.}
-pseudo "cy+model.${name}" "${version}" "virtual model dependency"
+    name=${model%%*([0-9]),*([0-9])}
+    value=${model#${name}}
+    name=$(lower <<<"${name}")
+    value=${value/,/.}
+    ensure_pseudo "cy+model.${name}" "${value}" "virtual model dependency" ""
 
-pseudo "cy+kernel.$(lower <<<$(sysctl -n kern.ostype))" \
-    "$(sysctl -n kern.osrelease)" "virtual kernel dependency"
-pseudo "cy+lib.corefoundation" "$(${CYDIA_LIBEXEC}/cfversion)" \
-    "virtual corefoundation dependency"
+    name=$(lower <<<"$(sysctl -n kern.ostype)")
+    value=$(sysctl -n kern.osrelease)
+    ensure_pseudo "cy+kernel.${name}" "${value}" "virtual kernel dependency" ""
+    ensure_pseudo "cy+lib.corefoundation" "$("${CYDIA_LIBEXEC}/cfversion")" \
+        "virtual corefoundation dependency" ""
 
-"${CYDIA_LIBEXEC}/cydo" --install "${packages[@]}"
-
-if [[ ${cpu} == arm || ${cpu} == arm64 ]]; then
-    if [[ -z ${CYDIA_PREFIX} ]]; then
-        if [[ ! -h /User && -d /User ]]; then
-            cp -afT /User /var/mobile
-        fi && rm -rf /User && ln -s "/var/mobile" /User
+    if [[ ${preserved_external_count} -ne 0 ]]; then
+        echo "Preserved ${preserved_external_count} externally owned virtual packages" >&2
     fi
 
-    echo 6 >"${CYDIA_STATE}/firmware.ver"
+    if [[ ${#packages[@]} -ne 0 ]]; then
+        "${CYDIA_DPKG}" --install "${packages[@]}"
+    fi
+
+    # Only names from the durable manifest can become stale, and even those
+    # must still carry our marker before they may be removed. This prevents a
+    # later bootstrap takeover of the same name from being purged.
+    for package in "${managed_names[@]}"; do
+        contains_name "${package}" "${desired_names[@]}" && continue
+        inspect_package "${package}"
+        if [[ ${package_installed} == 1 && ${package_owned} == 1 ]]; then
+            obsolete_names+=("${package}")
+        fi
+    done
+
+    if [[ ${#obsolete_names[@]} -ne 0 ]]; then
+        "${CYDIA_DPKG}" --purge "${obsolete_names[@]}"
+    fi
+
+    # The manifest moves into place only after both package-manager operations
+    # succeed. Marker-based adoption makes a partially completed dpkg run safe
+    # to retry if dpkg itself changed some packages before returning failure.
+    write_managed_manifest
+    finalize_firmware_state /User /var/mobile
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    firmware_main "$@"
 fi

@@ -20,10 +20,26 @@ else
     flags=("$@")
 fi
 
-version=$(git describe --tags --match="v*" "${flags[@]}" | sed -e 's@-\([^-]*\)-\([^-]*\)$@+\1.\2@;s@^v@@;s@%@~@g')
+if [[ -n ${CYDIA_VERSION:-} ]]; then
+    version=${CYDIA_VERSION}
+else
+    version=$(git describe --tags --match="v*" "${flags[@]}" 2>/dev/null | \
+        sed -e 's@-\([^-]*\)-\([^-]*\)$@+\1.\2@;s@^v@@;s@%@~@g' || true)
+    if [[ -z ${version} ]]; then
+        version="0.0+git.$(git rev-parse --short=12 HEAD)"
+    fi
+fi
 
 if grep '#define ForRelease 0' MobileCydia.mm &>/dev/null; then
     version=${version}~srk
+fi
+
+# Keep the upstream/app version separate from Debian's epoch.  The package
+# control generator adds epoch 1, while Mach-O/CFBundle versions and package
+# filenames must remain colon-free.
+if [[ ${version} == *:* ]]; then
+    echo "version.sh: CYDIA_VERSION must not contain a Debian epoch; the package generator adds epoch 1" >&2
+    exit 2
 fi
 
 if [[ -n ${header} ]]; then

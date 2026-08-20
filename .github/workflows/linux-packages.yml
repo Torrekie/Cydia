@@ -1,0 +1,149 @@
+name: Linux packages
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-packages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IOS_SDK_COMMIT: 146e41ff2c292168388929e43c9b4de2f00e36b3
+  IOS_SDK_URL: https://github.com/theos/sdks/archive/146e41ff2c292168388929e43c9b4de2f00e36b3.zip
+  IOS_SDK_SHA256: c8181ad88131642d1366f10f8d5d84a67fd088f33e009da0f8c3c7d8fceb0b57
+  IOS_TOOLCHAIN_URL: https://github.com/L1ghtmann/llvm-project/releases/download/test-210562a/iOSToolchain-x86_64.tar.xz
+  IOS_TOOLCHAIN_SHA256: a72a7a577e2fbe2838b6b5e9c72034fa7d114af96f0e1d4b016f18730ce4056e
+  CYDIA_PACKAGE_BASE_VERSION: 1.1.36
+
+jobs:
+  package:
+    name: ${{ matrix.layout }} package
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        layout:
+          - rootful
+          - rootless
+
+    steps:
+      - name: Check out Cydia
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: false
+
+      - name: Check out reviewed submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config submodule.apt64.url https://git.bingner.com/apt.git
+          git config submodule.libiosexec.url https://github.com/Remorix/libiosexec.git
+          git submodule update --init apt64
+          git submodule update --init libiosexec
+
+          # The public fork has no release-tag refs. Keep CI candidates
+          # install-orderable without presenting them as a release.
+          echo "CYDIA_VERSION=${CYDIA_PACKAGE_BASE_VERSION}+git.$(git rev-parse --short=12 HEAD)" >>"$GITHUB_ENV"
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential ca-certificates curl dpkg-dev git libtinfo5 \
+            perl unzip xz-utils
+
+      - name: Restore iOS SDK and toolchain
+        id: ios-cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/cydia-ios-cross
+          key: cydia-ios-cross-${{ env.IOS_SDK_SHA256 }}-${{ env.IOS_TOOLCHAIN_SHA256 }}
+
+      - name: Download pinned iOS SDK and toolchain
+        if: steps.ios-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/cydia-ios-cross"
+          downloads="$RUNNER_TEMP/cydia-ios-downloads"
+          rm -rf "$root" "$downloads"
+          mkdir -p "$root/sdks" "$root/toolchain" "$downloads/sdk"
+
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+            --output "$downloads/sdk.zip" "$IOS_SDK_URL"
+          echo "$IOS_SDK_SHA256  $downloads/sdk.zip" | sha256sum --check --strict
+          unzip -q "$downloads/sdk.zip" -d "$downloads/sdk"
+          mv "$downloads/sdk/sdks-$IOS_SDK_COMMIT/iPhoneOS14.5.sdk" "$root/sdks/"
+
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+            --output "$downloads/toolchain.tar.xz" "$IOS_TOOLCHAIN_URL"
+          echo "$IOS_TOOLCHAIN_SHA256  $downloads/toolchain.tar.xz" | sha256sum --check --strict
+          tar -xJf "$downloads/toolchain.tar.xz" -C "$root/toolchain"
+
+      - name: Configure cross-compilation environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/cydia-ios-cross"
+          sdk="$root/sdks/iPhoneOS14.5.sdk"
+          tools="$root/toolchain/linux/iphone/bin"
+          test -f "$sdk/System/Library/Frameworks/UIKit.framework/Headers/UIKit.h"
+          for tool in clang++ llvm-ar llvm-nm otool strip ldid install_name_tool; do
+            test -x "$tools/$tool"
+          done
+          host_cxx=$(command -v g++ || command -v c++)
+          test -x "$host_cxx"
+          ldd "$tools/clang++" | tee "$RUNNER_TEMP/clang-ldd.txt"
+          if grep -F 'not found' "$RUNNER_TEMP/clang-ldd.txt"; then
+            exit 1
+          fi
+          echo "THEOS=$root" >>"$GITHUB_ENV"
+          echo "LINUX_TOOLCHAIN=$root/toolchain/linux/iphone" >>"$GITHUB_ENV"
+          echo "IOS_SDK=$sdk" >>"$GITHUB_ENV"
+          echo "ICU_INCLUDE_DIR=$sdk/usr/include" >>"$GITHUB_ENV"
+          echo "HOST_CXX=$host_cxx" >>"$GITHUB_ENV"
+
+      - name: Verify build policy
+        shell: bash
+        run: |
+          make --no-print-directory -j6 \
+            BUILD_DIR="build/linux-${{ matrix.layout }}" \
+            PACKAGE_LAYOUT="${{ matrix.layout }}" \
+            verify-static verify-package-paths verify-dpkg-runner verify-exec-compat
+
+      - name: Build ${{ matrix.layout }} packages
+        shell: bash
+        run: |
+          make --no-print-directory -j6 \
+            BUILD_DIR="build/linux-${{ matrix.layout }}" \
+            PACKAGE_LAYOUT="${{ matrix.layout }}" \
+            package
+
+      - name: Inspect package archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages="build/linux-${{ matrix.layout }}/packages"
+          scripts/verify-package-artifacts.sh "${{ matrix.layout }}" "$packages"
+          (cd "$packages" && sha256sum -- *.deb >SHA256SUMS)
+          cat "$packages/SHA256SUMS"
+
+      - name: Upload package candidates
+        uses: actions/upload-artifact@v7
+        with:
+          name: cydia-${{ matrix.layout }}-${{ github.sha }}
+          path: |
+            build/linux-${{ matrix.layout }}/packages/*.deb
+            build/linux-${{ matrix.layout }}/packages/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

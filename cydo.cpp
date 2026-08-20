@@ -31,11 +31,13 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#include <launch.h>
+#include "Cydia/LaunchServices.h"
 
 #include <sys/stat.h>
 
 #include <Menes/Function.h>
+
+#include "libiosexec/libiosexec.h"
 
 struct timeval _ltv;
 bool _itv;
@@ -163,7 +165,7 @@ int main(int argc, char *argv[]) {
                 return EX_UNAVAILABLE;
         }
         argv[0] = const_cast<char *>(dummy.c_str());
-        execv(argv[0], argv);
+        ie_execv(argv[0], argv);
         _assert(false);
     }
 
@@ -245,6 +247,6 @@ int main(int argc, char *argv[]) {
         ++argv;
     }
 
-    execv(argv[0], argv);
+    ie_execv(argv[0], argv);
     return EX_UNAVAILABLE;
 }

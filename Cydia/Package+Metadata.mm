@@ -183,7 +183,9 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         CydiaAPT::PackageStateData state([database_ packageState:handle_]);
         if (!state.hasCurrent) {
             if (essential && essential_) {
-                return (selectedArchitecture_ == common_arch);
+                const char *architecture(selectedArchitecture_);
+                return architecture != NULL && CydiaAPT::IsNativeOrArchitectureIndependent(
+                    architecture, common_arch == NULL ? std::string() : common_arch);
             } else {
                 return false;
             }
@@ -270,6 +272,33 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     return id_;
 }
 
+- (NSString *) baseId {
+    return baseId_;
+}
+
+- (NSString *) aptId {
+    return aptId_;
+}
+
+- (NSString *) dpkgId {
+    return installedDpkgId_.empty() ? (NSString *) dpkgId_ : (NSString *) installedDpkgId_;
+}
+
+- (NSString *) multiArch {
+    switch (multiArch_) {
+        case CydiaAPT::MultiArchMode::Same:
+            return @"same";
+        case CydiaAPT::MultiArchMode::Foreign:
+            return @"foreign";
+        case CydiaAPT::MultiArchMode::Allowed:
+            return @"allowed";
+        case CydiaAPT::MultiArchMode::None:
+            return @"no";
+    }
+
+    return @"no";
+}
+
 - (NSString *) name {
     return name_.empty() ? id_ : name_;
 }
@@ -297,7 +326,7 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (NSString *) depiction {
-    return parsed_ != NULL && !parsed_->depiction_.empty() ? parsed_->depiction_ : [[self source] depictionForPackage:id_];
+    return parsed_ != NULL && !parsed_->depiction_.empty() ? parsed_->depiction_ : [[self source] depictionForPackage:baseId_];
 }
 
 - (MIMEAddress *) author {
@@ -305,7 +334,7 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (NSString *) support {
-    return parsed_ != NULL && !parsed_->support_.empty() ? parsed_->support_ : [[self source] supportForPackage:id_];
+    return parsed_ != NULL && !parsed_->support_.empty() ? parsed_->support_ : [[self source] supportForPackage:baseId_];
 }
 
 

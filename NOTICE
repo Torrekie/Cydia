@@ -1,0 +1,40 @@
+Cydia Refurbished attribution notice
+====================================
+
+Cydia Refurbished is a maintained fork of Cydia.  It does not replace or
+remove the copyright notices attached to the work from which it was derived.
+
+Original Cydia work is attributed in the source to Jay Freeman (saurik),
+SaurikIT, LLC, and the other contributors identified by the original files.
+The 2018 modified work remains attributed to Sam Bingner (sbingner) and SB
+Designs, Inc.  The Debian package metadata preserves Jay Freeman as Author.
+
+Refurbishment, compatibility boundaries, dynamic appearance support,
+verification code, and Linux package CI added in 2026 are Copyright (C) 2026
+Torrekie.  A Torrekie notice applies only to those additions and modifications;
+it does not claim authorship of retained or mechanically extracted upstream
+Cydia code.  Files that contain both upstream and refurbished work keep the
+upstream notices and may identify the refurbished portion separately.
+
+Cydia and the refurbished project-owned additions are distributed under the
+GNU General Public License, version 3 or later; see COPYING.  Embedded APT has
+its own notices and license files under apt64.  The cydo helper statically
+embeds the reviewed execv.c, get_new_argv.c, and utils.c subset of Remorix
+libiosexec; its Procursus Team copyright and BSD 2-Clause terms are retained in
+libiosexec/LICENSE; its source classification is recorded by
+libiosexec/debian/copyright.  Both are copied into the package as
+LIBIOSEXEC-LICENSE and LIBIOSEXEC-COPYRIGHT.  The fallback declarations in
+Cydia/ICUTransliterator.h retain the Unicode/ICU permission notice in
+Cydia/ICU-LICENSE; the Torrekie notice covers only the compatibility wrapper.
+SDURLCache remains Copyright (c) 2010 Olivier Poitrey and is distributed under
+the license in SDURLCache/LICENCE.  Narrow Apple platform declarations in the
+compatibility wrappers retain their underlying platform provenance; the
+Torrekie notices cover the wrappers rather than ownership of those APIs. Other
+third-party files retain their own notices and licenses.
+
+Package identity
+----------------
+
+Author: Jay Freeman (saurik) <saurik@saurik.com>
+Maintainer: Torrekie <me@torrekie.dev>
+Name: Cydia Refurbished
