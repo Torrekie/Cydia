@@ -1,4 +1,4 @@
-$(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library LaunchDaemons -type f) cydia.control cydia.preferences NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL
+$(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library LaunchDaemons -type f) cydia.control cydia.preferences NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright
 	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia
@@ -8,6 +8,8 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	cp -a SDURLCache/LICENCE $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/SDURLCache-LICENCE
 	cp -a apt64/COPYING $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/APT-COPYING
 	cp -a apt64/COPYING.GPL $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/APT-COPYING.GPL
+	cp -a libiosexec/LICENSE $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/LIBIOSEXEC-LICENSE
+	cp -a libiosexec/debian/copyright $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/LIBIOSEXEC-COPYRIGHT
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/apt.conf.d
 	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/preferences.d

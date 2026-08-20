@@ -119,6 +119,8 @@ require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/ICU-LICENSE"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/SDURLCache-LICENCE"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/APT-COPYING"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/APT-COPYING.GPL"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/LIBIOSEXEC-LICENSE"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/LIBIOSEXEC-COPYRIGHT"
 grep -E "^${prefix:+$prefix/}Applications/Cydia[.]app/[^/]+[.]lproj/Localizable[.]strings$" \
     "$lproj_paths" >/dev/null || fail "translation package has no Localizable.strings"
 

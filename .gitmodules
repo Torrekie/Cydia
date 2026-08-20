@@ -4,3 +4,6 @@
 [submodule "apt64"]
 	path = apt64
 	url = git://git.bingner.com/apt.git
+[submodule "libiosexec"]
+	path = libiosexec
+	url = https://github.com/Remorix/libiosexec.git
