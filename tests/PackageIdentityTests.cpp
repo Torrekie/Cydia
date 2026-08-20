@@ -48,6 +48,12 @@ int main() {
     Require(all.architectureIndependent, "Architecture: all was not preserved");
     Require(all.routingName == "capability", "Architecture: all route is qualified");
     Require(all.dpkgName == "capability", "Architecture: all dpkg name is qualified");
+    Require(IsNativeOrArchitectureIndependent("all", native),
+            "Architecture: all Essential candidate was rejected");
+    Require(IsNativeOrArchitectureIndependent(native, native),
+            "native Essential candidate was rejected");
+    Require(!IsNativeOrArchitectureIndependent("iphoneos-arm", native),
+            "foreign Essential candidate was accepted as native");
 
     PackageIdentity allowed(BuildPackageIdentity("runtime", "iphoneos-arm", "iphoneos-arm",
                                                  native, MultiArchMode::Allowed));
