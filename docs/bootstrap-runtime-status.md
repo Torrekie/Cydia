@@ -28,7 +28,7 @@ resume safely after context compaction.
 - [ ] Add static exec-compat integration without dylib load commands.
 - [x] Make root firmware and AutoInstall helper transactions failure-safe.
 - [ ] Resolve privileged BSD tools used directly by the application.
-- [ ] Generate correct rooted/rootless package triggers and dependencies.
+- [x] Generate correct rooted/rootless package triggers and dependencies.
 - [ ] Diagnose planned dependency versions.
 - [ ] Load SpringBoardServices explicitly and safely.
 - [ ] Complete Make, package, artifact, and device verification.
@@ -48,6 +48,10 @@ resume safely after context compaction.
 
 - `make --no-print-directory verify-bootstrap-helpers`
 - `/bin/bash -n Library/package-paths.sh Library/startup Library/firmware.sh`
+- Rootless package build plus
+  `scripts/verify-package-artifacts.sh rootless ...`
+- Rootful package build plus
+  `scripts/verify-package-artifacts.sh rootful ...`
 
 ## Remaining risks
 
