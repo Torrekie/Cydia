@@ -92,6 +92,7 @@ verify-multiarch-fixture: $(MULTIARCH_FIXTURE_TEST)
 
 $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
+		tests/apt-stubs/apt-pkg/aptconfiguration.h \
 		tests/apt-stubs/apt-pkg/configuration.h tests/apt-stubs/apt-pkg/init.h \
 		tests/apt-stubs/apt-pkg/pkgsystem.h
 	@mkdir -p $(dir $@)
