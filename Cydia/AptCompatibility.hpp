@@ -74,6 +74,14 @@ std::string BuildPackageRouteName(const std::string &baseName,
 bool IsNativeOrArchitectureIndependent(const std::string &versionArchitecture,
                                        const std::string &nativeArchitecture);
 
+/* Repository records are visible only when their concrete version
+ * architecture is configured by the selected dpkg. A package with local dpkg
+ * state remains visible even if that architecture was later deconfigured, so
+ * the user can inspect, repair, or remove it. */
+bool IsPackageArchitectureVisible(const std::string &versionArchitecture,
+                                  bool hasLocalState,
+                                  const std::vector<std::string> &configuredArchitectures);
+
 struct SourceHandle {
     std::uint32_t value;
 
