@@ -137,4 +137,18 @@ bool IsArchitectureSupported(const std::string &architecture) {
             gArchitectures.end();
 }
 
+std::string SourceArchitectureOption() {
+    if (gArchitectures.empty())
+        return std::string();
+
+    std::string option("[arch=");
+    for (std::size_t index(0); index != gArchitectures.size(); ++index) {
+        if (index != 0)
+            option.push_back(',');
+        option.append(gArchitectures[index]);
+    }
+    option.push_back(']');
+    return option;
+}
+
 } // namespace CydiaAPT
