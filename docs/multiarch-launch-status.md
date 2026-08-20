@@ -69,5 +69,9 @@ the installed crash report.
   longer hidden, and startup clears only inherited architecture-vector state
   before reading the selected bootstrap so configured foreign architectures
   survive initialization.
+- Package-manager progress parsing now locates its numeric percent field rather
+  than treating every colon as a delimiter. Qualified `Multi-Arch: same`,
+  foreign, and `:any` package names therefore remain attached to status and
+  error events, including messages that themselves contain colons.
 - Rooted/rootless artifacts: pending.
 - Updated real-device launch proof: pending.

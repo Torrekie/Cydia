@@ -9,6 +9,7 @@
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/AptBackend.hpp"
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/DpkgStatusParser.hpp"
 #include "Cydia/Package.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PackageMetadata.hpp"
@@ -174,7 +175,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     std::string line;
 
     static RegEx conffile_r("status: [^ ]* : conffile-prompt : (.*?) *");
-    static RegEx pmstatus_r("([^:]*):([^:]*):([^:]*):(.*)");
 
     while (std::getline(is, line)) {
         @autoreleasepool {
@@ -194,30 +194,32 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
             // processing: configure: config-test
             CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 12)] ofType:kCydiaProgressEventTypeStatus]);
             [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-        } else if (pmstatus_r(data, size)) {
-            std::string type([pmstatus_r[1] UTF8String]);
+        } else {
+            CydiaRuntime::Dpkg::PackageManagerProgressRecord record;
+            if (!CydiaRuntime::Dpkg::ParsePackageManagerProgress(line, &record)) {
+                lprintf("E:unknown status\n");
+                continue;
+            }
 
-            NSString *package = pmstatus_r[2];
+            NSString *package = [NSString stringWithUTF8String:record.package.c_str()];
             if ([package isEqualToString:@"dpkg-exec"])
                 package = nil;
 
-            float percent([pmstatus_r[3] floatValue]);
-            [progress_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithFloat:(percent / 100)] waitUntilDone:YES];
+            [progress_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithDouble:(record.percent / 100)] waitUntilDone:YES];
 
-            NSString *string = pmstatus_r[4];
+            NSString *string = [NSString stringWithUTF8String:record.message.c_str()];
 
-            if (type == "pmerror") {
+            if (record.type == "pmerror") {
                 CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:kCydiaProgressEventTypeError forPackage:package]);
                 [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-            } else if (type == "pmstatus") {
+            } else if (record.type == "pmstatus") {
                 CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:kCydiaProgressEventTypeStatus forPackage:package]);
                 [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-            } else if (type == "pmconffile")
+            } else if (record.type == "pmconffile")
                 [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:string waitUntilDone:YES];
             else
                 lprintf("E:unknown pmstatus\n");
-        } else
-            lprintf("E:unknown status\n");
+        }
         }
     }
 
