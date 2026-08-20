@@ -24,10 +24,10 @@
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 
-#include <IOKit/IOKitLib.h>
 #include <objc/runtime.h>
 
 #include "CyteKit/CyteObject.h"
+#include "CyteKit/IOKitCompat.h"
 #include "CyteKit/WebViewController.h"
 #include "CyteKit/countByEnumeratingWithState.h"
 #include "CyteKit/extern.h"

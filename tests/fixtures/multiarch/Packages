@@ -1,0 +1,31 @@
+Package: native-runtime
+Version: 1.0
+Architecture: iphoneos-arm64
+Multi-Arch: no
+
+Package: independent-essential
+Version: 1.0
+Architecture: all
+Essential: yes
+Multi-Arch: foreign
+
+Package: coinstallable-runtime
+Version: 2.0
+Architecture: iphoneos-arm64
+Multi-Arch: same
+
+Package: coinstallable-runtime
+Version: 2.0
+Architecture: iphoneos-arm
+Multi-Arch: same
+
+Package: foreign-provider
+Version: 3.0
+Architecture: iphoneos-arm
+Multi-Arch: foreign
+
+Package: allowed-consumer
+Version: 4.0
+Architecture: iphoneos-arm64
+Multi-Arch: allowed
+Depends: coinstallable-runtime:any, foreign-provider:iphoneos-arm

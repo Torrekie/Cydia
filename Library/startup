@@ -1,23 +1,34 @@
 #!/bin/bash
 
 shopt -s nullglob
-. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
-export PATH=${CYDIA_BIN}:$PATH:/usr/sbin:/usr/bin:/sbin:/bin
+case ${BASH_SOURCE[0]} in
+    */*) cydia_startup_dir=${BASH_SOURCE[0]%/*} ;;
+    *) cydia_startup_dir=. ;;
+esac
+. "${cydia_startup_dir}/package-paths.sh"
+unset cydia_startup_dir
+export PATH=${CYDIA_BOOTSTRAP_PATH}
 
 if [[ ! -e "${CYDIA_STATE}/firmware.ver" ]]; then
     cache=
 fi
 
-"${CYDIA_LIBEXEC}/firmware.sh"
+if ! "${CYDIA_LIBEXEC}/firmware.sh"; then
+    echo "Cydia firmware maintenance failed; skipping AutoInstall" >&2
+    exit 1
+fi
 
-autoinstall=${CYDIA_AUTOINSTALL_DIR:-/var/root/Media/Cydia/AutoInstall}
+autoinstall=${CYDIA_AUTOINSTALL_DIR:-${CYDIA_PREFIX}/var/root/Media/Cydia/AutoInstall}
 debs=("${autoinstall}"/*.deb)
 if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
-    "${CYDIA_LIBEXEC}/cydo" -i "${debs[@]}" 2>/tmp/dpkg.log 1>&2
-    rm -f "${debs[@]}"
-    cache=
+    if "${CYDIA_DPKG}" -i "${debs[@]}" 2>/tmp/dpkg.log 1>&2; then
+        "${CYDIA_BSD_BIN}/rm" -f "${debs[@]}"
+        cache=
 
-    killall -9 Lowtide AppleTV
+        killall -9 Lowtide AppleTV
+    else
+        echo "Cydia AutoInstall failed; preserving packages for retry" >&2
+    fi
 fi
 
 if [[ ${cache+@} ]]; then

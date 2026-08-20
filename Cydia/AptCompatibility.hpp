@@ -1,5 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * APT API compatibility boundary owned by Cydia.
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 #ifndef Cydia_AptCompatibility_H
@@ -29,6 +31,48 @@ struct PackageHandle {
     explicit PackageHandle(std::uint32_t value = 0) : value(value) {}
     bool valid() const { return value != 0; }
 };
+
+enum class MultiArchMode {
+    None,
+    Same,
+    Foreign,
+    Allowed,
+};
+
+/* Cydia keeps presentation, APT cache, and dpkg command identities separate.
+ * A native package retains its historical unqualified route, while foreign
+ * package instances are architecture-qualified and therefore cannot alias the
+ * native row.  dpkgName follows dpkg's non-ambiguous binary-package naming
+ * rules, including the qualifier required by native Multi-Arch: same records.
+ */
+struct PackageIdentity {
+    std::string baseName;
+    std::string packageArchitecture;
+    std::string versionArchitecture;
+    std::string aptName;
+    std::string routingName;
+    std::string dpkgName;
+    MultiArchMode multiArch;
+    bool architectureIndependent;
+
+    PackageIdentity();
+    bool valid() const;
+};
+
+PackageIdentity BuildPackageIdentity(const std::string &baseName,
+                                     const std::string &packageArchitecture,
+                                     const std::string &versionArchitecture,
+                                     const std::string &nativeArchitecture,
+                                     MultiArchMode multiArch);
+
+/* Route names preserve explicit dependency proxy architectures such as :any,
+ * while retaining historical unqualified native and Architecture: all URLs. */
+std::string BuildPackageRouteName(const std::string &baseName,
+                                  const std::string &packageArchitecture,
+                                  const std::string &nativeArchitecture);
+
+bool IsNativeOrArchitectureIndependent(const std::string &versionArchitecture,
+                                       const std::string &nativeArchitecture);
 
 struct SourceHandle {
     std::uint32_t value;
@@ -143,6 +187,8 @@ struct PackageStateData {
 
 struct PackageSnapshot {
     PackageHandle handle;
+    PackageIdentity identity;
+    PackageIdentity installedIdentity;
     PackageRecordData record;
     PackageStateData state;
     std::string identifier;

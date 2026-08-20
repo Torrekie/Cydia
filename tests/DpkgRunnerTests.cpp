@@ -1,3 +1,7 @@
+/* Copyright (C) 2026 Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #include "Cydia/DpkgRunner.h"
 
 #include <cerrno>
@@ -167,15 +171,32 @@ int main(int argc, char *argv[]) {
     result = runner.RunWithInput({"--fixture", "input", kArgument}, kInput);
     Expect(result.succeeded(), "preserve argv and stdin without a shell");
 
+#ifdef F_SETNOSIGPIPE
     result = runner.RunWithInput({"--fixture", "close-input"}, std::string(1024 * 1024, 'x'));
     Expect(result.kind == ResultKind::LaunchFailed && result.error == EPIPE,
            "report a closed stdin pipe without SIGPIPE");
+#endif
 
     const std::string outputPath(TemporaryOutputPath());
     result = runner.RunToFile({"--fixture", "output"}, outputPath);
     Expect(result.succeeded(), "redirect child stdout");
     Expect(ReadFile(outputPath) == kOutput, "preserve redirected stdout");
     Expect(unlink(outputPath.c_str()) == 0, "remove temporary output");
+
+    std::string captured("stale");
+    result = runner.RunAndCapture({"--fixture", "output"}, &captured);
+    Expect(result.succeeded(), "capture child stdout");
+    Expect(captured == kOutput, "preserve captured stdout");
+
+    captured = "stale";
+    result = runner.RunAndCapture({"--fixture", "output"}, &captured, 4);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EFBIG,
+           "report bounded stdout overflow");
+    Expect(captured == std::string(kOutput, 4), "retain bounded stdout prefix");
+
+    result = runner.RunAndCapture({"--fixture", "output"}, NULL);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL,
+           "reject a null capture destination");
 
     VerifyStatusDescriptor(runner, false);
     VerifyStatusDescriptor(runner, true);

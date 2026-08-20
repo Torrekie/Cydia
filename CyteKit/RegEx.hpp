@@ -22,6 +22,9 @@
 #ifndef Cydia_RegEx_HPP
 #define Cydia_RegEx_HPP
 
+#include <limits>
+#include <vector>
+
 #include <unicode/uregex.h>
 
 #include "CyteKit/UCPlatform.h"
@@ -85,10 +88,12 @@ class RegEx {
 
     NSString *operator [](size_t match) const {
         UParseError error;
-        size_t size(size_);
-        UChar data[size];
-        size = _rgxcall(uregex_group, regex_, match, data, size);
-        return [[NSString alloc] initWithBytes:data length:(size * sizeof(UChar)) encoding:NSUTF16LittleEndianStringEncoding];
+        _assert(size_ <= static_cast<size_t>(std::numeric_limits<int32_t>::max()));
+        std::vector<UChar> data(size_ == 0 ? 1 : size_);
+        int32_t length(_rgxcall(uregex_group, regex_, match, data.data(), static_cast<int32_t>(size_)));
+        if (length < 0)
+            return @"";
+        return [[NSString alloc] initWithCharacters:reinterpret_cast<const unichar *>(data.data()) length:length];
     }
 
     _finline bool operator ()(NSString *string) {
@@ -121,7 +126,7 @@ class RegEx {
     }
 
     NSString *operator ->*(NSString *format) const {
-        id __unsafe_unretained values[capture_];
+        id __strong values[capture_];
         for (int i(0); i != capture_; ++i)
             values[i] = this->operator [](i + 1);
         return [NSString stringWithFormat:format :capture_ :values];

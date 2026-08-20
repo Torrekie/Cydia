@@ -1,9 +1,9 @@
-[submodule "SDURLCache"]
-	path = SDURLCache
-	url = https://github.com/SaurikIT/SDURLCache.git
 [submodule "icu"]
 	path = icu
 	url = git://git.saurik.com/apple/icu.git
 [submodule "apt64"]
 	path = apt64
 	url = git://git.bingner.com/apt.git
+[submodule "libiosexec"]
+	path = libiosexec
+	url = https://github.com/Remorix/libiosexec.git

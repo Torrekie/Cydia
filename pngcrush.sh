@@ -16,7 +16,20 @@ function step() {
     steps+=("$(wc -c < "${src}")")
 }
 
-pngcrush=$(xcode-select --print-path)/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush
+pngcrush=${PNGCRUSH:-}
+if [[ -z ${pngcrush} ]] && command -v xcode-select &>/dev/null; then
+    pngcrush=$(xcode-select --print-path 2>/dev/null)/Platforms/iPhoneOS.platform/Developer/usr/bin/pngcrush
+fi
+
+if [[ -z ${pngcrush} || ! -x ${pngcrush} ]]; then
+    if command -v pngcrush &>/dev/null; then
+        pngcrush=$(command -v pngcrush)
+    else
+        cp -fa "${png}" "${out}"
+        echo "${png##*/} copied (pngcrush unavailable)"
+        exit 0
+    fi
+fi
 
 if grep CgBI "${png}" &>/dev/null; then
     if [[ ${png} != ${out} ]]; then

@@ -4,6 +4,7 @@
 include mk/paths.mk
 include mk/apt.mk
 include mk/toolchain.mk
+include mk/exec-compat.mk
 include mk/sources.mk
 include mk/rules.mk
 include mk/package.mk

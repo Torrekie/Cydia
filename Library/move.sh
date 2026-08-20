@@ -2,7 +2,12 @@
 
 shopt -s extglob nullglob
 
-. "$(dirname "${BASH_SOURCE[0]}")/package-paths.sh"
+case ${BASH_SOURCE[0]} in
+    */*) cydia_move_dir=${BASH_SOURCE[0]%/*} ;;
+    *) cydia_move_dir=. ;;
+esac
+. "${cydia_move_dir}/package-paths.sh"
+unset cydia_move_dir
 
 if [[ ${1:0:1} == - ]]; then
     v=$1

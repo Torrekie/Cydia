@@ -4,6 +4,11 @@ The project deliberately remains Makefile-based. No Xcode project or additional
 build system is required: `make all`, `make package`, and the existing helper
 targets continue to be the build interface.
 
+Copyright and package-role attribution are recorded in `NOTICE`. Extracted
+upstream code retains its Jay Freeman and Sam Bingner notices. New 2026
+refurbishment code is marked for Torrekie without claiming ownership of the
+upstream or vendored portions.
+
 ## Structure
 
 App-owned code is organized by domain under `Cydia/`:
@@ -18,9 +23,11 @@ App-owned code is organized by domain under `Cydia/`:
   `+Operations`, `+Lifecycle`) with a small bootstrap in `MobileCydia.mm`
 - runtime/private-service adapters (`PrivateServices`, `LockdownServices`)
 
-`CyteKit/` and `Menes/` remain reusable framework/support layers. `apt64/` and
-`SDURLCache/` remain vendored inputs; they are compiled by the existing Make
-graph but are not forced into the app-owned module-size policy.
+`CyteKit/` and `Menes/` remain reusable framework/support layers. `apt64/`
+remains a pinned submodule, while the Cydia-maintained ARC/iOS 12
+`SDURLCache/` runtime sources are vendored directly because their historical
+gitlink is not published by the external mirror. Both are compiled by the
+existing Make graph but are not forced into the app-owned module-size policy.
 
 The embedded APT gitlink, ABI, licenses, and reviewed source groups are recorded
 in `mk/apt.mk`. The update and backend-boundary policy is documented in
@@ -110,3 +117,31 @@ make --no-print-directory -B -j6 doIA=yes \
 make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootful package
 make --no-print-directory -B -j6 PACKAGE_LAYOUT=rootless package
 ```
+
+## Linux package CI
+
+`.github/workflows/linux-packages.yml` builds both package layouts on
+Ubuntu 22.04 using the same Make targets as local builds. The public iPhoneOS
+14.5 SDK snapshot and Linux-hosted iOS toolchain are pinned by URL and SHA-256;
+the job refuses a changed download instead of silently taking a newer toolchain.
+The embedded `apt64` gitlink is initialized over HTTPS; `SDURLCache` is already
+vendored at the reviewed Cydia revision. ICU headers come from the pinned
+iPhoneOS SDK, so the legacy ICU submodule is not required by this build.
+
+Each matrix leg checks the generated Debian epoch (`1:`), identity fields
+(`Name: Cydia Refurbished`, `Maintainer: Torrekie <me@torrekie.dev>`, and the
+preserved upstream `Author`), architecture, package prefix, launchd executable
+path, translations, and maintainer files. Rootless archives
+must keep every data path below `/var/jb`; rooted archives must contain no
+`/var/jb` path. The resulting `.deb` files and `SHA256SUMS` are retained as CI
+candidate artifacts only. The workflow does not publish a release or submit a
+package to a repository.
+Because the public fork has no release-tag refs, CI sets an explicit raw
+candidate version (`1.1.36+git.<merge-sha>`). The package control generator
+adds Debian epoch `1:` to that value (for example,
+`1:1.1.36+git.<merge-sha>`), while keeping the filename and embedded app
+version free of the colon. This is intentionally distinct from a release
+version and can be replaced when a signed release process is introduced.
+`CYDIA_VERSION` therefore accepts only the colon-free upstream/app portion;
+passing a Debian epoch there fails closed rather than producing an ambiguous
+filename or bundle version.

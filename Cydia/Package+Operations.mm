@@ -1,11 +1,11 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/DpkgRunner.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
 
 #include <cstring>
-#include <fstream>
 #include <string>
 
 @interface Package (Operations)
@@ -15,20 +15,36 @@
 
 - (NSArray *) files {
     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const std::string infoPath(paths.DpkgInfoFile([static_cast<NSString *>(id_) UTF8String], ".list"));
-    if (infoPath.empty())
+    const std::string queryPath(paths.BootstrapBinaryPath("dpkg-query"));
+    const char *name([[self dpkgId] UTF8String]);
+    if (queryPath.empty() || name == NULL || name[0] == '\0')
+        return nil;
+
+    std::string output;
+    CydiaRuntime::Dpkg::Runner runner(queryPath);
+    const CydiaRuntime::Dpkg::Result result(runner.RunAndCapture({"--listfiles", name}, &output));
+    if (!result.succeeded())
         return nil;
 
     NSMutableArray *files = [NSMutableArray arrayWithCapacity:128];
+    size_t begin(0);
+    while (begin != output.size()) {
+        const size_t newline(output.find('\n', begin));
+        size_t end(newline == std::string::npos ? output.size() : newline);
+        if (end != begin && output[end - 1] == '\r')
+            --end;
+        if (end != begin) {
+            NSString *file([[NSString alloc] initWithBytes:output.data() + begin
+                                                    length:end - begin
+                                                  encoding:NSUTF8StringEncoding]);
+            if (file != nil)
+                [files addObject:file];
+        }
 
-    std::ifstream fin;
-    fin.open(infoPath.c_str());
-    if (!fin.is_open())
-        return nil;
-
-    std::string line;
-    while (std::getline(fin, line))
-        [files addObject:[NSString stringWithUTF8String:line.c_str()]];
+        if (newline == std::string::npos)
+            break;
+        begin = newline + 1;
+    }
 
     return files;
 }
@@ -57,7 +73,7 @@
         return nil;
 
     NSMutableArray *warnings([NSMutableArray arrayWithCapacity:4]);
-    const char *name([[self id] UTF8String]);
+    const char *name([[self baseId] UTF8String]);
 
     size_t length(strlen(name));
     if (length < 2) invalid:

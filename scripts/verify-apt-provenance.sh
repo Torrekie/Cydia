@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright (C) 2026 Torrekie
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Verify the embedded APT gitlink, source metadata, and reviewed source groups.
 
 set -u
