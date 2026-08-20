@@ -55,15 +55,30 @@ function hyphenate() {
 # an unreadable database as an empty one could overwrite bootstrap-owned
 # virtual packages.
 function inspect_package() {
-    local expected=$1 package status owner
+    local expected=$1
     package_installed=0
     package_owned=0
+    if [[ ${installed_package_index} == *$'\n'"${expected}"$'\n'* ]]; then
+        package_installed=1
+    fi
+    if [[ ${owned_package_index} == *$'\n'"${expected}"$'\n'* ]]; then
+        package_owned=1
+    fi
+}
+
+# Index the database snapshot once. Shell pattern matching keeps lookups fast
+# on both the system Bash 3 used by macOS verification and modern bootstrap
+# Bash, without requiring hundreds of repeated line-by-line scans at launch.
+function index_installed_packages() {
+    local package status owner
+    installed_package_index=$'\n'
+    owned_package_index=$'\n'
 
     while IFS='|' read -r package status owner; do
-        if [[ ${package} == "${expected}" && ${status} == 'install ok installed' ]]; then
-            package_installed=1
-            [[ ${owner} == "${firmware_owner}" ]] && package_owned=1
-            return 0
+        [[ ${status} == 'install ok installed' ]] || continue
+        installed_package_index+=${package}$'\n'
+        if [[ ${owner} == "${firmware_owner}" ]]; then
+            owned_package_index+=${package}$'\n'
         fi
     done <"${installed_snapshot}"
 }
@@ -105,7 +120,7 @@ function ensure_pseudo() {
 
     inspect_package "${package}"
     if [[ ${package_installed} == 1 && ${package_owned} != 1 ]]; then
-        echo "Preserving externally owned virtual package ${package}" >&2
+        preserved_external_count=$((preserved_external_count + 1))
         return 0
     fi
 
@@ -168,8 +183,10 @@ function cleanup_firmware_temporary_files() {
 }
 
 function firmware_main() {
-    local version model gssc line name value package arch cpu
+    local version model gssc line name value package status owner arch cpu
     local managed_manifest installed_snapshot package_installed package_owned
+    local preserved_external_count=0
+    local installed_package_index=$'\n' owned_package_index=$'\n'
 
     version=$(sw_vers -productVersion)
     arch=$("${CYDIA_DPKG}" --print-architecture)
@@ -209,6 +226,7 @@ function firmware_main() {
 
     "${CYDIA_DPKG_QUERY}" -W \
         -f='${Package}|${Status}|${X-Cydia-Firmware-Owner}\n' >"${installed_snapshot}"
+    index_installed_packages
 
     ensure_pseudo "firmware" "${version}" "almost impressive Apple frameworks" "iOS Firmware"
 
@@ -258,6 +276,10 @@ function firmware_main() {
     ensure_pseudo "cy+kernel.${name}" "${value}" "virtual kernel dependency" ""
     ensure_pseudo "cy+lib.corefoundation" "$("${CYDIA_LIBEXEC}/cfversion")" \
         "virtual corefoundation dependency" ""
+
+    if [[ ${preserved_external_count} -ne 0 ]]; then
+        echo "Preserved ${preserved_external_count} externally owned virtual packages" >&2
+    fi
 
     if [[ ${#packages[@]} -ne 0 ]]; then
         "${CYDIA_DPKG}" --install "${packages[@]}"

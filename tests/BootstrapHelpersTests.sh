@@ -163,6 +163,30 @@ run_firmware() {
         DPKG_ARCH=${DPKG_ARCH:-iphoneos-arm64} /bin/bash "${fixture}/firmware.sh"
 }
 
+# Lookups must use the in-memory index after one snapshot pass. Removing the
+# source snapshot makes a later accidental O(packages x records) rescan fail.
+index_fixture=${test_root}/index-fixture
+cat >"${index_fixture}" <<'EOF'
+native-package|install ok installed|
+owned-package|install ok installed|cydia-refurbished.torrekie.dev/v1
+removed-package|deinstall ok config-files|cydia-refurbished.torrekie.dev/v1
+EOF
+/bin/bash -c '
+    . "$1"
+    installed_snapshot=$2
+    index_installed_packages
+    /bin/rm -f "${installed_snapshot}"
+    inspect_package native-package
+    [[ ${package_installed} == 1 && ${package_owned} == 0 ]]
+    inspect_package owned-package
+    [[ ${package_installed} == 1 && ${package_owned} == 1 ]]
+    inspect_package removed-package
+    [[ ${package_installed} == 0 && ${package_owned} == 0 ]]
+    inspect_package missing-package
+    [[ ${package_installed} == 0 && ${package_owned} == 0 ]]
+' _ "${fixture}/firmware.sh" "${index_fixture}" || \
+    fail "firmware ownership lookup did not use its single-pass index"
+
 reset_firmware_fixture() {
     /bin/rm -rf "${mock_state}" "${controls}"
     mkdir -p "${mock_state}" "${controls}"
