@@ -5,6 +5,8 @@
 
 #include "Cydia/AptCompatibility.hpp"
 
+#include <algorithm>
+
 namespace CydiaAPT {
 
 PackageIdentity::PackageIdentity() :
@@ -33,6 +35,16 @@ bool IsNativeOrArchitectureIndependent(const std::string &versionArchitecture,
                                        const std::string &nativeArchitecture) {
     return !versionArchitecture.empty() && !nativeArchitecture.empty() &&
         (versionArchitecture == nativeArchitecture || versionArchitecture == "all");
+}
+
+bool IsPackageArchitectureVisible(const std::string &versionArchitecture,
+                                  bool hasLocalState,
+                                  const std::vector<std::string> &configuredArchitectures) {
+    if (hasLocalState || versionArchitecture == "all")
+        return true;
+    return !versionArchitecture.empty() &&
+        std::find(configuredArchitectures.begin(), configuredArchitectures.end(),
+                  versionArchitecture) != configuredArchitectures.end();
 }
 
 PackageIdentity BuildPackageIdentity(const std::string &baseName,

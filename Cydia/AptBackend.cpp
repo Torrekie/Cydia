@@ -8,6 +8,7 @@
 
 #include "Cydia/AptBackendInternal.hpp"
 #include "Cydia/AptCompatibilityInternal.hpp"
+#include "Cydia/AptRuntime.hpp"
 
 #include <apt-pkg/policy.h>
 #include <apt-pkg/acquire-item.h>
@@ -182,6 +183,19 @@ PackageHandle RegisterPackage(PackageRegistry &registry, pkgCache::PkgIterator p
     return handle;
 }
 
+bool HasLocalState(pkgCache::PkgIterator package) {
+    return !package.end() &&
+        (package->CurrentState != pkgCache::State::NotInstalled ||
+         !package.CurrentVer().end());
+}
+
+bool IsVisiblePackageVersion(pkgCache::PkgIterator package,
+                             pkgCache::VerIterator version) {
+    return !package.end() && !version.end() &&
+        IsPackageArchitectureVisible(version.Arch(), HasLocalState(package),
+                                     Architectures());
+}
+
 PackageRegistry::Entry *FindPackage(PackageRegistry *registry, PackageHandle handle) {
     if (registry == NULL || !handle.valid() || handle.value > registry->entries.size())
         return NULL;
@@ -296,6 +310,8 @@ std::vector<PackageHandle> AptBackend::packageHandles() {
     PackageRegistry &registry(*packages_);
     for (pkgCache::PkgIterator package(cache_->PkgBegin()); !package.end(); ++package) {
         pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
+        if (!IsVisiblePackageVersion(package, version))
+            continue;
         PackageHandle handle(RegisterPackage(registry, package, version));
         if (handle.valid())
             handles.push_back(handle);
@@ -336,6 +352,8 @@ PackageHandle AptBackend::packageHandle(const std::string &name, const std::stri
         }
     }
 
+    if (!IsVisiblePackageVersion(package, version))
+        return PackageHandle();
     return RegisterPackage(*packages_, package, version);
 }
 
@@ -347,6 +365,8 @@ std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
 
     for (pkgCache::VerIterator version(entry->package.VersionList()); !version.end(); ++version) {
         if (version == entry->version)
+            continue;
+        if (!IsVisiblePackageVersion(entry->package, version))
             continue;
         PackageHandle other(RegisterPackage(*packages_, entry->package, version));
         if (other.valid())

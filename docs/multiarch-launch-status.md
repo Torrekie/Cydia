@@ -85,6 +85,13 @@ assignments.
   longer hidden, and startup clears stale architecture-vector state around
   config loading so the selected dpkg remains authoritative for configured
   foreign architectures.
+- APT now materializes the selected dpkg's native and foreign architectures
+  immediately after `pkgInitSystem`, then uses that frozen vector for source
+  parsing and acquisition. Cydia-managed binary source lines carry the same
+  explicit `[arch=...]` option. The package backend hides an unsupported
+  repository version when it has no local dpkg state, while retaining locally
+  installed, half-installed, and config-files records so they can still be
+  repaired or removed. `Architecture: all` remains visible.
 - Package-manager progress parsing now locates its numeric percent field rather
   than treating every colon as a delimiter. Qualified `Multi-Arch: same`,
   foreign, and `:any` package names therefore remain attached to status and
@@ -105,6 +112,15 @@ assignments.
   `ncurses-base` (`Architecture: all`), and the cached foreign record
   `com.mpg13.flashback:iphoneos-arm`. No crash report newer than the expected
   pre-fix incident appeared.
+- The architecture-filter follow-up installed rootless package
+  `1:1.1.36+195.gaa590dc` with its matching translations. On the same device,
+  dpkg still reported native `iphoneos-arm64` and no foreign architectures;
+  Cydia rewrote its managed source as
+  `deb [arch=iphoneos-arm64] https://apt.bingner.com/ ./`. PID `2273` remained
+  unchanged through a 35-second home launch and an unsupported cached
+  `com.mpg13.flashback:iphoneos-arm` deep-link smoke test. No crash newer than
+  `Cydia-2026-08-21-051302.ips` appeared, and the dpkg architecture database
+  was not modified.
 - The cold first launch completed firmware reconciliation in about 10 seconds,
   wrote schema version 6, preserved 277 externally owned virtual packages, and
   recorded only three newly generated Cydia-owned `gsc.*` packages. The live
@@ -118,6 +134,12 @@ assignments.
   currently returns HTTP 403. Old indexes allowed route validation, but these
   errors need a separate APT-method/tool-path follow-up before claiming a clean
   online refresh.
+- Repositories with separate binary indices are requested only for dpkg's
+  configured architecture set. A flat repository exposes all architectures in
+  one indivisible Packages file, so unsupported records in that file cannot be
+  avoided at the transport layer; the backend visibility filter prevents its
+  uninstalled unsupported records from reaching Cydia's package lists or
+  direct package routes.
 - No package install/remove transaction was initiated from the Cydia UI during
   this goal. Resolver, relation, progress, and dpkg-identity behavior are
   covered by disposable fixtures and compile checks; a future harmless device

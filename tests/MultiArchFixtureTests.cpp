@@ -77,6 +77,8 @@ int main() {
 
     std::map<std::string, PackageIdentity> identities;
     std::set<std::string> routes;
+    const std::vector<std::string> configured({native});
+    std::set<std::string> visible;
     for (std::vector<Stanza>::const_iterator stanza(stanzas.begin());
          stanza != stanzas.end(); ++stanza) {
         const std::string name(stanza->at("Package"));
@@ -88,7 +90,24 @@ int main() {
         identities[name + ":" + architecture] = identity;
         Expect(routes.insert(identity.routingName).second,
                "coinstallable package instances collided in route storage");
+        if (IsPackageArchitectureVisible(architecture, false, configured))
+            visible.insert(name + ":" + architecture);
     }
+
+    Expect(visible.count("native-runtime:iphoneos-arm64") == 1,
+           "native fixture was hidden");
+    Expect(visible.count("independent-essential:all") == 1,
+           "Architecture: all fixture was hidden");
+    Expect(visible.count("coinstallable-runtime:iphoneos-arm") == 0,
+           "unsupported coinstallable fixture was visible");
+    Expect(visible.count("foreign-provider:iphoneos-arm") == 0,
+           "unsupported Multi-Arch: foreign fixture was visible");
+    Expect(IsPackageArchitectureVisible("iphoneos-arm", true, configured),
+           "installed foreign fixture could not be managed");
+    Expect(IsPackageArchitectureVisible(
+               "iphoneos-arm", false,
+               std::vector<std::string>({native, "iphoneos-arm"})),
+           "configured foreign fixture remained hidden");
 
     Expect(identities.at("coinstallable-runtime:iphoneos-arm64").dpkgName ==
                "coinstallable-runtime:iphoneos-arm64",
