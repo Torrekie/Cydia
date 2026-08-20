@@ -119,7 +119,8 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
     Expect(_system == &gTestSystem, std::string(name) + " selected package system");
     Expect(architecture == options.architecture, std::string(name) + " reported architecture");
     ExpectBootstrapConfiguration(configuration, "after initialization");
-    ExpectArchitectures(configuration, {"iphoneos-foreign-test"}, "after initialization");
+    ExpectArchitectures(configuration, {options.architecture, "iphoneos-foreign-test"},
+                        "after initialization");
 }
 
 } // namespace
@@ -135,7 +136,11 @@ bool pkgInitConfig(Configuration &configuration) {
 bool pkgInitSystem(Configuration &configuration, pkgSystem *&system) {
     ++gSystemInitCalls;
     ExpectBootstrapConfiguration(configuration, "before pkgInitSystem");
-    ExpectArchitectures(configuration, {"iphoneos-foreign-test"}, "before pkgInitSystem");
+    ExpectArchitectures(configuration, {}, "before pkgInitSystem");
+    /* Simulate libapt's selected debSystem querying the configured dpkg after
+     * pkgInitSystem. This must replace, not append to, the apt.conf sentinel. */
+    configuration.Set("APT::Architectures::0", gExpectedOptions->architecture);
+    configuration.Set("APT::Architectures::1", "iphoneos-foreign-test");
     system = &gTestSystem;
     return true;
 }
