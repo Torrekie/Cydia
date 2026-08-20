@@ -48,8 +48,6 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	@$(LDID) -T0 -Sentitlements.xml $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sources
-	ln -s $(PACKAGE_PREFIX)/usr/share/bigboss/icons/bigboss.png $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sources/apt.bigboss.us.com.png
-	ln -s $(PACKAGE_PREFIX)/usr/share/bigboss/icons/planetiphones.png $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sections/"Planet-iPhones Mods.png"
 
 	mkdir -p $(CYDIA_STAGE)/DEBIAN
 	CYDIA_PACKAGE_EPOCH=$(PACKAGE_EPOCH) ./control.sh cydia.control $(CYDIA_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(CYDIA_STAGE)/DEBIAN/control
