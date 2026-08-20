@@ -142,6 +142,7 @@ check_ownership() {
         return
     fi
 
+    borrowed_snapshot_strings=0
     for file in "$@"; do
         [ -f "$file" ] || {
             fail "supported source is missing: $file"
@@ -154,7 +155,18 @@ check_ownership() {
             echo "$hits" >&2
             fail "$file contains explicit MRC or an ARC/MRC conditional"
         fi
+
+        hits=$(grep -n -E \
+            '\.set\([[:space:]]*NULL[[:space:]]*,[^;]*snapshot\.' \
+            "$file" 2>/dev/null || true)
+        if [ -n "$hits" ]; then
+            echo "$hits" >&2
+            fail "$file borrows storage from a temporary snapshot"
+            borrowed_snapshot_strings=$((borrowed_snapshot_strings + 1))
+        fi
     done
+    [ "$borrowed_snapshot_strings" -eq 0 ] && \
+        pass "persisted snapshot strings use owned storage"
     [ "$failures" -eq 0 ] && pass "supported Objective-C sources contain no explicit MRC constructs"
 }
 
