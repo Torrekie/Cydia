@@ -97,6 +97,10 @@ depends=$(dpkg-deb -f "$cydia" Depends)
 printf '%s\n' "$depends" | tr ',' '\n' | \
     grep -E '^[[:space:]]*bash([[:space:](]|$)' >/dev/null || \
     fail "cydia package does not declare its Bash runtime dependency"
+if printf '%s\n' "$depends" | tr ',' '\n' | \
+        grep -E '^[[:space:]]*org[.]thebigboss[.]repo[.]icons([[:space:](]|$)' >/dev/null; then
+    fail "cydia package still depends on org.thebigboss.repo.icons"
+fi
 
 cydia_paths=$temporary/cydia.paths
 lproj_paths=$temporary/lproj.paths
@@ -148,6 +152,15 @@ data_directory=$temporary/data
 mkdir -p "$control_directory" "$data_directory"
 dpkg-deb -e "$cydia" "$control_directory"
 dpkg-deb -x "$cydia" "$data_directory"
+
+bigboss_source_icon=$data_directory/${prefix:+$prefix/}Applications/Cydia.app/Sources/apt.bigboss.us.com.png
+planetiphones_section_icon=$data_directory/${prefix:+$prefix/}Applications/Cydia.app/Sections/Planet-iPhones\ Mods.png
+[ ! -e "$bigboss_source_icon" ] && [ ! -L "$bigboss_source_icon" ] ||
+    fail "package still installs the external BigBoss source icon"
+[ ! -e "$planetiphones_section_icon" ] && [ ! -L "$planetiphones_section_icon" ] ||
+    fail "package still installs the external Planet-iPhones section icon"
+[ -f "$data_directory/${prefix:+$prefix/}Applications/Cydia.app/unknown.png" ] ||
+    fail "package does not contain the source/section icon fallback"
 
 for script in preinst postinst triggers; do
     [ -f "$control_directory/$script" ] || fail "missing maintainer file: $script"

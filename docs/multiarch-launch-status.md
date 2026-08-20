@@ -53,7 +53,8 @@ the installed crash report.
 
 - RegEx ARC ownership fix: implemented; the host lifetime regression test and
   arm64 device/x86_64 simulator object builds pass.
-- BigBoss icons dependency removal: pending.
+- BigBoss icons dependency removal: implemented and verified in rooted and
+  rootless archives; Cydia's bundled `unknown.png` remains the fallback.
 - Multi-Arch identity implementation: pending.
 - Rooted/rootless artifacts: pending.
 - Updated real-device launch proof: pending.
