@@ -123,6 +123,31 @@ class SourceRegistry {
 
 namespace {
 
+MultiArchMode GetMultiArchMode(pkgCache::VerIterator version) {
+    if (version.end())
+        return MultiArchMode::None;
+
+    switch (version->MultiArch & ~pkgCache::Version::All) {
+        case pkgCache::Version::Same:
+            return MultiArchMode::Same;
+        case pkgCache::Version::Foreign:
+            return MultiArchMode::Foreign;
+        case pkgCache::Version::Allowed:
+            return MultiArchMode::Allowed;
+        default:
+            return MultiArchMode::None;
+    }
+}
+
+PackageIdentity GetPackageIdentity(pkgCache::PkgIterator package,
+                                   pkgCache::VerIterator version,
+                                   const char *nativeArchitecture) {
+    if (package.end() || version.end() || nativeArchitecture == NULL)
+        return PackageIdentity();
+    return BuildPackageIdentity(package.Name(), package.Arch(), version.Arch(),
+                                nativeArchitecture, GetMultiArchMode(version));
+}
+
 std::string RegistryKey(pkgCache::PkgIterator package, pkgCache::VerIterator version) {
     std::string key(package.Name());
     key.push_back('\n');
@@ -276,12 +301,16 @@ PackageHandle AptBackend::packageHandle(const std::string &name, const std::stri
         return PackageHandle();
 
     pkgCache::PkgIterator package;
-    if (!preferredArchitecture.empty())
-        package = cache_->FindPkg(name, preferredArchitecture);
-    if (package.end())
-        package = cache_->FindPkg(name, "any");
-    if (package.end())
+    if (name.rfind(':') != std::string::npos)
         package = cache_->FindPkg(name);
+    else {
+        if (!preferredArchitecture.empty())
+            package = cache_->FindPkg(name, preferredArchitecture);
+        if (package.end())
+            package = cache_->FindPkg(name, "any");
+        if (package.end())
+            package = cache_->FindPkg(name);
+    }
     if (package.end())
         return PackageHandle();
 
@@ -315,7 +344,7 @@ CydiaAPT::PackageRecordData AptBackend::recordData(PackageHandle handle) {
 
     static const char * const fieldNames[] = {
         "Architecture", "Icon", "Depiction", "Homepage", "Website", "Bugs",
-        "Support", "Author", "MD5sum", "Name", "Maemo-Display-Name", "Tag",
+        "Support", "Author", "MD5sum", "Multi-Arch", "Name", "Maemo-Display-Name", "Tag",
     };
     for (size_t index(0); index != sizeof(fieldNames) / sizeof(fieldNames[0]); ++index)
         data.fields[fieldNames[index]] = record.field(fieldNames[index]);
@@ -344,16 +373,21 @@ CydiaAPT::PackageSnapshot AptBackend::packageSnapshot(PackageHandle handle) {
     data.handle = handle;
     data.record = recordData(handle);
     data.state = packageState(handle);
-    data.identifier = entry->package.Name();
+    data.identity = GetPackageIdentity(entry->package, entry->version,
+                                       entry->package.Cache()->NativeArch());
+    data.identifier = data.identity.routingName;
     data.version = entry->version.VerStr();
-    data.architecture = entry->version.Arch();
+    data.architecture = data.identity.versionArchitecture;
     data.installedSize = entry->version->InstalledSize;
     if (const char *section = entry->version.Section())
         data.section = section;
 
     pkgCache::VerIterator installed(entry->package.CurrentVer());
-    if (!installed.end())
+    if (!installed.end()) {
         data.installedVersion = installed.VerStr();
+        data.installedIdentity = GetPackageIdentity(entry->package, installed,
+                                                    entry->package.Cache()->NativeArch());
+    }
 
     if (!entry->file.end()) {
         pkgCache::PkgFileIterator file(entry->file.File());
