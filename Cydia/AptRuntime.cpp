@@ -7,14 +7,18 @@
 
 #include "Cydia/AptRuntime.hpp"
 
+#include <apt-pkg/aptconfiguration.h>
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
+
+#include <algorithm>
 
 namespace CydiaAPT {
 
 namespace {
 std::string gArchitecture;
+std::vector<std::string> gArchitectures;
 
 std::string JoinPath(const std::string &directory, const char *leaf) {
     std::string path(directory);
@@ -45,6 +49,33 @@ void ApplyBootstrapConfiguration(const InitializationOptions &options,
     _config->Set("Dir::dpkg::triplettable", JoinPath(options.dpkgDataDirectory, "triplettable"));
     _config->Set("DPkg::Path", options.dpkgExecutableSearchPath);
 }
+
+void MaterializeArchitectures(const std::string &nativeArchitecture) {
+    std::vector<std::string> discovered(
+        APT::Configuration::getArchitectures(false));
+    std::vector<std::string> normalized;
+    if (!nativeArchitecture.empty())
+        normalized.push_back(nativeArchitecture);
+
+    for (std::vector<std::string>::const_iterator architecture(discovered.begin());
+         architecture != discovered.end(); ++architecture) {
+        if (architecture->empty() || *architecture == "all" || *architecture == "any" ||
+            *architecture == nativeArchitecture ||
+            std::find(normalized.begin(), normalized.end(), *architecture) != normalized.end())
+            continue;
+        normalized.push_back(*architecture);
+    }
+
+    /* Freeze exactly what the selected dpkg reported. Source parsing and
+     * acquisition must not revive an architecture vector inherited from an
+     * apt.conf belonging to another bootstrap layout. */
+    _config->Clear("APT::Architectures");
+    for (std::size_t index(0); index != normalized.size(); ++index) {
+        const std::string key("APT::Architectures::" + std::to_string(index));
+        _config->Set(key.c_str(), normalized[index]);
+    }
+    gArchitectures.swap(normalized);
+}
 } // namespace
 
 InitializationOptions::InitializationOptions() :
@@ -70,6 +101,9 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     if (!pkgInitSystem(*_config, _system))
         return false;
 
+    gArchitecture = _config->Find("APT::Architecture");
+    MaterializeArchitectures(gArchitecture);
+
     if (options.allowInsecureRepositories)
         _config->Set("Acquire::AllowInsecureRepositories", true);
     _config->Set("Acquire::Check-Valid-Until", options.checkValidUntil);
@@ -82,7 +116,6 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     if (options.maxParallel > 0)
         _config->Set("Acquire::http::MaxParallel", options.maxParallel);
 
-    gArchitecture = _config->Find("APT::Architecture");
     if (architecture != NULL)
         *architecture = gArchitecture;
     return true;
@@ -90,6 +123,32 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
 
 const std::string &Architecture() {
     return gArchitecture;
+}
+
+const std::vector<std::string> &Architectures() {
+    return gArchitectures;
+}
+
+bool IsArchitectureSupported(const std::string &architecture) {
+    if (architecture == "all")
+        return true;
+    return !architecture.empty() &&
+        std::find(gArchitectures.begin(), gArchitectures.end(), architecture) !=
+            gArchitectures.end();
+}
+
+std::string SourceArchitectureOption() {
+    if (gArchitectures.empty())
+        return std::string();
+
+    std::string option("[arch=");
+    for (std::size_t index(0); index != gArchitectures.size(); ++index) {
+        if (index != 0)
+            option.push_back(',');
+        option.append(gArchitectures[index]);
+    }
+    option.push_back(']');
+    return option;
 }
 
 } // namespace CydiaAPT

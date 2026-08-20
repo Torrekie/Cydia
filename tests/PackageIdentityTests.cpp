@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 namespace {
 
@@ -79,6 +80,22 @@ int main() {
     PackageIdentity invalid(BuildPackageIdentity("", native, native, native,
                                                  MultiArchMode::None));
     Require(!invalid.valid(), "empty package identity is valid");
+
+    const std::vector<std::string> nativeOnly({native});
+    Require(IsPackageArchitectureVisible(native, false, nativeOnly),
+            "native repository package was hidden");
+    Require(IsPackageArchitectureVisible("all", false, nativeOnly),
+            "Architecture: all repository package was hidden");
+    Require(!IsPackageArchitectureVisible("iphoneos-arm", false, nativeOnly),
+            "unsupported uninstalled repository package was visible");
+    Require(IsPackageArchitectureVisible("iphoneos-arm", true, nativeOnly),
+            "locally installed unsupported package was hidden");
+    Require(IsPackageArchitectureVisible(
+                "iphoneos-arm", false,
+                std::vector<std::string>({native, "iphoneos-arm"})),
+            "dpkg-configured foreign repository package was hidden");
+    Require(!IsPackageArchitectureVisible("any", false, nativeOnly),
+            ":any dependency proxy was treated as a concrete package architecture");
 
     std::cout << "package identity policy: PASS" << std::endl;
     return 0;
