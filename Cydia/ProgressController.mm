@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished native-model work Copyright (C) 2026 Torrekie
  */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -25,6 +26,7 @@
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Appearance.h"
 #include "Cydia/Database.h"
+#include "Cydia/Package.h"
 #include "Cydia/PrivateServices.h"
 #include "Cydia/RebootCompat.h"
 #include "CyteKit/Localize.h"
@@ -61,11 +63,13 @@ static std::string FileFingerprint(const char *path) {
 @implementation ProgressController
 
 - (void) dealloc {
-    [database_ setProgressDelegate:nil];
+    [progressModel_ setObserver:nil];
+    if ([database_ progressDelegate] == (CydiaProgressViewModel *) progressModel_)
+        [database_ setProgressDelegate:nil];
 }
 
 - (UIBarButtonItem *) leftButton {
-    return cancel_ == 1 ? [[UIBarButtonItem alloc]
+    return [[progressModel_ state] cancellationState] == CydiaProgressCancellationAvailable ? [[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("CANCEL")
         style:UIBarButtonItemStylePlain
         target:self
@@ -82,10 +86,16 @@ static std::string FileFingerprint(const char *path) {
         database_ = database;
         self.delegate = delegate;
 
-        [database_ setProgressDelegate:self];
-
-        progress_ = [[CydiaProgressData alloc] init];
-        [progress_ setDelegate:self];
+        __weak Database *weakDatabase(database);
+        progressModel_ = [[CydiaProgressViewModel alloc]
+            initWithPackageNameResolver:^NSString *(NSString *identifier) {
+                if (![weakDatabase hasPackages])
+                    return nil;
+                Package *package([weakDatabase packageWithName:identifier]);
+                return [package name];
+            }];
+        [progressModel_ setObserver:self];
+        [database_ setProgressDelegate:progressModel_];
 
         [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
 
@@ -100,7 +110,7 @@ static std::string FileFingerprint(const char *path) {
 
 - (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
     [super webView:view didClearWindowObject:window forFrame:frame];
-    [window setValue:progress_ forKey:@"cydiaProgress"];
+    [window setValue:[progressModel_ legacyData] forKey:@"cydiaProgress"];
 }
 
 - (void) updateProgress {
@@ -131,15 +141,21 @@ static std::string FileFingerprint(const char *path) {
     UpdateExternalStatus(0);
 
     id<ProgressControllerDelegate> delegate(self.delegate);
-    if (Finish_ > 1)
+    CydiaProgressFinishAction action(CydiaProgressEffectiveFinishAction(
+        [[progressModel_ state] finishAction], Finish_));
+    if (action > CydiaProgressFinishActionTerminate)
         [delegate saveState];
 
-    switch (Finish_) {
-        case 0:
+    switch (action) {
+        case CydiaProgressFinishActionNone:
+            _assume(false);
+        break;
+
+        case CydiaProgressFinishActionReturnToCydia:
             [delegate returnToCydia];
         break;
 
-        case 1:
+        case CydiaProgressFinishActionTerminate:
             [delegate terminateWithSuccess];
             /*if ([self.delegate respondsToSelector:@selector(suspendWithAnimation:)])
                 [self.delegate suspendWithAnimation:YES];
@@ -147,11 +163,11 @@ static std::string FileFingerprint(const char *path) {
                 [self.delegate suspend];*/
         break;
 
-        case 2:
+        case CydiaProgressFinishActionRestartSpringBoard:
             _trace();
             goto reload;
 
-        case 3:
+        case CydiaProgressFinishActionReloadSpringBoard:
             _trace();
             goto reload;
 
@@ -162,7 +178,7 @@ static std::string FileFingerprint(const char *path) {
             return;
         }
 
-        case 4:
+        case CydiaProgressFinishActionRebootDevice:
             _trace();
             CydiaReboot(RB_AUTOBOOT);
         break;
@@ -172,12 +188,11 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (void) setTitle:(NSString *)title {
-    [progress_ setTitle:title];
-    [self updateProgress];
+    [progressModel_ setTitle:title];
 }
 
 - (UIBarButtonItem *) rightButton {
-    return [[progress_ running] boolValue] ? [super rightButton] : [[UIBarButtonItem alloc]
+    return [[progressModel_ state] isRunning] ? [super rightButton] : [[UIBarButtonItem alloc]
         initWithTitle:UCLocalize("CLOSE")
         style:UIBarButtonItemStylePlain
         target:self
@@ -188,9 +203,7 @@ static std::string FileFingerprint(const char *path) {
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
     UpdateExternalStatus(1);
 
-    [progress_ setRunning:true];
-    [self setTitle:title];
-    // implicit updateProgress
+    [progressModel_ beginWithTitle:title];
 
     std::string notifyconf(FileFingerprint(NotifyConfig_));
     std::string springlist(FileFingerprint(SpringBoard_));
@@ -217,71 +230,50 @@ static std::string FileFingerprint(const char *path) {
 
     RestartSubstrate_ = false;
 
-    switch (Finish_) {
-        case 0: [progress_ setFinish:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */
-        case 1: [progress_ setFinish:UCLocalize("CLOSE_CYDIA")]; break;
-        case 2: [progress_ setFinish:UCLocalize("RESTART_SPRINGBOARD")]; break;
-        case 3: [progress_ setFinish:UCLocalize("RELOAD_SPRINGBOARD")]; break;
-        case 4: [progress_ setFinish:UCLocalize("REBOOT_DEVICE")]; break;
-    }
-
     UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
 
-    [progress_ setRunning:false];
-    [self updateProgress];
-
-    [self applyRightButton];
+    [progressModel_ completeWithFinishAction:static_cast<CydiaProgressFinishAction>(Finish_)];
 }
 
 - (void) addProgressEvent:(CydiaProgressEvent *)event {
-    [progress_ addEvent:event];
-    [self updateProgress];
+    [progressModel_ addProgressEvent:event];
 }
 
 - (bool) isProgressCancelled {
-    return cancel_ == 2;
+    return [progressModel_ isProgressCancelled];
 }
 
 - (void) cancel {
-    cancel_ = 2;
-    [self updateCancel];
+    [progressModel_ requestCancellation];
 }
 
 - (void) setCancellable:(bool)cancellable {
-    unsigned cancel(cancel_);
-
-    if (!cancellable)
-        cancel_ = 0;
-    else if (cancel_ == 0)
-        cancel_ = 1;
-
-    if (cancel != cancel_)
-        [self updateCancel];
+    [progressModel_ setCancellable:cancellable];
 }
 
 - (void) setProgressCancellable:(NSNumber *)cancellable {
-    [self setCancellable:[cancellable boolValue]];
+    [progressModel_ setProgressCancellable:cancellable];
 }
 
 - (void) setProgressPercent:(NSNumber *)percent {
-    [progress_ setPercent:[percent floatValue]];
-    [self updateProgress];
+    [progressModel_ setProgressPercent:percent];
 }
 
 - (void) setProgressStatus:(NSDictionary *)status {
-    if (status == nil) {
-        [progress_ setCurrent:0];
-        [progress_ setTotal:0];
-        [progress_ setSpeed:0];
-    } else {
-        [progress_ setPercent:[[status objectForKey:@"Percent"] floatValue]];
+    [progressModel_ setProgressStatus:status];
+}
 
-        [progress_ setCurrent:[[status objectForKey:@"Current"] floatValue]];
-        [progress_ setTotal:[[status objectForKey:@"Total"] floatValue]];
-        [progress_ setSpeed:[[status objectForKey:@"Speed"] floatValue]];
-    }
-
-    [self updateProgress];
+- (void) progressViewModel:(CydiaProgressViewModel *)model
+           didPublishState:(CydiaProgressViewState *)state
+                    change:(CydiaProgressViewModelChange)change {
+    (void) model;
+    (void) state;
+    if ((change & CydiaProgressViewModelChangeLegacyData) != 0)
+        [self updateProgress];
+    if ((change & CydiaProgressViewModelChangeCancellation) != 0)
+        [self updateCancel];
+    if ((change & CydiaProgressViewModelChangeFinish) != 0)
+        [self applyRightButton];
 }
 
 @end

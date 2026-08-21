@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished native-model work Copyright (C) 2026 Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -23,7 +24,13 @@
 #include "Cydia/ProgressData.h"
 
 #include "Cydia/ProgressEvent.h"
-#include "iPhonePrivate.h"
+
+/* Keep the transaction data model Foundation-only so its native view model can
+ * be exercised by a host test. WebKit supplies this NSObject category at app
+ * runtime; only its declaration is required to preserve the legacy adapter. */
+@interface NSObject (CydiaProgressDataWebScript)
++ (BOOL) isKeyExcludedFromWebScript:(const char *)name;
+@end
 
 @implementation CydiaProgressData
 
