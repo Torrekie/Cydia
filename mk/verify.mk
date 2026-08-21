@@ -22,6 +22,7 @@ MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
 DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
 UI_ROUTE_CONTEXT_TEST := $(BUILD_DIR)/tests/UIRouteContextTests
 CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
+CONFIRMATION_CONTROLLER_TEST := $(BUILD_DIR)/tests/ConfirmationControllerContractTests
 PROGRESS_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ProgressViewModelTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
@@ -61,7 +62,7 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify-regex-arc
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
 .PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context
-.PHONY: verify-confirmation-view-model verify-progress-view-model
+.PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-simulator verify-progress-view-model
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
@@ -191,12 +192,36 @@ $(CONFIRMATION_VIEW_MODEL_TEST): tests/ConfirmationViewModelTests.mm \
 
 verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
 	@$<
+
+$(CONFIRMATION_CONTROLLER_TEST): tests/ConfirmationControllerContractTests.mm \
+		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
+		Cydia/AptCompatibility.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. tests/ConfirmationControllerContractTests.mm \
+		Cydia/ConfirmationViewModel.mm -framework Foundation -o $@
+
+verify-confirmation-controller: $(CONFIRMATION_CONTROLLER_TEST)
+	@$<
+
+verify-confirmation-controller-simulator:
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/confirmation-simulator-ios12" \
+		doIA=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/confirmation-simulator-ios12/objects/Cydia/ConfirmationController.o" \
+		"$(BUILD_DIR)/confirmation-simulator-ios12/objects/tests/ConfirmationControllerSimulatorCompile.o"
 else
 verify-ui-route-context:
 	@echo "[verify] UI route runtime test requires a Darwin host; iOS compile coverage remains enabled"
 
 verify-confirmation-view-model:
 	@echo "[verify] Confirmation view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-confirmation-controller:
+	@echo "[verify] Confirmation controller contract test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-confirmation-controller-simulator:
+	@echo "[verify] Confirmation simulator seam compile requires a Darwin host"
 endif
 
 ifeq ($(HOST_OS),Darwin)
@@ -217,7 +242,8 @@ verify-progress-view-model:
 endif
 
 verify-native-ui: verify-native-ui-contract verify-ui-route-context \
-	verify-confirmation-view-model verify-progress-view-model
+	verify-confirmation-view-model verify-confirmation-controller \
+	verify-confirmation-controller-simulator verify-progress-view-model
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \

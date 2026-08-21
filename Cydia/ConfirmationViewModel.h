@@ -41,6 +41,31 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationEssentialRemovalPolicy) {
     CydiaConfirmationEssentialRemovalPolicyForceAllowed,
 };
 
+typedef NS_ENUM(NSUInteger, CydiaConfirmationUserAction) {
+    CydiaConfirmationUserActionCancel,
+    CydiaConfirmationUserActionContinueQueuing,
+    CydiaConfirmationUserActionConfirm,
+    CydiaConfirmationUserActionBlockedEssentialAcknowledged,
+    CydiaConfirmationUserActionForceRemovalCancelled,
+    CydiaConfirmationUserActionForceRemovalConfirmed,
+};
+
+typedef NS_ENUM(NSUInteger, CydiaConfirmationActionEffect) {
+    CydiaConfirmationActionEffectNone,
+    CydiaConfirmationActionEffectCancelAndClear,
+    CydiaConfirmationActionEffectContinueQueuing,
+    CydiaConfirmationActionEffectConfirm,
+    CydiaConfirmationActionEffectDismissWithoutDelegate,
+    CydiaConfirmationActionEffectPresentBlockedEssentialAlert,
+    CydiaConfirmationActionEffectPresentForceRemovalAlert,
+};
+
+typedef NS_ENUM(NSUInteger, CydiaConfirmationTableSectionKind) {
+    CydiaConfirmationTableSectionKindIssue,
+    CydiaConfirmationTableSectionKindChanges,
+    CydiaConfirmationTableSectionKindSizes,
+};
+
 typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *packageIdentity);
 
 @interface CydiaConfirmationPackageReference : NSObject
@@ -133,6 +158,37 @@ typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *p
 - (nullable CydiaConfirmationChangeGroup *) groupForKind:(CydiaConfirmationChangeKind)kind;
 
 @end
+
+
+@interface CydiaConfirmationActionState : NSObject
+
+@property (nonatomic, readonly, getter=isTerminal) BOOL terminal;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+- (instancetype) initWithBlockingIssues:(BOOL)blockingIssues
+                  essentialRemovalPolicy:(CydiaConfirmationEssentialRemovalPolicy)essentialRemovalPolicy NS_DESIGNATED_INITIALIZER;
+- (CydiaConfirmationActionEffect) effectForUserAction:(CydiaConfirmationUserAction)userAction;
+
+@end
+
+
+@interface CydiaConfirmationTableSection : NSObject
+
+@property (nonatomic, readonly) CydiaConfirmationTableSectionKind kind;
+@property (nonatomic, readonly, strong, nullable) CydiaConfirmationIssue *issue;
+@property (nonatomic, readonly, strong, nullable) CydiaConfirmationChangeGroup *changeGroup;
+@property (nonatomic, readonly) NSUInteger rowCount;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+@end
+
+
+FOUNDATION_EXPORT NSArray<CydiaConfirmationTableSection *> *
+CydiaConfirmationBuildTableSections(CydiaConfirmationViewModel *viewModel);
 
 
 NS_ASSUME_NONNULL_END
