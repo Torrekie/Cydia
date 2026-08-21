@@ -6,10 +6,12 @@
 
 VERIFY_SCRIPT := scripts/verify-modernization.sh
 APPEARANCE_VERIFY_SCRIPT := scripts/verify-appearance-simulator.sh
+PROGRESS_SIMULATOR_VERIFY_SCRIPT := scripts/verify-progress-simulator.sh
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 EXEC_COMPAT_VERIFY_SCRIPT := scripts/verify-exec-compat.sh
 NATIVE_UI_VERIFY_SCRIPT := scripts/verify-native-ui-contract.sh
+PROGRESS_CONTROLLER_VERIFY_SCRIPT := tests/ProgressControllerContractTests.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
@@ -62,10 +64,12 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify-regex-arc
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
 .PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context
-.PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-simulator verify-progress-view-model
+.PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-simulator
+.PHONY: verify-progress-view-model verify-progress-controller
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
+.PHONY: verify-progress-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
 verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-native-ui verify-static verify-compile
@@ -241,9 +245,16 @@ verify-progress-view-model:
 	@echo "[verify] Progress view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
 endif
 
+verify-progress-controller: $(PROGRESS_CONTROLLER_VERIFY_SCRIPT) \
+		Cydia/ProgressController.h Cydia/ProgressController.mm \
+		Cydia/ProgressEventCell.h Cydia/ProgressEventCell.mm \
+		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm
+	@$(PROGRESS_CONTROLLER_VERIFY_SCRIPT)
+
 verify-native-ui: verify-native-ui-contract verify-ui-route-context \
 	verify-confirmation-view-model verify-confirmation-controller \
-	verify-confirmation-controller-simulator verify-progress-view-model
+	verify-confirmation-controller-simulator verify-progress-view-model \
+	verify-progress-controller
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
@@ -365,3 +376,10 @@ verify-appearance-simulator: $(APPEARANCE_VERIFY_SCRIPT)
 	}
 	@$(APPEARANCE_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
 		"$(IOS12_SIMULATOR_UDID)" "$(MAKE)" "$(BUILD_DIR)/appearance-simulator"
+
+verify-progress-simulator: $(PROGRESS_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(SIMULATOR_UDID)" || { \
+		echo "SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(PROGRESS_SIMULATOR_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
+		"$(MAKE)" "$(BUILD_DIR)/progress-simulator"

@@ -7,8 +7,6 @@ Cydia/CydiaWebViewController.h	8
 Cydia/CydiaWebViewController.mm	17
 Cydia/HomeController.h	2
 Cydia/PackageControllers.h	2
-Cydia/ProgressController.h	2
-Cydia/ProgressController.mm	4
 Cydia/SourceControllers.mm	1
 CyteKit/CyteObject.h	2
 CyteKit/CyteObject.mm	6

@@ -88,6 +88,5 @@ CydiaProgressEvent	attribute	type	attribute-keys
 CydiaProgressEvent	attribute	url	attribute-keys
 CydiaProgressEvent	attribute	version	attribute-keys
 Window	global	cydia	window-injection
-Window	global	cydiaProgress	window-injection
 NSDictionary	dynamic-method	get	undefined-method
 NSDictionary	dynamic-method	keys	undefined-method
