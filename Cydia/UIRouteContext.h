@@ -5,6 +5,8 @@
 #ifndef Cydia_UIRouteContext_H
 #define Cydia_UIRouteContext_H
 
+#include "CyteKit/WebNavigationContext.h"
+
 #import <Foundation/Foundation.h>
 
 typedef NS_ENUM(NSUInteger, CydiaUIRouteCaller) {
@@ -12,6 +14,13 @@ typedef NS_ENUM(NSUInteger, CydiaUIRouteCaller) {
     CydiaUIRouteCallerExternalURL,
     CydiaUIRouteCallerTrustedLegacyPage,
     CydiaUIRouteCallerRepositoryDepiction,
+    CydiaUIRouteCallerUntrustedWebPage,
+};
+
+typedef NS_ENUM(NSUInteger, CydiaUIRouteNavigationKind) {
+    CydiaUIRouteNavigationKindDirect,
+    CydiaUIRouteNavigationKindRedirect,
+    CydiaUIRouteNavigationKindPopup,
 };
 
 typedef NS_ENUM(NSUInteger, CydiaUIRouteKind) {
@@ -48,9 +57,10 @@ typedef NS_ENUM(NSUInteger, CydiaUIRouteDenialReason) {
 
 FOUNDATION_EXPORT NSString * const CydiaUIRouteErrorDomain;
 
-@interface CydiaUIRouteContext : NSObject <NSCopying>
+@interface CydiaUIRouteContext : NSObject <CyteWebNavigationContext>
 
 @property (nonatomic, readonly) CydiaUIRouteCaller caller;
+@property (nonatomic, readonly) CydiaUIRouteNavigationKind navigationKind;
 @property (nonatomic, readonly, copy) NSURL *initiatingOrigin;
 @property (nonatomic, readonly, copy) NSString *depictionPackageIdentity;
 @property (nonatomic, readonly, getter=isMainFrame) BOOL mainFrame;
@@ -71,11 +81,22 @@ FOUNDATION_EXPORT NSString * const CydiaUIRouteErrorDomain;
                                        packageIdentity:(NSString *)packageIdentity
                                              mainFrame:(BOOL)mainFrame
                                            userGesture:(BOOL)userGesture;
+/* Generic content receives the depiction route policy without a package-scoped
+   bridge identity. An unknown origin remains untrusted instead of dropping the
+   caller metadata seam. */
++ (instancetype) untrustedWebPageContextWithOrigin:(NSURL *)origin
+                                         mainFrame:(BOOL)mainFrame
+                                       userGesture:(BOOL)userGesture;
 
-/* Redirects, subframes, and popups retain the initiating authority. */
+/* Redirects retain or reduce authority; they can never promote it. */
 - (instancetype) contextForRedirectWithOrigin:(NSURL *)origin
                                     mainFrame:(BOOL)mainFrame
                                   userGesture:(BOOL)userGesture;
+/* A legacy browser new-window decision records its initiating frame. Native
+   or external entry authority is reduced to an origin-validated web caller. */
+- (instancetype) contextForPopupWithOrigin:(NSURL *)origin
+                                  mainFrame:(BOOL)mainFrame
+                                userGesture:(BOOL)userGesture;
 
 @end
 

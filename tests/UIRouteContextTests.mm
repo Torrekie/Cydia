@@ -79,7 +79,9 @@ void VerifyRouteFixture(NSString *path,
                         CydiaUIRouteContext *external,
                         CydiaUIRouteContext *legacy,
                         CydiaUIRouteContext *depiction,
-                        CydiaUIRouteContext *depictionWithoutGesture) {
+                        CydiaUIRouteContext *depictionWithoutGesture,
+                        CydiaUIRouteContext *untrustedPopup,
+                        CydiaUIRouteContext *untrustedPopupWithoutGesture) {
     NSError *error(nil);
     NSString *fixture([NSString stringWithContentsOfFile:path
         encoding:NSUTF8StringEncoding error:&error]);
@@ -93,7 +95,7 @@ void VerifyRouteFixture(NSString *path,
         if ([line length] == 0 || [line hasPrefix:@"#"])
             continue;
         NSArray *fields([line componentsSeparatedByString:@"\t"]);
-        Expect([fields count] == 6, "route fixture has six columns");
+        Expect([fields count] == 7, "route fixture has seven columns");
         NSString *route([fields objectAtIndex:0]);
         NSString *kindName([fields objectAtIndex:1]);
         Expect(![seenRoutes containsObject:route], "route fixture has no duplicate routes");
@@ -108,6 +110,8 @@ void VerifyRouteFixture(NSString *path,
         CheckExpected(route, [fields objectAtIndex:4], legacy, nil);
         CheckExpected(route, [fields objectAtIndex:5], depiction,
                       depictionWithoutGesture);
+        CheckExpected(route, [fields objectAtIndex:6], untrustedPopup,
+                      untrustedPopupWithoutGesture);
     }
 
     Expect([seenKinds count] == 14, "route fixture covers every route kind");
@@ -129,7 +133,20 @@ int main(int argc, char *argv[]) {
         CydiaUIRouteContext *depictionWithoutGesture([CydiaUIRouteContext
             repositoryDepictionContextWithOrigin:[NSURL URLWithString:@"https://repo.example/depiction"]
             packageIdentity:@"example:iphoneos-arm64" mainFrame:YES userGesture:NO]);
-        Expect(legacy != nil && depiction != nil, "validated route contexts");
+        CydiaUIRouteContext *untrusted([CydiaUIRouteContext
+            untrustedWebPageContextWithOrigin:[NSURL URLWithString:@"https://untrusted.example/page"]
+            mainFrame:YES userGesture:YES]);
+        CydiaUIRouteContext *untrustedWithoutGesture([CydiaUIRouteContext
+            untrustedWebPageContextWithOrigin:[NSURL URLWithString:@"https://untrusted.example/page"]
+            mainFrame:YES userGesture:NO]);
+        CydiaUIRouteContext *untrustedPopup([untrusted
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://untrusted.example/frame"]
+            mainFrame:NO userGesture:YES]);
+        CydiaUIRouteContext *untrustedPopupWithoutGesture([untrustedWithoutGesture
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://untrusted.example/frame"]
+            mainFrame:NO userGesture:YES]);
+        Expect(legacy != nil && depiction != nil && untrustedPopup != nil,
+               "validated route contexts");
         Expect([CydiaUIRouteContext
             trustedLegacyPageContextWithOrigin:[NSURL URLWithString:@"https://repo.example/page"]
             mainFrame:YES userGesture:YES] == nil,
@@ -138,9 +155,20 @@ int main(int argc, char *argv[]) {
             repositoryDepictionContextWithOrigin:[NSURL fileURLWithPath:@"/etc/passwd"]
             packageIdentity:@"example" mainFrame:YES userGesture:YES] == nil,
             "local file cannot mint depiction authority");
+        CydiaUIRouteContext *credentialWeb([CydiaUIRouteContext
+            untrustedWebPageContextWithOrigin:[NSURL URLWithString:@"https://user:password@repo.example/"]
+            mainFrame:YES userGesture:YES]);
+        Expect([credentialWeb caller] == CydiaUIRouteCallerUntrustedWebPage,
+               "credential-bearing origin remains explicitly untrusted");
+        CydiaUIRouteContext *unknownWeb([CydiaUIRouteContext
+            untrustedWebPageContextWithOrigin:nil mainFrame:NO userGesture:NO]);
+        Expect([unknownWeb caller] == CydiaUIRouteCallerUntrustedWebPage &&
+               [unknownWeb initiatingOrigin] == nil,
+               "missing frame origin fails to explicit untrusted metadata");
 
         VerifyRouteFixture([NSString stringWithUTF8String:argv[1]], native,
-            external, legacy, depiction, depictionWithoutGesture);
+            external, legacy, depiction, depictionWithoutGesture,
+            untrustedPopup, untrustedPopupWithoutGesture);
         Expect(CydiaUIEvaluateRoute(Parse(@"cydia://home"), nil).allowed == NO,
                "nil caller context fails closed");
 
@@ -157,6 +185,77 @@ int main(int argc, char *argv[]) {
         Expect(![automatic isAllowed] &&
                [automatic denialReason] == CydiaUIRouteDenialReasonUserGesture,
                "automatic depiction navigation denied");
+
+        CydiaUIRouteContext *depictionPopup([depiction
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://repo.example/iframe"]
+            mainFrame:NO userGesture:YES]);
+        Expect([depictionPopup caller] == CydiaUIRouteCallerRepositoryDepiction &&
+               [depictionPopup navigationKind] == CydiaUIRouteNavigationKindPopup,
+               "depiction popup retains typed caller authority");
+        Expect([[depictionPopup initiatingOrigin] isEqual:[depiction initiatingOrigin]] &&
+               [[depictionPopup depictionPackageIdentity]
+                    isEqualToString:@"example:iphoneos-arm64"],
+               "depiction popup retains origin and package scope");
+        Expect(![depictionPopup isMainFrame] && [depictionPopup hasUserGesture],
+               "popup records its initiating frame metadata");
+
+        CydiaUIRouteContext *nested([untrustedPopup
+            contextForRedirectWithOrigin:[NSURL URLWithString:@"https://cydia.saurik.com/ui/"]
+            mainFrame:YES userGesture:YES]);
+        Expect([nested caller] == CydiaUIRouteCallerUntrustedWebPage &&
+               [nested navigationKind] == CydiaUIRouteNavigationKindRedirect,
+               "nested redirect cannot upgrade untrusted popup authority");
+        Expect([[nested initiatingOrigin] isEqual:[untrusted initiatingOrigin]],
+               "nested redirect retains the untrusted initiating origin");
+
+        CydiaUIRouteContext *nativeWebPopup([native
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://repo.example/frame"]
+            mainFrame:YES userGesture:YES]);
+        Expect([nativeWebPopup caller] == CydiaUIRouteCallerUntrustedWebPage,
+               "private WebView popup cannot inherit trusted native authority");
+        CydiaUIRouteContext *nativeFirstPartyPopup([native
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://cydia.saurik.com/ui/popup"]
+            mainFrame:YES userGesture:YES]);
+        Expect([nativeFirstPartyPopup caller] == CydiaUIRouteCallerTrustedLegacyPage &&
+               [nativeFirstPartyPopup caller] != CydiaUIRouteCallerTrustedNative,
+               "first-party browser popup is legacy authority, never native authority");
+        CydiaUIRouteContext *legacySubframePopup([legacy
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://repo.example/frame"]
+            mainFrame:NO userGesture:YES]);
+        Expect([legacySubframePopup caller] == CydiaUIRouteCallerUntrustedWebPage &&
+               [[legacySubframePopup initiatingOrigin]
+                    isEqual:[NSURL URLWithString:@"https://repo.example/frame"]],
+               "untrusted subframe cannot inherit trusted legacy authority");
+        CydiaUIRouteContext *legacyPopup([legacy
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://cydia.saurik.com/ui/popup"]
+            mainFrame:YES userGesture:YES]);
+        Expect([legacyPopup caller] == CydiaUIRouteCallerTrustedLegacyPage,
+               "allowlisted first-party popup retains temporary legacy authority");
+        CydiaUIRouteContext *externalWebPopup([external
+            contextForPopupWithOrigin:[NSURL URLWithString:@"https://cydia.saurik.com/ui/popup"]
+            mainFrame:YES userGesture:YES]);
+        Expect([externalWebPopup caller] == CydiaUIRouteCallerUntrustedWebPage,
+               "external entry cannot upgrade through a trusted destination");
+
+        NSArray *popupDenied(@[
+            @"cydia://launch/com.example.app",
+            @"cydia://package/example/settings",
+            @"cydia://package/example/files",
+            @"cydia://sources/add",
+        ]);
+        for (NSString *route in popupDenied) {
+            CydiaUIRouteDecision *decision(CydiaUIEvaluateRoute(Parse(route), nested));
+            Expect(![decision isAllowed] &&
+                   [decision denialReason] == CydiaUIRouteDenialReasonCaller,
+                   [[NSString stringWithFormat:@"untrusted popup denies %@", route] UTF8String]);
+        }
+        Expect(CydiaUIEvaluateRoute(Parse(@"cydia://package/example:iphoneos-arm64"), nested).allowed,
+               "untrusted popup may open a read-only package route");
+        Expect(CydiaUIEvaluateRoute(Parse(@"cydia://url/https://example.com/guide"), nested).allowed,
+               "user-initiated untrusted popup may open a validated external URL");
+        Expect(!CydiaUIEvaluateRoute(Parse(@"cydia://url/https://example.com/guide"),
+                                     untrustedPopupWithoutGesture).allowed,
+               "automatic untrusted popup cannot open an external URL");
 
         CydiaUIRouteDescriptor *rawExternal(Parse(@"cydia://url/https://example.com/a%20b"));
         Expect([[[rawExternal externalURL] absoluteString] isEqualToString:@"https://example.com/a%20b"],

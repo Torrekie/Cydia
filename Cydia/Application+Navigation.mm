@@ -157,18 +157,36 @@
     return controller;
 }
 
-- (CyteViewController *) pageForURL:(NSURL *)url context:(CydiaUIRouteContext *)context withReferrer:(NSString *)referrer {
-    if (context == nil)
+- (CyteViewController *) pageForURL:(NSURL *)url
+                            context:(NSObject<CyteWebNavigationContext> *)context
+                       withReferrer:(NSString *)referrer {
+    if (![context isKindOfClass:[CydiaUIRouteContext class]])
         return nil;
+    CydiaUIRouteContext *routeContext((CydiaUIRouteContext *) context);
 
     /* P0.1 evaluates the future policy in shadow mode. P0.4 switches routing
        only after saved-stack, popup, and installed runtime evidence exists. */
     CydiaUIRouteDescriptor *descriptor(CydiaUIParseRouteURL(url, NULL));
-    CydiaUIRouteDecision *decision(CydiaUIEvaluateRoute(descriptor, context));
+    CydiaUIRouteDecision *decision(CydiaUIEvaluateRoute(descriptor, routeContext));
     (void) decision;
 
-    BOOL external([context caller] == CydiaUIRouteCallerExternalURL);
-    return [self _legacyPageForURL:url forExternal:external withReferrer:referrer];
+    BOOL external([routeContext caller] == CydiaUIRouteCallerExternalURL);
+    CyteViewController *controller([self _legacyPageForURL:url
+        forExternal:external withReferrer:referrer]);
+    if ([controller respondsToSelector:@selector(setNavigationContext:)])
+        [(id) controller setNavigationContext:routeContext];
+    return controller;
+}
+
+- (NSObject<CyteWebNavigationContext> *) navigationContextForWebOrigin:(NSURL *)origin
+                                                              mainFrame:(BOOL)mainFrame
+                                                            userGesture:(BOOL)userGesture {
+    CydiaUIRouteContext *context([CydiaUIRouteContext
+        trustedLegacyPageContextWithOrigin:origin
+        mainFrame:mainFrame userGesture:userGesture]);
+    return context ?: [CydiaUIRouteContext
+        untrustedWebPageContextWithOrigin:origin
+        mainFrame:mainFrame userGesture:userGesture];
 }
 
 - (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer {

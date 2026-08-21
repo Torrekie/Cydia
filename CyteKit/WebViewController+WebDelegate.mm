@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Refurbished compatibility work Copyright (C) 2026 Torrekie
  */
 
 #include "CyteKit/WebViewControllerPrivate.h"
@@ -110,7 +111,7 @@
         if (!error_) {
             if (request_ != nil && ![[request_ URL] isEqual:url] && ![self allowsNavigationAction]) {
                 if (url != nil)
-                    [self pushRequest:request forAction:action asPop:NO];
+                    [self pushRequest:request forAction:action asPop:NO newWindow:NO];
                 [listener ignore];
             }
         }
@@ -156,7 +157,8 @@
         if ([scheme isEqualToString:@"mailto"])
             [self _openMailToURL:url];
         else
-            [self pushRequest:request forAction:action asPop:[name isEqualToString:@"_popup"]];
+            [self pushRequest:request forAction:action
+                        asPop:[name isEqualToString:@"_popup"] newWindow:YES];
     }
 
     [listener ignore];

@@ -108,6 +108,7 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
             return kind != CydiaUIRouteKindLaunchApplication;
 
         case CydiaUIRouteCallerRepositoryDepiction:
+        case CydiaUIRouteCallerUntrustedWebPage:
             return kind == CydiaUIRouteKindPackage ||
                 kind == CydiaUIRouteKindExternalOpen;
     }
@@ -120,6 +121,7 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
 
 @interface CydiaUIRouteContext ()
 - (instancetype) initWithCaller:(CydiaUIRouteCaller)caller
+                 navigationKind:(CydiaUIRouteNavigationKind)navigationKind
                           origin:(NSURL *)origin
                  packageIdentity:(NSString *)packageIdentity
                        mainFrame:(BOOL)mainFrame
@@ -129,12 +131,14 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
 @implementation CydiaUIRouteContext
 
 - (instancetype) initWithCaller:(CydiaUIRouteCaller)caller
+                 navigationKind:(CydiaUIRouteNavigationKind)navigationKind
                           origin:(NSURL *)origin
                  packageIdentity:(NSString *)packageIdentity
                        mainFrame:(BOOL)mainFrame
                      userGesture:(BOOL)userGesture {
     if ((self = [super init]) != nil) {
         _caller = caller;
+        _navigationKind = navigationKind;
         _initiatingOrigin = [origin copy];
         _depictionPackageIdentity = [packageIdentity copy];
         _mainFrame = mainFrame;
@@ -145,12 +149,14 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
 
 + (instancetype) trustedNativeContext {
     return [[self alloc] initWithCaller:CydiaUIRouteCallerTrustedNative
+                         navigationKind:CydiaUIRouteNavigationKindDirect
                                  origin:nil packageIdentity:nil
                               mainFrame:YES userGesture:YES];
 }
 
 + (instancetype) externalURLContext {
     return [[self alloc] initWithCaller:CydiaUIRouteCallerExternalURL
+                         navigationKind:CydiaUIRouteNavigationKindDirect
                                  origin:nil packageIdentity:nil
                               mainFrame:YES userGesture:YES];
 }
@@ -161,6 +167,7 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
     if (!IsTrustedLegacyOrigin(origin))
         return nil;
     return [[self alloc] initWithCaller:CydiaUIRouteCallerTrustedLegacyPage
+                         navigationKind:CydiaUIRouteNavigationKindDirect
                                  origin:origin packageIdentity:nil
                               mainFrame:mainFrame userGesture:userGesture];
 }
@@ -174,18 +181,70 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
         !IsRestrictedIdentifier(packageIdentity))
         return nil;
     return [[self alloc] initWithCaller:CydiaUIRouteCallerRepositoryDepiction
+                         navigationKind:CydiaUIRouteNavigationKindDirect
                                  origin:origin packageIdentity:packageIdentity
+                              mainFrame:mainFrame userGesture:userGesture];
+}
+
+- (instancetype) contextForWebNavigationKind:(CydiaUIRouteNavigationKind)navigationKind
+                                        origin:(NSURL *)origin
+                                     mainFrame:(BOOL)mainFrame
+                                   userGesture:(BOOL)userGesture {
+    CydiaUIRouteCaller caller(_caller);
+    NSURL *initiatingOrigin(_initiatingOrigin ?: origin);
+    NSString *packageIdentity(_depictionPackageIdentity);
+
+    /* Native and OS-entry authority describes who opened the controller, not
+     * the HTML now making a decision. A trusted legacy page must also lose its
+     * temporary authority when the initiating frame is not allowlisted. */
+    if (caller == CydiaUIRouteCallerTrustedNative) {
+        caller = IsTrustedLegacyOrigin(origin) ?
+            CydiaUIRouteCallerTrustedLegacyPage :
+            CydiaUIRouteCallerUntrustedWebPage;
+        initiatingOrigin = origin;
+        packageIdentity = nil;
+    } else if (caller == CydiaUIRouteCallerExternalURL) {
+        caller = CydiaUIRouteCallerUntrustedWebPage;
+        initiatingOrigin = origin ?: initiatingOrigin;
+        packageIdentity = nil;
+    } else if (caller == CydiaUIRouteCallerTrustedLegacyPage &&
+               !IsTrustedLegacyOrigin(origin)) {
+        caller = CydiaUIRouteCallerUntrustedWebPage;
+        initiatingOrigin = origin ?: initiatingOrigin;
+        packageIdentity = nil;
+    }
+
+    return [[[self class] alloc] initWithCaller:caller
+                                 navigationKind:navigationKind
+                                         origin:initiatingOrigin
+                                packageIdentity:packageIdentity
+                                      mainFrame:mainFrame
+                                    userGesture:_userGesture && userGesture];
+}
+
++ (instancetype) untrustedWebPageContextWithOrigin:(NSURL *)origin
+                                         mainFrame:(BOOL)mainFrame
+                                       userGesture:(BOOL)userGesture {
+    return [[self alloc] initWithCaller:CydiaUIRouteCallerUntrustedWebPage
+                         navigationKind:CydiaUIRouteNavigationKindDirect
+                                 origin:origin packageIdentity:nil
                               mainFrame:mainFrame userGesture:userGesture];
 }
 
 - (instancetype) contextForRedirectWithOrigin:(NSURL *)origin
                                     mainFrame:(BOOL)mainFrame
                                   userGesture:(BOOL)userGesture {
-    return [[[self class] alloc] initWithCaller:_caller
-                                         origin:_initiatingOrigin ?: origin
-                                packageIdentity:_depictionPackageIdentity
-                                      mainFrame:mainFrame
-                                    userGesture:_userGesture && userGesture];
+    return [self contextForWebNavigationKind:CydiaUIRouteNavigationKindRedirect
+                                       origin:origin mainFrame:mainFrame
+                                  userGesture:userGesture];
+}
+
+- (instancetype) contextForPopupWithOrigin:(NSURL *)origin
+                                  mainFrame:(BOOL)mainFrame
+                                userGesture:(BOOL)userGesture {
+    return [self contextForWebNavigationKind:CydiaUIRouteNavigationKindPopup
+                                       origin:origin mainFrame:mainFrame
+                                  userGesture:userGesture];
 }
 
 - (id) copyWithZone:(NSZone *)zone {
@@ -407,7 +466,8 @@ CydiaUIRouteDecision *CydiaUIEvaluateRoute(CydiaUIRouteDescriptor *descriptor,
                 disposition:CydiaUIRouteDispositionRejected
                 denialReason:CydiaUIRouteDenialReasonScheme
                 requiresConfirmation:NO];
-        if ([context caller] == CydiaUIRouteCallerRepositoryDepiction &&
+        if (([context caller] == CydiaUIRouteCallerRepositoryDepiction ||
+             [context caller] == CydiaUIRouteCallerUntrustedWebPage) &&
             ![context hasUserGesture])
             return [[CydiaUIRouteDecision alloc]
                 initWithDescriptor:descriptor

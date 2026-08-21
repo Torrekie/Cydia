@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Refurbished compatibility work Copyright (C) 2026 Torrekie
  */
 
 #ifndef CyteKit_WebViewControllerPrivate_H
@@ -41,6 +42,7 @@ extern float CYScrollViewDecelerationRateNormal;
     bool error_;
     bool pageColorFromDocument_;
     _H<NSURLRequest> request_;
+    __strong NSObject<CyteWebNavigationContext> *navigationContext_;
     bool ready_;
 
     NSNumber *sensitive_;
@@ -76,7 +78,8 @@ extern float CYScrollViewDecelerationRateNormal;
 - (bool) allowsNavigationAction;
 - (void) setAllowsNavigationAction:(bool)value;
 - (void) _didFailWithError:(NSError *)error forFrame:(WebFrame *)frame;
-- (void) pushRequest:(NSURLRequest *)request forAction:(NSDictionary *)action asPop:(bool)pop;
+- (void) pushRequest:(NSURLRequest *)request forAction:(NSDictionary *)action
+               asPop:(bool)pop newWindow:(bool)newWindow;
 - (void) _openMailToURL:(NSURL *)url;
 - (void) _didStartLoading;
 - (void) _didFinishLoading;
