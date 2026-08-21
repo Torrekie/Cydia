@@ -70,6 +70,13 @@ All names in `CydiaObject` and inherited `CyteObject` remain represented in the
 compatibility service. The implementation is separated from WebKit so native
 controllers and a temporary trusted-page adapter use the same policy.
 
+`tests/fixtures/ui/legacy-properties.tsv` separately inventories declared
+attributes, window globals, dynamic dictionary methods, and the Confirmation
+schema. It also records that legacy `CyteObject` currently returns `false` from
+`isKeyExcludedFromWebScript:` for every key. The declared `attributeKeys` lists
+therefore describe the enumerated surface, not a proven finite allowlist; P0.4
+must replace or explicitly contain that wildcard before policy enforcement.
+
 ### Read-only package/rendering APIs
 
 These keep their existing names and null/error conventions for an authorized

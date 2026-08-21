@@ -33,12 +33,12 @@
         "caller-capability-shadow-policy",
         "route-runtime-fixture",
         "private-webkit-decreasing-debt-gate",
-        "legacy-script-method-inventory"
+        "legacy-script-method-inventory",
+        "legacy-script-property-schema-inventory"
       ],
       "pending_items": [
         "confirmation-view-model",
         "progress-view-model",
-        "legacy-bridge-attribute-inventory",
         "native-screenshot-probe-scaffolding",
         "popup-caller-metadata"
       ]

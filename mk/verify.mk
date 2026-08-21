@@ -159,8 +159,11 @@ endif
 
 verify-native-ui-contract: $(NATIVE_UI_VERIFY_SCRIPT) mk/ui-webkit-legacy.txt \
 		tests/fixtures/ui/routes.tsv tests/fixtures/ui/legacy-api.tsv \
+		tests/fixtures/ui/legacy-properties.tsv \
 		Cydia/CydiaWebViewController.mm CyteKit/CyteObject.mm \
-		Cydia/Package.mm Cydia/Source.mm
+		Cydia/Package.mm Cydia/Source.mm Cydia/Relations.mm \
+		Cydia/MIMEAddress.mm Cydia/ProgressData.mm Cydia/ProgressEvent.mm \
+		Cydia/ConfirmationController.mm Cydia/ProgressController.mm
 	@$(NATIVE_UI_VERIFY_SCRIPT) all
 
 ifeq ($(HOST_OS),Darwin)

@@ -36,6 +36,12 @@ rejects public WebKit outside the future `PackageDepictionView`, and inventories
 the existing script method names and route policy. This is a decreasing debt
 baseline, not approval of the legacy implementation.
 
+The compatibility gate also inventories 115 declared property/schema rows:
+WebScript attributes, the three injected window globals, dynamic dictionary
+methods, the Confirmation object graph, its default `queue` call, and the
+legacy `CyteObject` wildcard key policy. This is inventory-only; caller
+authorization remains a later typed-adapter gate.
+
 Passing evidence at this checkpoint:
 
 - `make --no-print-directory -j3 verify-native-ui`
@@ -45,8 +51,8 @@ Passing evidence at this checkpoint:
 - `git diff --check`
 
 Still required before P0.1 can complete: immutable Confirmation and Progress
-view models, bridge attribute inventory, native screenshot/probe scaffolding,
-popup caller metadata, and installed runtime evidence. Route-policy enforcement
+view models, native screenshot/probe scaffolding, popup caller metadata, and
+installed runtime evidence. Route-policy enforcement
 remains a separately revertible P0.4 move.
 
 ## Invariants
@@ -69,8 +75,9 @@ remains a separately revertible P0.4 move.
   native confirmation/progress probe scaffolding
   - [x] caller-capability shadow policy and route runtime fixture
   - [x] private-WebKit decreasing-debt gate and method-name inventory
+  - [x] legacy property/global/schema inventory
   - [ ] typed Confirmation and Progress view models
-  - [ ] bridge attribute inventory and native screenshot/probe scaffolding
+  - [ ] native screenshot/probe scaffolding
 - [ ] P0.2: native Confirmation screen and offline transaction evidence
 - [ ] P0.3: native Progress screen and cancellation/failure evidence
 - [ ] P0.4: critical-flow bridge removal and P0 device/simulator gate
