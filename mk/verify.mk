@@ -18,6 +18,7 @@ EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
+DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -54,13 +55,13 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
 .PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
 .PHONY: verify-regex-arc
-.PHONY: verify-multiarch-fixture
+.PHONY: verify-multiarch-fixture verify-dpkg-version-policy
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -88,6 +89,25 @@ $(MULTIARCH_FIXTURE_TEST): tests/MultiArchFixtureTests.cpp \
 		Cydia/DpkgStatusParser.cpp -o $@
 
 verify-multiarch-fixture: $(MULTIARCH_FIXTURE_TEST)
+	@$<
+
+$(DPKG_VERSION_POLICY_TEST): tests/DpkgVersionPolicyTests.cpp \
+		Cydia/AptVersionPolicy.cpp Cydia/AptVersionPolicyInternal.hpp \
+		$(APT_SOURCE_DIR)/apt-pkg/deb/debversion.cc \
+		$(APT_SOURCE_DIR)/apt-pkg/version.cc \
+		$(APT_SOURCE_DIR)/apt-pkg/memrchr.cc \
+		$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET)
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra \
+		-Iapt-extra -I$(APT_SOURCE_DIR) -I$(APT_CONTRIB_INCLUDE_DIR) \
+		-I$(APT_DEB_INCLUDE_DIR) -I. -include $(APT_SOURCE_DIR)/apt-pkg/missing.h \
+		tests/DpkgVersionPolicyTests.cpp Cydia/AptVersionPolicy.cpp \
+		$(APT_SOURCE_DIR)/apt-pkg/deb/debversion.cc \
+		$(APT_SOURCE_DIR)/apt-pkg/version.cc \
+		$(APT_SOURCE_DIR)/apt-pkg/memrchr.cc -o $@
+
+verify-dpkg-version-policy: $(DPKG_VERSION_POLICY_TEST)
+	@command -v dpkg >/dev/null || { echo "dpkg is required" >&2; exit 2; }
 	@$<
 
 $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \
