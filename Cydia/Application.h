@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
  */
 
 #ifndef Cydia_Application_H
@@ -11,6 +12,7 @@
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/UIRouteContext.h"
 #include "Menes/ObjectHandle.h"
 
 @class AppCacheController;
@@ -57,6 +59,9 @@
 - (void) detachNewProgressSelector:(SEL)selector toTarget:(id)target forController:(UINavigationController *)navigation title:(NSString *)title;
 - (void) reloadData;
 - (void) cancelAndClear:(bool)clear;
+- (CyteViewController *) pageForURL:(NSURL *)url context:(CydiaUIRouteContext *)context withReferrer:(NSString *)referrer;
+- (BOOL) openCydiaURL:(NSURL *)url context:(CydiaUIRouteContext *)context;
+/* Transitional adapters retained for the private WebView stack until P3. */
 - (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer;
 - (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external;
 - (void) removeStashController;

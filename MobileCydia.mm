@@ -662,7 +662,9 @@ _trace();
         for (unsigned int nav = 0; nav < [stack count]; nav++) {
             NSString *addr = [stack objectAtIndex:nav];
             NSURL *url = [NSURL URLWithString:addr];
-            CyteViewController *page = [self pageForURL:url forExternal:NO withReferrer:nil];
+            CyteViewController *page = [self pageForURL:url
+                context:[CydiaUIRouteContext trustedNativeContext]
+                withReferrer:nil];
             if (page != nil)
                 [current addObject:page];
         }
@@ -672,7 +674,7 @@ _trace();
 
     // (Try to) show the startup URL.
     if (starturl_ != nil) {
-        [self openCydiaURL:starturl_ forExternal:YES];
+        [self openCydiaURL:starturl_ context:[CydiaUIRouteContext externalURLContext]];
         starturl_ = nil;
     }
 }
