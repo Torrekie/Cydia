@@ -48,6 +48,7 @@ apt_api_sources := \
     Cydia/AptBackendOperations.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptRuntime.cpp \
+    Cydia/AptVersionPolicy.cpp \
     Cydia/ConfirmationController.mm \
     Cydia/Database.mm \
     Cydia/DatabaseStatus.mm \

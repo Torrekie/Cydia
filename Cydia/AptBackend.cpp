@@ -9,6 +9,7 @@
 #include "Cydia/AptBackendInternal.hpp"
 #include "Cydia/AptCompatibilityInternal.hpp"
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/AptVersionPolicyInternal.hpp"
 
 #include <apt-pkg/policy.h>
 #include <apt-pkg/acquire-item.h>
@@ -476,7 +477,8 @@ CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
     pkgCache::VerIterator version(entry->version);
     pkgCache::VerIterator current(package.CurrentVer());
     data.hasCurrent = !current.end();
-    data.upgradable = !version.end() && !current.end() && version != current && state.Status != 0;
+    data.upgradable = !version.end() && !current.end() && package.Cache()->VS != NULL &&
+        IsDpkgVersionUpgrade(*package.Cache()->VS, version.VerStr(), current.VerStr());
 
     if (!version.end() && cache_.Policy != NULL)
         data.candidateMatchesVersion = state.CandidateVerIter(cache) == cache_.Policy->GetCandidateVer(package);

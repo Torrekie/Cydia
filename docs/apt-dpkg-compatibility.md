@@ -113,6 +113,13 @@ and reports launch/exit/signal results rather than linking libdpkg.a or
 matching localized error text. Future dpkg capability probes belong in this
 runner boundary; controllers must not grow version-specific CLI logic.
 
+Cydia marks a package as upgradable only when the repository candidate is
+strictly newer than the installed version under Debian's dpkg ordering. The
+comparison uses the selected APT versioning system (`debVS` for Debian
+packages), so epochs, Debian revisions, and tilde pre-releases agree with
+`dpkg --compare-versions`. Equal or older candidates are not upgrade badges;
+an explicit downgrade remains a separate transaction decision.
+
 All APT, dpkg, cache, state, lock, helper, and package-database paths are
 provided by one environment policy. Rooted and rootless layouts are selected
 explicitly; paths are not converted by blindly prefixing /var/jb. Native Cydia
