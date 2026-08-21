@@ -14,7 +14,7 @@ can distinguish planned work from shipped behavior.
 - Implementation branch: `ui/native-migration`
 - Project rules: Makefile-only, ARC, arm64, iOS 12.0 minimum
 - Current phase: `P0`
-- Current item: `P0.1 typed transaction models and probes`
+- Current item: `P0.1 native probe scaffolding and popup caller metadata`
 - Implementation status: in progress
 - Last state update: 2026-08-22
 - Product code changed by this checkpoint: yes
@@ -42,17 +42,35 @@ methods, the Confirmation object graph, its default `queue` call, and the
 legacy `CyteObject` wildcard key policy. This is inventory-only; caller
 authorization remains a later typed-adapter gate.
 
+The transaction data boundaries are now native and independently testable.
+`CydiaConfirmationViewModel` owns an immutable, Foundation-only snapshot of
+the five change groups, dependency reasons and clauses, exact byte counts,
+multiarch routing identities, and essential-removal policy without WebScript
+sentinels. `CydiaProgressViewModel` consumes the existing ordered
+`ProgressDelegate` callbacks and publishes immutable UIKit-ready state while
+preserving the temporary `cydiaProgress` adapter, cancellation tri-state,
+raw/clamped percentage values, event order, and finish-action mapping. Neither
+screen route has changed at this checkpoint.
+
+The native Progress screen will intentionally omit the remote page's hidden
+NetDragon install telemetry. That legacy network side effect is not transaction
+state or visible UI, and must not be reproduced in the UIKit controller. It is
+still present while the legacy progress route remains active.
+
 Passing evidence at this checkpoint:
 
-- `make --no-print-directory -j3 verify-native-ui`
-- `make --no-print-directory -j3 verify-static`
+- `make --no-print-directory -j6 verify`
+- `make --no-print-directory -j6 verify-native-ui`
+- `make --no-print-directory -j6 verify-static`
+- `make --no-print-directory -B -j6 verify-confirmation-view-model`
+- `make --no-print-directory -B -j6 verify-progress-view-model`
 - targeted iPhoneOS compilation of `UIRouteContext`,
-  `Application+Navigation`, and `MobileCydia`
+  `Application+Navigation`, `MobileCydia`, `ConfirmationViewModel`,
+  `ProgressViewModel`, `ProgressController`, and `ProgressData`
 - `git diff --check`
 
-Still required before P0.1 can complete: immutable Confirmation and Progress
-view models, native screenshot/probe scaffolding, popup caller metadata, and
-installed runtime evidence. Route-policy enforcement
+Still required before P0.1 can complete: native screenshot/probe scaffolding,
+popup caller metadata, and installed runtime evidence. Route-policy enforcement
 remains a separately revertible P0.4 move.
 
 ## Invariants
@@ -76,7 +94,7 @@ remains a separately revertible P0.4 move.
   - [x] caller-capability shadow policy and route runtime fixture
   - [x] private-WebKit decreasing-debt gate and method-name inventory
   - [x] legacy property/global/schema inventory
-  - [ ] typed Confirmation and Progress view models
+  - [x] typed Confirmation and Progress view models
   - [ ] native screenshot/probe scaffolding
 - [ ] P0.2: native Confirmation screen and offline transaction evidence
 - [ ] P0.3: native Progress screen and cancellation/failure evidence

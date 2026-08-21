@@ -34,11 +34,11 @@
         "route-runtime-fixture",
         "private-webkit-decreasing-debt-gate",
         "legacy-script-method-inventory",
-        "legacy-script-property-schema-inventory"
+        "legacy-script-property-schema-inventory",
+        "confirmation-view-model",
+        "progress-view-model"
       ],
       "pending_items": [
-        "confirmation-view-model",
-        "progress-view-model",
         "native-screenshot-probe-scaffolding",
         "popup-caller-metadata"
       ]
