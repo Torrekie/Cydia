@@ -36,6 +36,20 @@ typedef NS_ENUM(NSUInteger, CydiaProgressEventKind) {
     CydiaProgressEventKindUnknown,
 };
 
+typedef NS_ENUM(NSUInteger, CydiaProgressFinishSideEffect) {
+    CydiaProgressFinishSideEffectNone,
+    CydiaProgressFinishSideEffectReturnToCydia,
+    CydiaProgressFinishSideEffectTerminate,
+    CydiaProgressFinishSideEffectReloadSpringBoard,
+    CydiaProgressFinishSideEffectRebootDevice,
+};
+
+typedef struct {
+    CydiaProgressFinishSideEffect sideEffect;
+    BOOL savesState;
+    BOOL dismissesController;
+} CydiaProgressFinishPlan;
+
 typedef NS_OPTIONS(NSUInteger, CydiaProgressViewModelChange) {
     CydiaProgressViewModelChangeNone = 0,
     CydiaProgressViewModelChangeTitle = 1 << 0,
@@ -130,6 +144,11 @@ FOUNDATION_EXPORT NSString * _Nullable CydiaProgressFinishLocalizationKey(
 FOUNDATION_EXPORT CydiaProgressFinishAction CydiaProgressEffectiveFinishAction(
     CydiaProgressFinishAction snapshot,
     NSInteger liveAction);
+
+/* Pure policy fixture for controller side effects. The controller still owns
+ * their ordering and invokes the existing application delegate methods. */
+FOUNDATION_EXPORT CydiaProgressFinishPlan CydiaProgressFinishPlanForAction(
+    CydiaProgressFinishAction action);
 
 NS_ASSUME_NONNULL_END
 

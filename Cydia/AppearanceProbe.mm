@@ -8,6 +8,7 @@
 #include "Cydia/Appearance.h"
 #include "Cydia/LoadingView.h"
 #include "Cydia/PackageViews.h"
+#include "Cydia/ProgressControllerProbe.h"
 #include "Cydia/UIColor+Cydia.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/WebViewController.h"
@@ -94,14 +95,19 @@ static void EnsureProbeMetrics(void) {
     Elision_ = UCLocalize("ELISION");
     EnsureProbeMetrics();
 
-    [CyteWebViewController _initialize];
-    ProbePalettePassed = ProbePaletteAssertions();
-
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    BOOL progressProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-progress-probe"];
     BOOL controlledTraits = [[[NSProcessInfo processInfo] arguments]
         containsObject:@"--cydia-appearance-probe-controlled-traits"];
-    self.window.rootViewController = [[CydiaAppearanceProbeHostController alloc]
-        initWithControlledTraits:controlledTraits];
+    if (progressProbe) {
+        self.window.rootViewController = CydiaProgressControllerProbeRootController();
+    } else {
+        [CyteWebViewController _initialize];
+        ProbePalettePassed = ProbePaletteAssertions();
+        self.window.rootViewController = [[CydiaAppearanceProbeHostController alloc]
+            initWithControlledTraits:controlledTraits];
+    }
     [self.window makeKeyAndVisible];
     return YES;
 }

@@ -84,6 +84,24 @@ CydiaProgressFinishAction CydiaProgressEffectiveFinishAction(
     return snapshot < live ? live : snapshot;
 }
 
+CydiaProgressFinishPlan CydiaProgressFinishPlanForAction(
+    CydiaProgressFinishAction action) {
+    switch (action) {
+        case CydiaProgressFinishActionNone:
+            return {CydiaProgressFinishSideEffectNone, NO, NO};
+        case CydiaProgressFinishActionReturnToCydia:
+            return {CydiaProgressFinishSideEffectReturnToCydia, NO, YES};
+        case CydiaProgressFinishActionTerminate:
+            return {CydiaProgressFinishSideEffectTerminate, NO, YES};
+        case CydiaProgressFinishActionRestartSpringBoard:
+        case CydiaProgressFinishActionReloadSpringBoard:
+            return {CydiaProgressFinishSideEffectReloadSpringBoard, YES, NO};
+        case CydiaProgressFinishActionRebootDevice:
+            return {CydiaProgressFinishSideEffectRebootDevice, YES, YES};
+    }
+    return {CydiaProgressFinishSideEffectNone, NO, NO};
+}
+
 static NSString *CydiaProgressString(id value) {
     return [value isKindOfClass:[NSString class]] ? value : nil;
 }
@@ -288,8 +306,12 @@ static NSString *CydiaProgressLogMessage(NSString *message) {
     presentation.rawType = type;
     presentation.rawMessage = rawMessage;
     presentation.displayMessage = CydiaProgressLogMessage(substituted);
-    presentation.accessibilityLabel = [self accessibilityLabelForKind:kind
-                                                               message:presentation.displayMessage];
+    if (kind == CydiaProgressEventKindUnknown && [type length] != 0)
+        presentation.accessibilityLabel = [NSString stringWithFormat:
+            [self localized:@"COLON_DELIMITED"], type, presentation.displayMessage];
+    else
+        presentation.accessibilityLabel = [self accessibilityLabelForKind:kind
+                                                                   message:presentation.displayMessage];
     presentation.item = CydiaProgressStringArray([event item]);
     presentation.packageIdentifier = CydiaProgressString([event package]);
     presentation.URLString = CydiaProgressString([event url]);

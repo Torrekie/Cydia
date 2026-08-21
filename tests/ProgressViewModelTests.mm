@@ -155,6 +155,14 @@ void TestStateAndLegacyOrdering(void) {
     ExpectEqual(model.state.statusText, @"Installing Friendly Runtime",
                 @"Information output does not replace current Status");
 
+    FixtureProgressEvent *statusOutput(Event(@"Status", @"old status\rnew status\r"));
+    [model addProgressEvent:(CydiaProgressEvent *) statusOutput];
+    presented = [model.state.events lastObject];
+    ExpectEqual(presented.displayMessage, @"new status",
+                @"Status CR overwrite keeps the final visible line");
+    ExpectEqual(model.state.statusText, @"old status\rnew status\r",
+                @"legacy status text remains raw while only the log row applies CR overwrite");
+
     FixtureProgressEvent *warning(Event(@"Warning", @"configuration changed"));
     [model addProgressEvent:(CydiaProgressEvent *) warning];
     presented = [model.state.events lastObject];
@@ -174,10 +182,13 @@ void TestStateAndLegacyOrdering(void) {
     [model addProgressEvent:(CydiaProgressEvent *) unknown];
     Expect([[model.state.events lastObject] kind] == CydiaProgressEventKindUnknown,
            @"unknown event types remain visible");
+    ExpectEqual([[model.state.events lastObject] accessibilityLabel],
+                @"FutureKind: future message",
+                @"unknown event types remain explicit to VoiceOver");
 
     Expect([initial.events count] == 0 && initial.revision == 0,
            @"published state remains immutable after later events");
-    Expect([observer.states count] == 7, @"one state is published per ordered mutation");
+    Expect([observer.states count] == 8, @"one state is published per ordered mutation");
     NSUInteger priorRevision(0);
     for (CydiaProgressViewState *state in observer.states) {
         Expect(state.revision > priorRevision, @"observer revisions increase monotonically");
@@ -280,6 +291,24 @@ void TestFinishActions(void) {
                CydiaProgressFinishActionTerminate, 99) ==
                CydiaProgressFinishActionTerminate,
            @"an invalid live value cannot select an undefined side effect");
+
+    const CydiaProgressFinishSideEffect effects[] = {
+        CydiaProgressFinishSideEffectReturnToCydia,
+        CydiaProgressFinishSideEffectTerminate,
+        CydiaProgressFinishSideEffectReloadSpringBoard,
+        CydiaProgressFinishSideEffectReloadSpringBoard,
+        CydiaProgressFinishSideEffectRebootDevice,
+    };
+    const BOOL saves[] = {NO, NO, YES, YES, YES};
+    const BOOL dismisses[] = {YES, YES, NO, NO, YES};
+    for (NSInteger raw(0); raw != 5; ++raw) {
+        CydiaProgressFinishPlan plan(CydiaProgressFinishPlanForAction(
+            static_cast<CydiaProgressFinishAction>(raw)));
+        Expect(plan.sideEffect == effects[raw] &&
+               plan.savesState == saves[raw] &&
+               plan.dismissesController == dismisses[raw],
+               @"controller finish side-effect plan changed");
+    }
 }
 
 int main() {
