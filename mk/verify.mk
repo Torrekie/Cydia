@@ -171,7 +171,8 @@ verify-native-ui-contract: $(NATIVE_UI_VERIFY_SCRIPT) mk/ui-webkit-legacy.txt \
 
 ifeq ($(HOST_OS),Darwin)
 $(UI_ROUTE_CONTEXT_TEST): tests/UIRouteContextTests.mm \
-		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		CyteKit/WebNavigationContext.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
 		tests/UIRouteContextTests.mm Cydia/UIRouteContext.mm \

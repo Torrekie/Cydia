@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Refurbished compatibility work Copyright (C) 2026 Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -26,6 +27,7 @@
 
 #include "CyteKit/ViewController.h"
 #include "CyteKit/Diversion.h"
+#include "CyteKit/WebNavigationContext.h"
 #include "CyteKit/WebView.h"
 
 #include <UIKit/UIKit.h>
@@ -38,6 +40,13 @@
 - (void) releaseNetworkActivityIndicator;
 - (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer;
 - (void) unloadData;
+@optional
+- (CyteViewController *) pageForURL:(NSURL *)url
+                            context:(NSObject<CyteWebNavigationContext> *)context
+                       withReferrer:(NSString *)referrer;
+- (NSObject<CyteWebNavigationContext> *) navigationContextForWebOrigin:(NSURL *)origin
+                                                              mainFrame:(BOOL)mainFrame
+                                                            userGesture:(BOOL)userGesture;
 @end
 
 @interface CyteWebViewController : CyteViewController <
@@ -53,6 +62,9 @@
 
 - (void) setRequest:(NSURLRequest *)request;
 - (NSURLRequest *) request;
+
+- (void) setNavigationContext:(NSObject<CyteWebNavigationContext> *)context;
+- (NSObject<CyteWebNavigationContext> *) navigationContext;
 
 - (void) setURL:(NSURL *)url;
 - (void) setURL:(NSURL *)url withReferrer:(NSString *)referrer;

@@ -59,7 +59,12 @@
 - (void) detachNewProgressSelector:(SEL)selector toTarget:(id)target forController:(UINavigationController *)navigation title:(NSString *)title;
 - (void) reloadData;
 - (void) cancelAndClear:(bool)clear;
-- (CyteViewController *) pageForURL:(NSURL *)url context:(CydiaUIRouteContext *)context withReferrer:(NSString *)referrer;
+- (CyteViewController *) pageForURL:(NSURL *)url
+                            context:(NSObject<CyteWebNavigationContext> *)context
+                       withReferrer:(NSString *)referrer;
+- (NSObject<CyteWebNavigationContext> *) navigationContextForWebOrigin:(NSURL *)origin
+                                                              mainFrame:(BOOL)mainFrame
+                                                            userGesture:(BOOL)userGesture;
 - (BOOL) openCydiaURL:(NSURL *)url context:(CydiaUIRouteContext *)context;
 /* Transitional adapters retained for the private WebView stack until P3. */
 - (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer;

@@ -1,20 +1,20 @@
-# route	kind	trusted-native	external-url	trusted-legacy	repository-depiction
-cydia://home	home	allow	deny	temporary	deny
-cydia://sources	sources	allow	deny	temporary	deny
-cydia://sources/add	source-add	allow	confirm	temporary	deny
-cydia://sources/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F	source	allow	allow	temporary	deny
-cydia://sections	sections	allow	deny	temporary	deny
-cydia://sections/all	section	allow	deny	temporary	deny
-cydia://sections/*/*	section	allow	deny	temporary	deny
-cydia://sections/Utilities	section	allow	deny	temporary	deny
-cydia://sections/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F/Development%2FLibraries	section	allow	deny	temporary	deny
-cydia://search	search	allow	deny	temporary	deny
-cydia://search/owner%2Frepository	search	allow	deny	temporary	deny
-cydia://changes	changes	allow	deny	temporary	deny
-cydia://installed	installed	allow	deny	temporary	deny
-cydia://package/example:iphoneos-arm64	package	allow	allow	temporary	allow
-apptapp://package/example:iphoneos-arm64	package	allow	allow	temporary	allow
-cydia://package/example:iphoneos-arm64/settings	package-settings	allow	deny	temporary	deny
-cydia://package/example:iphoneos-arm64/files	package-files	allow	deny	temporary	deny
-cydia://launch/com.example.app	launch	allow	deny	deny	deny
-cydia://url/https%3A%2F%2Fexample.com%2Fguide	external-open	allow	allow	temporary	gesture
+# route	kind	trusted-native	external-url	trusted-legacy	repository-depiction	untrusted-web-popup
+cydia://home	home	allow	deny	temporary	deny	deny
+cydia://sources	sources	allow	deny	temporary	deny	deny
+cydia://sources/add	source-add	allow	confirm	temporary	deny	deny
+cydia://sources/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F	source	allow	allow	temporary	deny	deny
+cydia://sections	sections	allow	deny	temporary	deny	deny
+cydia://sections/all	section	allow	deny	temporary	deny	deny
+cydia://sections/*/*	section	allow	deny	temporary	deny	deny
+cydia://sections/Utilities	section	allow	deny	temporary	deny	deny
+cydia://sections/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F/Development%2FLibraries	section	allow	deny	temporary	deny	deny
+cydia://search	search	allow	deny	temporary	deny	deny
+cydia://search/owner%2Frepository	search	allow	deny	temporary	deny	deny
+cydia://changes	changes	allow	deny	temporary	deny	deny
+cydia://installed	installed	allow	deny	temporary	deny	deny
+cydia://package/example:iphoneos-arm64	package	allow	allow	temporary	allow	allow
+apptapp://package/example:iphoneos-arm64	package	allow	allow	temporary	allow	allow
+cydia://package/example:iphoneos-arm64/settings	package-settings	allow	deny	temporary	deny	deny
+cydia://package/example:iphoneos-arm64/files	package-files	allow	deny	temporary	deny	deny
+cydia://launch/com.example.app	launch	allow	deny	deny	deny	deny
+cydia://url/https%3A%2F%2Fexample.com%2Fguide	external-open	allow	allow	temporary	gesture	gesture

@@ -317,18 +317,19 @@ verify_contracts() {
     fi
 
     header=$(sed -n '1p' "$routes")
-    expected_header=$(printf '# route\tkind\ttrusted-native\texternal-url\ttrusted-legacy\trepository-depiction')
+    expected_header=$(printf '# route\tkind\ttrusted-native\texternal-url\ttrusted-legacy\trepository-depiction\tuntrusted-web-popup')
     test "$header" = "$expected_header" ||
         fail "route fixture header changed"
     awk -F '\t' '
         /^#/ || NF == 0 { next }
-        NF != 6 { bad=1; next }
+        NF != 7 { bad=1; next }
         {
             if (seen[$1]++) bad=1
             if ($3 != "allow") bad=1
             if ($4 != "allow" && $4 != "deny" && $4 != "confirm") bad=1
             if ($5 != "allow" && $5 != "deny" && $5 != "temporary") bad=1
             if ($6 != "allow" && $6 != "deny" && $6 != "gesture") bad=1
+            if ($7 != "allow" && $7 != "deny" && $7 != "gesture") bad=1
         }
         END { exit bad }
     ' "$routes" || fail "route fixture has invalid or duplicate policy rows"
