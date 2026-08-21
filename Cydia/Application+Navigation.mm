@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
  */
 
 #include "Cydia/Application.h"
@@ -62,7 +63,7 @@
     return [[CYPackageController alloc] initWithDatabase:database_ forPackage:name withReferrer:referrer];
 }
 
-- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer {
+- (CyteViewController *) _legacyPageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer {
     NSString *scheme([[url scheme] lowercaseString]);
     if ([[url absoluteString] length] <= [scheme length] + 3)
         return nil;
@@ -88,39 +89,31 @@
         NSString *destination = [[url absoluteString] substringFromIndex:([scheme length] + [@"://" length] + [base length] + [@"/" length])];
         controller = [[CydiaWebViewController alloc] initWithURL:[NSURL URLWithString:destination]];
     } else if (!external && [components count] == 1) {
-        if ([base isEqualToString:@"sources"]) {
+        if ([base isEqualToString:@"sources"])
             controller = [[SourcesController alloc] initWithDatabase:database_];
-        }
 
-        if ([base isEqualToString:@"home"]) {
+        if ([base isEqualToString:@"home"])
             controller = [[HomeController alloc] init];
-        }
 
-        if ([base isEqualToString:@"sections"]) {
+        if ([base isEqualToString:@"sections"])
             controller = [[SectionsController alloc] initWithDatabase:database_ source:nil];
-        }
 
-        if ([base isEqualToString:@"search"]) {
+        if ([base isEqualToString:@"search"])
             controller = [[SearchController alloc] initWithDatabase:database_ query:nil];
-        }
 
-        if ([base isEqualToString:@"changes"]) {
+        if ([base isEqualToString:@"changes"])
             controller = [[ChangesController alloc] initWithDatabase:database_];
-        }
 
-        if ([base isEqualToString:@"installed"]) {
+        if ([base isEqualToString:@"installed"])
             controller = [[InstalledController alloc] initWithDatabase:database_];
-        }
     } else if ([components count] == 2) {
         NSString *argument = [[components objectAtIndex:1] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 
-        if ([base isEqualToString:@"package"]) {
+        if ([base isEqualToString:@"package"])
             controller = [self pageForPackage:argument withReferrer:referrer];
-        }
 
-        if (!external && [base isEqualToString:@"search"]) {
+        if (!external && [base isEqualToString:@"search"])
             controller = [[SearchController alloc] initWithDatabase:database_ query:argument];
-        }
 
         if (!external && [base isEqualToString:@"sections"]) {
             if ([argument isEqualToString:@"all"] || [argument isEqualToString:@"*"])
@@ -147,11 +140,10 @@
         NSString *arg2 = [[components objectAtIndex:2] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 
         if ([base isEqualToString:@"package"]) {
-            if ([arg2 isEqualToString:@"settings"]) {
+            if ([arg2 isEqualToString:@"settings"])
                 controller = [[PackageSettingsController alloc] initWithDatabase:database_ package:arg1];
-            } else if ([arg2 isEqualToString:@"files"]) {
+            else if ([arg2 isEqualToString:@"files"])
                 controller = [[FileTable alloc] initWithDatabase:database_ forPackage:arg1];
-            }
         }
 
         if ([base isEqualToString:@"sections"]) {
@@ -165,13 +157,37 @@
     return controller;
 }
 
-- (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external {
-    CyteViewController *page([self pageForURL:url forExternal:external withReferrer:nil]);
+- (CyteViewController *) pageForURL:(NSURL *)url context:(CydiaUIRouteContext *)context withReferrer:(NSString *)referrer {
+    if (context == nil)
+        return nil;
+
+    /* P0.1 evaluates the future policy in shadow mode. P0.4 switches routing
+       only after saved-stack, popup, and installed runtime evidence exists. */
+    CydiaUIRouteDescriptor *descriptor(CydiaUIParseRouteURL(url, NULL));
+    CydiaUIRouteDecision *decision(CydiaUIEvaluateRoute(descriptor, context));
+    (void) decision;
+
+    BOOL external([context caller] == CydiaUIRouteCallerExternalURL);
+    return [self _legacyPageForURL:url forExternal:external withReferrer:referrer];
+}
+
+- (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer {
+    return [self _legacyPageForURL:url forExternal:external withReferrer:referrer];
+}
+
+- (BOOL) openCydiaURL:(NSURL *)url context:(CydiaUIRouteContext *)context {
+    CyteViewController *page([self pageForURL:url context:context withReferrer:nil]);
 
     if (page != nil)
         [tabbar_ setUnselectedViewController:page];
 
     return page != nil;
+}
+
+- (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external {
+    CydiaUIRouteContext *context(external ? [CydiaUIRouteContext externalURLContext] :
+        [CydiaUIRouteContext trustedNativeContext]);
+    return [self openCydiaURL:url context:context];
 }
 
 - (void) applicationOpenURL:(NSURL *)url {
@@ -180,7 +196,7 @@
     if (!loaded_)
         starturl_ = url;
     else
-        [self openCydiaURL:url forExternal:YES];
+        [self openCydiaURL:url context:[CydiaUIRouteContext externalURLContext]];
 }
 
 @end

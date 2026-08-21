@@ -10,14 +10,44 @@ can distinguish planned work from shipped behavior.
 
 ## Checkpoint
 
-- Baseline: `eac9b7433431514470443884594957533cb7a57c` (`fix/dpkg-version-upgrades`)
-- Planning branch: `ui/native-migration-plan`
+- Baseline: `3cf4a492f55a35013a6d5ddd30233bb1162e977c` (`origin/main`)
+- Implementation branch: `ui/native-migration`
 - Project rules: Makefile-only, ARC, arm64, iOS 12.0 minimum
-- Current phase: `planning`
-- Current item: `P0.1 shared contracts and probes`
-- Implementation status: not started
+- Current phase: `P0`
+- Current item: `P0.1 typed transaction models and probes`
+- Implementation status: in progress
 - Last state update: 2026-08-22
-- Product code changed by this checkpoint: no
+- Product code changed by this checkpoint: yes
+
+## Latest meaningful move
+
+The route-capability foundation is implemented in shadow mode.
+`CydiaUIRouteContext` now
+distinguishes trusted native, OS external, trusted legacy-page, and repository
+depiction callers; authority cannot be upgraded by a redirect. The production
+entry points construct this context, but the temporary private-WebView stack
+still uses the legacy controller factory until saved-stack, popup, and runtime
+parity evidence permits enforcement. Qualified package identities, opaque
+source keys, and the documented `cydia://`/`apptapp://` routes have a
+fixture-driven host runtime test.
+
+A Make-driven gate now freezes the current private-WebKit debt per source file,
+rejects public WebKit outside the future `PackageDepictionView`, and inventories
+the existing script method names and route policy. This is a decreasing debt
+baseline, not approval of the legacy implementation.
+
+Passing evidence at this checkpoint:
+
+- `make --no-print-directory -j3 verify-native-ui`
+- `make --no-print-directory -j3 verify-static`
+- targeted iPhoneOS compilation of `UIRouteContext`,
+  `Application+Navigation`, and `MobileCydia`
+- `git diff --check`
+
+Still required before P0.1 can complete: immutable Confirmation and Progress
+view models, bridge attribute inventory, native screenshot/probe scaffolding,
+popup caller metadata, and installed runtime evidence. Route-policy enforcement
+remains a separately revertible P0.4 move.
 
 ## Invariants
 
@@ -37,6 +67,10 @@ can distinguish planned work from shipped behavior.
 
 - [ ] P0.1: shared view models, route/API inventory, screenshot fixture, and
   native confirmation/progress probe scaffolding
+  - [x] caller-capability shadow policy and route runtime fixture
+  - [x] private-WebKit decreasing-debt gate and method-name inventory
+  - [ ] typed Confirmation and Progress view models
+  - [ ] bridge attribute inventory and native screenshot/probe scaffolding
 - [ ] P0.2: native Confirmation screen and offline transaction evidence
 - [ ] P0.3: native Progress screen and cancellation/failure evidence
 - [ ] P0.4: critical-flow bridge removal and P0 device/simulator gate

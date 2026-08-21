@@ -9,6 +9,7 @@ APPEARANCE_VERIFY_SCRIPT := scripts/verify-appearance-simulator.sh
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 EXEC_COMPAT_VERIFY_SCRIPT := scripts/verify-exec-compat.sh
+NATIVE_UI_VERIFY_SCRIPT := scripts/verify-native-ui-contract.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
@@ -19,6 +20,7 @@ REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
 DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
+UI_ROUTE_CONTEXT_TEST := $(BUILD_DIR)/tests/UIRouteContextTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -56,12 +58,13 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
 .PHONY: verify-regex-arc
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
+.PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-native-ui verify-static verify-compile
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -154,6 +157,29 @@ verify-regex-arc:
 	@echo "[verify] RegEx ARC runtime test requires a Darwin host; iOS compile coverage remains enabled"
 endif
 
+verify-native-ui-contract: $(NATIVE_UI_VERIFY_SCRIPT) mk/ui-webkit-legacy.txt \
+		tests/fixtures/ui/routes.tsv tests/fixtures/ui/legacy-api.tsv \
+		Cydia/CydiaWebViewController.mm CyteKit/CyteObject.mm \
+		Cydia/Package.mm Cydia/Source.mm
+	@$(NATIVE_UI_VERIFY_SCRIPT) all
+
+ifeq ($(HOST_OS),Darwin)
+$(UI_ROUTE_CONTEXT_TEST): tests/UIRouteContextTests.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/UIRouteContextTests.mm Cydia/UIRouteContext.mm \
+		-framework Foundation -o $@
+
+verify-ui-route-context: $(UI_ROUTE_CONTEXT_TEST) tests/fixtures/ui/routes.tsv
+	@$< tests/fixtures/ui/routes.tsv
+else
+verify-ui-route-context:
+	@echo "[verify] UI route runtime test requires a Darwin host; iOS compile coverage remains enabled"
+endif
+
+verify-native-ui: verify-native-ui-contract verify-ui-route-context
+
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/libiosexec.h $(EXEC_COMPAT_SOURCE_DIR)/utils.h \
@@ -238,7 +264,7 @@ verify-apt-sources: $(APT_VERIFY_SCRIPT) mk/apt.mk
 		"$(apt_excluded_contrib_sources)" "$(notdir $(apt_http_source))" \
 		"$(apt_excluded_method_sources)"
 
-verify-static: $(VERIFY_SCRIPT)
+verify-static: verify-native-ui-contract $(VERIFY_SCRIPT)
 	@status=0; \
 	$(MAKE) --no-print-directory verify-config || status=1; \
 	$(MAKE) --no-print-directory verify-ownership || status=1; \

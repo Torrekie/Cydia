@@ -47,6 +47,13 @@ The app currently registers only the `cydia` scheme. `apptapp` remains a
 parser-level compatibility alias unless a separately reviewed change registers
 it in the bundle.
 
+During the P0 shadow-policy period, `trustedLegacyPage` temporarily retains the
+legacy internal-navigation behavior for every route except application launch.
+Those allowances are marked `temporary` in `tests/fixtures/ui/routes.tsv`; they
+do not expand the final caller policy in the table above. P0.4 may enforce only
+after popup/origin metadata and installed route evidence exist, and P2 removes
+each temporary allowance as its legacy first-party caller is retired.
+
 ## Depiction resource URLs
 
 The old URL protocol serves `cydia://application-icon`, `package-icon`,

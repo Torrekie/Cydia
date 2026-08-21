@@ -1,18 +1,18 @@
 {
   "schema": 1,
   "baseline": {
-    "commit": "eac9b7433431514470443884594957533cb7a57c",
-    "branch": "ui/native-migration-plan",
+    "commit": "3cf4a492f55a35013a6d5ddd30233bb1162e977c",
+    "branch": "ui/native-migration",
     "base_branch": "origin/main",
     "deployment_target": "12.0",
     "architecture": "arm64",
     "build_system": "make"
   },
-  "phase": "planning",
+  "phase": "P0",
   "current_item": "P0.1",
-  "implementation_started": false,
+  "implementation_started": true,
   "last_updated": "2026-08-22",
-  "product_code_changed": false,
+  "product_code_changed": true,
   "documents": {
     "plan": "docs/ui-migration-plan.md",
     "compatibility": "docs/ui-migration-compatibility.md",
@@ -27,7 +27,22 @@
     "Makefile-only, ARC, arm64, and iOS 12.0 remain mandatory"
   ],
   "phases": {
-    "P0": {"status": "planned", "completed_items": []},
+    "P0": {
+      "status": "in_progress",
+      "completed_items": [
+        "caller-capability-shadow-policy",
+        "route-runtime-fixture",
+        "private-webkit-decreasing-debt-gate",
+        "legacy-script-method-inventory"
+      ],
+      "pending_items": [
+        "confirmation-view-model",
+        "progress-view-model",
+        "legacy-bridge-attribute-inventory",
+        "native-screenshot-probe-scaffolding",
+        "popup-caller-metadata"
+      ]
+    },
     "P1": {"status": "planned", "completed_items": []},
     "P2": {"status": "planned", "completed_items": []},
     "P3": {"status": "planned", "completed_items": []}
@@ -39,7 +54,7 @@
     "depiction_island": "pending",
     "home": "pending",
     "external_routing_error": "pending",
-    "url_api_compatibility": "pending",
+    "url_api_compatibility": "route policy fixture passed; bridge and installed-runtime coverage pending",
     "rootful_device": "pending",
     "rootless_device": "pending",
     "ios12_simulator": "pending",
