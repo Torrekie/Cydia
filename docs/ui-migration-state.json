@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "baseline": {
+    "commit": "eac9b7433431514470443884594957533cb7a57c",
+    "branch": "ui/native-migration-plan",
+    "base_branch": "origin/main",
+    "deployment_target": "12.0",
+    "architecture": "arm64",
+    "build_system": "make"
+  },
+  "phase": "planning",
+  "current_item": "P0.1",
+  "implementation_started": false,
+  "last_updated": "2026-08-22",
+  "product_code_changed": false,
+  "documents": {
+    "plan": "docs/ui-migration-plan.md",
+    "compatibility": "docs/ui-migration-compatibility.md",
+    "state": "docs/ui-migration-state.md"
+  },
+  "invariants": [
+    "UIKit replaces every Cydia-owned WebView screen",
+    "Only repository package depiction HTML may use the adaptive WKWebView island",
+    "Navigation uses explicit capabilities rather than a boolean external flag",
+    "cydia:// and apptapp:// routes remain functional",
+    "Trusted legacy bridge names remain callable through a typed compatibility adapter",
+    "Makefile-only, ARC, arm64, and iOS 12.0 remain mandatory"
+  ],
+  "phases": {
+    "P0": {"status": "planned", "completed_items": []},
+    "P1": {"status": "planned", "completed_items": []},
+    "P2": {"status": "planned", "completed_items": []},
+    "P3": {"status": "planned", "completed_items": []}
+  },
+  "acceptance": {
+    "confirmation": "pending",
+    "progress": "pending",
+    "package_shell": "pending",
+    "depiction_island": "pending",
+    "home": "pending",
+    "external_routing_error": "pending",
+    "url_api_compatibility": "pending",
+    "rootful_device": "pending",
+    "rootless_device": "pending",
+    "ios12_simulator": "pending",
+    "current_simulator": "pending"
+  },
+  "evidence_root": "/tmp/cydia-ui-evidence"
+}

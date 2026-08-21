@@ -34,6 +34,12 @@ in `mk/apt.mk`. The update and backend-boundary policy is documented in
 `docs/apt-dpkg-compatibility.md`; current canary blockers and migration order
 are tracked in `docs/apt-dpkg-canary.md`.
 
+The planned removal of Cydia-owned WebView UI is documented in
+`docs/ui-migration-plan.md`. Its resumable checkpoint is
+`docs/ui-migration-state.md`/`.json`, and exposed URL/legacy bridge behavior is
+locked by `docs/ui-migration-compatibility.md`. Planning these files does not
+mean the native UI migration has started or passed runtime acceptance.
+
 ## Compatibility contract
 
 - Minimum deployment target: iOS 12.0.
