@@ -9,7 +9,7 @@
     "build_system": "make"
   },
   "phase": "P0",
-  "current_item": "P0.1",
+  "current_item": "P0.2-runtime-evidence",
   "implementation_started": true,
   "last_updated": "2026-08-22",
   "product_code_changed": true,
@@ -36,11 +36,15 @@
         "legacy-script-method-inventory",
         "legacy-script-property-schema-inventory",
         "confirmation-view-model",
-        "progress-view-model"
+        "progress-view-model",
+        "popup-caller-metadata-shadow-mode",
+        "native-confirmation-controller",
+        "native-confirmation-simulator-injection-seam"
       ],
       "pending_items": [
         "native-screenshot-probe-scaffolding",
-        "popup-caller-metadata"
+        "confirmation-installed-runtime-evidence",
+        "progress-native-controller"
       ]
     },
     "P1": {"status": "planned", "completed_items": []},
@@ -48,13 +52,13 @@
     "P3": {"status": "planned", "completed_items": []}
   },
   "acceptance": {
-    "confirmation": "pending",
+    "confirmation": "native implementation and contracts passed; installed runtime evidence pending",
     "progress": "pending",
     "package_shell": "pending",
     "depiction_island": "pending",
     "home": "pending",
     "external_routing_error": "pending",
-    "url_api_compatibility": "route policy fixture passed; bridge and installed-runtime coverage pending",
+    "url_api_compatibility": "route and popup caller fixtures passed in shadow mode; bridge enforcement and installed-runtime coverage pending",
     "rootful_device": "pending",
     "rootless_device": "pending",
     "ios12_simulator": "pending",

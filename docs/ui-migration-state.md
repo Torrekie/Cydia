@@ -14,7 +14,7 @@ can distinguish planned work from shipped behavior.
 - Implementation branch: `ui/native-migration`
 - Project rules: Makefile-only, ARC, arm64, iOS 12.0 minimum
 - Current phase: `P0`
-- Current item: `P0.1 native probe scaffolding and popup caller metadata`
+- Current item: `P0.2 native Confirmation runtime and parity evidence`
 - Implementation status: in progress
 - Last state update: 2026-08-22
 - Product code changed by this checkpoint: yes
@@ -52,6 +52,23 @@ preserving the temporary `cydiaProgress` adapter, cancellation tri-state,
 raw/clamped percentage values, event order, and finish-action mapping. Neither
 screen route has changed at this checkpoint.
 
+Popup and pushed-window decisions now carry opaque caller metadata through the
+legacy WebView boundary. The initiating committed frame origin is preferred
+over a provisional destination, redirects and popups cannot promote caller
+authority, and unknown web origins are explicitly untrusted. Enforcement is
+still shadow-only: the private WebKit navigation-type gesture heuristic must
+be validated on-device before P0.4 can switch routing decisions.
+
+`ConfirmationController` is now a native grouped `UITableView` backed by the
+typed transaction snapshot. It preserves the legacy Confirm/Cannot Comply
+titles, Continue Queuing placement, statistics-before-modifications order,
+operation ordering, blocking issue details, essential-removal alerts, and the
+four distinct delegate outcomes. Its production path no longer creates a
+WebView or waits for the first-party confirmation HTML. A simulator-only
+initializer reaches the same production table/action implementation from a
+deterministic snapshot. Installed visual, accessibility, restoration, alert,
+and transaction evidence is still required before P0.2 can complete.
+
 The native Progress screen will intentionally omit the remote page's hidden
 NetDragon install telemetry. That legacy network side effect is not transaction
 state or visible UI, and must not be reproduced in the UIKit controller. It is
@@ -66,11 +83,16 @@ Passing evidence at this checkpoint:
 - `make --no-print-directory -B -j6 verify-progress-view-model`
 - targeted iPhoneOS compilation of `UIRouteContext`,
   `Application+Navigation`, `MobileCydia`, `ConfirmationViewModel`,
-  `ProgressViewModel`, `ProgressController`, and `ProgressData`
+  `ConfirmationController`, `ProgressViewModel`, `ProgressController`, and
+  `ProgressData`
+- x86_64 iOS 12 simulator compilation of `ConfirmationController` and its
+  deterministic initializer fixture
 - `git diff --check`
 
-Still required before P0.1 can complete: native screenshot/probe scaffolding,
-popup caller metadata, and installed runtime evidence. Route-policy enforcement
+Still required before P0.1 can complete: the installed native transaction
+screenshot probe (the Confirmation seam is compiled; Progress is pending) and
+its retained evidence. P0.2 additionally requires Confirmation runtime parity,
+alert, restoration, and device transaction evidence. Route-policy enforcement
 remains a separately revertible P0.4 move.
 
 ## Invariants
@@ -95,8 +117,13 @@ remains a separately revertible P0.4 move.
   - [x] private-WebKit decreasing-debt gate and method-name inventory
   - [x] legacy property/global/schema inventory
   - [x] typed Confirmation and Progress view models
+  - [x] popup/new-window caller metadata in shadow mode
+  - [x] native Confirmation simulator injection seam
   - [ ] native screenshot/probe scaffolding
 - [ ] P0.2: native Confirmation screen and offline transaction evidence
+  - [x] native controller and deterministic action/table contracts
+  - [ ] installed screenshots, accessibility, alerts, restoration, and device
+    transaction evidence
 - [ ] P0.3: native Progress screen and cancellation/failure evidence
 - [ ] P0.4: critical-flow bridge removal and P0 device/simulator gate
 - [ ] P1.1: native package shell with adaptive depiction island
@@ -112,7 +139,7 @@ remains a separately revertible P0.4 move.
 
 | Surface | Before/after screenshots | iOS 12 | Current simulator | Rootful | Rootless | URL/API | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Confirmation | pending | pending | pending | pending | pending | pending | not started |
+| Confirmation | pending | compile passed | pending | pending | pending | contract passed | implementation complete; runtime pending |
 | Progress | pending | pending | pending | pending | pending | pending | not started |
 | Package shell | pending | pending | pending | pending | pending | pending | not started |
 | Depiction island | pending | pending | pending | pending | pending | pending | not started |
