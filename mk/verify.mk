@@ -21,6 +21,7 @@ PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
 DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
 UI_ROUTE_CONTEXT_TEST := $(BUILD_DIR)/tests/UIRouteContextTests
+CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -58,7 +59,7 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
 .PHONY: verify-regex-arc
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
-.PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context
+.PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context verify-confirmation-view-model
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
@@ -176,12 +177,26 @@ $(UI_ROUTE_CONTEXT_TEST): tests/UIRouteContextTests.mm \
 
 verify-ui-route-context: $(UI_ROUTE_CONTEXT_TEST) tests/fixtures/ui/routes.tsv
 	@$< tests/fixtures/ui/routes.tsv
+
+$(CONFIRMATION_VIEW_MODEL_TEST): tests/ConfirmationViewModelTests.mm \
+		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
+		Cydia/AptCompatibility.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. tests/ConfirmationViewModelTests.mm \
+		Cydia/ConfirmationViewModel.mm -framework Foundation -o $@
+
+verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
+	@$<
 else
 verify-ui-route-context:
 	@echo "[verify] UI route runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-confirmation-view-model:
+	@echo "[verify] Confirmation view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
 endif
 
-verify-native-ui: verify-native-ui-contract verify-ui-route-context
+verify-native-ui: verify-native-ui-contract verify-ui-route-context verify-confirmation-view-model
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
