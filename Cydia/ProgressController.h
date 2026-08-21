@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished native-model work Copyright (C) 2026 Torrekie
  */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -24,16 +25,14 @@
 #define Cydia_ProgressController_H
 
 #include "Cydia/CydiaWebViewController.h"
-#include "Cydia/ProgressData.h"
-#include "Cydia/ProgressEvent.h"
+#include "Cydia/ProgressViewModel.h"
 #include "Menes/ObjectHandle.h"
 
 @class Database;
 
-@interface ProgressController : CydiaWebViewController <ProgressDelegate> {
+@interface ProgressController : CydiaWebViewController <ProgressDelegate, CydiaProgressViewModelObserver> {
     __weak Database *database_;
-    _H<CydiaProgressData, 1> progress_;
-    unsigned cancel_;
+    _H<CydiaProgressViewModel> progressModel_;
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate;

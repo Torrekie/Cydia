@@ -22,6 +22,7 @@ MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
 DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
 UI_ROUTE_CONTEXT_TEST := $(BUILD_DIR)/tests/UIRouteContextTests
 CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
+PROGRESS_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ProgressViewModelTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -59,7 +60,8 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
 .PHONY: verify-regex-arc
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
-.PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context verify-confirmation-view-model
+.PHONY: verify-native-ui verify-native-ui-contract verify-ui-route-context
+.PHONY: verify-confirmation-view-model verify-progress-view-model
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
@@ -196,7 +198,25 @@ verify-confirmation-view-model:
 	@echo "[verify] Confirmation view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
 endif
 
-verify-native-ui: verify-native-ui-contract verify-ui-route-context verify-confirmation-view-model
+ifeq ($(HOST_OS),Darwin)
+$(PROGRESS_VIEW_MODEL_TEST): tests/ProgressViewModelTests.mm \
+		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm \
+		Cydia/ProgressData.h Cydia/ProgressData.mm Cydia/ProgressEvent.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra \
+		-Wno-unused-parameter -I. \
+		tests/ProgressViewModelTests.mm Cydia/ProgressViewModel.mm \
+		Cydia/ProgressData.mm -framework Foundation -o $@
+
+verify-progress-view-model: $(PROGRESS_VIEW_MODEL_TEST)
+	@$<
+else
+verify-progress-view-model:
+	@echo "[verify] Progress view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+endif
+
+verify-native-ui: verify-native-ui-contract verify-ui-route-context \
+	verify-confirmation-view-model verify-progress-view-model
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
