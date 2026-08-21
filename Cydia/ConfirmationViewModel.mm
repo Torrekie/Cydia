@@ -47,6 +47,148 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
 - (instancetype) initWithIdentity:(NSString *)identity displayName:(NSString *)displayName;
 @end
 
+
+@interface CydiaConfirmationActionState ()
+@property (nonatomic, readwrite, getter=isTerminal) BOOL terminal;
+@property (nonatomic) BOOL blockingIssues;
+@property (nonatomic) CydiaConfirmationEssentialRemovalPolicy essentialRemovalPolicy;
+@property (nonatomic) BOOL awaitingEssentialDecision;
+@end
+
+@implementation CydiaConfirmationActionState
+
+- (instancetype) initWithBlockingIssues:(BOOL)blockingIssues
+                  essentialRemovalPolicy:(CydiaConfirmationEssentialRemovalPolicy)essentialRemovalPolicy {
+    if ((self = [super init]) != nil) {
+        _blockingIssues = blockingIssues;
+        _essentialRemovalPolicy = essentialRemovalPolicy;
+    }
+    return self;
+}
+
+- (CydiaConfirmationActionEffect) effectForUserAction:(CydiaConfirmationUserAction)userAction {
+    if (_terminal)
+        return CydiaConfirmationActionEffectNone;
+
+    if (_awaitingEssentialDecision) {
+        if (_essentialRemovalPolicy == CydiaConfirmationEssentialRemovalPolicyBlocked &&
+            userAction == CydiaConfirmationUserActionBlockedEssentialAcknowledged) {
+            _awaitingEssentialDecision = NO;
+            _terminal = YES;
+            return CydiaConfirmationActionEffectDismissWithoutDelegate;
+        }
+
+        if (_essentialRemovalPolicy == CydiaConfirmationEssentialRemovalPolicyForceAllowed) {
+            if (userAction == CydiaConfirmationUserActionForceRemovalCancelled) {
+                _awaitingEssentialDecision = NO;
+                _terminal = YES;
+                return CydiaConfirmationActionEffectContinueQueuing;
+            }
+            if (userAction == CydiaConfirmationUserActionForceRemovalConfirmed) {
+                _awaitingEssentialDecision = NO;
+                _terminal = YES;
+                return CydiaConfirmationActionEffectConfirm;
+            }
+        }
+
+        return CydiaConfirmationActionEffectNone;
+    }
+
+    switch (userAction) {
+        case CydiaConfirmationUserActionCancel:
+            _terminal = YES;
+            return CydiaConfirmationActionEffectCancelAndClear;
+
+        case CydiaConfirmationUserActionContinueQueuing:
+            _terminal = YES;
+            return CydiaConfirmationActionEffectContinueQueuing;
+
+        case CydiaConfirmationUserActionConfirm:
+            if (_blockingIssues)
+                return CydiaConfirmationActionEffectNone;
+            if (_essentialRemovalPolicy == CydiaConfirmationEssentialRemovalPolicyBlocked) {
+                _awaitingEssentialDecision = YES;
+                return CydiaConfirmationActionEffectPresentBlockedEssentialAlert;
+            }
+            if (_essentialRemovalPolicy == CydiaConfirmationEssentialRemovalPolicyForceAllowed) {
+                _awaitingEssentialDecision = YES;
+                return CydiaConfirmationActionEffectPresentForceRemovalAlert;
+            }
+            _terminal = YES;
+            return CydiaConfirmationActionEffectConfirm;
+
+        case CydiaConfirmationUserActionBlockedEssentialAcknowledged:
+        case CydiaConfirmationUserActionForceRemovalCancelled:
+        case CydiaConfirmationUserActionForceRemovalConfirmed:
+            return CydiaConfirmationActionEffectNone;
+    }
+
+    return CydiaConfirmationActionEffectNone;
+}
+
+@end
+
+
+@interface CydiaConfirmationTableSection ()
+- (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
+                         issue:(nullable CydiaConfirmationIssue *)issue
+                   changeGroup:(nullable CydiaConfirmationChangeGroup *)changeGroup
+                      rowCount:(NSUInteger)rowCount;
+@end
+
+@implementation CydiaConfirmationTableSection
+
+- (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
+                         issue:(CydiaConfirmationIssue *)issue
+                   changeGroup:(CydiaConfirmationChangeGroup *)changeGroup
+                      rowCount:(NSUInteger)rowCount {
+    if ((self = [super init]) != nil) {
+        _kind = kind;
+        _issue = issue;
+        _changeGroup = changeGroup;
+        _rowCount = rowCount;
+    }
+    return self;
+}
+
+@end
+
+
+NSArray<CydiaConfirmationTableSection *> *
+CydiaConfirmationBuildTableSections(CydiaConfirmationViewModel *viewModel) {
+    NSMutableArray<CydiaConfirmationTableSection *> *sections(
+        [NSMutableArray arrayWithCapacity:[[viewModel issues] count] +
+                                             [[viewModel groups] count] + 1]);
+
+    for (CydiaConfirmationIssue *issue in [viewModel issues])
+        [sections addObject:[[CydiaConfirmationTableSection alloc]
+            initWithKind:CydiaConfirmationTableSectionKindIssue
+            issue:issue
+            changeGroup:nil
+            rowCount:1]];
+
+    if (![viewModel hasBlockingIssues] &&
+        ([viewModel downloadingBytes] != 0 || [viewModel resumingBytes] != 0)) {
+        NSUInteger rowCount([viewModel downloadingBytes] != 0 ? 1 : 0);
+        if ([viewModel resumingBytes] != 0)
+            ++rowCount;
+        [sections addObject:[[CydiaConfirmationTableSection alloc]
+            initWithKind:CydiaConfirmationTableSectionKindSizes
+            issue:nil
+            changeGroup:nil
+            rowCount:rowCount]];
+    }
+
+    for (CydiaConfirmationChangeGroup *group in [viewModel groups])
+        [sections addObject:[[CydiaConfirmationTableSection alloc]
+            initWithKind:CydiaConfirmationTableSectionKindChanges
+            issue:nil
+            changeGroup:group
+            rowCount:[[group packages] count]]];
+
+    return [sections copy];
+}
+
 @implementation CydiaConfirmationPackageReference
 
 - (instancetype) initWithIdentity:(NSString *)identity displayName:(NSString *)displayName {

@@ -3,8 +3,6 @@
 Cydia/AppearanceProbe.mm	3
 Cydia/Application+Navigation.mm	2
 Cydia/Application.h	1
-Cydia/ConfirmationController.h	2
-Cydia/ConfirmationController.mm	3
 Cydia/CydiaWebViewController.h	8
 Cydia/CydiaWebViewController.mm	17
 Cydia/HomeController.h	2

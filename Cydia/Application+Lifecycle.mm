@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished UIKit work Copyright (C) 2026 Torrekie
  */
 
 #include "Cydia/Application.h"
@@ -37,6 +38,10 @@ typedef enum {
 
 @interface SBSRelaunchAction
 + (id) actionWithReason:(id)reason options:(int64_t)options targetURL:(NSURL *)url;
+@end
+
+@protocol CydiaAppCacheLifecycleReloading <NSObject>
+- (void) reloadURLWithCache:(BOOL)cache;
 @end
 
 #define ForRelease 1
@@ -226,7 +231,8 @@ typedef enum {
     if (interval <= -(15*60)) {
         if (CyteIsReachable("cydia.saurik.com")) {
             [tabbar_ beginUpdate];
-            [appcache_ reloadURLWithCache:YES];
+            AppCacheController *appcache(appcache_);
+            [(id<CydiaAppCacheLifecycleReloading>) appcache reloadURLWithCache:YES];
         }
     }
 

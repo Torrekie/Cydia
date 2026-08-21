@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished UIKit work Copyright (C) 2026 Torrekie
  */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -23,30 +24,30 @@
 #ifndef Cydia_ConfirmationController_H
 #define Cydia_ConfirmationController_H
 
-#include "Cydia/CydiaWebViewController.h"
-#include "Menes/ObjectHandle.h"
+#include "CyteKit/ViewController.h"
+#include <TargetConditionals.h>
 
 @class Database;
+@class CydiaConfirmationViewModel;
 
 @protocol ConfirmationControllerDelegate
 - (void) cancelAndClear:(bool)clear;
 - (void) confirmWithNavigationController:(UINavigationController *)navigation;
+/* Retained for source compatibility with the application delegate. Continue
+   Queuing is deliberately dispatched through cancelAndClear:false. */
 - (void) queue;
 @end
 
-@interface ConfirmationController : CydiaWebViewController {
-    __weak Database *database_;
+@interface ConfirmationController : CyteViewController
 
-    _H<UIAlertView> essential_;
+- (instancetype) initWithDatabase:(Database *)database;
 
-    _H<NSDictionary> changes_;
-    _H<NSMutableArray> issues_;
-    _H<NSDictionary> sizes_;
-
-    BOOL substrate_;
-}
-
-- (id) initWithDatabase:(Database *)database;
+#if TARGET_OS_SIMULATOR
+/* Simulator probe seam: callers supply a typed immutable snapshot, while the
+ * production table, alerts, and delegate dispatch remain unchanged. */
+- (instancetype) initWithViewModel:(CydiaConfirmationViewModel *)viewModel
+                          delegate:(id<ConfirmationControllerDelegate>)delegate;
+#endif
 
 @end
 
