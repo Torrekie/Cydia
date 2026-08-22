@@ -47,7 +47,8 @@
         "native-progress-simulator-probe",
         "native-progress-legacy-template-baseline",
         "native-progress-legacy-layout-calibration",
-        "native-progress-ios12-and-ios15-simulator-evidence"
+        "native-progress-ios12-and-ios15-simulator-evidence",
+        "exact-rootful-and-rootless-package-artifacts"
       ],
       "pending_items": [
         "confirmation-device-transaction-evidence",
@@ -68,6 +69,8 @@
     "home": "pending",
     "external_routing_error": "pending",
     "url_api_compatibility": "route and popup caller fixtures passed in shadow mode; bridge enforcement and installed-runtime coverage pending",
+    "rootful_package_artifact": "b304ca7 epoch-1 iphoneos-arm pair built and verified; device runtime pending",
+    "rootless_package_artifact": "b304ca7 epoch-1 iphoneos-arm64 pair built and verified; device runtime pending",
     "rootful_device": "pending",
     "rootless_device": "pending",
     "ios12_simulator": "Progress and Confirmation installed deterministic probes passed",

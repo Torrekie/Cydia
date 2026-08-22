@@ -112,6 +112,25 @@ logs, and hashes are retained at
 cancellation/failure, backgrounding, and interrupted-launch recovery remain
 required.
 
+Exact rootful and rootless package candidates have also been built from
+`b304ca7558e1238d9e7a98a923ca51a4a8f19a9a` without changing source or device
+state. The rootful pair is retained under
+`/private/tmp/cydia-rootful-b304ca7-build/packages/`: the Cydia archive is
+`1:1.1.36+217.gb304ca7`, `iphoneos-arm`, SHA-256
+`bea48e52408939ddeb13e59d28d19f5bab592e238e89c193fe11ea8967f18aad`, and
+the matching translations archive is SHA-256
+`bc0a72359286e2434c2a3aa96e04aee94d63d3ccb1fbe4b93e2c800451159cd7`.
+The rootless pair is retained under
+`/private/tmp/cydia-rootless-b304ca7.uqMG9Q/build/packages/`: the Cydia archive
+is `1:1.1.36+217.gb304ca7`, `iphoneos-arm64`, SHA-256
+`9613e0ccf007cd44094e27ef7641ce1298c623ba87b2a163807db3f8b8753e6f`, and
+the matching translations archive is SHA-256
+`ffd385e70435fdd6cc966fd8a1545321bfe03305c6192c1d60ea3193e0cffb0a`.
+Both package verifiers pass. These archives are rollback-prepared inputs for
+device testing; package construction is not rooted or rootless runtime proof.
+The designated rootless device at `192.168.1.8` was unreachable, so no install
+or dpkg state mutation was attempted.
+
 Passing evidence at this checkpoint:
 
 - `make --no-print-directory -j6 verify`
@@ -121,6 +140,12 @@ Passing evidence at this checkpoint:
 - `make --no-print-directory -B -j6 verify-progress-view-model`
 - `make --no-print-directory -j6 verify-progress-controller verify-progress-view-model verify-native-ui verify-static`
 - `make --no-print-directory -j6 verify-compile MobileCydia`
+- `make --no-print-directory -j6 PACKAGE_LAYOUT=rootful BUILD_DIR=/private/tmp/cydia-rootful-b304ca7-build verify`
+- `make --no-print-directory -j6 PACKAGE_LAYOUT=rootful BUILD_DIR=/private/tmp/cydia-rootful-b304ca7-build MobileCydia`
+- `make --no-print-directory -j6 PACKAGE_LAYOUT=rootful BUILD_DIR=/private/tmp/cydia-rootful-b304ca7-build package`
+- `scripts/verify-package-artifacts.sh rootful /private/tmp/cydia-rootful-b304ca7-build/packages`
+- `make --no-print-directory -j6 PACKAGE_LAYOUT=rootless BUILD_DIR=/private/tmp/cydia-rootless-b304ca7.uqMG9Q/build package`
+- `scripts/verify-package-artifacts.sh rootless /private/tmp/cydia-rootless-b304ca7.uqMG9Q/build/packages`
 - `make --no-print-directory -j6 SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 BUILD_DIR=/private/tmp/cydia-progress-2d465bf-ios12 verify-progress-simulator`
 - `make --no-print-directory -j6 SIMULATOR_UDID=EE995643-9E3B-4541-8698-FE42A5917DDF BUILD_DIR=/private/tmp/cydia-progress-2d465bf-ios15 verify-progress-simulator`
 - `make --no-print-directory -j6 SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 BUILD_DIR=/private/tmp/cydia-confirmation-8f22e2d-ios12 verify-confirmation-simulator`
