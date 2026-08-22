@@ -70,6 +70,11 @@
 - (void) setProgressCancellable:(NSNumber *)cancellable;
 - (bool) isProgressCancelled;
 - (void) setTitle:(NSString *)title;
+@optional
+/* Database may discover a stronger post-transaction finish requirement on
+ * its status-fd reader after the progress body has completed. The callback is
+ * delivered on the main thread so native chrome can converge before Close. */
+- (void) progressFinishActionDidChange:(NSNumber *)finishAction;
 @end
 
 #endif//Cydia_ProgressEvent_H

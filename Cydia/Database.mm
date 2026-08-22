@@ -159,8 +159,14 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         if (finish_r(data, size)) {
             NSString *finish = finish_r[1];
             int index = [Finishes_ indexOfObject:finish];
-            if (index != INT_MAX && index > Finish_)
+            if (index != INT_MAX && index > Finish_) {
                 Finish_ = index;
+                NSObject<ProgressDelegate> *progress(progress_);
+                if ([progress respondsToSelector:@selector(progressFinishActionDidChange:)])
+                    [progress performSelectorOnMainThread:
+                        @selector(progressFinishActionDidChange:)
+                        withObject:@(Finish_) waitUntilDone:NO];
+            }
         } else if (uicache_r(data, size)) {
             UICache_ = true;
         }
