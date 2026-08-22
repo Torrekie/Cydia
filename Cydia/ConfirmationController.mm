@@ -30,7 +30,6 @@
 #include "Cydia/Package.h"
 #include "CyteKit/Localize.h"
 
-#include <climits>
 #include <dispatch/dispatch.h>
 
 namespace {
@@ -43,14 +42,18 @@ NSString *PackageDisplayName(CydiaConfirmationPackageReference *package) {
 }
 
 NSString *ByteCountDescription(uint64_t value) {
-    if (value <= static_cast<uint64_t>(LLONG_MAX))
-        return [NSByteCountFormatter stringFromByteCount:static_cast<long long>(value)
-                                               countStyle:NSByteCountFormatterCountStyleFile];
-
-    NSNumberFormatter *formatter([[NSNumberFormatter alloc] init]);
-    [formatter setNumberStyle:NSNumberFormatterDecimalStyle];
-    NSString *number([formatter stringFromNumber:[NSNumber numberWithUnsignedLongLong:value]]);
-    return [NSString stringWithFormat:@"%@ B", number ?: [NSNumber numberWithUnsignedLongLong:value]];
+    static NSArray<NSString *> *units;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        units = @[@"B", @"kB", @"MB", @"GB", @"TB", @"PB", @"EB"];
+    });
+    double scaled(static_cast<double>(value));
+    NSUInteger power(0);
+    while (scaled > 1024.0 && power + 1 < [units count]) {
+        scaled /= 1024.0;
+        ++power;
+    }
+    return [NSString stringWithFormat:@"%.1f %@", scaled, [units objectAtIndex:power]];
 }
 
 NSString *ClauseStatusDescription(CydiaConfirmationClause *clause) {
@@ -71,8 +74,10 @@ NSString *ClauseDescription(CydiaConfirmationClause *clause) {
         PackageDisplayName([clause package])]);
     if ([clause requiredVersion] != nil) {
         if ([[clause comparisonOperator] length] != 0)
-            [description appendFormat:@" %@", [clause comparisonOperator]];
-        [description appendFormat:@" %@", [clause requiredVersion]];
+            [description appendFormat:@" %@%@", [clause comparisonOperator],
+                                                     [clause requiredVersion]];
+        else
+            [description appendFormat:@" %@", [clause requiredVersion]];
     }
 
     NSString *status(ClauseStatusDescription(clause));
@@ -81,30 +86,122 @@ NSString *ClauseDescription(CydiaConfirmationClause *clause) {
     return description;
 }
 
-NSString *IssueDescription(CydiaConfirmationIssue *issue) {
-    NSMutableArray<NSString *> *reasons([NSMutableArray arrayWithCapacity:[[issue reasons] count]]);
-    for (CydiaConfirmationReason *reason in [issue reasons]) {
-        NSMutableArray<NSString *> *clauses(
-            [NSMutableArray arrayWithCapacity:[[reason clauses] count]]);
-        for (CydiaConfirmationClause *clause in [reason clauses])
-            [clauses addObject:ClauseDescription(clause)];
-
-        NSString *body([clauses componentsJoinedByString:@" OR "]);
-        NSString *relationship([reason relationship]);
-        if ([relationship isEqualToString:@"PreDepends"])
-            relationship = @"Depends";
-        if ([relationship length] == 0)
-            [reasons addObject:body];
+NSString *VisibleClauseDescription(CydiaConfirmationClause *clause) {
+    NSMutableString *description([NSMutableString stringWithString:
+        [[clause package] displayName]]);
+    if ([clause requiredVersion] != nil) {
+        if ([[clause comparisonOperator] length] != 0)
+            [description appendFormat:@" %@%@", [clause comparisonOperator],
+                                                     [clause requiredVersion]];
         else
-            [reasons addObject:[NSString stringWithFormat:@"%@: %@",
-                                relationship, body]];
+            [description appendFormat:@" %@", [clause requiredVersion]];
     }
+    return description;
+}
 
-    NSString *description([reasons componentsJoinedByString:@"\n"]);
-    return [description length] == 0 ? UCLocalize("CANNOT_COMPLY_EX") : description;
+NSString *NormalizedRelationship(NSString *relationship) {
+    return [relationship isEqualToString:@"PreDepends"] ? @"Depends" : relationship;
+}
+
+CydiaConfirmationClause *IssueClauseAtRow(CydiaConfirmationIssue *issue,
+                                           NSUInteger row,
+                                           NSString **relationship) {
+    for (CydiaConfirmationReason *reason in [issue reasons]) {
+        NSArray<CydiaConfirmationClause *> *clauses([reason clauses]);
+        if (row < [clauses count]) {
+            if (relationship != nullptr)
+                *relationship = NormalizedRelationship([reason relationship]);
+            return [clauses objectAtIndex:row];
+        }
+        row -= [clauses count];
+    }
+    return nil;
 }
 
 } // namespace
+
+typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
+    CydiaConfirmationCellLayoutColumns,
+    CydiaConfirmationCellLayoutMessage,
+    CydiaConfirmationCellLayoutAction,
+};
+
+@interface CydiaConfirmationTableCell : UITableViewCell
+@property(nonatomic, strong, readonly) UILabel *confirmationTitleLabel;
+@property(nonatomic, strong, readonly) UILabel *confirmationDetailLabel;
+- (void) setConfirmationLayout:(CydiaConfirmationCellLayout)layout
+               traitCollection:(UITraitCollection *)traitCollection;
+@end
+
+@implementation CydiaConfirmationTableCell {
+    UIStackView *confirmationStackView_;
+}
+
+- (instancetype) initWithReuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithStyle:UITableViewCellStyleDefault
+                      reuseIdentifier:reuseIdentifier]) != nil) {
+        _confirmationTitleLabel = [[UILabel alloc] init];
+        _confirmationTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _confirmationTitleLabel.numberOfLines = 0;
+        _confirmationTitleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _confirmationTitleLabel.adjustsFontForContentSizeCategory = YES;
+        _confirmationDetailLabel = [[UILabel alloc] init];
+        _confirmationDetailLabel.numberOfLines = 0;
+        _confirmationDetailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        _confirmationDetailLabel.adjustsFontForContentSizeCategory = YES;
+
+        confirmationStackView_ = [[UIStackView alloc]
+            initWithArrangedSubviews:@[_confirmationTitleLabel, _confirmationDetailLabel]];
+        confirmationStackView_.translatesAutoresizingMaskIntoConstraints = NO;
+        confirmationStackView_.spacing = 8.0;
+        [self.contentView addSubview:confirmationStackView_];
+
+        UILayoutGuide *margins(self.contentView.layoutMarginsGuide);
+        [NSLayoutConstraint activateConstraints:@[
+            [confirmationStackView_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
+            [confirmationStackView_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
+            [confirmationStackView_.topAnchor constraintEqualToAnchor:margins.topAnchor],
+            [confirmationStackView_.bottomAnchor constraintEqualToAnchor:margins.bottomAnchor],
+            [self.contentView.heightAnchor constraintGreaterThanOrEqualToConstant:44.0],
+        ]];
+        [_confirmationTitleLabel setContentHuggingPriority:UILayoutPriorityDefaultHigh
+                                                  forAxis:UILayoutConstraintAxisHorizontal];
+        [_confirmationTitleLabel setContentCompressionResistancePriority:UILayoutPriorityDefaultHigh
+                                                              forAxis:UILayoutConstraintAxisHorizontal];
+        [_confirmationDetailLabel setContentCompressionResistancePriority:UILayoutPriorityRequired
+                                                               forAxis:UILayoutConstraintAxisHorizontal];
+        [self setConfirmationLayout:CydiaConfirmationCellLayoutColumns
+                    traitCollection:[self traitCollection]];
+    }
+    return self;
+}
+
+- (void) setConfirmationLayout:(CydiaConfirmationCellLayout)layout
+               traitCollection:(UITraitCollection *)traitCollection {
+    BOOL accessibility(UIContentSizeCategoryIsAccessibilityCategory(
+        [traitCollection preferredContentSizeCategory]));
+    BOOL columns(layout == CydiaConfirmationCellLayoutColumns && !accessibility);
+    _confirmationDetailLabel.hidden = layout != CydiaConfirmationCellLayoutColumns;
+    confirmationStackView_.axis = columns ? UILayoutConstraintAxisHorizontal :
+                                            UILayoutConstraintAxisVertical;
+    confirmationStackView_.alignment = columns ? UIStackViewAlignmentFirstBaseline :
+                                                 UIStackViewAlignmentFill;
+    confirmationStackView_.spacing = columns ? 8.0 :
+        (layout == CydiaConfirmationCellLayoutColumns ? 2.0 : 0.0);
+    _confirmationTitleLabel.textAlignment =
+        layout == CydiaConfirmationCellLayoutAction ? NSTextAlignmentCenter : NSTextAlignmentLeft;
+    _confirmationDetailLabel.textAlignment = columns ? NSTextAlignmentRight : NSTextAlignmentLeft;
+}
+
+- (void) prepareForReuse {
+    [super prepareForReuse];
+    _confirmationTitleLabel.text = nil;
+    _confirmationDetailLabel.text = nil;
+    self.accessibilityLabel = nil;
+    self.accessibilityIdentifier = nil;
+}
+
+@end
 
 
 @interface ConfirmationController () <UITableViewDataSource, UITableViewDelegate>
@@ -112,13 +209,33 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
 @property (nonatomic, strong) CydiaConfirmationActionState *actionState;
 @property (nonatomic, copy) NSArray<CydiaConfirmationTableSection *> *sections;
 @property (nonatomic, strong) UITableView *tableView;
-@property (nonatomic, strong) UIButton *continueButton;
 @property (nonatomic, strong) UIAlertController *essentialAlert;
 - (void) configureWithViewModel:(CydiaConfirmationViewModel *)viewModel;
 @end
 
 
 @implementation ConfirmationController
+
+- (void) applyIssueNoticeAppearanceToCell:(CydiaConfirmationTableCell *)cell {
+    UILabel *titleLabel([cell confirmationTitleLabel]);
+    NSString *note(UCLocalize("NOTE"));
+    NSString *text([NSString stringWithFormat:@"%@: %@", note,
+                                               UCLocalize("CANNOT_COMPLY_EX")]);
+    NSMutableAttributedString *attributed([[NSMutableAttributedString alloc]
+        initWithString:text attributes:@{
+            NSFontAttributeName: [titleLabel font],
+            NSForegroundColorAttributeName: [titleLabel textColor],
+        }]);
+    NSRange noteRange([text rangeOfString:note]);
+    if (noteRange.location != NSNotFound) {
+        [attributed addAttributes:@{
+            NSFontAttributeName: [UIFont boldSystemFontOfSize:[[titleLabel font] pointSize]],
+            NSForegroundColorAttributeName: [UIColor cydiaColorForRole:
+                CydiaColorRoleErrorLabel traitCollection:[self traitCollection]],
+        } range:noteRange];
+    }
+    [titleLabel setAttributedText:attributed];
+}
 
 - (void) configureWithViewModel:(CydiaConfirmationViewModel *)viewModel {
     _viewModel = viewModel;
@@ -169,31 +286,13 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
     [table setDelegate:self];
     [table setEstimatedRowHeight:58.0];
     [table setRowHeight:UITableViewAutomaticDimension];
+    [table setEstimatedSectionHeaderHeight:0.0];
+    [table setEstimatedSectionFooterHeight:0.0];
     if ([table respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)])
         [table setCellLayoutMarginsFollowReadableWidth:NO];
     [table setAccessibilityIdentifier:@"cydia.confirmation.table"];
     [view addSubview:table];
     _tableView = table;
-
-    const CGFloat headerHeight(58.0);
-    UIView *header([[UIView alloc] initWithFrame:CGRectMake(0, 0,
-        CGRectGetWidth([table bounds]), headerHeight)]);
-    [header setAutoresizingMask:UIViewAutoresizingFlexibleWidth];
-    UIButton *continueButton([UIButton buttonWithType:UIButtonTypeSystem]);
-    [continueButton setFrame:CGRectInset([header bounds], 16.0, 7.0)];
-    [continueButton setAutoresizingMask:CydiaAutoresizingFlexibleBoth];
-    [continueButton setTitle:UCLocalize("CONTINUE_QUEUING") forState:UIControlStateNormal];
-    [[continueButton titleLabel] setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]];
-    [[continueButton titleLabel] setAdjustsFontForContentSizeCategory:YES];
-    [[continueButton titleLabel] setNumberOfLines:0];
-    [[continueButton titleLabel] setTextAlignment:NSTextAlignmentCenter];
-    [continueButton addTarget:self
-                       action:@selector(continueQueuingButtonClicked)
-             forControlEvents:UIControlEventTouchUpInside];
-    [continueButton setAccessibilityIdentifier:@"cydia.confirmation.continue-queuing"];
-    [header addSubview:continueButton];
-    [table setTableHeaderView:header];
-    _continueButton = continueButton;
 
     [self applyColorAppearance];
 }
@@ -217,30 +316,6 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
             action:@selector(confirmButtonClicked)]];
 }
 
-- (void) viewDidLayoutSubviews {
-    [super viewDidLayoutSubviews];
-
-    UIView *header([_tableView tableHeaderView]);
-    if (header == nil)
-        return;
-
-    const CGFloat horizontalInset(16.0);
-    const CGFloat verticalInset(7.0);
-    CGFloat availableWidth(MAX(0.0, CGRectGetWidth([_tableView bounds]) -
-                                      horizontalInset * 2.0));
-    CGSize fitting([_continueButton sizeThatFits:CGSizeMake(availableWidth, CGFLOAT_MAX)]);
-    CGFloat height(MAX(58.0, fitting.height + verticalInset * 2.0));
-    CGRect frame([header frame]);
-    if (CGRectGetWidth(frame) != CGRectGetWidth([_tableView bounds]) ||
-        CGRectGetHeight(frame) != height) {
-        frame.size.width = CGRectGetWidth([_tableView bounds]);
-        frame.size.height = height;
-        [header setFrame:frame];
-        [_tableView setTableHeaderView:header];
-    }
-    [_continueButton setFrame:CGRectInset([header bounds], horizontalInset, verticalInset)];
-}
-
 - (void) viewWillAppear:(BOOL)animated {
     [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
     [self applyColorAppearance];
@@ -254,21 +329,45 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
 
 - (void) releaseSubviews {
     _tableView = nil;
-    _continueButton = nil;
     [super releaseSubviews];
 }
 
 - (void) applyCellAppearance:(UITableViewCell *)cell
                   sectionKind:(CydiaConfirmationTableSectionKind)sectionKind {
     UITraitCollection *traits([self traitCollection]);
-    CydiaColorRole background(sectionKind == CydiaConfirmationTableSectionKindIssue ?
+    CydiaColorRole background(sectionKind == CydiaConfirmationTableSectionKindIssueDetails ?
         CydiaColorRoleRemovingBackground : CydiaColorRoleBackground);
     [cell setBackgroundColor:[UIColor cydiaColorForRole:background
                                          traitCollection:traits]];
-    [[cell textLabel] setTextColor:[UIColor cydiaColorForRole:CydiaColorRoleLabel
-                                              traitCollection:traits]];
-    [[cell detailTextLabel] setTextColor:[UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
-                                                    traitCollection:traits]];
+    CydiaConfirmationTableCell *confirmationCell((CydiaConfirmationTableCell *) cell);
+    CydiaConfirmationCellLayout layout(CydiaConfirmationCellLayoutColumns);
+    if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice)
+        layout = CydiaConfirmationCellLayoutMessage;
+    else if (sectionKind == CydiaConfirmationTableSectionKindQueue)
+        layout = CydiaConfirmationCellLayoutAction;
+    [confirmationCell setConfirmationLayout:layout traitCollection:traits];
+    UIFontTextStyle titleStyle(UIFontTextStyleBody);
+    UIFontTextStyle detailStyle(UIFontTextStyleBody);
+    if (sectionKind == CydiaConfirmationTableSectionKindQueue)
+        titleStyle = UIFontTextStyleSubheadline;
+    else if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice)
+        titleStyle = detailStyle = UIFontTextStyleFootnote;
+    [[confirmationCell confirmationTitleLabel]
+        setFont:[UIFont preferredFontForTextStyle:titleStyle
+                             compatibleWithTraitCollection:traits]];
+    [[confirmationCell confirmationDetailLabel]
+        setFont:[UIFont preferredFontForTextStyle:detailStyle
+                             compatibleWithTraitCollection:traits]];
+    [[confirmationCell confirmationTitleLabel]
+        setTextColor:[UIColor cydiaColorForRole:
+            sectionKind == CydiaConfirmationTableSectionKindQueue ?
+                CydiaColorRoleAccent : CydiaColorRoleLabel
+                                traitCollection:traits]];
+    [[confirmationCell confirmationDetailLabel]
+        setTextColor:[UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                traitCollection:traits]];
+    if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice)
+        [self applyIssueNoticeAppearanceToCell:confirmationCell];
 }
 
 - (void) applyColorAppearance {
@@ -279,9 +378,6 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
     [_tableView setBackgroundColor:grouped];
     [_tableView setSeparatorColor:[UIColor cydiaColorForRole:CydiaColorRoleSeparator
                                                traitCollection:traits]];
-    [_continueButton setTitleColor:[UIColor cydiaColorForRole:CydiaColorRoleAccent
-                                              traitCollection:traits]
-                            forState:UIControlStateNormal];
     for (UITableViewCell *cell in [_tableView visibleCells]) {
         NSIndexPath *indexPath([_tableView indexPathForCell:cell]);
         if (indexPath == nil || static_cast<NSUInteger>([indexPath section]) >= [_sections count])
@@ -293,7 +389,11 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     [super traitCollectionDidChange:previousTraitCollection];
-    if (CydiaColorAppearanceDidChange([self traitCollection], previousTraitCollection)) {
+    BOOL contentSizeChanged(previousTraitCollection != nil &&
+        ![[[self traitCollection] preferredContentSizeCategory]
+            isEqualToString:[previousTraitCollection preferredContentSizeCategory]]);
+    if (contentSizeChanged ||
+        CydiaColorAppearanceDidChange([self traitCollection], previousTraitCollection)) {
         [self applyColorAppearance];
         [_tableView reloadData];
     }
@@ -311,16 +411,37 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
     return static_cast<NSInteger>([[_sections objectAtIndex:section] rowCount]);
 }
 
+- (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    (void) tableView;
+    CydiaConfirmationTableSectionKind kind([[_sections objectAtIndex:section] kind]);
+    if (kind == CydiaConfirmationTableSectionKindIssueNotice ||
+        kind == CydiaConfirmationTableSectionKindQueue)
+        return 9.0;
+    UIFont *font([UIFont preferredFontForTextStyle:UIFontTextStyleFootnote
+                            compatibleWithTraitCollection:[self traitCollection]]);
+    return ceil([font lineHeight] + 15.0);
+}
+
+- (CGFloat) tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    (void) tableView;
+    (void) section;
+    return CGFLOAT_MIN;
+}
+
 - (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void) tableView;
     CydiaConfirmationTableSection *tableSection([_sections objectAtIndex:section]);
     switch ([tableSection kind]) {
-        case CydiaConfirmationTableSectionKindIssue:
-            return UCLocalize("CANNOT_COMPLY");
-        case CydiaConfirmationTableSectionKindChanges:
-            return UCLocalizeEx([[tableSection changeGroup] titleLocalizationKey]);
+        case CydiaConfirmationTableSectionKindIssueNotice:
+        case CydiaConfirmationTableSectionKindQueue:
+            return nil;
         case CydiaConfirmationTableSectionKindSizes:
             return UCLocalize("STATISTICS");
+        case CydiaConfirmationTableSectionKindModifications:
+            return UCLocalize("MODIFICATIONS");
+        case CydiaConfirmationTableSectionKindIssueDetails:
+            return [[tableSection issue] package] == nil ? nil :
+                [[[tableSection issue] package] displayName];
     }
     return nil;
 }
@@ -328,57 +449,43 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
 - (UITableViewCell *) tableView:(UITableView *)tableView
           cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString * const identifier(@"CydiaConfirmationCell");
-    UITableViewCell *cell([tableView dequeueReusableCellWithIdentifier:identifier]);
+    CydiaConfirmationTableCell *cell((CydiaConfirmationTableCell *)
+        [tableView dequeueReusableCellWithIdentifier:identifier]);
     if (cell == nil)
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
-                                      reuseIdentifier:identifier];
+        cell = [[CydiaConfirmationTableCell alloc] initWithReuseIdentifier:identifier];
 
     [cell setSelectionStyle:UITableViewCellSelectionStyleNone];
     [cell setAccessoryType:UITableViewCellAccessoryNone];
-    [[cell imageView] setImage:nil];
-    [[cell textLabel] setNumberOfLines:1];
-    [[cell detailTextLabel] setNumberOfLines:1];
-    [[cell textLabel] setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleBody]];
-    [[cell detailTextLabel] setFont:[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]];
-    [[cell textLabel] setAdjustsFontForContentSizeCategory:YES];
-    [[cell detailTextLabel] setAdjustsFontForContentSizeCategory:YES];
+    UILabel *titleLabel([cell confirmationTitleLabel]);
+    UILabel *detailLabel([cell confirmationDetailLabel]);
+    [titleLabel setText:nil];
+    [detailLabel setText:nil];
+    [titleLabel setAttributedText:nil];
     [cell setAccessibilityIdentifier:nil];
+    [cell setAccessibilityLabel:nil];
     [cell setAccessibilityValue:nil];
+    [cell setAccessibilityTraits:UIAccessibilityTraitNone];
 
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     switch ([section kind]) {
-        case CydiaConfirmationTableSectionKindIssue: {
-            CydiaConfirmationIssue *issue([section issue]);
-            NSString *title([issue package] == nil ? UCLocalize("CANNOT_COMPLY") :
-                PackageDisplayName([issue package]));
-            NSString *detail(IssueDescription(issue));
-            [[cell textLabel] setText:title];
-            [[cell textLabel] setNumberOfLines:0];
-            [[cell detailTextLabel] setText:detail];
-            [[cell detailTextLabel] setNumberOfLines:0];
-            [cell setAccessibilityIdentifier:[NSString stringWithFormat:
-                @"cydia.confirmation.issue.%ld", static_cast<long>([indexPath section])]];
-            [cell setAccessibilityLabel:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
-                                         title, detail]];
+        case CydiaConfirmationTableSectionKindIssueNotice: {
+            NSString *note(UCLocalize("NOTE"));
+            NSString *message(UCLocalize("CANNOT_COMPLY_EX"));
+            NSString *text([NSString stringWithFormat:@"%@: %@", note, message]);
+            [titleLabel setText:text];
+            [cell setAccessibilityIdentifier:@"cydia.confirmation.issue-note"];
+            [cell setAccessibilityLabel:text];
             break;
         }
 
-        case CydiaConfirmationTableSectionKindChanges: {
-            CydiaConfirmationChangeGroup *group([section changeGroup]);
-            CydiaConfirmationPackageReference *package(
-                [[group packages] objectAtIndex:[indexPath row]]);
-            [[cell textLabel] setText:[package displayName]];
-            if ([[package displayName] isEqualToString:[package identity]])
-                [[cell detailTextLabel] setText:nil];
-            else
-                [[cell detailTextLabel] setText:[package identity]];
-            [cell setAccessibilityIdentifier:[@"cydia.confirmation.package."
-                stringByAppendingString:[package identity]]];
-            [cell setAccessibilityLabel:[NSString stringWithFormat:@"%@, %@, %@",
-                UCLocalizeEx([group titleLocalizationKey]), [package displayName],
-                [package identity]]];
+        case CydiaConfirmationTableSectionKindQueue:
+            [titleLabel setText:UCLocalize("CONTINUE_QUEUING")];
+            [cell setSelectionStyle:UITableViewCellSelectionStyleDefault];
+            [cell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+            [cell setAccessibilityIdentifier:@"cydia.confirmation.continue-queuing"];
+            [cell setAccessibilityLabel:UCLocalize("CONTINUE_QUEUING")];
+            [cell setAccessibilityTraits:UIAccessibilityTraitButton];
             break;
-        }
 
         case CydiaConfirmationTableSectionKindSizes: {
             BOOL downloading([_viewModel downloadingBytes] != 0 && [indexPath row] == 0);
@@ -387,13 +494,58 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
             uint64_t bytes(downloading ? [_viewModel downloadingBytes] :
                                          [_viewModel resumingBytes]);
             NSString *detail(ByteCountDescription(bytes));
-            [[cell textLabel] setText:title];
-            [[cell detailTextLabel] setText:detail];
+            [titleLabel setText:title];
+            [detailLabel setText:detail];
             [cell setAccessibilityIdentifier:downloading ?
                 @"cydia.confirmation.sizes.downloading" :
                 @"cydia.confirmation.sizes.resuming"];
             [cell setAccessibilityLabel:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
                                          title, detail]];
+            break;
+        }
+
+        case CydiaConfirmationTableSectionKindModifications: {
+            CydiaConfirmationChangeGroup *group(
+                [[section changeGroups] objectAtIndex:[indexPath row]]);
+            NSMutableArray<NSString *> *names(
+                [NSMutableArray arrayWithCapacity:[[group packages] count]]);
+            NSMutableArray<NSString *> *identities(
+                [NSMutableArray arrayWithCapacity:[[group packages] count]]);
+            for (CydiaConfirmationPackageReference *package in [group packages]) {
+                [names addObject:[package displayName]];
+                [identities addObject:[package identity]];
+            }
+            NSString *title(UCLocalizeEx([group titleLocalizationKey]));
+            NSString *detail([names componentsJoinedByString:@"\n"]);
+            [titleLabel setText:title];
+            [detailLabel setText:detail];
+            [cell setAccessibilityIdentifier:[NSString stringWithFormat:
+                @"cydia.confirmation.modifications.%lu",
+                static_cast<unsigned long>([group kind])]];
+            [cell setAccessibilityLabel:[NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
+                                         title, detail]];
+            [cell setAccessibilityValue:[identities componentsJoinedByString:@"\n"]];
+            break;
+        }
+
+        case CydiaConfirmationTableSectionKindIssueDetails: {
+            NSString *relationship(nil);
+            CydiaConfirmationClause *clause(IssueClauseAtRow(
+                [section issue], [indexPath row], &relationship));
+            NSString *visible(clause == nil ? UCLocalize("CANNOT_COMPLY_EX") :
+                                              VisibleClauseDescription(clause));
+            NSString *accessible(clause == nil ? visible : ClauseDescription(clause));
+            [titleLabel setText:relationship];
+            [detailLabel setText:visible];
+            [cell setAccessibilityIdentifier:[NSString stringWithFormat:
+                @"cydia.confirmation.issue.%ld.%ld",
+                static_cast<long>([indexPath section]),
+                static_cast<long>([indexPath row])]];
+            [cell setAccessibilityLabel:[relationship length] == 0 ? accessible :
+                [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
+                                           relationship, accessible]];
+            if (clause != nil)
+                [cell setAccessibilityValue:[[clause package] identity]];
             break;
         }
     }
@@ -402,12 +554,44 @@ NSString *IssueDescription(CydiaConfirmationIssue *issue) {
     return cell;
 }
 
+- (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
+    if ([section kind] == CydiaConfirmationTableSectionKindQueue)
+        [self continueQueuingButtonClicked];
+}
+
 - (void) tableView:(UITableView *)tableView
     willDisplayCell:(UITableViewCell *)cell
   forRowAtIndexPath:(NSIndexPath *)indexPath {
     (void) tableView;
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     [self applyCellAppearance:cell sectionKind:[section kind]];
+}
+
+- (void) tableView:(UITableView *)tableView
+    willDisplayHeaderView:(UIView *)view
+               forSection:(NSInteger)sectionIndex {
+    CydiaConfirmationTableSection *section([_sections objectAtIndex:sectionIndex]);
+    UITableViewHeaderFooterView *header(
+        [view isKindOfClass:[UITableViewHeaderFooterView class]] ?
+            (UITableViewHeaderFooterView *) view : nil);
+    if (header == nil)
+        return;
+
+    NSString *title([self tableView:tableView titleForHeaderInSection:sectionIndex]);
+    [header setIsAccessibilityElement:title != nil];
+    [header setAccessibilityLabel:title];
+    [header setAccessibilityValue:nil];
+    CydiaColorRole labelRole(CydiaColorRoleSecondaryLabel);
+    if ([section kind] == CydiaConfirmationTableSectionKindIssueDetails) {
+        CydiaConfirmationPackageReference *package([[section issue] package]);
+        if (package != nil)
+            [header setAccessibilityValue:[package identity]];
+        labelRole = CydiaColorRoleErrorLabel;
+    }
+    [[header textLabel] setTextColor:[UIColor cydiaColorForRole:labelRole
+                                              traitCollection:[self traitCollection]]];
 }
 
 - (void) dismissConfirmation {

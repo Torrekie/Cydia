@@ -50,6 +50,7 @@ apt_api_sources := \
     Cydia/AptRuntime.cpp \
     Cydia/AptVersionPolicy.cpp \
     Cydia/ConfirmationController.mm \
+    Cydia/ConfirmationControllerProbe.mm \
     Cydia/ConfirmationViewModel.mm \
     Cydia/Database.mm \
     Cydia/DatabaseStatus.mm \

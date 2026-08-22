@@ -61,9 +61,11 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationActionEffect) {
 };
 
 typedef NS_ENUM(NSUInteger, CydiaConfirmationTableSectionKind) {
-    CydiaConfirmationTableSectionKindIssue,
-    CydiaConfirmationTableSectionKindChanges,
+    CydiaConfirmationTableSectionKindIssueNotice,
+    CydiaConfirmationTableSectionKindQueue,
     CydiaConfirmationTableSectionKindSizes,
+    CydiaConfirmationTableSectionKindModifications,
+    CydiaConfirmationTableSectionKindIssueDetails,
 };
 
 typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *packageIdentity);
@@ -178,7 +180,7 @@ typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *p
 
 @property (nonatomic, readonly) CydiaConfirmationTableSectionKind kind;
 @property (nonatomic, readonly, strong, nullable) CydiaConfirmationIssue *issue;
-@property (nonatomic, readonly, strong, nullable) CydiaConfirmationChangeGroup *changeGroup;
+@property (nonatomic, readonly, copy) NSArray<CydiaConfirmationChangeGroup *> *changeGroups;
 @property (nonatomic, readonly) NSUInteger rowCount;
 
 - (instancetype) init NS_UNAVAILABLE;

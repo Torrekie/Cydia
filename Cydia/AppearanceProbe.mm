@@ -6,6 +6,7 @@
 #include "Cydia/AppearanceProbe.h"
 
 #include "Cydia/Appearance.h"
+#include "Cydia/ConfirmationControllerProbe.h"
 #include "Cydia/LoadingView.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/ProgressControllerProbe.h"
@@ -98,9 +99,13 @@ static void EnsureProbeMetrics(void) {
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     BOOL progressProbe = [[[NSProcessInfo processInfo] arguments]
         containsObject:@"--cydia-progress-probe"];
+    BOOL confirmationProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-confirmation-probe"];
     BOOL controlledTraits = [[[NSProcessInfo processInfo] arguments]
         containsObject:@"--cydia-appearance-probe-controlled-traits"];
-    if (progressProbe) {
+    if (confirmationProbe) {
+        self.window.rootViewController = CydiaConfirmationControllerProbeRootController();
+    } else if (progressProbe) {
         self.window.rootViewController = CydiaProgressControllerProbeRootController();
     } else {
         [CyteWebViewController _initialize];
