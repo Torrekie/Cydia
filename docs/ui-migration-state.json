@@ -9,7 +9,7 @@
     "build_system": "make"
   },
   "phase": "P0",
-  "current_item": "P0.2-device-transaction-and-restoration-evidence",
+  "current_item": "P0-device-transaction-restoration-and-route-authority-evidence",
   "implementation_started": true,
   "last_updated": "2026-08-22",
   "product_code_changed": true,
@@ -45,12 +45,13 @@
         "native-confirmation-ios12-and-ios15-simulator-evidence",
         "native-progress-controller",
         "native-progress-simulator-probe",
-        "native-progress-ios12-after-state-evidence"
+        "native-progress-legacy-template-baseline",
+        "native-progress-legacy-layout-calibration",
+        "native-progress-ios12-and-ios15-simulator-evidence"
       ],
       "pending_items": [
         "confirmation-device-transaction-evidence",
         "confirmation-background-and-restoration-evidence",
-        "progress-legacy-before-state-evidence",
         "progress-device-transaction-cancellation-failure-evidence",
         "progress-background-and-interrupted-launch-evidence"
       ]
@@ -61,7 +62,7 @@
   },
   "acceptance": {
     "confirmation": "native implementation, matched legacy-template screenshots, contracts, and installed iOS 12/iOS 15.5 simulator probes passed; rooted/rootless transaction and restoration evidence pending",
-    "progress": "native implementation and installed iOS 12 deterministic after-state probe passed; legacy before and real transaction/recovery evidence pending",
+    "progress": "native implementation, matched legacy-template screenshots, contracts, and installed iOS 12/iOS 15.5 simulator probes passed; real transaction/recovery evidence pending",
     "package_shell": "pending",
     "depiction_island": "pending",
     "home": "pending",
@@ -70,7 +71,7 @@
     "rootful_device": "pending",
     "rootless_device": "pending",
     "ios12_simulator": "Progress and Confirmation installed deterministic probes passed",
-    "current_simulator": "Confirmation installed deterministic probe passed on iOS 15.5"
+    "current_simulator": "Confirmation and Progress installed deterministic probes passed on iOS 15.5"
   },
   "evidence_root": "/tmp/cydia-ui-evidence"
 }

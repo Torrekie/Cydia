@@ -14,7 +14,7 @@ can distinguish planned work from shipped behavior.
 - Implementation branch: `ui/native-migration`
 - Project rules: Makefile-only, ARC, arm64, iOS 12.0 minimum
 - Current phase: `P0`
-- Current item: `P0.2 Confirmation device transaction and restoration evidence`
+- Current item: `P0 device transaction, restoration, and route-authority evidence`
 - Implementation status: in progress
 - Last state update: 2026-08-22
 - Product code changed by this checkpoint: yes
@@ -86,24 +86,31 @@ dark appearance, and Dynamic Type reflow. Evidence and hashes are retained at
 `/tmp/cydia-ui-evidence/8f22e2d/confirmation/`. This does not substitute for
 rooted/rootless transaction, background, or restoration evidence.
 
-`ProgressController` is now a native title/status area, progress bar, and
-self-sizing event table driven by the typed progress model. It preserves raw
-status display, qualified package identities, cancellation state, external
-status ordering, and late monotonic `Finish_` escalation before the existing
-return/terminate/reload/reboot delegate effects. Warning, Error, and unknown
-future event types remain explicit to sighted and VoiceOver users. The remote
-page, `cydiaProgress` JavaScript bridge, and its hidden NetDragon install
+`ProgressController` is now a compact native event stream with bottom status,
+progress, and completion controls driven by the typed progress model. It
+preserves raw status display, qualified package identities, cancellation state,
+external status ordering, and late monotonic `Finish_` escalation before the
+existing return/terminate/reload/reboot delegate effects. Warning, Error, and
+unknown future event types remain explicit to sighted and VoiceOver users. The
+remote page, `cydiaProgress` JavaScript bridge, and its hidden NetDragon install
 telemetry are gone; that undisclosed network side effect was neither visible UI
 nor transaction state and is intentionally not reproduced.
 
-An installed iOS 12 simulator harness exercises the exact production Progress
-controller with deterministic state. It passed live light-to-dark switching,
-default and Accessibility Large typography, ordered/CR-normalized events,
-multiarch identity, semantic warning/error colors, cancellation/finish chrome,
-and completion accessibility. Four retained captures and state plists are at
-`/tmp/cydia-ui-evidence/61ad729/progress/`. This is after-state evidence; legacy
-before captures plus rooted/rootless transactions, cancellation/failure,
-backgrounding, and interrupted-launch recovery remain required.
+The calibrated Progress checkpoint at commit `2d465bf` uses the same ordered
+fixture as a retained rendering of the live legacy progress template. Its
+navigation title/actions, compact separator-free stream, bottom running status
+and narrow progress indicator, and large bottom completion action preserve the
+legacy hierarchy. Installed iOS 12 and iOS 15.5 probes pass light/dark changes,
+default and Accessibility Large typography, five actual visible cells,
+CR-normalized events, multiarch identity, semantic warning/error colors,
+non-color event markers, completion accessibility, and a no-WebView assertion.
+The accepted visual differences are semantic light appearance, Dynamic Type,
+system navigation metrics, and an explicit raw label for unknown future event
+kinds. The legacy inputs, native screenshots/state, exact version headers,
+logs, and hashes are retained at
+`/tmp/cydia-ui-evidence/2d465bf/progress/`. Rooted/rootless transactions,
+cancellation/failure, backgrounding, and interrupted-launch recovery remain
+required.
 
 Passing evidence at this checkpoint:
 
@@ -112,8 +119,10 @@ Passing evidence at this checkpoint:
 - `make --no-print-directory -j6 verify-static`
 - `make --no-print-directory -B -j6 verify-confirmation-view-model`
 - `make --no-print-directory -B -j6 verify-progress-view-model`
-- `make --no-print-directory -j6 verify-progress-controller`
-- `make --no-print-directory SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 verify-progress-simulator`
+- `make --no-print-directory -j6 verify-progress-controller verify-progress-view-model verify-native-ui verify-static`
+- `make --no-print-directory -j6 verify-compile MobileCydia`
+- `make --no-print-directory -j6 SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 BUILD_DIR=/private/tmp/cydia-progress-2d465bf-ios12 verify-progress-simulator`
+- `make --no-print-directory -j6 SIMULATOR_UDID=EE995643-9E3B-4541-8698-FE42A5917DDF BUILD_DIR=/private/tmp/cydia-progress-2d465bf-ios15 verify-progress-simulator`
 - `make --no-print-directory -j6 SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 BUILD_DIR=/private/tmp/cydia-confirmation-8f22e2d-ios12 verify-confirmation-simulator`
 - `make --no-print-directory -j6 SIMULATOR_UDID=EE995643-9E3B-4541-8698-FE42A5917DDF BUILD_DIR=/private/tmp/cydia-confirmation-8f22e2d-current verify-confirmation-simulator`
 - targeted iPhoneOS compilation of `Database`, `ProgressViewModel`,
@@ -128,9 +137,9 @@ Passing evidence at this checkpoint:
 
 P0.1 probe scaffolding and deterministic screenshot fixtures are complete.
 P0.2 still requires Confirmation background/restoration and rooted/rootless
-device transaction evidence; P0.3 still requires legacy before captures and
-real transaction/cancellation/failure/recovery evidence. Route-policy
-enforcement remains a separately revertible P0.4 move.
+device transaction evidence; P0.3 still requires real
+transaction/cancellation/failure/recovery evidence. Route-policy enforcement
+remains a separately revertible P0.4 move.
 
 ## Invariants
 
@@ -166,9 +175,10 @@ enforcement remains a separately revertible P0.4 move.
 - [ ] P0.3: native Progress screen and cancellation/failure evidence
   - [x] native controller, event cells, and deterministic contracts
   - [x] late `Finish_` escalation reaches native finish chrome
-  - [x] installed iOS 12 after-state appearance/accessibility probe
-  - [ ] legacy before-state, device transaction, cancellation/failure,
-    background, and interrupted-launch evidence
+  - [x] matched legacy/native screenshots plus installed iOS 12 and iOS 15.5
+    appearance/accessibility probes
+  - [ ] device transaction, cancellation/failure, background, and
+    interrupted-launch evidence
 - [ ] P0.4: critical-flow bridge removal and P0 device/simulator gate
 - [ ] P1.1: native package shell with adaptive depiction island
 - [ ] P1.2: native Home dashboard
@@ -184,7 +194,7 @@ enforcement remains a separately revertible P0.4 move.
 | Surface | Before/after screenshots | iOS 12 | Current simulator | Rootful | Rootless | URL/API | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Confirmation | matched legacy/native normal and issue captures plus dark, Dynamic Type, and alerts | installed probe passed | iOS 15.5 installed probe passed | pending | pending | route/action contracts passed | simulator parity passed; device transaction/restoration pending |
-| Progress | four native after captures; legacy before pending | installed deterministic probe passed | pending | pending | pending | model/controller contracts passed | implementation complete; real transaction/recovery evidence pending |
+| Progress | matched legacy/native running and completion captures plus dark and Dynamic Type | installed deterministic probe passed | iOS 15.5 installed probe passed | pending | pending | model/controller contracts passed | simulator parity passed; real transaction/recovery evidence pending |
 | Package shell | pending | pending | pending | pending | pending | pending | not started |
 | Depiction island | pending | pending | pending | pending | pending | pending | not started |
 | Home | pending | pending | pending | pending | pending | pending | not started |
