@@ -130,6 +130,7 @@ typedef NSString * _Nonnull (^CydiaProgressLocalizer)(NSString *key);
 
 - (void) beginWithTitle:(nullable NSString *)title;
 - (void) completeWithFinishAction:(CydiaProgressFinishAction)action;
+- (void) progressFinishActionDidChange:(NSNumber *)finishAction;
 - (void) requestCancellation;
 - (void) setCancellable:(bool)cancellable;
 

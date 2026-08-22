@@ -292,6 +292,15 @@ void TestFinishActions(void) {
                CydiaProgressFinishActionTerminate,
            @"an invalid live value cannot select an undefined side effect");
 
+    CydiaProgressViewModel *late(NewModel(nil));
+    [late beginWithTitle:@"RUNNING"];
+    [late completeWithFinishAction:CydiaProgressFinishActionReturnToCydia];
+    [late progressFinishActionDidChange:@(CydiaProgressFinishActionRebootDevice)];
+    Expect(late.state.finishAction == CydiaProgressFinishActionRebootDevice,
+           @"late finish output republishes the stronger native action");
+    ExpectEqual(late.state.finishTitle, @"L(REBOOT_DEVICE)",
+                @"late finish output updates the visible action title");
+
     const CydiaProgressFinishSideEffect effects[] = {
         CydiaProgressFinishSideEffectReturnToCydia,
         CydiaProgressFinishSideEffectTerminate,

@@ -139,6 +139,7 @@ static NSString *CydiaProgressLogMessage(NSString *message) {
 @interface CydiaProgressViewModel () {
     CydiaProgressCancellationState cancellationState_;
     CydiaProgressFinishAction finishAction_;
+    CydiaProgressFinishAction liveFinishAction_;
     BOOL containsError_;
     NSUInteger revision_;
 }
@@ -178,6 +179,7 @@ static NSString *CydiaProgressLogMessage(NSString *message) {
         self.publishedEvents = @[];
         cancellationState_ = CydiaProgressCancellationUnavailable;
         finishAction_ = CydiaProgressFinishActionNone;
+        liveFinishAction_ = CydiaProgressFinishActionNone;
         [self publishChange:CydiaProgressViewModelChangeNone notify:NO];
     }
     return self;
@@ -221,8 +223,14 @@ static NSString *CydiaProgressLogMessage(NSString *message) {
     state.speed = [[self.legacyDataStorage speed] floatValue];
     state.events = self.publishedEvents;
     state.cancellationState = [self currentCancellationState];
-    state.finishAction = finishAction_;
+    state.finishAction = CydiaProgressEffectiveFinishAction(
+        finishAction_, liveFinishAction_);
     state.finishTitle = CydiaProgressString([self.legacyDataStorage finish]);
+    if (state.finishAction != CydiaProgressFinishActionNone &&
+        state.finishAction != finishAction_) {
+        NSString *key(CydiaProgressFinishLocalizationKey(state.finishAction));
+        state.finishTitle = [self localized:key];
+    }
     state.containsError = containsError_;
     self.stateStorage = state;
 
@@ -280,6 +288,26 @@ static NSString *CydiaProgressLogMessage(NSString *message) {
     [self.legacyDataStorage setRunning:false];
     [self changed:CydiaProgressViewModelChangeRunning |
                   CydiaProgressViewModelChangeFinish |
+                  CydiaProgressViewModelChangeLegacyData];
+}
+
+- (void) progressFinishActionDidChange:(NSNumber *)finishAction {
+    [self assertMainThread];
+    NSInteger raw([finishAction integerValue]);
+    if (raw < CydiaProgressFinishActionReturnToCydia ||
+        raw > CydiaProgressFinishActionRebootDevice)
+        return;
+
+    CydiaProgressFinishAction action(static_cast<CydiaProgressFinishAction>(raw));
+    if (action <= liveFinishAction_)
+        return;
+    liveFinishAction_ = action;
+
+    if (![[self.legacyDataStorage running] boolValue]) {
+        NSString *key(CydiaProgressFinishLocalizationKey(action));
+        [self.legacyDataStorage setFinish:[self localized:key]];
+    }
+    [self changed:CydiaProgressViewModelChangeFinish |
                   CydiaProgressViewModelChangeLegacyData];
 }
 
