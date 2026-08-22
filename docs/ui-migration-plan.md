@@ -136,6 +136,9 @@ termination behavior byte-for-byte at the delegate boundary.
 Parity evidence: download, configure, install, cancellation, resolver error,
 partial failure, completion, restart/reload/reboot result, long event text,
 background/foreground, and a cold launch after an interrupted transaction.
+The native screen intentionally does not reproduce the legacy remote page's
+hidden NetDragon install telemetry: it was an undisclosed network side effect,
+not visible progress UX or transaction state.
 
 ### P0.4 Remove privileged bridge use from critical flows
 

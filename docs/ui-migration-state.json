@@ -39,12 +39,18 @@
         "progress-view-model",
         "popup-caller-metadata-shadow-mode",
         "native-confirmation-controller",
-        "native-confirmation-simulator-injection-seam"
+        "native-confirmation-simulator-injection-seam",
+        "native-progress-controller",
+        "native-progress-simulator-probe",
+        "native-progress-ios12-after-state-evidence"
       ],
       "pending_items": [
-        "native-screenshot-probe-scaffolding",
+        "native-confirmation-screenshot-probe-scaffolding",
         "confirmation-installed-runtime-evidence",
-        "progress-native-controller"
+        "confirmation-device-transaction-evidence",
+        "progress-legacy-before-state-evidence",
+        "progress-device-transaction-cancellation-failure-evidence",
+        "progress-background-and-interrupted-launch-evidence"
       ]
     },
     "P1": {"status": "planned", "completed_items": []},
@@ -53,7 +59,7 @@
   },
   "acceptance": {
     "confirmation": "native implementation and contracts passed; installed runtime evidence pending",
-    "progress": "pending",
+    "progress": "native implementation and installed iOS 12 deterministic after-state probe passed; legacy before and real transaction/recovery evidence pending",
     "package_shell": "pending",
     "depiction_island": "pending",
     "home": "pending",
@@ -61,7 +67,7 @@
     "url_api_compatibility": "route and popup caller fixtures passed in shadow mode; bridge enforcement and installed-runtime coverage pending",
     "rootful_device": "pending",
     "rootless_device": "pending",
-    "ios12_simulator": "pending",
+    "ios12_simulator": "Progress installed deterministic probe passed; Confirmation pending",
     "current_simulator": "pending"
   },
   "evidence_root": "/tmp/cydia-ui-evidence"

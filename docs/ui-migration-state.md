@@ -36,11 +36,12 @@ rejects public WebKit outside the future `PackageDepictionView`, and inventories
 the existing script method names and route policy. This is a decreasing debt
 baseline, not approval of the legacy implementation.
 
-The compatibility gate also inventories 115 declared property/schema rows:
-WebScript attributes, the three injected window globals, dynamic dictionary
-methods, the Confirmation object graph, its default `queue` call, and the
-legacy `CyteObject` wildcard key policy. This is inventory-only; caller
-authorization remains a later typed-adapter gate.
+The compatibility gate now inventories 92 remaining property/schema rows.
+The retired `cydiaConfirm` and `cydiaProgress` globals and the Confirmation
+object graph are absent; WebScript attributes, the remaining `cydia` global,
+dynamic dictionary methods, and the legacy `CyteObject` wildcard key policy
+remain explicit debt. This is inventory-only; caller authorization remains a
+later typed-adapter gate.
 
 The transaction data boundaries are now native and independently testable.
 `CydiaConfirmationViewModel` owns an immutable, Foundation-only snapshot of
@@ -48,9 +49,14 @@ the five change groups, dependency reasons and clauses, exact byte counts,
 multiarch routing identities, and essential-removal policy without WebScript
 sentinels. `CydiaProgressViewModel` consumes the existing ordered
 `ProgressDelegate` callbacks and publishes immutable UIKit-ready state while
-preserving the temporary `cydiaProgress` adapter, cancellation tri-state,
-raw/clamped percentage values, event order, and finish-action mapping. Neither
-screen route has changed at this checkpoint.
+preserving the cancellation tri-state, raw/clamped percentage values, event
+order, terminal carriage-return behavior, and finish-action mapping. Both
+transaction routes now use their native controllers.
+
+The progress model also accepts late monotonic finish-action publications from
+Database's status-fd reader on the main thread. This keeps the visible finish
+title aligned with a late reload/reboot escalation while the close handler
+continues to re-read the live value before executing the existing side effect.
 
 Popup and pushed-window decisions now carry opaque caller metadata through the
 legacy WebView boundary. The initiating committed frame origin is preferred
@@ -69,10 +75,24 @@ initializer reaches the same production table/action implementation from a
 deterministic snapshot. Installed visual, accessibility, restoration, alert,
 and transaction evidence is still required before P0.2 can complete.
 
-The native Progress screen will intentionally omit the remote page's hidden
-NetDragon install telemetry. That legacy network side effect is not transaction
-state or visible UI, and must not be reproduced in the UIKit controller. It is
-still present while the legacy progress route remains active.
+`ProgressController` is now a native title/status area, progress bar, and
+self-sizing event table driven by the typed progress model. It preserves raw
+status display, qualified package identities, cancellation state, external
+status ordering, and late monotonic `Finish_` escalation before the existing
+return/terminate/reload/reboot delegate effects. Warning, Error, and unknown
+future event types remain explicit to sighted and VoiceOver users. The remote
+page, `cydiaProgress` JavaScript bridge, and its hidden NetDragon install
+telemetry are gone; that undisclosed network side effect was neither visible UI
+nor transaction state and is intentionally not reproduced.
+
+An installed iOS 12 simulator harness exercises the exact production Progress
+controller with deterministic state. It passed live light-to-dark switching,
+default and Accessibility Large typography, ordered/CR-normalized events,
+multiarch identity, semantic warning/error colors, cancellation/finish chrome,
+and completion accessibility. Four retained captures and state plists are at
+`/tmp/cydia-ui-evidence/0e9fbbf/progress/`. This is after-state evidence; legacy
+before captures plus rooted/rootless transactions, cancellation/failure,
+backgrounding, and interrupted-launch recovery remain required.
 
 Passing evidence at this checkpoint:
 
@@ -81,19 +101,25 @@ Passing evidence at this checkpoint:
 - `make --no-print-directory -j6 verify-static`
 - `make --no-print-directory -B -j6 verify-confirmation-view-model`
 - `make --no-print-directory -B -j6 verify-progress-view-model`
+- `make --no-print-directory -j6 verify-progress-controller`
+- `make --no-print-directory SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 verify-progress-simulator`
+- targeted iPhoneOS compilation of `Database`, `ProgressViewModel`,
+  `ProgressController`, and `MobileCydia`
 - targeted iPhoneOS compilation of `UIRouteContext`,
   `Application+Navigation`, `MobileCydia`, `ConfirmationViewModel`,
-  `ConfirmationController`, `ProgressViewModel`, `ProgressController`, and
-  `ProgressData`
+  `ConfirmationController`, `ProgressViewModel`, `ProgressController`,
+  `ProgressEventCell`, `ProgressControllerProbe`, and `ProgressData`
 - x86_64 iOS 12 simulator compilation of `ConfirmationController` and its
   deterministic initializer fixture
 - `git diff --check`
 
-Still required before P0.1 can complete: the installed native transaction
-screenshot probe (the Confirmation seam is compiled; Progress is pending) and
-its retained evidence. P0.2 additionally requires Confirmation runtime parity,
-alert, restoration, and device transaction evidence. Route-policy enforcement
-remains a separately revertible P0.4 move.
+Still required before P0.1 can complete: the installed Confirmation transaction
+probe and its retained evidence. Progress probe scaffolding and installed iOS 12
+after-state evidence are complete. P0.2 additionally requires Confirmation
+runtime parity, alert, restoration, and device transaction evidence; P0.3 still
+requires legacy before captures and real transaction/cancellation/failure/
+recovery evidence. Route-policy enforcement remains a separately revertible
+P0.4 move.
 
 ## Invariants
 
@@ -119,12 +145,18 @@ remains a separately revertible P0.4 move.
   - [x] typed Confirmation and Progress view models
   - [x] popup/new-window caller metadata in shadow mode
   - [x] native Confirmation simulator injection seam
-  - [ ] native screenshot/probe scaffolding
+  - [x] native Progress screenshot/probe scaffolding
+  - [ ] native Confirmation screenshot/probe scaffolding
 - [ ] P0.2: native Confirmation screen and offline transaction evidence
   - [x] native controller and deterministic action/table contracts
   - [ ] installed screenshots, accessibility, alerts, restoration, and device
     transaction evidence
 - [ ] P0.3: native Progress screen and cancellation/failure evidence
+  - [x] native controller, event cells, and deterministic contracts
+  - [x] late `Finish_` escalation reaches native finish chrome
+  - [x] installed iOS 12 after-state appearance/accessibility probe
+  - [ ] legacy before-state, device transaction, cancellation/failure,
+    background, and interrupted-launch evidence
 - [ ] P0.4: critical-flow bridge removal and P0 device/simulator gate
 - [ ] P1.1: native package shell with adaptive depiction island
 - [ ] P1.2: native Home dashboard
@@ -140,7 +172,7 @@ remains a separately revertible P0.4 move.
 | Surface | Before/after screenshots | iOS 12 | Current simulator | Rootful | Rootless | URL/API | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Confirmation | pending | compile passed | pending | pending | pending | contract passed | implementation complete; runtime pending |
-| Progress | pending | pending | pending | pending | pending | pending | not started |
+| Progress | four native after captures; legacy before pending | installed deterministic probe passed | pending | pending | pending | model/controller contracts passed | implementation complete; real transaction/recovery evidence pending |
 | Package shell | pending | pending | pending | pending | pending | pending | not started |
 | Depiction island | pending | pending | pending | pending | pending | pending | not started |
 | Home | pending | pending | pending | pending | pending | pending | not started |
