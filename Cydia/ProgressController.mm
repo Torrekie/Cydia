@@ -65,10 +65,10 @@ static std::string FileFingerprint(const char *path) {
 @end
 
 @implementation ProgressController {
-    UIView *headerView_;
-    UILabel *titleLabel_;
+    UIView *footerView_;
     UILabel *statusLabel_;
     UIProgressView *progressView_;
+    UIButton *finishButton_;
     UITableView *eventsView_;
     UIBarButtonItem *cancelItem_;
     UIBarButtonItem *finishItem_;
@@ -136,33 +136,42 @@ static std::string FileFingerprint(const char *path) {
     view.accessibilityIdentifier = @"cydia.progress.root";
     self.view = view;
 
-    headerView_ = [[UIView alloc] init];
-    headerView_.translatesAutoresizingMaskIntoConstraints = NO;
-    [view addSubview:headerView_];
-
-    titleLabel_ = [[UILabel alloc] init];
-    titleLabel_.translatesAutoresizingMaskIntoConstraints = NO;
-    titleLabel_.numberOfLines = 0;
-    titleLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
-    titleLabel_.adjustsFontForContentSizeCategory = YES;
-    titleLabel_.accessibilityTraits = UIAccessibilityTraitHeader;
-    titleLabel_.accessibilityIdentifier = @"cydia.progress.title";
-    [headerView_ addSubview:titleLabel_];
-
     statusLabel_ = [[UILabel alloc] init];
-    statusLabel_.translatesAutoresizingMaskIntoConstraints = NO;
     statusLabel_.numberOfLines = 0;
-    statusLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+    statusLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     statusLabel_.adjustsFontForContentSizeCategory = YES;
+    statusLabel_.textAlignment = NSTextAlignmentCenter;
     statusLabel_.accessibilityIdentifier = @"cydia.progress.status";
-    [headerView_ addSubview:statusLabel_];
 
     progressView_ = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
-    progressView_.translatesAutoresizingMaskIntoConstraints = NO;
     progressView_.isAccessibilityElement = YES;
     progressView_.accessibilityLabel = UCLocalize("RUNNING");
     progressView_.accessibilityIdentifier = @"cydia.progress.percent";
-    [headerView_ addSubview:progressView_];
+
+    finishButton_ = [UIButton buttonWithType:UIButtonTypeSystem];
+    finishButton_.hidden = YES;
+    finishButton_.titleLabel.numberOfLines = 0;
+    finishButton_.titleLabel.textAlignment = NSTextAlignmentCenter;
+    finishButton_.titleLabel.adjustsFontForContentSizeCategory = YES;
+    finishButton_.contentEdgeInsets = UIEdgeInsetsMake(12.0, 8.0, 12.0, 8.0);
+    finishButton_.layer.borderWidth = 1.0;
+    finishButton_.layer.cornerRadius = 9.0;
+    finishButton_.accessibilityIdentifier = @"cydia.progress.finish";
+    [finishButton_ addTarget:self action:@selector(close)
+            forControlEvents:UIControlEventTouchUpInside];
+
+    UIStackView *footerStack([[UIStackView alloc]
+        initWithArrangedSubviews:@[statusLabel_, progressView_, finishButton_]]);
+    footerStack.translatesAutoresizingMaskIntoConstraints = NO;
+    footerStack.axis = UILayoutConstraintAxisVertical;
+    footerStack.alignment = UIStackViewAlignmentCenter;
+    footerStack.spacing = 10.0;
+
+    footerView_ = [[UIView alloc] init];
+    footerView_.translatesAutoresizingMaskIntoConstraints = NO;
+    footerView_.accessibilityIdentifier = @"cydia.progress.footer";
+    [footerView_ addSubview:footerStack];
+    [view addSubview:footerView_];
 
     eventsView_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     eventsView_.translatesAutoresizingMaskIntoConstraints = NO;
@@ -170,32 +179,33 @@ static std::string FileFingerprint(const char *path) {
     eventsView_.dataSource = self;
     eventsView_.delegate = self;
     eventsView_.rowHeight = UITableViewAutomaticDimension;
-    eventsView_.estimatedRowHeight = 56.0;
+    eventsView_.estimatedRowHeight = 22.0;
+    eventsView_.separatorStyle = UITableViewCellSeparatorStyleNone;
+    eventsView_.contentInset = UIEdgeInsetsMake(20.0, 0, 12.0, 0);
+    eventsView_.scrollIndicatorInsets = eventsView_.contentInset;
     eventsView_.tableFooterView = [[UIView alloc] initWithFrame:CGRectZero];
     eventsView_.accessibilityIdentifier = @"cydia.progress.events";
     [eventsView_ registerClass:[CydiaProgressEventCell class]
         forCellReuseIdentifier:CydiaProgressEventCellIdentifier];
     [view addSubview:eventsView_];
 
-    UILayoutGuide *margins(headerView_.layoutMarginsGuide);
+    UILayoutGuide *footerMargins(footerView_.layoutMarginsGuide);
     [NSLayoutConstraint activateConstraints:@[
-        [headerView_.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
-        [headerView_.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
-        [headerView_.topAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor],
-        [titleLabel_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
-        [titleLabel_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
-        [titleLabel_.topAnchor constraintEqualToAnchor:headerView_.topAnchor constant:14.0],
-        [statusLabel_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
-        [statusLabel_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
-        [statusLabel_.topAnchor constraintEqualToAnchor:titleLabel_.bottomAnchor constant:4.0],
-        [progressView_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
-        [progressView_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
-        [progressView_.topAnchor constraintEqualToAnchor:statusLabel_.bottomAnchor constant:12.0],
-        [progressView_.bottomAnchor constraintEqualToAnchor:headerView_.bottomAnchor constant:-14.0],
+        [footerView_.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
+        [footerView_.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+        [footerView_.bottomAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.bottomAnchor],
+        [footerStack.leadingAnchor constraintEqualToAnchor:footerMargins.leadingAnchor constant:4.0],
+        [footerStack.trailingAnchor constraintEqualToAnchor:footerMargins.trailingAnchor constant:-4.0],
+        [footerStack.topAnchor constraintEqualToAnchor:footerMargins.topAnchor constant:8.0],
+        [footerStack.bottomAnchor constraintEqualToAnchor:footerMargins.bottomAnchor constant:-16.0],
+        [statusLabel_.widthAnchor constraintEqualToAnchor:footerStack.widthAnchor],
+        [progressView_.widthAnchor constraintEqualToConstant:158.0],
+        [finishButton_.widthAnchor constraintEqualToAnchor:footerStack.widthAnchor],
+        [finishButton_.heightAnchor constraintGreaterThanOrEqualToConstant:50.0],
         [eventsView_.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
         [eventsView_.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
-        [eventsView_.topAnchor constraintEqualToAnchor:headerView_.bottomAnchor],
-        [eventsView_.bottomAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.bottomAnchor],
+        [eventsView_.topAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor],
+        [eventsView_.bottomAnchor constraintEqualToAnchor:footerView_.topAnchor],
     ]];
 
     [self applyTypography];
@@ -206,10 +216,10 @@ static std::string FileFingerprint(const char *path) {
 - (void) releaseSubviews {
     eventsView_.dataSource = nil;
     eventsView_.delegate = nil;
-    headerView_ = nil;
-    titleLabel_ = nil;
+    footerView_ = nil;
     statusLabel_ = nil;
     progressView_ = nil;
+    finishButton_ = nil;
     eventsView_ = nil;
     [super releaseSubviews];
 }
@@ -218,29 +228,27 @@ static std::string FileFingerprint(const char *path) {
     UITraitCollection *traits(self.traitCollection);
     UIColor *background([UIColor cydiaColorForRole:CydiaColorRoleBackground
                                      traitCollection:traits]);
-    UIColor *grouped([UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground
-                                  traitCollection:traits]);
-    self.view.backgroundColor = grouped;
-    headerView_.backgroundColor = grouped;
+    self.view.backgroundColor = background;
+    footerView_.backgroundColor = background;
     eventsView_.backgroundColor = background;
-    eventsView_.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator
-                                            traitCollection:traits];
-    titleLabel_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
-                                       traitCollection:traits];
-    statusLabel_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+    statusLabel_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
                                         traitCollection:traits];
     progressView_.progressTintColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent
                                                   traitCollection:traits];
     progressView_.trackTintColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator
                                                traitCollection:traits];
+    UIColor *finishColor([UIColor cydiaColorForRole:CydiaColorRoleLabel
+                                      traitCollection:traits]);
+    [finishButton_ setTitleColor:finishColor forState:UIControlStateNormal];
+    finishButton_.layer.borderColor = [finishColor CGColor];
 }
 
 - (void) applyTypography {
     UITraitCollection *traits(self.traitCollection);
-    titleLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline
-                              compatibleWithTraitCollection:traits];
-    statusLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline
+    statusLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody
                                compatibleWithTraitCollection:traits];
+    finishButton_.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline
+                                          compatibleWithTraitCollection:traits];
 }
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
@@ -253,7 +261,7 @@ static std::string FileFingerprint(const char *path) {
         BOOL follow([self shouldFollowEventTail]);
         [self applyTypography];
         [eventsView_ reloadData];
-        [headerView_ setNeedsLayout];
+        [footerView_ setNeedsLayout];
         [eventsView_ setNeedsLayout];
         if (follow && [renderedState_.events count] != 0) {
             __weak ProgressController *weakSelf(self);
@@ -350,16 +358,14 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (void) redrawCompletedHierarchy {
-    /* Completion replaces both navigation actions and the running title in a
-     * single model publication. Refresh the already-ordered rows as well so
-     * old CoreAnimation tiles cannot survive that terminal presentation. */
-    [eventsView_ reloadData];
+    /* Completion changes only the navigation and bottom controls. Keep the
+     * already-rendered event cells in place: reloading an unchanged table at
+     * the same time as its footer resizes can leave incomplete CoreAnimation
+     * tiles on iOS 12. */
     [self.view setNeedsLayout];
     [self.view layoutIfNeeded];
-    [headerView_ setNeedsDisplay];
-    [eventsView_ setNeedsDisplay];
-    for (UITableViewCell *cell in [eventsView_ visibleCells])
-        [cell setNeedsDisplay];
+    [footerView_ setNeedsDisplay];
+    [finishButton_ setNeedsDisplay];
     [self.view setNeedsDisplay];
 }
 
@@ -369,10 +375,16 @@ static std::string FileFingerprint(const char *path) {
     if (state == nil || !self.isViewLoaded)
         return;
     NSString *title(state.localizedTitle ?: state.rawTitle ?: @"");
-    titleLabel_.text = title;
     self.navigationItem.title = title;
     statusLabel_.text = state.statusText ?: @"";
     statusLabel_.accessibilityLabel = statusLabel_.text;
+    NSString *finishTitle([self effectiveFinishTitleForState:state]);
+    [finishButton_ setTitle:[finishTitle length] == 0 ? UCLocalize("CLOSE") : finishTitle
+                   forState:UIControlStateNormal];
+    BOOL finished(!state.running && [finishTitle length] != 0);
+    statusLabel_.hidden = !state.running;
+    progressView_.hidden = !state.running;
+    finishButton_.hidden = !finished;
     progressView_.accessibilityLabel = state.running ?
         UCLocalize("RUNNING") : UCLocalize("COMPLETE");
     progressView_.accessibilityValue = [self accessibilityValueForState:state];
@@ -399,6 +411,7 @@ static std::string FileFingerprint(const char *path) {
     NSString *finishTitle([self effectiveFinishTitleForState:state]);
     finishItem_.title = [finishTitle length] == 0 ? UCLocalize("CLOSE") : finishTitle;
     self.navigationItem.rightBarButtonItem = finished ? finishItem_ : nil;
+    [finishButton_ setTitle:finishItem_.title forState:UIControlStateNormal];
 }
 
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {

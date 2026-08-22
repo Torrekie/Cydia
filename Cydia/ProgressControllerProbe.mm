@@ -199,10 +199,18 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         settleTicks_ = 5;
         [self applyControlledTraits];
     }
-    if ([self consumeMarker:@"cydia-progress-probe-finish"] &&
+    if ([self consumeMarker:@"cydia-progress-probe-default"] &&
         ![phase_ isEqualToString:@"complete"]) {
         accessibilityLarge_ = NO;
+        phase_ = @"running-default";
+        /* A synthetic Accessibility-to-default override can publish its new
+         * trait before UIKit completes the dependent table layout/display
+         * passes. Keep readiness false through that transition. */
+        settleTicks_ = 15;
         [self applyControlledTraits];
+    }
+    if ([self consumeMarker:@"cydia-progress-probe-finish"] &&
+        ![phase_ isEqualToString:@"complete"]) {
         [model_ setCancellable:false];
         [model_ setTitle:@"COMPLETE"];
         [model_ completeWithFinishAction:CydiaProgressFinishActionReloadSpringBoard];
@@ -217,9 +225,10 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
 - (void) writeProbeState {
     [navigation_.view layoutIfNeeded];
     UIView *root(controller_.view);
-    UILabel *title((UILabel *) ProgressProbeView(root, @"cydia.progress.title"));
     UILabel *status((UILabel *) ProgressProbeView(root, @"cydia.progress.status"));
     UIProgressView *progress((UIProgressView *) ProgressProbeView(root, @"cydia.progress.percent"));
+    UIButton *finishButton((UIButton *) ProgressProbeView(root, @"cydia.progress.finish"));
+    UIView *footer(ProgressProbeView(root, @"cydia.progress.footer"));
     UITableView *table((UITableView *) ProgressProbeView(root, @"cydia.progress.events"));
     [table layoutIfNeeded];
 
@@ -228,17 +237,13 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         if (row < 0 || row >= rows)
             return nil;
         NSIndexPath *path([NSIndexPath indexPathForRow:row inSection:0]);
-        UITableViewCell *cell([table cellForRowAtIndexPath:path]);
-        return cell ?: [table.dataSource tableView:table cellForRowAtIndexPath:path];
+        return [table cellForRowAtIndexPath:path];
     };
     UITableViewCell *first(cellAtRow(0));
     UITableViewCell *carriageReturn(cellAtRow(1));
-    UITableViewCell *warning(rows <= 2 ? nil : [table cellForRowAtIndexPath:
-        [NSIndexPath indexPathForRow:2 inSection:0]]);
-    UITableViewCell *unknown(rows <= 3 ? nil : [table cellForRowAtIndexPath:
-        [NSIndexPath indexPathForRow:3 inSection:0]]);
-    UITableViewCell *last(rows == 0 ? nil : [table cellForRowAtIndexPath:
-        [NSIndexPath indexPathForRow:rows - 1 inSection:0]]);
+    UITableViewCell *warning(cellAtRow(2));
+    UITableViewCell *unknown(cellAtRow(3));
+    UITableViewCell *last(cellAtRow(rows - 1));
     NSArray<CydiaProgressPresentationEvent *> *events(model_.state.events);
     CydiaProgressPresentationEvent *firstEvent([events firstObject]);
     CydiaProgressPresentationEvent *carriageReturnEvent([events count] <= 1 ? nil :
@@ -252,18 +257,23 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"cydia.progress.event.message"));
     UILabel *warningMessage((UILabel *) ProgressProbeView(warning,
         @"cydia.progress.event.message"));
+    UILabel *warningMarker((UILabel *) ProgressProbeView(warning,
+        @"cydia.progress.event.marker"));
     UILabel *unknownMessage((UILabel *) ProgressProbeView(unknown,
         @"cydia.progress.event.message"));
     UILabel *errorMessage((UILabel *) ProgressProbeView(last,
         @"cydia.progress.event.message"));
+    UILabel *errorMarker((UILabel *) ProgressProbeView(last,
+        @"cydia.progress.event.marker"));
     CGFloat lastHeight(rows == 0 ? 0 : [table rectForRowAtIndexPath:
         [NSIndexPath indexPathForRow:rows - 1 inSection:0]].size.height);
     CGFloat errorRequiredHeight([errorMessage sizeThatFits:CGSizeMake(
         CGRectGetWidth(errorMessage.bounds), CGFLOAT_MAX)].height);
     BOOL ready(settleTicks_ == 0 && rows == (NSInteger) [events count] &&
                firstMessage != nil && carriageReturnMessage != nil && warningMessage != nil &&
-               unknownMessage != nil && errorMessage != nil &&
-               [title.text length] != 0 &&
+               unknownMessage != nil && errorMessage != nil && footer != nil &&
+               finishButton != nil &&
+               [[controller_.navigationItem title] length] != 0 &&
                [status.text isEqualToString:model_.state.statusText]);
     UIColor *expectedWarning([UIColor cydiaColorForRole:CydiaColorRoleWarningLabel
                                           traitCollection:controller_.traitCollection]);
@@ -279,7 +289,7 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"revision": @(model_.state.revision),
         @"rows": @(rows),
         @"modelEvents": @([events count]),
-        @"title": title.text ?: @"",
+        @"title": controller_.navigationItem.title ?: @"",
         @"expectedTitle": model_.state.localizedTitle ?: @"",
         @"status": status.text ?: @"",
         @"expectedStatus": model_.state.statusText ?: @"",
@@ -292,13 +302,17 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"multiarchCellIdentifier": last.accessibilityIdentifier ?: @"",
         @"lastCellAccessibilityLabel": last.accessibilityLabel ?: @"",
         @"warningVisibleText": warningMessage.text ?: @"",
-        @"expectedWarningVisibleText": warningEvent.accessibilityLabel ?: @"",
+        @"expectedWarningVisibleText": warningEvent.displayMessage ?: @"",
         @"unknownVisibleText": unknownMessage.text ?: @"",
         @"expectedUnknownVisibleText": expectedUnknown ?: @"",
         @"unknownCellAccessibilityLabel": unknown.accessibilityLabel ?: @"",
         @"expectedUnknownAccessibilityLabel": unknownEvent.accessibilityLabel ?: @"",
         @"errorVisibleText": errorMessage.text ?: @"",
-        @"expectedErrorVisibleText": lastEvent.accessibilityLabel ?: @"",
+        @"expectedErrorVisibleText": lastEvent.displayMessage ?: @"",
+        @"warningMarker": warningMarker.text ?: @"",
+        @"warningMarkerHidden": @(warningMarker.hidden),
+        @"errorMarker": errorMarker.text ?: @"",
+        @"errorMarkerHidden": @(errorMarker.hidden),
         @"warningUsesSemanticColor": @(ProgressProbeColorsEqual(
             warningMessage.textColor, expectedWarning)),
         @"errorUsesSemanticColor": @(ProgressProbeColorsEqual(
@@ -312,15 +326,17 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"expectedCompleteAccessibilityLabel": UCLocalize("COMPLETE"),
         @"cancelTitle": controller_.navigationItem.leftBarButtonItem.title ?: @"",
         @"finishTitle": controller_.navigationItem.rightBarButtonItem.title ?: @"",
+        @"finishButtonTitle": [finishButton titleForState:UIControlStateNormal] ?: @"",
+        @"finishButtonHidden": @(finishButton.hidden),
         @"expectedFinishTitle": model_.state.finishTitle ?: @"",
-        @"titleAdjustsFont": @(title.adjustsFontForContentSizeCategory),
         @"statusAdjustsFont": @(status.adjustsFontForContentSizeCategory),
-        @"titlePointSize": @(title.font.pointSize),
+        @"finishAdjustsFont": @(finishButton.titleLabel.adjustsFontForContentSizeCategory),
         @"statusPointSize": @(status.font.pointSize),
         @"errorPointSize": @(errorMessage.font.pointSize),
         @"statusHidden": @(status.hidden),
         @"statusAlpha": @(status.alpha),
         @"statusFrame": NSStringFromCGRect(status.frame),
+        @"footerFrame": NSStringFromCGRect(footer.frame),
         @"tableFrame": NSStringFromCGRect(table.frame),
         @"tableContentOffset": NSStringFromCGPoint(table.contentOffset),
         @"tableContentSize": NSStringFromCGSize(table.contentSize),
@@ -333,6 +349,10 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"errorMessageHidden": @(errorMessage.hidden),
         @"errorMessageAlpha": @(errorMessage.alpha),
         @"controllerFrame": NSStringFromCGRect(root.frame),
+        @"eventTableAboveFooter": @(CGRectGetMaxY([table convertRect:table.bounds toView:root]) <=
+            CGRectGetMinY([footer convertRect:footer.bounds toView:root]) + 1.0),
+        @"footerInLowerHalf": @(CGRectGetMidY([footer convertRect:footer.bounds toView:root]) >
+            CGRectGetMidY(root.bounds)),
         @"navigationFrame": NSStringFromCGRect(navigation_.view.frame),
         @"statusBarHidden": @([UIApplication sharedApplication].statusBarHidden),
         @"contentSizeCategory": controller_.traitCollection.preferredContentSizeCategory ?: @"",
