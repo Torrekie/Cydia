@@ -158,24 +158,35 @@ assert_equal "$state" carriageReturnVisibleText expectedCarriageReturnVisibleTex
 [ "$(read_state "$state" visibleWebViews)" = "0" ] ||
     fail "native progress hierarchy contains a WebView"
 assert_equal "$state" warningVisibleText expectedWarningVisibleText \
-    "Warning lost its localized visible type affordance"
+    "Warning message diverged from the legacy event stream"
+[ "$(read_state "$state" warningMarkerHidden)" = "false" ] &&
+[ "$(read_state "$state" warningMarker)" != "" ] ||
+    fail "Warning lost its visible non-color marker"
 assert_equal "$state" unknownVisibleText expectedUnknownVisibleText \
     "unknown event lost its raw type affordance"
 assert_equal "$state" unknownCellAccessibilityLabel expectedUnknownAccessibilityLabel \
     "VoiceOver lost the unknown event's raw type"
 assert_equal "$state" errorVisibleText expectedErrorVisibleText \
-    "Error lost its localized visible type affordance"
+    "Error message diverged from the legacy event stream"
+[ "$(read_state "$state" errorMarkerHidden)" = "false" ] &&
+[ "$(read_state "$state" errorMarker)" != "" ] ||
+    fail "Error lost its visible non-color marker"
 [ "$(read_state "$state" warningUsesSemanticColor)" = "true" ] &&
 [ "$(read_state "$state" errorUsesSemanticColor)" = "true" ] ||
     fail "Warning/Error rows do not use their semantic colors"
-[ "$(read_state "$state" titleAdjustsFont)" = "true" ] &&
-[ "$(read_state "$state" statusAdjustsFont)" = "true" ] ||
-    fail "progress title/status do not participate in Dynamic Type"
+[ "$(read_state "$state" statusAdjustsFont)" = "true" ] &&
+[ "$(read_state "$state" finishAdjustsFont)" = "true" ] ||
+    fail "progress controls do not participate in Dynamic Type"
+[ "$(read_state "$state" eventTableAboveFooter)" = "true" ] &&
+[ "$(read_state "$state" footerInLowerHalf)" = "true" ] ||
+    fail "event stream and bottom controls drifted from the legacy hierarchy"
 [ "$(read_state "$state" cancelTitle)" != "" ] || fail "running cancel action is absent"
 [ "$(read_state "$state" finishTitle)" = "" ] || fail "finish action appeared while running"
+[ "$(read_state "$state" finishButtonHidden)" = "true" ] ||
+    fail "bottom finish action appeared while running"
 light_luminance=$(read_state "$state" backgroundLuminance)
 last_height=$(read_state "$state" lastRowHeight)
-[ "$last_height" -gt 56 ] || fail "long event row did not self-size"
+[ "$last_height" -gt 30 ] || fail "long event row did not self-size"
 error_height=$(read_state "$state" errorMessageHeight)
 error_required_height=$(read_state "$state" errorRequiredHeight)
 [ $((error_height + 1)) -ge "$error_required_height" ] ||
@@ -227,10 +238,19 @@ simctl 30 io "$simulator" screenshot \
     "$artifact_dir/running-dark-accessibility-large.png" >/dev/null ||
     fail "could not capture Accessibility Large screenshot"
 
+: >"$data_container/tmp/cydia-progress-probe-default"
+wait_for_state "$state" running-default dark ||
+    fail "default-size running state did not settle before completion"
+assert_equal "$state" contentSizeCategory expectedDefaultContentSizeCategory \
+    "default-size reset did not settle before completion"
 : >"$data_container/tmp/cydia-progress-probe-finish"
 wait_for_state "$state" complete dark || fail "completed state did not become ready"
 [ "$(read_state "$state" cancelTitle)" = "" ] || fail "cancel action remained after completion"
 assert_equal "$state" finishTitle expectedFinishTitle "finish action title diverged from state"
+assert_equal "$state" finishButtonTitle expectedFinishTitle \
+    "bottom finish action title diverged from legacy completion"
+[ "$(read_state "$state" finishButtonHidden)" = "false" ] ||
+    fail "bottom finish action remained hidden after completion"
 assert_equal "$state" progressAccessibilityLabel expectedCompleteAccessibilityLabel \
     "completed progress accessibility still announces Running"
 assert_equal "$state" progressAccessibilityValue expectedProgressAccessibilityValue \

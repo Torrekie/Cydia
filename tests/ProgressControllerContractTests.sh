@@ -31,8 +31,11 @@ for token in \
         'UITableViewAutomaticDimension' \
         'preferredFontForTextStyle' \
         'adjustsFontForContentSizeCategory' \
-        'CydiaColorRoleGroupedBackground' \
+        'CydiaColorRoleBackground' \
         'CydiaColorAppearanceDidChange' \
+        'cydia.progress.footer' \
+        'cydia.progress.finish' \
+        'contentInset = UIEdgeInsetsMake(20.0' \
         'cydia.progress.percent' \
         'state.running ?' \
         'UCLocalize("COMPLETE")' \

@@ -9,8 +9,9 @@
 #include "CyteKit/Localize.h"
 
 @implementation CydiaProgressEventCell {
+    UILabel *markerLabel_;
     UILabel *messageLabel_;
-    UILabel *metadataLabel_;
+    UIStackView *contentStackView_;
     CydiaProgressEventKind kind_;
 }
 
@@ -18,36 +19,45 @@
                 reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) != nil) {
         self.selectionStyle = UITableViewCellSelectionStyleNone;
-        self.preservesSuperviewLayoutMargins = YES;
+        self.preservesSuperviewLayoutMargins = NO;
+        self.layoutMargins = UIEdgeInsetsMake(3.0, 9.0, 3.0, 9.0);
         self.isAccessibilityElement = YES;
         self.accessibilityTraits = UIAccessibilityTraitStaticText;
 
+        markerLabel_ = [[UILabel alloc] init];
+        markerLabel_.numberOfLines = 1;
+        markerLabel_.textAlignment = NSTextAlignmentCenter;
+        markerLabel_.isAccessibilityElement = NO;
+        markerLabel_.accessibilityIdentifier = @"cydia.progress.event.marker";
+        markerLabel_.hidden = YES;
+        [markerLabel_ setContentHuggingPriority:UILayoutPriorityRequired
+                                       forAxis:UILayoutConstraintAxisHorizontal];
+        [markerLabel_ setContentCompressionResistancePriority:UILayoutPriorityRequired
+                                                    forAxis:UILayoutConstraintAxisHorizontal];
+
         messageLabel_ = [[UILabel alloc] init];
-        messageLabel_.translatesAutoresizingMaskIntoConstraints = NO;
         messageLabel_.numberOfLines = 0;
-        messageLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        messageLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
         messageLabel_.adjustsFontForContentSizeCategory = YES;
         messageLabel_.isAccessibilityElement = NO;
         messageLabel_.accessibilityIdentifier = @"cydia.progress.event.message";
-        [self.contentView addSubview:messageLabel_];
+        [messageLabel_ setContentHuggingPriority:UILayoutPriorityDefaultLow
+                                        forAxis:UILayoutConstraintAxisHorizontal];
 
-        metadataLabel_ = [[UILabel alloc] init];
-        metadataLabel_.translatesAutoresizingMaskIntoConstraints = NO;
-        metadataLabel_.numberOfLines = 0;
-        metadataLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
-        metadataLabel_.adjustsFontForContentSizeCategory = YES;
-        metadataLabel_.isAccessibilityElement = NO;
-        [self.contentView addSubview:metadataLabel_];
+        contentStackView_ = [[UIStackView alloc]
+            initWithArrangedSubviews:@[markerLabel_, messageLabel_]];
+        contentStackView_.translatesAutoresizingMaskIntoConstraints = NO;
+        contentStackView_.axis = UILayoutConstraintAxisHorizontal;
+        contentStackView_.alignment = UIStackViewAlignmentFirstBaseline;
+        contentStackView_.spacing = 4.0;
+        [self.contentView addSubview:contentStackView_];
 
         UILayoutGuide *margins(self.contentView.layoutMarginsGuide);
         [NSLayoutConstraint activateConstraints:@[
-            [messageLabel_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
-            [messageLabel_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
-            [messageLabel_.topAnchor constraintEqualToAnchor:margins.topAnchor],
-            [metadataLabel_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
-            [metadataLabel_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
-            [metadataLabel_.topAnchor constraintEqualToAnchor:messageLabel_.bottomAnchor constant:3.0],
-            [metadataLabel_.bottomAnchor constraintEqualToAnchor:margins.bottomAnchor],
+            [contentStackView_.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
+            [contentStackView_.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
+            [contentStackView_.topAnchor constraintEqualToAnchor:margins.topAnchor],
+            [contentStackView_.bottomAnchor constraintEqualToAnchor:margins.bottomAnchor],
         ]];
 
         [self applyColorAppearance];
@@ -56,9 +66,9 @@
 }
 
 - (UIFont *) messageFontForKind:(CydiaProgressEventKind)kind {
-    UIFont *font([UIFont preferredFontForTextStyle:UIFontTextStyleBody
+    UIFont *font([UIFont preferredFontForTextStyle:UIFontTextStyleCaption1
                         compatibleWithTraitCollection:self.traitCollection]);
-    if (kind != CydiaProgressEventKindWarning && kind != CydiaProgressEventKindError)
+    if (kind != CydiaProgressEventKindStatus)
         return font;
     UIFontDescriptor *descriptor([[font fontDescriptor]
         fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold]);
@@ -67,16 +77,24 @@
 
 - (void) applyTypography {
     messageLabel_.font = [self messageFontForKind:kind_];
-    metadataLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1
-                                  compatibleWithTraitCollection:self.traitCollection];
+    markerLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1
+                                compatibleWithTraitCollection:self.traitCollection];
 }
 
 - (void) configureWithEvent:(CydiaProgressPresentationEvent *)event {
     kind_ = event.kind;
+    markerLabel_.hidden = YES;
+    markerLabel_.text = nil;
     switch (event.kind) {
         case CydiaProgressEventKindWarning:
+            markerLabel_.text = @"⚠︎";
+            markerLabel_.hidden = NO;
+            messageLabel_.text = event.displayMessage;
+        break;
         case CydiaProgressEventKindError:
-            messageLabel_.text = event.accessibilityLabel;
+            markerLabel_.text = @"✖︎";
+            markerLabel_.hidden = NO;
+            messageLabel_.text = event.displayMessage;
         break;
         case CydiaProgressEventKindUnknown:
             messageLabel_.text = [event.rawType length] == 0 ? event.displayMessage :
@@ -96,8 +114,6 @@
     if ([event.version length] != 0)
         [metadata addObject:event.version];
     NSString *metadataText([metadata componentsJoinedByString:@" · "]);
-    metadataLabel_.text = metadataText;
-    metadataLabel_.hidden = [metadataText length] == 0;
 
     self.accessibilityLabel = event.accessibilityLabel;
     self.accessibilityValue = [metadataText length] == 0 ? nil : metadataText;
@@ -113,14 +129,15 @@
                                       traitCollection:traits];
     self.contentView.backgroundColor = self.backgroundColor;
     CydiaColorRole messageRole(CydiaColorRoleLabel);
-    if (kind_ == CydiaProgressEventKindWarning)
+    if (kind_ == CydiaProgressEventKindInformation)
+        messageRole = CydiaColorRoleSecondaryLabel;
+    else if (kind_ == CydiaProgressEventKindWarning)
         messageRole = CydiaColorRoleWarningLabel;
     else if (kind_ == CydiaProgressEventKindError)
         messageRole = CydiaColorRoleErrorLabel;
     messageLabel_.textColor = [UIColor cydiaColorForRole:messageRole
                                          traitCollection:traits];
-    metadataLabel_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
-                                          traitCollection:traits];
+    markerLabel_.textColor = messageLabel_.textColor;
 }
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
