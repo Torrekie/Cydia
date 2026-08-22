@@ -14,7 +14,7 @@ can distinguish planned work from shipped behavior.
 - Implementation branch: `ui/native-migration`
 - Project rules: Makefile-only, ARC, arm64, iOS 12.0 minimum
 - Current phase: `P0`
-- Current item: `P0.2 native Confirmation runtime and parity evidence`
+- Current item: `P0.2 Confirmation device transaction and restoration evidence`
 - Implementation status: in progress
 - Last state update: 2026-08-22
 - Product code changed by this checkpoint: yes
@@ -72,8 +72,19 @@ operation ordering, blocking issue details, essential-removal alerts, and the
 four distinct delegate outcomes. Its production path no longer creates a
 WebView or waits for the first-party confirmation HTML. A simulator-only
 initializer reaches the same production table/action implementation from a
-deterministic snapshot. Installed visual, accessibility, restoration, alert,
-and transaction evidence is still required before P0.2 can complete.
+deterministic snapshot.
+
+The calibrated Confirmation probe at commit `8f22e2d` uses the same normal and
+blocking-issue fixtures as a retained rendering of the live legacy template and
+its pinned Cytyle CSS. Installed iOS 12 and iOS 15.5 runs preserve the legacy
+Queue, Statistics, Modifications, operation, and issue-detail hierarchy and
+exact visible fixture values. They also pass light/dark changes, Accessibility
+Large reflow, essential-removal alerts, all four delegate outcomes, qualified
+multiarch identity, clipping checks, and a no-WebView assertion. The accepted
+visual differences are native safe-area/navigation metrics, semantic colors,
+dark appearance, and Dynamic Type reflow. Evidence and hashes are retained at
+`/tmp/cydia-ui-evidence/8f22e2d/confirmation/`. This does not substitute for
+rooted/rootless transaction, background, or restoration evidence.
 
 `ProgressController` is now a native title/status area, progress bar, and
 self-sizing event table driven by the typed progress model. It preserves raw
@@ -103,6 +114,8 @@ Passing evidence at this checkpoint:
 - `make --no-print-directory -B -j6 verify-progress-view-model`
 - `make --no-print-directory -j6 verify-progress-controller`
 - `make --no-print-directory SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 verify-progress-simulator`
+- `make --no-print-directory -j6 SIMULATOR_UDID=12B87D7E-664A-4BE2-85A3-E5FEADB3A0B7 BUILD_DIR=/private/tmp/cydia-confirmation-8f22e2d-ios12 verify-confirmation-simulator`
+- `make --no-print-directory -j6 SIMULATOR_UDID=EE995643-9E3B-4541-8698-FE42A5917DDF BUILD_DIR=/private/tmp/cydia-confirmation-8f22e2d-current verify-confirmation-simulator`
 - targeted iPhoneOS compilation of `Database`, `ProgressViewModel`,
   `ProgressController`, and `MobileCydia`
 - targeted iPhoneOS compilation of `UIRouteContext`,
@@ -113,13 +126,11 @@ Passing evidence at this checkpoint:
   deterministic initializer fixture
 - `git diff --check`
 
-Still required before P0.1 can complete: the installed Confirmation transaction
-probe and its retained evidence. Progress probe scaffolding and installed iOS 12
-after-state evidence are complete. P0.2 additionally requires Confirmation
-runtime parity, alert, restoration, and device transaction evidence; P0.3 still
-requires legacy before captures and real transaction/cancellation/failure/
-recovery evidence. Route-policy enforcement remains a separately revertible
-P0.4 move.
+P0.1 probe scaffolding and deterministic screenshot fixtures are complete.
+P0.2 still requires Confirmation background/restoration and rooted/rootless
+device transaction evidence; P0.3 still requires legacy before captures and
+real transaction/cancellation/failure/recovery evidence. Route-policy
+enforcement remains a separately revertible P0.4 move.
 
 ## Invariants
 
@@ -137,7 +148,7 @@ P0.4 move.
 
 ## Phase checklist
 
-- [ ] P0.1: shared view models, route/API inventory, screenshot fixture, and
+- [x] P0.1: shared view models, route/API inventory, screenshot fixture, and
   native confirmation/progress probe scaffolding
   - [x] caller-capability shadow policy and route runtime fixture
   - [x] private-WebKit decreasing-debt gate and method-name inventory
@@ -146,11 +157,12 @@ P0.4 move.
   - [x] popup/new-window caller metadata in shadow mode
   - [x] native Confirmation simulator injection seam
   - [x] native Progress screenshot/probe scaffolding
-  - [ ] native Confirmation screenshot/probe scaffolding
+  - [x] native Confirmation screenshot/probe scaffolding
 - [ ] P0.2: native Confirmation screen and offline transaction evidence
   - [x] native controller and deterministic action/table contracts
-  - [ ] installed screenshots, accessibility, alerts, restoration, and device
-    transaction evidence
+  - [x] matched legacy/native screenshots plus installed simulator
+    accessibility and alert evidence
+  - [ ] background/restoration and rooted/rootless device transaction evidence
 - [ ] P0.3: native Progress screen and cancellation/failure evidence
   - [x] native controller, event cells, and deterministic contracts
   - [x] late `Finish_` escalation reaches native finish chrome
@@ -171,7 +183,7 @@ P0.4 move.
 
 | Surface | Before/after screenshots | iOS 12 | Current simulator | Rootful | Rootless | URL/API | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Confirmation | pending | compile passed | pending | pending | pending | contract passed | implementation complete; runtime pending |
+| Confirmation | matched legacy/native normal and issue captures plus dark, Dynamic Type, and alerts | installed probe passed | iOS 15.5 installed probe passed | pending | pending | route/action contracts passed | simulator parity passed; device transaction/restoration pending |
 | Progress | four native after captures; legacy before pending | installed deterministic probe passed | pending | pending | pending | model/controller contracts passed | implementation complete; real transaction/recovery evidence pending |
 | Package shell | pending | pending | pending | pending | pending | pending | not started |
 | Depiction island | pending | pending | pending | pending | pending | pending | not started |
@@ -186,7 +198,7 @@ rollback criterion in the plan remains unresolved.
 
 Use a commit-specific directory outside the repository for binary evidence:
 
-`/tmp/cydia-ui-evidence/<commit>/<surface>/<style>/`
+`/tmp/cydia-ui-evidence/<commit>/<surface>/<runtime>/`
 
 Each surface directory must contain the route, fixture/database identity,
 binary/package hash, screenshot pair, runtime log, and a short parity note.
