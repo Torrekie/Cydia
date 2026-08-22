@@ -132,7 +132,7 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
 @interface CydiaConfirmationTableSection ()
 - (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
                          issue:(nullable CydiaConfirmationIssue *)issue
-                   changeGroup:(nullable CydiaConfirmationChangeGroup *)changeGroup
+                  changeGroups:(NSArray<CydiaConfirmationChangeGroup *> *)changeGroups
                       rowCount:(NSUInteger)rowCount;
 @end
 
@@ -140,12 +140,12 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
 
 - (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
                          issue:(CydiaConfirmationIssue *)issue
-                   changeGroup:(CydiaConfirmationChangeGroup *)changeGroup
+                  changeGroups:(NSArray<CydiaConfirmationChangeGroup *> *)changeGroups
                       rowCount:(NSUInteger)rowCount {
     if ((self = [super init]) != nil) {
         _kind = kind;
         _issue = issue;
-        _changeGroup = changeGroup;
+        _changeGroups = [changeGroups copy];
         _rowCount = rowCount;
     }
     return self;
@@ -157,15 +157,20 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
 NSArray<CydiaConfirmationTableSection *> *
 CydiaConfirmationBuildTableSections(CydiaConfirmationViewModel *viewModel) {
     NSMutableArray<CydiaConfirmationTableSection *> *sections(
-        [NSMutableArray arrayWithCapacity:[[viewModel issues] count] +
-                                             [[viewModel groups] count] + 1]);
+        [NSMutableArray arrayWithCapacity:[[viewModel issues] count] + 4]);
 
-    for (CydiaConfirmationIssue *issue in [viewModel issues])
+    if ([viewModel hasBlockingIssues])
         [sections addObject:[[CydiaConfirmationTableSection alloc]
-            initWithKind:CydiaConfirmationTableSectionKindIssue
-            issue:issue
-            changeGroup:nil
+            initWithKind:CydiaConfirmationTableSectionKindIssueNotice
+            issue:nil
+            changeGroups:@[]
             rowCount:1]];
+
+    [sections addObject:[[CydiaConfirmationTableSection alloc]
+        initWithKind:CydiaConfirmationTableSectionKindQueue
+        issue:nil
+        changeGroups:@[]
+        rowCount:1]];
 
     if (![viewModel hasBlockingIssues] &&
         ([viewModel downloadingBytes] != 0 || [viewModel resumingBytes] != 0)) {
@@ -175,16 +180,26 @@ CydiaConfirmationBuildTableSections(CydiaConfirmationViewModel *viewModel) {
         [sections addObject:[[CydiaConfirmationTableSection alloc]
             initWithKind:CydiaConfirmationTableSectionKindSizes
             issue:nil
-            changeGroup:nil
+            changeGroups:@[]
             rowCount:rowCount]];
     }
 
-    for (CydiaConfirmationChangeGroup *group in [viewModel groups])
+    [sections addObject:[[CydiaConfirmationTableSection alloc]
+        initWithKind:CydiaConfirmationTableSectionKindModifications
+        issue:nil
+        changeGroups:[viewModel groups]
+        rowCount:[[viewModel groups] count]]];
+
+    for (CydiaConfirmationIssue *issue in [viewModel issues]) {
+        NSUInteger rows(0);
+        for (CydiaConfirmationReason *reason in [issue reasons])
+            rows += [[reason clauses] count];
         [sections addObject:[[CydiaConfirmationTableSection alloc]
-            initWithKind:CydiaConfirmationTableSectionKindChanges
-            issue:nil
-            changeGroup:group
-            rowCount:[[group packages] count]]];
+            initWithKind:CydiaConfirmationTableSectionKindIssueDetails
+            issue:issue
+            changeGroups:@[]
+            rowCount:rows]];
+    }
 
     return [sections copy];
 }

@@ -7,6 +7,7 @@
 VERIFY_SCRIPT := scripts/verify-modernization.sh
 APPEARANCE_VERIFY_SCRIPT := scripts/verify-appearance-simulator.sh
 PROGRESS_SIMULATOR_VERIFY_SCRIPT := scripts/verify-progress-simulator.sh
+CONFIRMATION_SIMULATOR_VERIFY_SCRIPT := scripts/verify-confirmation-simulator.sh
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 EXEC_COMPAT_VERIFY_SCRIPT := scripts/verify-exec-compat.sh
@@ -69,6 +70,7 @@ apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
+.PHONY: verify-confirmation-simulator
 .PHONY: verify-progress-simulator
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
 
@@ -383,3 +385,10 @@ verify-progress-simulator: $(PROGRESS_SIMULATOR_VERIFY_SCRIPT)
 	}
 	@$(PROGRESS_SIMULATOR_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
 		"$(MAKE)" "$(BUILD_DIR)/progress-simulator"
+
+verify-confirmation-simulator: $(CONFIRMATION_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(SIMULATOR_UDID)" || { \
+		echo "SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(CONFIRMATION_SIMULATOR_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
+		"$(MAKE)" "$(BUILD_DIR)/confirmation-simulator"

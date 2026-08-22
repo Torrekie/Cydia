@@ -151,27 +151,35 @@ void TestTableSectionPlan() {
         packageNameResolver:nil]);
     NSArray<CydiaConfirmationTableSection *> *sections(
         CydiaConfirmationBuildTableSections(model));
-    Require([sections count] == 3, "issue table section count changed");
-    Require([[sections objectAtIndex:0] kind] == CydiaConfirmationTableSectionKindIssue,
-            "dependency issue was not first");
-    Require([[sections objectAtIndex:0] issue] == [[model issues] objectAtIndex:0],
-            "issue section lost its typed issue");
+    Require([sections count] == 4, "legacy issue table section count changed");
+    Require([[sections objectAtIndex:0] kind] ==
+                CydiaConfirmationTableSectionKindIssueNotice,
+            "dependency note was not first");
     Require([[sections objectAtIndex:0] rowCount] == 1, "issue section row count changed");
+    Require([[sections objectAtIndex:1] kind] == CydiaConfirmationTableSectionKindQueue,
+            "Continue Queuing did not follow the dependency note");
 
-    CydiaConfirmationTableSection *installs([sections objectAtIndex:1]);
-    Require([installs kind] == CydiaConfirmationTableSectionKindChanges,
-            "install group did not become a change section");
-    Require([[installs changeGroup] kind] == CydiaConfirmationChangeKindInstall,
-            "install group order changed");
-    Require([installs rowCount] == 2, "install package row count changed");
-
-    CydiaConfirmationTableSection *upgrades([sections objectAtIndex:2]);
-    Require([[upgrades changeGroup] kind] == CydiaConfirmationChangeKindUpgrade,
-            "upgrade group order changed");
-    Require([upgrades rowCount] == 1, "upgrade package row count changed");
-    Require([[[[[upgrades changeGroup] packages] objectAtIndex:0] identity]
+    CydiaConfirmationTableSection *modifications([sections objectAtIndex:2]);
+    Require([modifications kind] == CydiaConfirmationTableSectionKindModifications,
+            "change groups did not share the legacy Modifications fieldset");
+    Require([modifications rowCount] == 2, "modification operation row count changed");
+    Require([[[modifications changeGroups] objectAtIndex:0] kind] ==
+                CydiaConfirmationChangeKindInstall,
+            "install operation order changed");
+    Require([[[modifications changeGroups] objectAtIndex:1] kind] ==
+                CydiaConfirmationChangeKindUpgrade,
+            "upgrade operation order changed");
+    Require([[[[[[modifications changeGroups] objectAtIndex:1] packages]
+                 objectAtIndex:0] identity]
                 isEqualToString:@"foreign-package:iphoneos-arm"],
             "table plan normalized a foreign package identity");
+
+    CydiaConfirmationTableSection *issueDetails([sections objectAtIndex:3]);
+    Require([issueDetails kind] == CydiaConfirmationTableSectionKindIssueDetails,
+            "dependency details did not follow Modifications");
+    Require([issueDetails issue] == [[model issues] objectAtIndex:0],
+            "issue detail section lost its typed issue");
+    Require([issueDetails rowCount] == 1, "dependency clause row count changed");
 
     for (CydiaConfirmationTableSection *section in sections)
         Require([section kind] != CydiaConfirmationTableSectionKindSizes,
@@ -190,16 +198,40 @@ void TestTableSectionPlan() {
     NSArray<CydiaConfirmationTableSection *> *normalSections(
         CydiaConfirmationBuildTableSections(normalModel));
     Require([normalSections count] == 3, "normal table section count changed");
-    Require([[normalSections objectAtIndex:0] kind] == CydiaConfirmationTableSectionKindSizes,
-            "statistics did not precede modification groups");
-    Require([[normalSections objectAtIndex:0] rowCount] == 2,
+    Require([[normalSections objectAtIndex:0] kind] == CydiaConfirmationTableSectionKindQueue,
+            "Continue Queuing was not the first legacy fieldset");
+    Require([[normalSections objectAtIndex:1] kind] == CydiaConfirmationTableSectionKindSizes,
+            "statistics did not follow Continue Queuing");
+    Require([[normalSections objectAtIndex:1] rowCount] == 2,
             "download and resume did not retain separate rows");
-    Require([[[normalSections objectAtIndex:1] changeGroup] kind] ==
+    CydiaConfirmationTableSection *normalModifications([normalSections objectAtIndex:2]);
+    Require([normalModifications kind] == CydiaConfirmationTableSectionKindModifications,
+            "normal changes did not share the Modifications fieldset");
+    Require([[normalModifications changeGroups] count] == 2,
+            "normal Modifications lost an operation group");
+    Require([[[normalModifications changeGroups] objectAtIndex:0] kind] ==
                 CydiaConfirmationChangeKindInstall,
-            "install group did not follow statistics");
-    Require([[[normalSections objectAtIndex:2] changeGroup] kind] ==
+            "install operation did not lead Modifications");
+    Require([[[normalModifications changeGroups] objectAtIndex:1] kind] ==
                 CydiaConfirmationChangeKindUpgrade,
-            "upgrade group order changed after statistics");
+            "upgrade operation order changed in Modifications");
+
+    CydiaAPT::TransactionData empty;
+    CydiaConfirmationViewModel *emptyModel([[CydiaConfirmationViewModel alloc]
+        initWithTransactionData:empty
+        advancedModeEnabled:NO
+        packageNameResolver:nil]);
+    NSArray<CydiaConfirmationTableSection *> *emptySections(
+        CydiaConfirmationBuildTableSections(emptyModel));
+    Require([emptySections count] == 2,
+            "empty transaction lost the legacy Queue/Modifications shell");
+    Require([[emptySections objectAtIndex:0] kind] == CydiaConfirmationTableSectionKindQueue,
+            "empty transaction lost Continue Queuing");
+    Require([[emptySections objectAtIndex:1] kind] ==
+                CydiaConfirmationTableSectionKindModifications,
+            "empty transaction lost the Modifications label");
+    Require([[emptySections objectAtIndex:1] rowCount] == 0,
+            "empty transaction invented a modification row");
 }
 
 } // namespace
