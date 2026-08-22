@@ -90,7 +90,7 @@ controller with deterministic state. It passed live light-to-dark switching,
 default and Accessibility Large typography, ordered/CR-normalized events,
 multiarch identity, semantic warning/error colors, cancellation/finish chrome,
 and completion accessibility. Four retained captures and state plists are at
-`/tmp/cydia-ui-evidence/0e9fbbf/progress/`. This is after-state evidence; legacy
+`/tmp/cydia-ui-evidence/61ad729/progress/`. This is after-state evidence; legacy
 before captures plus rooted/rootless transactions, cancellation/failure,
 backgrounding, and interrupted-launch recovery remain required.
 
