@@ -14,3 +14,9 @@ sysroot/
 *.receipt
 *.receipt.json
 *.jsonl
+
+# Local build/staging outputs are never product sources.
+/MobileCydia/
+/Objects/
+/Version.h
+/-/
