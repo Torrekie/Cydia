@@ -30,16 +30,13 @@
 
 @class UIDevice;
 
-/* Values initialized by the application bootstrap and consumed by web code. */
+/* Values initialized by the application bootstrap and shared by app code. */
 extern NSString *Cydia_;
-extern const NSString *UI_;
 extern BOOL Advanced_;
 extern _H<NSString> UniqueID_;
 extern NSMutableDictionary *Values_;
 extern NSMutableDictionary *Sections_;
 extern _H<NSMutableDictionary> SessionData_;
-extern _H<NSMutableSet> BridgedHosts_;
-extern _H<NSMutableSet> InsecureHosts_;
 
 NSString *UniqueIdentifier(UIDevice *device = nil);
 NSString *VerifySource(NSString *href);

@@ -159,8 +159,14 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         if (finish_r(data, size)) {
             NSString *finish = finish_r[1];
             int index = [Finishes_ indexOfObject:finish];
-            if (index != INT_MAX && index > Finish_)
+            if (index != INT_MAX && index > Finish_) {
                 Finish_ = index;
+                NSObject<ProgressDelegate> *progress(progress_);
+                if ([progress respondsToSelector:@selector(progressFinishActionDidChange:)])
+                    [progress performSelectorOnMainThread:
+                        @selector(progressFinishActionDidChange:)
+                        withObject:@(Finish_) waitUntilDone:NO];
+            }
         } else if (uicache_r(data, size)) {
             UICache_ = true;
         }
@@ -693,6 +699,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     CydiaAPT::FetchResultData fetch(apt_->runFetcher(PulseInterval_));
+    /* Progress cancellation makes pkgAcquire::Run return before package
+     * manager execution. Balance the application-wide activity lease before
+     * either the cancelled/incomplete or ordinary failure exits. */
+    [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
     if (!fetch.completed) {
         _trace();
         [self popErrorWithTitle:title];
@@ -704,8 +714,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:failure->error.c_str()] ofType:kCydiaProgressEventTypeError]);
         [delegate_ addProgressEventOnMainThread:event forTask:title];
     }
-
-    [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
     if (!fetch.failures.empty()) {
         _trace();

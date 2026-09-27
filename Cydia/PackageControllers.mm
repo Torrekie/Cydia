@@ -27,9 +27,14 @@
 #include "Cydia/Collation.hpp"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/ExternalURLPolicy.h"
+#include "Cydia/LegacyUICompatibilityNativeCaller.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageDetailViewModel.h"
+#include "Cydia/PackageLegacyIconLoader.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/Section.h"
+#include "Cydia/UIRouteContext.h"
 #define ProfileTimes 0
 #include "Cydia/Profile.hpp"
 
@@ -41,8 +46,105 @@
 #define AlwaysReload 0
 #define PrintTimes() do {} while (false)
 
+@protocol CYPackageControllerApplicationDelegate <CydiaDelegate, NSObject>
+- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForPackage:(Package *)package
+                                                                              presenter:(id)presenter;
+- (CyteViewController *)pageForURL:(NSURL *)URL
+                           context:(NSObject<CyteWebNavigationContext> *)context
+                      withReferrer:(NSString *)referrer;
+- (void)launchApplicationWithIdentifier:(NSString *)identifier suspended:(BOOL)suspended;
+@end
+
+@interface PackageDetailController (CYPackageControllerProtected)
+- (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action;
+@end
+
+namespace {
+
+NSURL *PackageRouteURL(NSString *URLString) {
+    if (![URLString isKindOfClass:[NSString class]] || [URLString length] == 0)
+        return nil;
+    NSURL *destination([NSURL URLWithString:URLString]);
+    if (destination == nil || [[destination scheme] length] == 0)
+        return nil;
+    NSString *scheme([[destination scheme] lowercaseString]);
+    if ([scheme isEqualToString:@"cydia"] || [scheme isEqualToString:@"apptapp"])
+        return destination;
+    return CydiaExternalURLRouteURL(destination);
+}
+
+} // namespace
+
 /* Package Controller {{{ */
 @implementation CYPackageController
+
+- (void) bindLegacyCompatibilitySessionForPackage:(Package *)package {
+    if (legacyCompatibilitySession_ != nil &&
+        [legacyCompatibilitySession_ isActive] &&
+        [legacyCompatibilitySession_ target] == package)
+        return;
+
+    [legacyCompatibilitySession_ invalidate];
+    legacyCompatibilitySession_ = nil;
+
+    id delegate([self delegate]);
+    if (package == nil || delegate == nil ||
+        ![delegate respondsToSelector:@selector(
+            legacyUICompatibilitySessionForPackage:presenter:)])
+        return;
+
+    CydiaLegacyUICompatibilityNativeSession *session(
+        [(id<CYPackageControllerApplicationDelegate>)delegate
+            legacyUICompatibilitySessionForPackage:package presenter:nil]);
+    if (session == nil || ![session isActive]) {
+        [session invalidate];
+        return;
+    }
+
+    id identity([session invokeScope:@"Package"
+        memberKind:CydiaLegacyBridgeMemberKindAttribute memberName:@"id"
+        arguments:@[] targetOrigin:nil]);
+    if (![identity isKindOfClass:[NSString class]] ||
+        ![identity isEqualToString:[package id]]) {
+        [session invalidate];
+        return;
+    }
+    legacyCompatibilitySession_ = session;
+}
+
+- (void)cancelLegacyAlternateIconLoad {
+    ++legacyIconGeneration_;
+    [legacyIconLoader_ cancel];
+    legacyIconLoader_ = nil;
+    legacyIconIdentity_ = nil;
+}
+
+- (void)startLegacyAlternateIconLoadForViewModel:
+        (CydiaPackageDetailViewModel *)viewModel {
+    [self cancelLegacyAlternateIconLoad];
+    NSString *identity([viewModel baseIdentity] ?: [viewModel identity]);
+    NSUInteger generation(legacyIconGeneration_);
+    __weak CYPackageController *weakSelf(self);
+    CydiaPackageLegacyIconLoader *loader([[CydiaPackageLegacyIconLoader alloc]
+        initWithPackageIdentity:identity completion:^(UIImage *image) {
+            CYPackageController *strongSelf(weakSelf);
+            if (strongSelf == nil || generation != strongSelf->legacyIconGeneration_)
+                return;
+            NSString *current([[strongSelf viewModel] baseIdentity] ?:
+                [[strongSelf viewModel] identity]);
+            if (![identity isEqualToString:current] ||
+                ![identity isEqualToString:strongSelf->legacyIconIdentity_])
+                return;
+            strongSelf->legacyIconLoader_ = nil;
+            if (image != nil)
+                [strongSelf updateHeaderIcon:image];
+        }]);
+    if (loader == nil)
+        return;
+    legacyIconIdentity_ = [identity copy];
+    legacyIconLoader_ = loader;
+    [loader start];
+}
 
 - (NSURL *) navigationURL {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", (id) name_]];
@@ -57,22 +159,10 @@
         return [self.delegate clearPackage:package_];
     else if ([name isEqualToString:@"REMOVE"])
         return [self.delegate removePackage:package_];
-    else if ([name isEqualToString:@"DOWNGRADE"]) {
-        sheet_ = [[UIActionSheet alloc]
-            initWithTitle:nil
-            delegate:self
-            cancelButtonTitle:nil
-            destructiveButtonTitle:nil
-            otherButtonTitles:nil
-        ];
-
-        for (Package *version in (id) versions_)
-            [sheet_ addButtonWithTitle:[version latest]];
-        [sheet_ setContext:@"version"];
-
-        [self.delegate showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
-        return;
-    }
+    else if ([name isEqualToString:@"DOWNGRADE"])
+        for (CydiaPackageDetailModifyAction *action in [[self viewModel] modifyActions])
+            if ([action kind] == CydiaPackageDetailModifyActionKindDowngrade)
+                return [self selectModifyAction:action];
 
     else if ([name isEqualToString:@"INSTALL"]);
     else if ([name isEqualToString:@"REINSTALL"]);
@@ -115,34 +205,11 @@
 
 #if !AlwaysReload
 - (void) _customButtonClicked {
-    if (commercial_ && self.isLoading && [package_ uninstalled])
-        return [self reloadURLWithCache:NO];
+    [self modifyButtonClicked];
+}
 
-    size_t count(buttons_.size());
-    if (count == 0)
-        return;
-
-    if (count == 1)
-        [self _clickButtonWithName:buttons_[0].first];
-    else {
-        NSMutableArray *buttons = [NSMutableArray arrayWithCapacity:count];
-        for (const auto &button : buttons_)
-            [buttons addObject:button.second];
-
-        sheet_ = [[UIActionSheet alloc]
-            initWithTitle:nil
-            delegate:self
-            cancelButtonTitle:nil
-            destructiveButtonTitle:nil
-            otherButtonTitles:nil
-        ];
-
-        for (NSString *button in buttons)
-            [sheet_ addButtonWithTitle:button];
-        [sheet_ setContext:@"modify"];
-
-        [self.delegate showActionSheet:sheet_ fromItem:[[self navigationItem] rightBarButtonItem]];
-    }
+- (void) customButtonClicked {
+    [self _customButtonClicked];
 }
 
 - (void) applyLoadingTitle {
@@ -150,70 +217,141 @@
 }
 
 - (UIBarButtonItem *) rightButton {
-    return button_;
+    if (button_ != nil)
+        return button_;
+    return self.navigationItem.rightBarButtonItem;
 }
 #endif
 
 - (void) setPageColor:(UIColor *)color {
-    return [super setPageColor:nil];
+    [super setPageColor:color];
 }
 
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer {
-    if ((self = [super init]) != nil) {
+    (void) referrer;
+    Package *package([database packageWithName:name]);
+    CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
+        [[CydiaPackageDetailViewModel alloc] initWithPackage:package]);
+    if (viewModel == nil)
+        return nil;
+    if ((self = [super initWithViewModel:viewModel
+                              headerIcon:[package icon]
+                                delegate:self]) != nil) {
         database_ = database;
-        name_ = name == nil ? @"" : [NSString stringWithString:name];
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/package/%@", UI_, (id) name_]] withReferrer:referrer];
+        name_ = [[viewModel identity] copy];
+        [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
     } return self;
 }
 
-- (void) reloadData {
-    [super reloadData];
+- (void)dealloc {
+    [legacyCompatibilitySession_ invalidate];
+    [self cancelLegacyAlternateIconLoad];
+}
 
-    [sheet_ dismissWithClickedButtonIndex:[sheet_ cancelButtonIndex] animated:YES];
-    sheet_ = nil;
-
-    package_ = [database_ packageWithName:name_];
-    versions_ = [package_ downgrades];
+- (void) synchronizeLegacyStateWithPackage:(Package *)package
+                                  viewModel:(CydiaPackageDetailViewModel *)viewModel {
+    package_ = package;
+    versions_ = [package downgrades] ?: @[];
+    commercial_ = [viewModel isCommercial];
 
     buttons_.clear();
+    for (CydiaPackageDetailModifyAction *action in [viewModel modifyActions])
+        buttons_.push_back(std::make_pair([action titleLocalizationKey],
+                                          UCLocalizeEx([action titleLocalizationKey])));
+}
 
-    if (package_ != nil) {
-        [(Package *) package_ parse];
-
-        commercial_ = [package_ isCommercial];
-
-        if ([package_ mode] != nil)
-            buttons_.push_back(std::make_pair(@"CLEAR", UCLocalize("CLEAR")));
-        if ([package_ source] == nil);
-        else if ([package_ upgradableAndEssential:NO])
-            buttons_.push_back(std::make_pair(@"UPGRADE", UCLocalize("UPGRADE")));
-        else if ([package_ uninstalled])
-            buttons_.push_back(std::make_pair(@"INSTALL", UCLocalize("INSTALL")));
-        else
-            buttons_.push_back(std::make_pair(@"REINSTALL", UCLocalize("REINSTALL")));
-        if (![package_ uninstalled])
-            buttons_.push_back(std::make_pair(@"REMOVE", UCLocalize("REMOVE")));
-        if ([versions_ count] != 0)
-            buttons_.push_back(std::make_pair(@"DOWNGRADE", UCLocalize("DOWNGRADE")));
+- (void) reloadData {
+    [sheet_ dismissWithClickedButtonIndex:[sheet_ cancelButtonIndex] animated:YES];
+    sheet_ = nil;
+    Package *package([database_ packageWithName:name_]);
+    CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
+        [[CydiaPackageDetailViewModel alloc] initWithPackage:package]);
+    [self bindLegacyCompatibilitySessionForPackage:package];
+    if (viewModel != nil) {
+        [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
+        [self updateWithViewModel:viewModel headerIcon:[package icon]];
+        [self startLegacyAlternateIconLoadForViewModel:viewModel];
+    } else {
+        [self cancelLegacyAlternateIconLoad];
     }
-
-    NSString *title;
-    switch (buttons_.size()) {
-        case 0: title = nil; break;
-        case 1: title = buttons_[0].second; break;
-        default: title = UCLocalize("MODIFY"); break;
-    }
-
-    button_ = [[UIBarButtonItem alloc]
-        initWithTitle:title
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(customButtonClicked)
-    ];
+    [super reloadData];
+    if ([self isViewLoaded])
+        button_ = self.navigationItem.rightBarButtonItem;
 }
 
 - (bool) isLoading {
-    return commercial_ ? [super isLoading] : false;
+    return false;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    button_ = self.navigationItem.rightBarButtonItem;
+    [self bindLegacyCompatibilitySessionForPackage:package_];
+}
+
+- (void)packageDetailController:(PackageDetailController *)controller
+          didSelectModifyAction:(CydiaPackageDetailModifyAction *)action
+                   versionChoice:(CydiaPackageDetailVersionChoice *)versionChoice {
+    if (controller != self)
+        return;
+    switch ([action kind]) {
+        case CydiaPackageDetailModifyActionKindClear:
+            return [self.delegate clearPackage:package_];
+        case CydiaPackageDetailModifyActionKindRemove:
+            return [self.delegate removePackage:package_];
+        case CydiaPackageDetailModifyActionKindInstall:
+        case CydiaPackageDetailModifyActionKindReinstall:
+        case CydiaPackageDetailModifyActionKindUpgrade:
+            return [self.delegate installPackage:package_];
+        case CydiaPackageDetailModifyActionKindDowngrade:
+            break;
+    }
+
+    if (versionChoice == nil)
+        return;
+    for (Package *version in (id)versions_)
+        if ([[version id] isEqualToString:[versionChoice identity]] &&
+            [[version latest] isEqualToString:[versionChoice version]])
+            return [self.delegate installPackage:version];
+}
+
+- (void)packageDetailController:(PackageDetailController *)controller
+         didSelectNavigationKind:(CydiaPackageDetailNavigationKind)kind
+                       URLString:(NSString *)URLString
+                      identifier:(NSString *)identifier {
+    if (controller != self)
+        return;
+    id<CYPackageControllerApplicationDelegate> application((id)[self delegate]);
+    if (kind == CydiaPackageDetailNavigationKindApplication) {
+        if ([identifier length] != 0 &&
+            [application respondsToSelector:@selector(launchApplicationWithIdentifier:suspended:)])
+            [application launchApplicationWithIdentifier:identifier suspended:NO];
+        return;
+    }
+
+    NSURL *route(PackageRouteURL(URLString));
+    if (route == nil ||
+        ![application respondsToSelector:@selector(pageForURL:context:withReferrer:)])
+        return;
+
+    CydiaUIRouteContext *context;
+    if (kind == CydiaPackageDetailNavigationKindDepictionLink) {
+        NSURL *origin([NSURL URLWithString:[[self viewModel] depictionURLString]]);
+        context = [CydiaUIRouteContext repositoryDepictionContextWithOrigin:origin
+            packageIdentity:[[self viewModel] identity] mainFrame:YES userGesture:YES];
+        if (context == nil)
+            context = [CydiaUIRouteContext untrustedWebPageContextWithOrigin:origin
+                mainFrame:YES userGesture:YES];
+    } else {
+        context = [CydiaUIRouteContext trustedNativeContext];
+    }
+
+    CyteViewController *page([application pageForURL:route context:context
+        withReferrer:[[self.navigationURL absoluteString] copy]]);
+    if (page == nil)
+        return;
+    [page setDelegate:application];
+    [self.navigationController pushViewController:page animated:YES];
 }
 
 @end
@@ -236,6 +374,8 @@
 
 - (void) didSelectPackage:(Package *)package {
     CYPackageController *view([[CYPackageController alloc] initWithDatabase:database_ forPackage:[package id] withReferrer:[[self referrerURL] absoluteString]]);
+    if (view == nil)
+        return;
     [view setDelegate:self.delegate];
     [[self navigationController] pushViewController:view animated:YES];
 }

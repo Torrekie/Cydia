@@ -32,17 +32,45 @@
     @autoreleasepool {
 
     SEL selector(reinterpret_cast<SEL>([[context objectAtIndex:0] pointerValue]));
-    id object([[context objectAtIndex:1] nonretainedObjectValue]);
+    id storedObject([context objectAtIndex:1]);
+    id object(storedObject == [NSNull null] ? nil : storedObject);
     volatile bool &stopped(*reinterpret_cast<bool *>([[context objectAtIndex:2] pointerValue]));
 
-    /* XXX: deal with exceptions */
-    using SelectorFunction = id (*)(id, SEL, id);
-    SelectorFunction function(reinterpret_cast<SelectorFunction>([self methodForSelector:selector]));
-    id value(function(self, selector, object));
-
     NSMethodSignature *signature([self methodSignatureForSelector:selector]);
+    if (signature == nil)
+        [self doesNotRecognizeSelector:selector];
+
+    NSUInteger arguments([signature numberOfArguments]);
+    if (arguments > 3)
+        [NSException raise:NSInvalidArgumentException
+                    format:@"yieldToSelector supports at most one object argument: %@",
+                           NSStringFromSelector(selector)];
+
+    NSInvocation *invocation([NSInvocation invocationWithMethodSignature:signature]);
+    [invocation setTarget:self];
+    [invocation setSelector:selector];
+    if (arguments == 3) {
+        __unsafe_unretained id argument(object);
+        [invocation setArgument:&argument atIndex:2];
+    }
+    [invocation retainArguments];
+    [invocation invoke];
+
+    id value(nil);
+    const char *returnType([signature methodReturnType]);
+    while (*returnType == 'r' || *returnType == 'n' || *returnType == 'N' ||
+           *returnType == 'o' || *returnType == 'O' || *returnType == 'R' ||
+           *returnType == 'V')
+        ++returnType;
+    if ([signature methodReturnLength] != 0 &&
+        (*returnType == '@' || *returnType == '#')) {
+        __unsafe_unretained id result(nil);
+        [invocation getReturnValue:&result];
+        value = result;
+    }
+
     [context removeAllObjects];
-    if ([signature methodReturnLength] != 0 && value != nil)
+    if (value != nil)
         [context addObject:value];
 
     stopped = true;
@@ -61,7 +89,7 @@
 
     NSMutableArray *context([NSMutableArray arrayWithObjects:
         [NSValue valueWithPointer:selector],
-        [NSValue valueWithNonretainedObject:object],
+        object ?: [NSNull null],
         [NSValue valueWithPointer:const_cast<bool *>(&stopped)],
     nil]);
 

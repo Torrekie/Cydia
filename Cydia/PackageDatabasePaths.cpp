@@ -97,6 +97,8 @@ const char *BSDCommandLeaf(CydiaRuntime::BootstrapBSDCommand command) {
             return "cp";
         case CydiaRuntime::BootstrapBSDCommand::Link:
             return "ln";
+        case CydiaRuntime::BootstrapBSDCommand::Move:
+            return "mv";
         case CydiaRuntime::BootstrapBSDCommand::Remove:
             return "rm";
     }
@@ -246,8 +248,12 @@ std::string PackageDatabasePaths::AptSourcesDirectory() const {
     return JoinPath(aptConfigDirectory_, "sources.list.d");
 }
 
-std::string PackageDatabasePaths::CydiaSourcesListPath() const {
+std::string PackageDatabasePaths::LegacyCydiaSourcesListPath() const {
     return JoinPath(AptSourcesDirectory(), "cydia.list");
+}
+
+std::string PackageDatabasePaths::CydiaSourcesListPath() const {
+    return LegacyCydiaSourcesListPath();
 }
 
 std::string PackageDatabasePaths::CydiaMetadataPath() const {
@@ -256,6 +262,10 @@ std::string PackageDatabasePaths::CydiaMetadataPath() const {
 
 std::string PackageDatabasePaths::CydiaFirmwareVersionPath() const {
     return JoinPath(cydiaStateDirectory_, "firmware.ver");
+}
+
+std::string PackageDatabasePaths::CydiaLegacySourceMarkerPath() const {
+    return JoinPath(cydiaStateDirectory_, "cydia.legacy-source-marker");
 }
 
 bool PackageDatabasePaths::RequiresLegacyUserMigration(bool userDirectoryExists) const {

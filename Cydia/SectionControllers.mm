@@ -22,7 +22,6 @@
 
 #include "Cydia/SectionControllers.h"
 
-#include "Cydia/AppState.h"
 #include "Cydia/Appearance.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
@@ -49,11 +48,7 @@
 }
 
 - (NSURL *) referrerURL {
-    NSString *name(section_);
-    name = name ?: @"*";
-    NSString *key(key_);
-    key = key ?: @"*";
-    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/sections/%@/%@", UI_, [key stringByAddingPercentEscapesIncludingReserved], [name stringByAddingPercentEscapesIncludingReserved]]];
+    return [self navigationURL];
 }
 
 - (NSURL *) navigationURL {

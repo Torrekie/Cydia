@@ -2,7 +2,6 @@
 #define CYDIA_UIKITPRIVATE_H
 
 // #include <*> {{{
-#include <JavaScriptCore/JavaScriptCore.h>
 #include <UIKit/UIKit.h>
 // }}}
 // typedef GS* {{{
@@ -32,86 +31,6 @@ static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteSmall
 static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleGraySmall(static_cast<UIActivityIndicatorViewStyle>(4));
 static const UIActivityIndicatorViewStyle UIActivityIndicatorViewStyleWhiteTiny(static_cast<UIActivityIndicatorViewStyle>(5));
 // }}}
-// #define * * {{{
-#define UIDataDetectorTypeAutomatic 0x80000000
-// }}}
-
-// @class DOM*; {{{
-@class DOMRGBColor;
-// }}}
-// @class Web*; {{{
-@class WebScriptObject;
-@class WebView;
-// }}}
-
-// enum DOM_* {{{
-enum {
-    DOM_CSS_UNKNOWN = 0,
-    DOM_CSS_NUMBER = 1,
-    DOM_CSS_PERCENTAGE = 2,
-    DOM_CSS_EMS = 3,
-    DOM_CSS_EXS = 4,
-    DOM_CSS_PX = 5,
-    DOM_CSS_CM = 6,
-    DOM_CSS_MM = 7,
-    DOM_CSS_IN = 8,
-    DOM_CSS_PT = 9,
-    DOM_CSS_PC = 10,
-    DOM_CSS_DEG = 11,
-    DOM_CSS_RAD = 12,
-    DOM_CSS_GRAD = 13,
-    DOM_CSS_MS = 14,
-    DOM_CSS_S = 15,
-    DOM_CSS_HZ = 16,
-    DOM_CSS_KHZ = 17,
-    DOM_CSS_DIMENSION = 18,
-    DOM_CSS_STRING = 19,
-    DOM_CSS_URI = 20,
-    DOM_CSS_IDENT = 21,
-    DOM_CSS_ATTR = 22,
-    DOM_CSS_COUNTER = 23,
-    DOM_CSS_RECT = 24,
-    DOM_CSS_RGBCOLOR = 25,
-    DOM_CSS_VW = 26,
-    DOM_CSS_VH = 27,
-    DOM_CSS_VMIN = 28,
-    DOM_CSS_VMAX = 29
-};
-// }}}
-// enum Web* {{{
-typedef NS_ENUM(NSUInteger, WebCacheModel) {
-    WebCacheModelDocumentViewer = 0,
-    WebCacheModelDocumentBrowser = 1,
-    WebCacheModelPrimaryWebBrowser = 2
-};
-
-typedef enum {
-    WebEventMouseDown,
-    WebEventMouseUp,
-    WebEventMouseMoved,
-    WebEventScrollWheel,
-    WebEventKeyDown,
-    WebEventKeyUp,
-    WebEventTouchBegin,
-    WebEventTouchChange,
-    WebEventTouchEnd,
-    WebEventTouchCancel
-} WebEventType;
-
-enum {
-    WebKitErrorCannotShowMIMEType = 100,
-    WebKitErrorCannotShowURL = 101,
-    WebKitErrorFrameLoadInterruptedByPolicyChange = 102,
-};
-// }}}
-// @protocol Web*; {{{
-@protocol WebPolicyDecisionListener <NSObject>
-- (void) use;
-- (void) download;
-- (void) ignore;
-@end
-// }}}
-
 // @interface * : UIView {{{
 @interface UIFormAssistant : UIView
 + (UIFormAssistant *) sharedFormAssistant;
@@ -134,17 +53,6 @@ enum {
 - (void) showInView:(UIView *)view;
 @end
 
-@interface UIScroller : UIView
-- (CGSize) contentSize;
-- (void) setDirectionalScrolling:(BOOL)directional;
-- (void) setEventMode:(NSInteger)mode;
-- (void) setOffset:(CGPoint)offset;
-- (void) setScrollDecelerationFactor:(CGFloat)factor;
-- (void) setScrollHysteresis:(CGFloat)hysteresis;
-- (void) setScrollerIndicatorStyle:(UIScrollViewIndicatorStyle)style;
-- (void) setThumbDetectionEnabled:(BOOL)enabled;
-@end
-
 @interface UITextLabel : UIView
 - (void) setCentersHorizontally:(BOOL)centers;
 - (void) setColor:(UIColor *)color;
@@ -155,40 +63,6 @@ enum {
 @interface UITransitionView : UIView
 @end
 
-@interface UIWebDocumentView : UIView
-- (CGRect) documentBounds;
-- (void) enableReachability;
-- (void) loadRequest:(NSURLRequest *)request;
-- (void) redrawScaledDocument;
-- (void) setAllowsImageSheet:(BOOL)allows;
-- (void) setAllowsMessaging:(BOOL)allows;
-- (void) setAutoresizes:(BOOL)autoresizes;
-- (void) setContentsPosition:(NSInteger)position;
-- (void) setDrawsBackground:(BOOL)draws;
-- (void) _setDocumentType:(NSInteger)type;
-- (void) setDrawsGrid:(BOOL)draws;
-- (void) setInitialScale:(float)scale forDocumentTypes:(NSInteger)types;
-- (void) setLogsTilingChanges:(BOOL)logs;
-- (void) setMinimumScale:(float)scale forDocumentTypes:(NSInteger)types;
-- (void) setMinimumSize:(CGSize)size;
-- (void) setMaximumScale:(float)scale forDocumentTypes:(NSInteger)tpyes;
-- (void) setSmoothsFonts:(BOOL)smooths;
-- (void) setTileMinificationFilter:(NSString *)filter;
-- (void) setTileSize:(CGSize)size;
-- (void) setTilingEnabled:(BOOL)enabled;
-- (void) setViewportSize:(CGSize)size forDocumentTypes:(NSInteger)types;
-- (void) setZoomsFocusedFormControl:(BOOL)zooms;
-- (void) useSelectionAssistantWithMode:(NSInteger)mode;
-- (WebView *) webView;
-@end
-
-@interface UIWebViewWebViewDelegate : NSObject {
-    @public UIWebView *uiWebView;
-}
-
-- (void) _clearUIWebView;
-
-@end
 // }}}
 // @interface *Button : * {{{
 @interface UINavigationButton : UIButton
@@ -209,137 +83,9 @@ enum {
 @interface UIThreePartButton : UIPushButton
 @end
 // }}}
-// @interface * : NS* {{{
-@interface WebDefaultUIKitDelegate : NSObject
-+ (WebDefaultUIKitDelegate *) sharedUIKitDelegate;
-@end
-// }}}
-// @interface DOM* {{{
-@interface DOMObject
-@end
-
-@interface DOMCSSValue : DOMObject
-@end
-
-@interface DOMCSSPrimitiveValue : DOMCSSValue
-@property (readonly) unsigned short primitiveType;
-- (DOMRGBColor *) getRGBColorValue;
-- (float) getFloatValue:(unsigned short)unit;
-@end
-
-@interface DOMRGBColor : DOMObject
-@property (readonly, strong) DOMCSSPrimitiveValue *red;
-@property (readonly, strong) DOMCSSPrimitiveValue *green;
-@property (readonly, strong) DOMCSSPrimitiveValue *blue;
-@property (readonly, strong) DOMCSSPrimitiveValue *alpha;
-@end
-
-@interface DOMCSSStyleDeclaration : DOMObject
-- (DOMCSSValue *) getPropertyCSSValue:(NSString *)name;
-- (void) setProperty:(NSString *)name value:(NSString *)value priority:(NSString *)priority;
-@end
-
-@interface DOMNode : DOMObject
-@end
-
-@interface DOMNodeList : DOMObject
-@property (readonly) unsigned length;
-- (DOMNode *) item:(unsigned)index;
-@end
-
-@interface DOMElement : DOMNode
-@property (readonly) int scrollHeight;
-@end
-
-@interface DOMHTMLElement : DOMElement
-@property (readonly, strong) DOMCSSStyleDeclaration *style;
-@end
-
-@interface DOMHTMLBodyElement : DOMHTMLElement
-@end
-
-@interface DOMHTMLIFrameElement : DOMHTMLElement
-@end
-
-@interface DOMDocument : DOMNode
-@property (strong) DOMHTMLElement *body;
-- (DOMCSSStyleDeclaration *) getComputedStyle:(DOMElement *)element pseudoElement:(NSString *)pseudo;
-- (DOMNodeList *) getElementsByTagName:(NSString *)name;
-@end
-// }}}
-// @interface WAK* : * {{{
-@interface WAKResponder : NSObject
-@end
-
-@interface WAKView : NSObject
-+ (BOOL) hasLandscapeOrientation;
-@end
-
-@interface WAKWindow : NSObject
-+ (BOOL) hasLandscapeOrientation;
-@end
-// }}}
-// @interface Web* {{{
-@interface WebPreferences : NSObject
-+ (void) setWebKitLinkTimeVersion:(NSInteger)version;
-- (void) setCacheModel:(WebCacheModel)value;
-- (void) setJavaScriptCanOpenWindowsAutomatically:(BOOL)value;
-@end
-
-@interface WebDataSource : NSObject
-- (NSURLRequest *) request;
-- (NSURLResponse *) response;
-@end
-
-@interface WebFrame : NSObject
-@property (nonatomic, readonly, copy) NSArray *childFrames;
-@property (nonatomic, readonly, strong) WebDataSource *dataSource;
-@property (nonatomic, readonly, strong) DOMDocument *DOMDocument;
-@property (nonatomic, readonly, strong) DOMHTMLElement *frameElement;
-@property (nonatomic, readonly) JSGlobalContextRef globalContext;
-@property (nonatomic, readonly, strong) WebFrame *parentFrame;
-@property (nonatomic, readonly, strong) WebDataSource *provisionalDataSource;
-@property (nonatomic, readonly, strong) WebScriptObject *windowObject;
-@end
-
-@interface WebView : WAKView
-@property (nonatomic, readonly, strong) WebFrame *mainFrame;
-@property (nonatomic, strong) WebPreferences *preferences;
-- (IBAction) reloadFromOrigin:(id)sender;
-- (void) setApplicationNameForUserAgent:(NSString *)value;
-- (void) setShouldUpdateWhileOffscreen:(BOOL)value;
-@end
-
-@interface WebScriptObject : NSObject
-- (id) evaluateWebScript:(NSString *)script;
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name;
-- (JSObjectRef) JSObject;
-- (void) setWebScriptValueAtIndex:(unsigned)index value:(id)value;
-- (id) webScriptValueAtIndex:(unsigned)index;
-@end
-
-@interface WebUndefined : NSObject
-+ (WebUndefined *) undefined;
-@end
-// }}}
-// @interface UIWeb* : * {{{
-@interface UIWebBrowserView : UIWebDocumentView
-@end
-
-@interface UIWebTouchEventsGestureRecognizer : UIGestureRecognizer
-- (int) type;
-- (NSString *) _typeDescription;
-@end
-// }}}
-
 // @interface NS* (*) {{{
 @interface NSMutableURLRequest (Apple)
 - (void) setHTTPShouldUsePipelining:(BOOL)pipelining;
-@end
-
-@interface NSObject (Apple)
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name;
-- (NSArray *) attributeKeys;
 @end
 
 @interface NSString (Apple)
@@ -468,7 +214,6 @@ enum {
 @end
 
 @interface UIView (Apple)
-- (UIScroller *) _scroller;
 - (void) setClipsSubviews:(BOOL)clips;
 - (void) setEnabledGestures:(NSInteger)gestures;
 - (void) setFixedBackgroundPattern:(BOOL)fixed;
@@ -491,49 +236,6 @@ enum {
 - (void) orderFront:(UIApplication *)application;
 @end
 
-@interface UIWebView (Apple)
-- (UIWebDocumentView *) _documentView;
-- (UIScrollView *) _scrollView;
-- (UIScroller *) _scroller;
-- (void) _updateViewSettings;
-- (void) webView:(WebView *)view addMessageToConsole:(NSDictionary *)message;
-//- (WebView *) webView:(WebView *)view createWebViewWithRequest:(NSURLRequest *)request;
-- (void) webView:(WebView *)view decidePolicyForNavigationAction:(NSDictionary *)action request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener;
-- (void) webView:(WebView *)view decidePolicyForNewWindowAction:(NSDictionary *)action request:(NSURLRequest *)request newFrameName:(NSString *)name decisionListener:(id<WebPolicyDecisionListener>)listener;
-- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didCommitLoadForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didFinishLoadForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view didReceiveTitle:(id)title forFrame:(id)frame;
-- (void) webView:(WebView *)view didStartProvisionalLoadForFrame:(WebFrame *)frame;
-- (void) webView:(WebView *)view resource:(id)identifier didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source;
-- (void) webView:(WebView *)view resource:(id)identifier didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)source;
-- (NSURLRequest *) webView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
-- (NSURLRequest *) webThreadWebView:(WebView *)view resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response fromDataSource:(WebDataSource *)source;
-- (void) webView:(WebView *)view runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
-- (BOOL) webView:(WebView *)view runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WebFrame *)frame;
-- (NSString *) webView:(WebView *)view runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WebFrame *)frame;
-- (void) webViewClose:(WebView *)view;
-@end
-// }}}
-// @interface Web* (*) {{{
-@interface WebFrame (Apple)
-- (void) setNeedsLayout;
-@end
-
-@interface WebPreferences (Apple)
-+ (void) _setInitialDefaultTextEncodingToSystemEncoding;
-- (void) _setLayoutInterval:(NSInteger)interval;
-- (void) setOfflineWebApplicationCacheEnabled:(BOOL)enabled;
-@end
-
-@interface WebView (Apple)
-- (void) _preferencesChanged:(WebPreferences *)preferences;
-- (void) _preferencesChangedNotification:(NSNotification *)notification;
-- (void) _setLayoutInterval:(float)interval;
-- (void) _setAllowsMessaging:(BOOL)allows;
-@end
 // }}}
 
 // #ifndef AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER {{{
@@ -571,10 +273,6 @@ typedef enum {
 @property(assign,nonatomic) CGFloat decelerationRate;
 @end
 
-@interface UIWebView (iOS_3_0)
-@property(assign,nonatomic) NSUInteger dataDetectorTypes;
-@end
-
 extern CGFloat const UIScrollViewDecelerationRateNormal;
 
 #endif//AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
@@ -600,15 +298,8 @@ extern CGFloat const UIScrollViewDecelerationRateNormal;
 @property(nonatomic,readonly) CGFloat scale;
 @end
 
-@interface DOMHTMLIFrameElement (IDL)
-- (WebFrame *) contentFrame;
-@end
-
 // extern *; {{{
 extern CFStringRef const kGSDisplayIdentifiersCapability;
-extern float const UIWebViewGrowsAndShrinksToFitHeight;
-extern float const UIWebViewScalesToFitScale;
-extern "C" NSString *WebKitErrorDomain;
 // }}}
 // extern "C" *(); {{{
 extern "C" void *reboot2(uint64_t flags);

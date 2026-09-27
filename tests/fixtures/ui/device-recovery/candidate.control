@@ -1,0 +1,11 @@
+Package: com.torrekie.cydia-ui-recovery-fixture
+Name: Cydia UI Recovery Fixture
+Version: 2.0
+Architecture: iphoneos-arm64
+Section: Development
+Priority: optional
+Maintainer: Torrekie <noreply@invalid.example>
+Installed-Size: 1
+Description: Disposable failing upgrade for native transaction recovery evidence
+ This package intentionally exits from postinst after recording one inert attempt
+ marker. It is used only to prove native failure and cold-launch recovery paths.

@@ -24,13 +24,37 @@
 
 #include <Foundation/Foundation.h>
 
-void CydiaWriteSources();
+/* Writes only the maintainer-declared Cydia source file.  The private cache
+ * path is staging state, never an APT source location. */
+bool CydiaWriteSources();
+void CydiaSetManagedSourceListPath(NSString *path);
+NSString *CydiaManagedSourceListPath();
+/* Returns true only when the declared leaf remains below the effective APT
+ * sourceparts directory and its parent is physically available.  UI mutation
+ * controls use this readiness check; CydiaWriteSources still reports an
+ * invalid declaration as a failure rather than silently succeeding. */
+bool CydiaCanEditManagedSources();
+/* Returns true when a maintainer declaration is present.  This is only a
+ * configuration-presence predicate; callers that expose mutation controls
+ * must use CydiaCanEditManagedSources() so an invalid or unavailable parent
+ * cannot leave a dead editing path visible. */
+bool CydiaHasManagedSourceListPath();
+/* Returns true only when the stable source key is present inside the
+ * maintainer-declared Cydia ownership block.  A matching Sources_ preference
+ * record alone is not sufficient: old preferences can outlive the package or
+ * source file that originally created them. */
+bool CydiaManagedSourceKeyIsOwned(NSString *key);
+/* Remove an app-owned source record and remember the deletion for the next
+ * marker rewrite.  Callers must use this instead of mutating Sources_
+ * directly so a relaunch cannot resurrect the removed line. */
+void CydiaRemoveSource(NSString *key);
 void CydiaAddSource(NSDictionary *source);
 void CydiaAddSource(NSString *href, NSString *distribution, NSArray *sections = nil);
 
 extern NSString *Cache_;
 NSString *Cache(const char *file);
 
-#define SOURCES_LIST Cache("sources.list")
+/* Private staging filename; it is never referenced by APT's source parser. */
+#define SOURCES_STAGING Cache("cydia-managed.list")
 
 #endif//Sources_H

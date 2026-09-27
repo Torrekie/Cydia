@@ -32,12 +32,17 @@ int main() {
            "rootful dpkg executable search path");
     Expect(rootful.AptListsDirectory() == "/var/lib/apt/lists", "rootful APT lists path");
     Expect(rootful.AptConfigDirectory() == "/etc/apt", "rootful APT configuration path");
-    Expect(rootful.CydiaSourcesListPath() == "/etc/apt/sources.list.d/cydia.list", "rootful Cydia source link");
+    Expect(rootful.LegacyCydiaSourcesListPath() == "/etc/apt/sources.list.d/cydia.list", "rootful legacy Cydia source path");
+    Expect(rootful.CydiaSourcesListPath() == rootful.LegacyCydiaSourcesListPath(), "rootful legacy path compatibility");
     Expect(rootful.CydiaMetadataPath() == "/var/lib/cydia/metadata.plist", "rootful Cydia metadata path");
+    Expect(rootful.CydiaLegacySourceMarkerPath() == "/var/lib/cydia/cydia.legacy-source-marker",
+           "rootful legacy source marker path");
     Expect(rootful.CydiaHelperPath("firmware.sh") == "/usr/libexec/cydia/firmware.sh", "rootful helper path");
     Expect(rootful.BootstrapBinaryPath("du") == "/usr/bin/du", "rootful bootstrap binary path");
     Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Copy) == "/bin/cp",
            "rootful BSD copy path");
+    Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Move) == "/bin/mv",
+           "rootful BSD move path");
     Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Link) == "/bin/ln",
            "rootful BSD link path");
     Expect(rootful.BootstrapBSDCommandPath(BootstrapBSDCommand::Remove) == "/bin/rm",
@@ -58,12 +63,17 @@ int main() {
            "rootless dpkg executable search path");
     Expect(rootless.AptListsDirectory() == "/var/jb/var/lib/apt/lists", "rootless APT lists path");
     Expect(rootless.AptConfigDirectory() == "/var/jb/etc/apt", "rootless APT configuration path");
-    Expect(rootless.CydiaSourcesListPath() == "/var/jb/etc/apt/sources.list.d/cydia.list", "rootless Cydia source link");
+    Expect(rootless.LegacyCydiaSourcesListPath() == "/var/jb/etc/apt/sources.list.d/cydia.list", "rootless legacy Cydia source path");
+    Expect(rootless.CydiaSourcesListPath() == rootless.LegacyCydiaSourcesListPath(), "rootless legacy path compatibility");
     Expect(rootless.CydiaMetadataPath() == "/var/jb/var/lib/cydia/metadata.plist", "rootless Cydia metadata path");
+    Expect(rootless.CydiaLegacySourceMarkerPath() == "/var/jb/var/lib/cydia/cydia.legacy-source-marker",
+           "rootless legacy source marker path");
     Expect(rootless.CydiaHelperPath("firmware.sh") == "/var/jb/usr/libexec/cydia/firmware.sh", "rootless helper path");
     Expect(rootless.BootstrapBinaryPath("du") == "/var/jb/usr/bin/du", "rootless bootstrap binary path");
     Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Copy) == "/var/jb/bin/cp",
            "rootless BSD copy path");
+    Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Move) == "/var/jb/bin/mv",
+           "rootless BSD move path");
     Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Link) == "/var/jb/bin/ln",
            "rootless BSD link path");
     Expect(rootless.BootstrapBSDCommandPath(BootstrapBSDCommand::Remove) == "/var/jb/bin/rm",

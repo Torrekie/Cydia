@@ -1,0 +1,12 @@
+Package: com.torrekie.cydia-ui-transaction-fixture
+Name: Cydia UI Transaction Fixture
+Version: 1.0
+Architecture: @PACKAGE_ARCH@
+Section: Development
+Priority: optional
+Maintainer: Torrekie <noreply@invalid.example>
+Installed-Size: 1
+Description: Disposable payload for native Confirmation and Progress evidence
+ This package owns one inert marker below the selected package layout's
+ temporary state path. It has no maintainer scripts, dependencies, triggers,
+ configuration files, or system integration.

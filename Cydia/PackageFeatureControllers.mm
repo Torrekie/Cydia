@@ -185,7 +185,7 @@
 }
 
 - (NSURL *) referrerURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/installed/", UI_]];
+    return [self navigationURL];
 }
 
 - (NSURL *) navigationURL {

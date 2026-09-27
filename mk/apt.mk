@@ -9,7 +9,7 @@
 # a wildcard.
 
 APT_SOURCE_DIR := apt64
-APT_SOURCE_COMMIT := e4718f05d049c1a09fb9662cc3db2d4c5122defe
+APT_SOURCE_COMMIT := 0623baaaae02d4b1648c5674b9836adcf31d36a7
 APT_SOURCE_URL := git://git.bingner.com/apt.git
 APT_SOURCE_VERSION := 1.8.2
 APT_SOURCE_CXX_LEVEL := 11
@@ -50,6 +50,8 @@ apt_api_sources := \
     Cydia/AptRuntime.cpp \
     Cydia/AptVersionPolicy.cpp \
     Cydia/ConfirmationController.mm \
+    Cydia/ConfirmationControllerProbe.mm \
+    Cydia/ConfirmationViewModel.mm \
     Cydia/Database.mm \
     Cydia/DatabaseStatus.mm \
     Cydia/Package+Metadata.mm \

@@ -1,16 +1,26 @@
 #include "CyteKit/UCPlatform.h"
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/LegacySourceHandoff.hpp"
 #include "Cydia/PackageDatabasePaths.hpp"
 
 #include <dirent.h>
 #include <Foundation/Foundation.h>
 #include <strings.h>
 
+#include <cctype>
+#include <cstdio>
+#include <fstream>
+#include <map>
 #include <string>
+#include <vector>
 
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
+#if defined(__APPLE__)
+#include <sys/stdio.h>
+#endif
+#include <unistd.h>
 
 #include <Menes/ObjectHandle.h>
 
@@ -316,6 +326,9 @@ int main(int argc, const char *argv[]) {
 
     @autoreleasepool {
 
+    if (!CydiaRuntime::RestoreLegacySourceHandoff())
+        return 1;
+
     bool restart(false);
 
     if (kCFCoreFoundationVersionNumber >= 1000 && kCFCoreFoundationVersionNumber < 1349.56) {
@@ -365,29 +378,10 @@ int main(int argc, const char *argv[]) {
 
     #define Cytore_ "/metadata.cb0"
 
-    const std::string cydiaList(paths.CydiaSourcesListPath());
-    NSString *cydiaListPath([NSString stringWithUTF8String:cydiaList.c_str()]);
-    unlink(cydiaList.c_str());
-    if (kCFCoreFoundationVersionNumber >= 1443) {
-        [[NSString stringWithFormat:@
-            "deb https://apt.bingner.com/ ./\n"
-            "deb http://apt.thebigboss.org/repofiles/cydia/ stable main\n"
-            "deb http://cydia.zodttd.com/repo/cydia/ stable main\n"
-            "deb http://apt.modmyi.com/ stable main\n"
-            "deb https://repo.chariz.com/ ./\n"
-            "deb https://repo.dynastic.co/ ./\n"
-	] writeToFile:cydiaListPath atomically:YES];
-    } else {
-        [[NSString stringWithFormat:@
-            "deb http://apt.saurik.com/ ios/%.2f main\n"
-            "deb https://apt.bingner.com/ ./\n"
-            "deb http://apt.thebigboss.org/repofiles/cydia/ stable main\n"
-            "deb http://cydia.zodttd.com/repo/cydia/ stable main\n"
-            "deb http://apt.modmyi.com/ stable main\n"
-            "deb https://repo.chariz.com/ ./\n"
-            "deb https://repo.dynastic.co/ ./\n"
-        , kCFCoreFoundationVersionNumber] writeToFile:cydiaListPath atomically:YES];
-    }
+    /* The preinst has already preserved any package-owned legacy source file
+     * before dpkg unpacked this version.  Do not create, remove, or rewrite a
+     * sourceparts entry here: the bootstrap maintainer's apt.conf remains the
+     * sole authority shared by Cydia and every other APT frontend. */
 
     std::string newLibraryMetadata(NewLibrary_);
     newLibraryMetadata += Cytore_;

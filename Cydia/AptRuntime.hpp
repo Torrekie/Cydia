@@ -40,6 +40,13 @@ struct InitializationOptions {
 bool Initialize(const InitializationOptions &options, std::string *architecture);
 const std::string &Architecture();
 const std::vector<std::string> &Architectures();
+/* Paths resolved from the distro/bootstrap APT configuration.  Cydia never
+ * replaces these with a private source context. */
+const std::string &SourceListPath();
+const std::string &SourcePartsDirectory();
+/* Optional maintainer-declared Cydia-owned .list path.  An empty value means
+ * Cydia leaves source editing read-only. */
+const std::string &ManagedSourceListPath();
 bool IsArchitectureSupported(const std::string &architecture);
 std::string SourceArchitectureOption();
 

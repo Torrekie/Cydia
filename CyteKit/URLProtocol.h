@@ -29,6 +29,7 @@
 + (NSString *) scheme;
 
 - (void) _returnPNGWithImage:(UIImage *)icon forRequest:(NSURLRequest *)request;
+- (void) _returnPNGData:(NSData *)data forRequest:(NSURLRequest *)request;
 - (bool) loadForPath:(NSString *)path ofRequest:(NSURLRequest *)request;
 
 @end

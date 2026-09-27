@@ -52,7 +52,11 @@
     else
         [self presentModalViewController:progress force:YES];
 
-    [progress invoke:invocation withTitle:title];
+    /* A slow acquisition must not begin until UIKit has committed the native
+     * Progress screen. Otherwise the nested invocation run loop leaves the
+     * Confirmation hierarchy visible and makes its acquisition Cancel action
+     * unreachable until the fetch has already ended. */
+    [progress invokeWhenVisible:invocation withTitle:title];
     return progress;
 }
 

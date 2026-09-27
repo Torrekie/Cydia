@@ -24,7 +24,7 @@
 #define Cydia_PackageControllers_H
 
 #include "CyteKit/UCPlatform.h"
-#include "Cydia/CydiaWebViewController.h"
+#include "Cydia/PackageDetailController.h"
 #include "CyteKit/ListController.h"
 #include "Menes/Function.h"
 #include "Menes/ObjectHandle.h"
@@ -36,8 +36,11 @@
 
 @class Database;
 @class Package;
+@class CydiaPackageLegacyIconLoader;
+@class CydiaLegacyUICompatibilityNativeSession;
 
-@interface CYPackageController : CydiaWebViewController <UIActionSheetDelegate> {
+@interface CYPackageController : PackageDetailController
+    <PackageDetailControllerDelegate, UIActionSheetDelegate> {
     __weak Database *database_;
     _H<Package> package_;
     _H<NSString> name_;
@@ -46,6 +49,10 @@
     _H<UIActionSheet> sheet_;
     _H<UIBarButtonItem> button_;
     _H<NSArray> versions_;
+    _H<CydiaPackageLegacyIconLoader> legacyIconLoader_;
+    _H<NSString> legacyIconIdentity_;
+    NSUInteger legacyIconGeneration_;
+    __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilitySession_;
 }
 
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer;

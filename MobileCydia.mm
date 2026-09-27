@@ -52,8 +52,6 @@
 
 #include <QuartzCore/CALayer.h>
 
-#include "CyteKit/WebCore/WebCoreThread.h"
-
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
@@ -111,10 +109,10 @@ extern "C" {
 #include "Cydia/ChangeControllers.h"
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
-#include "Cydia/CydiaWebViewController.h"
 #include "Cydia/ControllerState.h"
 #include "Cydia/HomeController.h"
 #include "Cydia/LoadingViewController.h"
+#include "Cydia/LegacyUICompatibilityNativeProvider.h"
 #include "Cydia/NSString+Cydia.h"
 #include "Cydia/Package.h"
 #include "Cydia/PackageControllers.h"
@@ -135,6 +133,8 @@ extern "C" {
 #include "Cydia/SourceControllers.h"
 #include "Cydia/StashController.h"
 #include "Cydia/TabBarController.h"
+#include "Cydia/UIRouteDispatch.h"
+#include "Cydia/UIRestorationState.h"
 #include "Cydia/URLHelpers.h"
 #include "Cydia/URLProtocol.h"
 /* }}} */
@@ -305,8 +305,6 @@ void CYArrayInsertionSortValues(Type_ *values, size_t length, CFComparisonResult
 /* Random Global Variables {{{ */
 int PulseInterval_ = 500000;
 
-const NSString *UI_;
-
 int Finish_;
 bool UICache_ = false;
 bool RestartSubstrate_;
@@ -395,8 +393,6 @@ static __strong NSNumber *Version_;
 time_t now_;
 
 _H<NSMutableDictionary> SessionData_;
-_H<NSMutableSet> BridgedHosts_;
-_H<NSMutableSet> InsecureHosts_;
 
 /* }}} */
 
@@ -472,6 +468,17 @@ void SaveConfig(NSObject *lock) {
         _trace();
     }
 
+    /* Write a maintainer-declared source file before committing the metadata
+     * that describes it.  If the privileged, atomic handoff fails, retaining
+     * the previous preference snapshot is safer than persisting a deletion or
+     * addition that was never reflected in APT's sourceparts.  With no
+     * Cydia::APT::ManagedSourceList key this is a no-op and the normal
+     * read-only distro setup is unaffected. */
+    if (!CydiaWriteSources()) {
+        NSLog(@"Unable to persist the maintainer-declared Cydia source file");
+        return;
+    }
+
     CFPreferencesSetMultiple((CFDictionaryRef) [NSDictionary dictionaryWithObjectsAndKeys:
         Values_, @"CydiaValues",
         Sections_, @"CydiaSections",
@@ -481,8 +488,6 @@ void SaveConfig(NSObject *lock) {
 
     if (!CFPreferencesAppSynchronize(CFSTR("com.saurik.Cydia")))
         NSLog(@"CFPreferencesAppSynchronize(com.saurik.Cydia) == false");
-
-    CydiaWriteSources();
 }
 
 #pragma clang diagnostic push
@@ -492,14 +497,8 @@ void SaveConfig(NSObject *lock) {
 
 - (void) applicationDidFinishLaunching:(id)unused {
     [super applicationDidFinishLaunching:unused];
-    [CyteWebViewController _initialize];
-
-    [BridgedHosts_ addObject:[[NSURL URLWithString:CydiaURL(@"")] host]];
 
     [NSURLProtocol registerClass:[CydiaURLProtocol class]];
-
-    // this would disallow http{,s} URLs from accessing this data
-    //[WebView registerURLSchemeAsLocal:@"cydia"];
 
     Font12_ = [UIFont systemFontOfSize:12];
     Font12Bold_ = [UIFont boldSystemFontOfSize:12];
@@ -510,10 +509,6 @@ void SaveConfig(NSObject *lock) {
 
     essential_ = [NSMutableArray arrayWithCapacity:4];
     broken_ = [NSMutableArray arrayWithCapacity:4];
-
-    // XXX: I really need this thing... like, seriously... I'm sorry
-    appcache_ = [[AppCacheController alloc] initWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/appcache/", UI_]]];
-    [appcache_ reloadData];
 
     window_ = [[CyteWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     [window_ orderFront:self];
@@ -574,6 +569,20 @@ void SaveConfig(NSObject *lock) {
 
     [tabbar_ setUpdateDelegate:self];
 
+    /* The compatibility caller is app-owned and capability-bound.  It is
+     * created only after the database and native tab-bar presenter exist;
+     * no HTML/WebKit object is involved in this lifetime. */
+    legacyCompatibilityProvider_ = [[CydiaLegacyUICompatibilityNativeProvider alloc]
+        initWithApplication:self database:database_ presenter:tabbar_];
+    if (legacyCompatibilityProvider_ != nil) {
+        CydiaLegacyUICompatibilityNativeCapability *capability(
+            [CydiaLegacyUICompatibilityNativeCaller issueCapabilityForApplication:self]);
+        legacyCompatibilityCaller_ = [[CydiaLegacyUICompatibilityNativeCaller alloc]
+            initWithCapability:capability reader:legacyCompatibilityProvider_
+            commander:legacyCompatibilityProvider_ router:legacyCompatibilityProvider_];
+        [legacyCompatibilityProvider_ attachCaller:legacyCompatibilityCaller_];
+    }
+
     CydiaLoadingViewController *loading([[CydiaLoadingViewController alloc] init]);
     UINavigationController *navigation([[UINavigationController alloc] init]);
     [navigation setViewControllers:[NSArray arrayWithObject:loading]];
@@ -586,6 +595,7 @@ void SaveConfig(NSObject *lock) {
         [emulated_ concealTabBarSelection];
 
     [window_ setRootViewController:emulated_];
+    CydiaApplyLegacyInterfaceStyleCompatibility(window_);
 
     [self performSelector:@selector(loadData) withObject:nil afterDelay:0];
 _trace();
@@ -611,38 +621,20 @@ _trace();
     [self refreshIfPossible];
     [self disemulate];
 
-    NSDictionary *state([NSDictionary dictionaryWithContentsOfFile:SavedState_]);
-
-    int savedIndex = [[state objectForKey:@"InterfaceIndex"] intValue];
-    NSArray *saved = [[state objectForKey:@"InterfaceState"] mutableCopy];
-    int standardIndex = 0;
     NSArray *standard = [self defaultStartPages];
+    NSDictionary *rawState([NSDictionary dictionaryWithContentsOfFile:SavedState_]);
+    CydiaUIRestorationState *savedState([CydiaUIRestorationState
+        stateWithDictionary:rawState standardStacks:standard]);
+    NSArray *saved([savedState.interfaceState mutableCopy]);
+    NSUInteger savedIndex(savedState != nil ? [savedState selectedIndex] : 0);
+    NSUInteger standardIndex = 0;
+    BOOL valid = savedState != nil;
 
-    BOOL valid = YES;
-
-    if (saved == nil)
-        valid = NO;
-
-    NSDate *closed = [state objectForKey:@"LastClosed"];
+    NSDate *closed([savedState lastClosed]);
     if (valid && closed != nil) {
         NSTimeInterval interval([closed timeIntervalSinceNow]);
         if (interval <= -(30*60))
             valid = NO;
-    }
-
-    if (valid && [saved count] != [standard count])
-        valid = NO;
-
-    if (valid) {
-        for (unsigned int i = 0; i < [standard count]; i++) {
-            NSArray *std = [standard objectAtIndex:i], *sav = [saved objectAtIndex:i];
-            // XXX: The "hasPrefix" sanity check here could be, in theory, fooled,
-            //      but it's good enough for now.
-            if ([sav count] == 0 || ![[sav objectAtIndex:0] hasPrefix:[std objectAtIndex:0]]) {
-                valid = NO;
-                break;
-            }
-        }
     }
 
     NSArray *items = nil;
@@ -656,15 +648,32 @@ _trace();
 
     for (unsigned int tab = 0; tab < [[tabbar_ viewControllers] count]; tab++) {
         NSArray *stack = [items objectAtIndex:tab];
+        NSArray *standardStack([standard objectAtIndex:tab]);
+        NSString *defaultRoute([standardStack objectAtIndex:0]);
+        NSArray *routes(CydiaUIRestorationRouteURLs(stack, defaultRoute,
+            ^BOOL(NSString *sourceKey) {
+                return [database_ sourceWithKey:sourceKey] != nil;
+            }));
         UINavigationController *navigation = [[tabbar_ viewControllers] objectAtIndex:tab];
         NSMutableArray *current = [NSMutableArray array];
 
-        for (unsigned int nav = 0; nav < [stack count]; nav++) {
-            NSString *addr = [stack objectAtIndex:nav];
-            NSURL *url = [NSURL URLWithString:addr];
-            CyteViewController *page = [self pageForURL:url forExternal:NO withReferrer:nil];
+        for (NSURL *url in routes) {
+            CyteViewController *page = [self pageForURL:url
+                context:[CydiaUIRouteContext trustedNativeContext]
+                withReferrer:nil];
             if (page != nil)
                 [current addObject:page];
+        }
+
+        /* The pure restoration filter already provides the standard root for
+         * malformed saved state. Keep a final construction fallback so a
+         * transient model race cannot leave a tab with an empty stack. */
+        if ([current count] == 0) {
+            CyteViewController *root([self pageForURL:[NSURL URLWithString:defaultRoute]
+                context:[CydiaUIRouteContext trustedNativeContext]
+                withReferrer:nil]);
+            if (root != nil)
+                [current addObject:root];
         }
 
         [navigation setViewControllers:current];
@@ -672,9 +681,10 @@ _trace();
 
     // (Try to) show the startup URL.
     if (starturl_ != nil) {
-        [self openCydiaURL:starturl_ forExternal:YES];
+        [self openCydiaURL:starturl_ context:[CydiaUIRouteContext externalURLContext]];
         starturl_ = nil;
     }
+
 }
 
 @end
@@ -767,9 +777,6 @@ int main(int argc, char *argv[]) {
         return CydiaAppearanceProbeMain(argc, argv);
 #endif
 
-    if ([WebPreferences respondsToSelector:@selector(setWebKitLinkTimeVersion:)])
-                [WebPreferences setWebKitLinkTimeVersion:PACKED_VERSION(3453,0,0)];
-
     // Ensure we have a stdout and stderr
     int fd(open("/tmp/cydia.log", O_WRONLY | O_APPEND | O_CREAT, 0644));
     // Added this because stderr output ended up in metadata.cb0 somehow once
@@ -792,10 +799,7 @@ int main(int argc, char *argv[]) {
     UpdateExternalStatus(0);
 
     SessionData_ = [NSMutableDictionary dictionaryWithCapacity:4];
-    BridgedHosts_ = [NSMutableSet setWithCapacity:4];
-    InsecureHosts_ = [NSMutableSet setWithCapacity:4];
 
-    UI_ = CydiaURL([NSString stringWithFormat:@"ui/ios~%@/1.1", IsWildcat_ ? @"ipad" : @"iphone"]);
     PackageName = reinterpret_cast<CYString &(*)(Package *, SEL)>(method_getImplementation(class_getInstanceMethod([Package class], @selector(cyname))));
 
     /* Set Locale {{{ */
@@ -932,8 +936,11 @@ int main(int argc, char *argv[]) {
     NSString *metadataPath([NSString stringWithUTF8String:packagePaths.CydiaMetadataPath().c_str()]);
     NSDictionary *metadata([[NSMutableDictionary alloc] initWithContentsOfFile:metadataPath]);
 
-    if (Values_ == nil)
-        Values_ = [metadata objectForKey:@"Values"];
+    if (Values_ == nil) {
+        NSDictionary *legacyValues([metadata objectForKey:@"Values"]);
+        if ([legacyValues isKindOfClass:[NSDictionary class]])
+            Values_ = [legacyValues mutableCopy];
+    }
     if (Values_ == nil)
         Values_ = [[NSMutableDictionary alloc] initWithCapacity:4];
 
@@ -962,12 +969,9 @@ int main(int argc, char *argv[]) {
     }
 
     if ([Version_ unsignedIntValue] == 0) {
-        CydiaAddSource(@"http://apt.thebigboss.org/repofiles/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
-        CydiaAddSource(@"http://apt.modmyi.com/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
-        CydiaAddSource(@"http://cydia.zodttd.com/repo/cydia/", @"stable", [NSMutableArray arrayWithObject:@"main"]);
-        CydiaAddSource(@"https://repo.chariz.com/", @"./");
-        CydiaAddSource(@"https://repo.dynastic.co/", @"./");
-
+        /* Repository ownership belongs to the bootstrap maintainer.  Do not
+         * recreate the historical built-in list here: modern bootstraps use
+         * Deb822 files and other APT frontends must see the same setup. */
         Version_ = [NSNumber numberWithUnsignedInt:1];
 
         if (NSMutableDictionary *cache = [NSMutableDictionary dictionaryWithContentsOfFile:CacheState_]) {
@@ -1025,18 +1029,6 @@ int main(int argc, char *argv[]) {
             _assert(errno == ENOENT);
     }
 
-    const CydiaRuntime::Dpkg::Result sourceLink(privileged.Run({
-        packagePaths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Link),
-        "-sf",
-        [Cache("sources.list") UTF8String],
-        packagePaths.CydiaSourcesListPath(),
-    }));
-    if (!sourceLink.succeeded()) {
-        NSLog(@"Unable to install the Cydia sources link (kind=%d, code=%d, error=%d)",
-              static_cast<int>(sourceLink.kind), sourceLink.code, sourceLink.error);
-        return 1;
-    }
-
     /* APT Initialization {{{ */
     int64_t usermem(0);
     size = sizeof(usermem);
@@ -1065,10 +1057,12 @@ int main(int argc, char *argv[]) {
     NSLog(@"Common Arch: %s\n", architecture.c_str());
     common_arch = CydiaAPT::Architecture().c_str();
 
-    /* SaveConfig runs once before APT is initialized. Rewrite the managed
-     * source list now that the selected dpkg's native and foreign
-     * architectures are known, before Database asks APT to parse sources. */
-    CydiaWriteSources();
+    /* APT has now loaded the maintainer's source list and sourceparts.  Only
+     * an explicit Cydia::APT::ManagedSourceList leaf enables Cydia-owned
+     * source edits; otherwise all existing distro entries remain read-only. */
+    const std::string managedSourceList(CydiaAPT::ManagedSourceListPath());
+    CydiaSetManagedSourceListPath(managedSourceList.empty() ? nil :
+        [NSString stringWithUTF8String:managedSourceList.c_str()]);
 
     mkdir([Cache("archives") UTF8String], 0755);
     mkdir([Cache("archives/partial") UTF8String], 0755);

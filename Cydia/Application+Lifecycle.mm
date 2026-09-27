@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished UIKit work Copyright (C) 2026 Torrekie
  */
 
 #include "Cydia/Application.h"
@@ -10,8 +11,10 @@
 #include "Cydia/Database.h"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/PackageDatabasePaths.hpp"
+#include "Cydia/LegacyUICompatibilityNativeProvider.h"
 #include "Cydia/StashController.h"
 #include "Cydia/TabBarController.h"
+#include "Cydia/UIRestorationState.h"
 #include "Sources.h"
 #include "CyteKit/CyteKit.h"
 #include "CyteKit/extern.h"
@@ -20,6 +23,7 @@
 
 #include <dlfcn.h>
 #include <notify.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <objc/runtime.h>
 
@@ -46,6 +50,17 @@ typedef enum {
 #define _trace(args...)
 
 @implementation Cydia (Lifecycle)
+- (BOOL) cydiaLegacyUICompatibilityApplicationMayIssueCapability {
+    /* Capability creation is restricted to the one running Cydia
+     * UIApplication object, not merely any object with the Cydia class. */
+    return [NSThread isMainThread] && self == [UIApplication sharedApplication];
+}
+
+- (void) applicationDidBecomeActive:(UIApplication *)application {
+    (void) application;
+    CydiaApplyLegacyInterfaceStyleCompatibility(window_);
+}
+
 - (void) lockSuspend {
     if (locked_++ == 0) {
         CydiaSetMenuButtonIntercepted(true);
@@ -88,6 +103,16 @@ typedef enum {
         (void) privileged.Run({"/bin/launchctl", "stop", "com.apple.SpringBoard"});
     sleep(15);
     (void) privileged.Run({"/usr/bin/killall", "backboardd", "SpringBoard"});
+}
+
+- (void) system:(NSString *)command {
+    @autoreleasepool {
+        /* This selector is an established in-process extension entry point.
+         * Keep its synchronous shell semantics for rootful compatibility;
+         * Web and depiction callers never receive the Cydia application
+         * object and cannot reach this method through the typed bridge. */
+        (void) ::system([command UTF8String]);
+    }
 }
 
 - (void) applicationWillSuspend {
@@ -192,16 +217,17 @@ typedef enum {
 }
 
 - (void) saveState {
-    [[NSDictionary dictionaryWithObjectsAndKeys:
-        @"InterfaceState", [tabbar_ navigationURLCollection],
-        @"LastClosed", [NSDate date],
-        @"InterfaceIndex", [NSNumber numberWithInt:[tabbar_ selectedIndex]],
-    nil] writeToFile:SavedState_ atomically:YES];
+    NSDictionary *state(CydiaUIBuildRestorationStateDictionary(
+        [tabbar_ navigationURLCollection], [NSDate date],
+        (NSUInteger) [tabbar_ selectedIndex]));
+    if (state != nil)
+        [state writeToFile:SavedState_ atomically:YES];
 
     [self _saveConfig];
 }
 
 - (void) applicationWillTerminate:(UIApplication *)application {
+    [self invalidateLegacyUICompatibility];
     [self saveState];
 }
 
@@ -224,10 +250,8 @@ typedef enum {
     }
 
     if (interval <= -(15*60)) {
-        if (CyteIsReachable("cydia.saurik.com")) {
+        if (CyteIsReachable("cydia.saurik.com"))
             [tabbar_ beginUpdate];
-            [appcache_ reloadURLWithCache:YES];
-        }
     }
 
     if ([database_ delocked])

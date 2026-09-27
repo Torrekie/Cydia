@@ -1,0 +1,7 @@
+#!/var/jb/bin/sh
+
+set -eu
+
+marker=/var/jb/var/tmp/cydia-ui-recovery-fixture/postinst-attempted.txt
+printf '%s\n' 'intentional native Progress recovery fixture failure' >"$marker"
+exit 23

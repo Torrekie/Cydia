@@ -6,12 +6,59 @@
 
 VERIFY_SCRIPT := scripts/verify-modernization.sh
 APPEARANCE_VERIFY_SCRIPT := scripts/verify-appearance-simulator.sh
+PROGRESS_SIMULATOR_VERIFY_SCRIPT := scripts/verify-progress-simulator.sh
+CONFIRMATION_SIMULATOR_VERIFY_SCRIPT := scripts/verify-confirmation-simulator.sh
+PACKAGE_DETAIL_SIMULATOR_VERIFY_SCRIPT := scripts/verify-package-detail-simulator.sh
+HOME_SIMULATOR_VERIFY_SCRIPT := scripts/verify-home-simulator.sh
+HOME_SIMULATOR_MATRIX_TEST := tests/HomeSimulatorMatrixTests.sh
+HOME_SIMULATOR_JOBS ?= 1
+HOME_SIMULATOR_DEVELOPER_DIR ?= $(HOME)/Downloads/Xcode.app/Contents/Developer
+EXTERNAL_URL_SIMULATOR_VERIFY_SCRIPT := scripts/verify-external-url-simulator.sh
+NATIVE_ERROR_SIMULATOR_VERIFY_SCRIPT := scripts/verify-native-error-simulator.sh
+DEVICE_TRANSACTION_FIXTURE_SCRIPT := scripts/build-device-transaction-fixture.sh
+DEVICE_RECOVERY_FIXTURE_SCRIPT := scripts/build-device-recovery-fixture.sh
+DEVICE_CANCELLATION_FIXTURE_SCRIPT := scripts/build-device-cancellation-fixture.sh
+DEVICE_CANCELLATION_SERVER_SCRIPT := scripts/verify-device-cancellation-server.sh
+DEVICE_MEMORY_PREFLIGHT_TEST := tests/DeviceMemoryPreflightTests.sh
+ROLLBACK_PACKAGE_PAIR_TEST := tests/RollbackPackagePairTests.sh
+PROGRESS_ACQUISITION_CONTRACT_SCRIPT := scripts/verify-progress-acquisition-contract.sh
+DEVICE_FIXTURE_LAYOUT ?= rootless
 APT_VERIFY_SCRIPT := scripts/verify-apt-provenance.sh
 APT_API_VERIFY_SCRIPT := scripts/verify-apt-api.sh
 EXEC_COMPAT_VERIFY_SCRIPT := scripts/verify-exec-compat.sh
+NATIVE_UI_VERIFY_SCRIPT := scripts/verify-native-ui-contract.sh
+LEGACY_UI_COMPATIBILITY_NATIVE_CONTRACT_SCRIPT := tests/LegacyUICompatibilityNativeCallerContractTests.sh
+LEGACY_UI_COMPATIBILITY_NATIVE_PROVIDER_CONTRACT_SCRIPT := tests/LegacyUICompatibilityNativeProviderContractTests.sh
+LEGACY_UI_COMPATIBILITY_NATIVE_CONSUMER_CONTRACT_SCRIPT := tests/LegacyUICompatibilityNativeConsumerContractTests.sh
+LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_CONTRACT_SCRIPT := tests/LegacyUICompatibilityNativeSnapshotContractTests.sh
+LEGACY_UI_COMPATIBILITY_FORMAT_CONTRACT_SCRIPT := tests/LegacyUICompatibilityFormatContractTests.sh
+LEGACY_UI_COMPATIBILITY_INVENTORY_CONTRACT_SCRIPT := tests/LegacyUICompatibilityInventoryContractTests.sh
+LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_CONTRACT_SCRIPT := tests/LegacyUICompatibilityRuntimeEvidenceContractTests.sh
+PACKAGE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT := tests/PackageControllerNativeCompatibilityConsumerContractTests.sh
+SOURCE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT := tests/SourceControllerNativeCompatibilityConsumerContractTests.sh
+NATIVE_UI_BINARY_VERIFY_SCRIPT := scripts/verify-native-ui-binary.sh
+BUILD_PROVENANCE_CONTRACT_TEST := tests/BuildProvenanceContractTests.sh
+PACKAGE_ARTIFACT_VERIFY_SCRIPT := scripts/verify-package-artifacts.sh
+NO_REMOTE_APP_UI_VERIFY_SCRIPT := tests/NoRemoteAppUIContractTests.sh
+PROGRESS_CONTROLLER_VERIFY_SCRIPT := tests/ProgressControllerContractTests.sh
+CONFIRMATION_CONTROLLER_APPEARANCE_VERIFY_SCRIPT := tests/ConfirmationControllerAppearanceContractTests.sh
+PACKAGE_DETAIL_CONTROLLER_VERIFY_SCRIPT := tests/PackageDetailControllerContractTests.sh
+PACKAGE_DETAIL_CONTACT_VERIFY_SCRIPT := tests/PackageDetailContactContractTests.sh
+PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT := tests/PackageDepictionViewContractTests.sh
+URL_PROTOCOL_POLICY_CONTRACT_SCRIPT := tests/URLProtocolPolicyContractTests.sh
+URL_ORIGIN_VALIDATION_CONTRACT_SCRIPT := tests/URLOriginValidationContractTests.sh
+URL_CACHE_VERIFY_SCRIPT := tests/URLCacheContractTests.sh
+APT_SOURCE_CONTRACT_SCRIPT := tests/AptSourceIsolationContractTests.sh
+APT_SOURCE_LIST_MTIME_CONTRACT_SCRIPT := tests/AptSourceListMtimeContractTests.sh
+HOME_CONTROLLER_VERIFY_SCRIPT := tests/HomeControllerContractTests.sh
+HOME_LOCALIZATION_VERIFY_SCRIPT := tests/HomeLocalizationTests.sh
+EXTERNAL_URL_CONTROLLER_VERIFY_SCRIPT := tests/ExternalURLControllerContractTests.sh
+ERROR_VIEW_CONTROLLER_VERIFY_SCRIPT := tests/ErrorViewControllerContractTests.sh
+WINDOW_APPEARANCE_VERIFY_SCRIPT := tests/WindowAppearanceContractTests.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
+LEGACY_SOURCE_HANDOFF_TEST := $(BUILD_DIR)/tests/LegacySourceHandoffTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
@@ -19,6 +66,27 @@ REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
 DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
+UI_ROUTE_CONTEXT_TEST := $(BUILD_DIR)/tests/UIRouteContextTests
+EXTERNAL_URL_POLICY_TEST := $(BUILD_DIR)/tests/ExternalURLPolicyTests
+LEGACY_BRIDGE_POLICY_TEST := $(BUILD_DIR)/tests/LegacyBridgePolicyTests
+LEGACY_UI_COMPATIBILITY_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityTests
+LEGACY_UI_COMPATIBILITY_FORMAT_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityFormatTests
+LEGACY_UI_COMPATIBILITY_NATIVE_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityNativeCallerTests
+LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityNativeSnapshotTests
+LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityRuntimeEvidenceTests
+SOURCE_VERIFICATION_REQUEST_POLICY_TEST := $(BUILD_DIR)/tests/SourceVerificationRequestPolicyTests
+UI_ROUTE_DISPATCH_TEST := $(BUILD_DIR)/tests/UIRouteDispatchTests
+UI_RESTORATION_STATE_TEST := $(BUILD_DIR)/tests/RestorationStateTests
+CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
+CONFIRMATION_CONTROLLER_TEST := $(BUILD_DIR)/tests/ConfirmationControllerContractTests
+PROGRESS_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ProgressViewModelTests
+PACKAGE_DETAIL_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/PackageDetailViewModelTests
+PACKAGE_DEPICTION_POLICY_TEST := $(BUILD_DIR)/tests/PackageDepictionPolicyTests
+PACKAGE_LEGACY_METADATA_POLICY_TEST := $(BUILD_DIR)/tests/PackageLegacyMetadataPolicyTests
+URL_PROTOCOL_POLICY_TEST := $(BUILD_DIR)/tests/URLProtocolPolicyTests
+HOME_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/HomeViewModelTests
+ERROR_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ErrorViewModelTests
+YIELD_TO_SELECTOR_TEST := $(BUILD_DIR)/tests/YieldToSelectorTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
@@ -52,16 +120,96 @@ verify_size_sources += postinst.mm cfversion.mm
 # reviewed `apt_api_sources` manifest above.
 apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
-.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile
-.PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
+.PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-native-ui-binary verify-build-provenance verify-native-ui-provenance verify-build-provenance-contract verify-package-artifacts
+.PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-apt-source-isolation verify-legacy-source-handoff verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
 .PHONY: verify-regex-arc
+.PHONY: verify-yield-to-selector
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
+.PHONY: verify-native-ui verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch verify-ui-restoration-state verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-inventory verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer verify-source-controller-native-consumer verify-source-verification-request-policy
+.PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance verify-confirmation-controller-simulator
+.PHONY: verify-progress-view-model verify-progress-controller
+.PHONY: verify-package-detail-view-model verify-package-depiction-policy verify-package-legacy-metadata-policy verify-url-protocol-policy
+.PHONY: verify-package-detail-controller verify-package-detail-contact verify-package-detail-controller-simulator verify-package-depiction-view
+.PHONY: verify-home-view-model verify-home-controller verify-home-localization verify-home-controller-simulator
+.PHONY: verify-error-view-model verify-error-view-controller
+.PHONY: verify-window-appearance verify-url-cache verify-url-origin-validation-contract
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
 .PHONY: verify-exec-compat-parser verify-exec-compat-binary
 .PHONY: verify-appearance-simulator
-.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile
+.PHONY: verify-confirmation-simulator
+.PHONY: verify-progress-simulator
+.PHONY: verify-package-detail-simulator
+.PHONY: verify-home-simulator-prepare verify-home-simulator verify-home-simulator-matrix verify-home-simulator-matrix-contract
+.PHONY: verify-external-url-simulator
+.PHONY: verify-native-error-simulator
+.PHONY: verify-device-transaction-fixture
+.PHONY: verify-device-recovery-fixture
+.PHONY: verify-device-cancellation-fixture
+.PHONY: verify-device-memory-preflight
+.PHONY: verify-rollback-package-pair
+.PHONY: verify-progress-acquisition-contract
+.PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile verify-apt-sourcelist-mtime
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-exec-compat verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-apt-source-isolation verify-apt-sourcelist-mtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-yield-to-selector verify-exec-compat verify-source-verification-request-policy verify-progress-acquisition-contract verify-device-memory-preflight verify-rollback-package-pair verify-native-ui verify-native-ui-binary verify-build-provenance verify-build-provenance-contract verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer verify-source-controller-native-consumer verify-static verify-compile
+
+verify-device-transaction-fixture: $(DEVICE_TRANSACTION_FIXTURE_SCRIPT) \
+		tests/fixtures/ui/device-transaction/control \
+		tests/fixtures/ui/device-transaction/marker.txt
+	@PACKAGE_LAYOUT="$(DEVICE_FIXTURE_LAYOUT)" $(DEVICE_TRANSACTION_FIXTURE_SCRIPT) \
+		"$(BUILD_DIR)/device-transaction-fixture"
+
+verify-device-recovery-fixture: $(DEVICE_RECOVERY_FIXTURE_SCRIPT) \
+		tests/fixtures/ui/device-recovery/baseline.control \
+		tests/fixtures/ui/device-recovery/candidate.control \
+		tests/fixtures/ui/device-recovery/baseline-marker.txt \
+		tests/fixtures/ui/device-recovery/candidate-marker.txt \
+		tests/fixtures/ui/device-recovery/postinst
+	@$(DEVICE_RECOVERY_FIXTURE_SCRIPT) \
+		"$(BUILD_DIR)/device-recovery-fixture"
+
+verify-device-cancellation-fixture: $(DEVICE_CANCELLATION_FIXTURE_SCRIPT) \
+		$(DEVICE_CANCELLATION_SERVER_SCRIPT) \
+		scripts/serve-device-cancellation-fixture.py \
+		tests/fixtures/ui/device-cancellation/control
+	@$(DEVICE_CANCELLATION_FIXTURE_SCRIPT) \
+		"$(BUILD_DIR)/device-cancellation-fixture"
+	@$(DEVICE_CANCELLATION_SERVER_SCRIPT) \
+		"$(BUILD_DIR)/device-cancellation-fixture"
+
+verify-device-memory-preflight: $(DEVICE_MEMORY_PREFLIGHT_TEST) \
+		scripts/verify-device-memory-preflight.sh \
+		tests/fixtures/ui/device-memory-preflight/healthy-rootless.txt \
+		tests/fixtures/ui/device-memory-preflight/healthy-rootful.txt \
+		tests/fixtures/ui/device-memory-preflight/boundary-pass.txt \
+		tests/fixtures/ui/device-memory-preflight/boundary-fail.txt \
+		tests/fixtures/ui/device-memory-preflight/low-memory.txt \
+		tests/fixtures/ui/device-memory-preflight/active-dpkg.txt \
+		tests/fixtures/ui/device-memory-preflight/active-dpkg-helper.txt \
+		tests/fixtures/ui/device-memory-preflight/impossible-memory.txt \
+		tests/fixtures/ui/device-memory-preflight/missing-memory-percent-token.txt \
+		tests/fixtures/ui/device-memory-preflight/duplicate-memory-percent-token.txt \
+		tests/fixtures/ui/device-memory-preflight/fractional-swap-overflow.txt \
+		tests/fixtures/ui/device-memory-preflight/duplicate-memory-values.txt \
+		tests/fixtures/ui/device-memory-preflight/duplicate-swap-values.txt \
+		tests/fixtures/ui/device-memory-preflight/duplicate-architecture-values.txt \
+		tests/fixtures/ui/device-memory-preflight/duplicate-layout-values.txt \
+		tests/fixtures/ui/device-memory-preflight/nonroot-uid.txt \
+		tests/fixtures/ui/device-memory-preflight/unknown-section-marker.txt \
+		tests/fixtures/ui/device-memory-preflight/extra-swap-output.txt \
+		tests/fixtures/ui/device-memory-preflight/empty-processes.txt \
+		tests/fixtures/ui/device-memory-preflight/malformed-processes.txt \
+		tests/fixtures/ui/device-memory-preflight/malformed.txt \
+		tests/fixtures/ui/device-memory-preflight/out-of-order.txt \
+		tests/fixtures/ui/device-memory-preflight/fake-bin/ssh
+	@$(DEVICE_MEMORY_PREFLIGHT_TEST)
+
+verify-rollback-package-pair: $(ROLLBACK_PACKAGE_PAIR_TEST) \
+		scripts/verify-rollback-package-pair.sh
+	@$(ROLLBACK_PACKAGE_PAIR_TEST)
+
+verify-progress-acquisition-contract: $(PROGRESS_ACQUISITION_CONTRACT_SCRIPT) \
+		Cydia/Database.mm Cydia/DatabaseStatus.mm Cydia/ProgressController.mm
+	@$(PROGRESS_ACQUISITION_CONTRACT_SCRIPT)
 
 $(PACKAGE_PATHS_TEST): tests/PackageDatabasePathsTests.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
@@ -122,6 +270,25 @@ $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRun
 verify-apt-runtime: $(APT_RUNTIME_TEST)
 	@$<
 
+$(LEGACY_SOURCE_HANDOFF_TEST): tests/LegacySourceHandoffTests.cpp \
+		Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp \
+		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
+		tests/LegacySourceHandoffTests.cpp Cydia/LegacySourceHandoff.cpp \
+		Cydia/PackageDatabasePaths.cpp -o $@
+
+verify-legacy-source-handoff: $(LEGACY_SOURCE_HANDOFF_TEST)
+	@$<
+
+verify-apt-source-isolation: $(APT_SOURCE_CONTRACT_SCRIPT) $(LEGACY_SOURCE_HANDOFF_TEST)
+	@$(LEGACY_SOURCE_HANDOFF_TEST)
+	@$(APT_SOURCE_CONTRACT_SCRIPT)
+
+verify-apt-sourcelist-mtime: $(APT_SOURCE_LIST_MTIME_CONTRACT_SCRIPT) \
+		apt64/apt-pkg/sourcelist.cc apt64/test/libapt/sourcelist_test.cc
+	@$(APT_SOURCE_LIST_MTIME_CONTRACT_SCRIPT)
+
 $(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
@@ -141,6 +308,9 @@ verify-dpkg-status: $(DPKG_STATUS_TEST)
 verify-bootstrap-helpers:
 	@tests/BootstrapHelpersTests.sh
 
+verify-home-localization: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
+	@$(HOME_LOCALIZATION_VERIFY_SCRIPT)
+
 ifeq ($(HOST_OS),Darwin)
 $(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h CyteKit/stringWith.mm
 	@mkdir -p $(dir $@)
@@ -149,10 +319,595 @@ $(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h
 
 verify-regex-arc: $(REGEX_ARC_TEST)
 	@$<
+
+$(YIELD_TO_SELECTOR_TEST): tests/YieldToSelectorTests.mm \
+		Menes/yieldToSelector.h Menes/yieldToSelector.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/YieldToSelectorTests.mm Menes/yieldToSelector.mm \
+		-framework Foundation -o $@
+
+verify-yield-to-selector: $(YIELD_TO_SELECTOR_TEST)
+	@$<
 else
 verify-regex-arc:
 	@echo "[verify] RegEx ARC runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-yield-to-selector:
+	@echo "[verify] yieldToSelector runtime test requires a Darwin host; iOS compile coverage remains enabled"
 endif
+
+verify-legacy-ui-compatibility-inventory: $(LEGACY_UI_COMPATIBILITY_INVENTORY_CONTRACT_SCRIPT) \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgeProperties.def \
+		tests/fixtures/ui/legacy-api.tsv tests/fixtures/ui/legacy-properties.tsv
+	@$(LEGACY_UI_COMPATIBILITY_INVENTORY_CONTRACT_SCRIPT)
+
+verify-url-origin-validation-contract: $(URL_ORIGIN_VALIDATION_CONTRACT_SCRIPT) \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		Cydia/PackageDepictionPolicy.mm Cydia/UIRouteContext.mm \
+		Cydia/UIRouteDispatch.mm tests/fixtures/ui/route-dispatch.tsv
+	@$(URL_ORIGIN_VALIDATION_CONTRACT_SCRIPT)
+
+verify-native-ui-contract: verify-legacy-ui-compatibility-inventory \
+		verify-url-origin-validation-contract \
+		$(NATIVE_UI_VERIFY_SCRIPT) mk/ui-webkit-legacy.txt \
+		mk/ui-route-legacy-callers.txt tests/fixtures/ui/routes.tsv \
+		tests/fixtures/ui/route-dispatch.tsv tests/fixtures/ui/legacy-api.tsv \
+		tests/fixtures/ui/legacy-properties.tsv \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgePolicy.h \
+		Cydia/LegacyBridgeProperties.def Cydia/LegacyBridgePolicy.mm \
+		Cydia/LegacyUICompatibilitySignatures.def \
+		Cydia/LegacyUICompatibility.h Cydia/LegacyUICompatibility.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		Cydia/ExternalURLController.h Cydia/ExternalURLController.mm \
+		Cydia/ErrorViewModel.h Cydia/ErrorViewModel.mm \
+		Cydia/ErrorViewController.h Cydia/ErrorViewController.mm \
+		Cydia/Application.h Cydia/Application+Lifecycle.mm \
+		Cydia/Application+Navigation.mm MobileCydia.mm \
+		Cydia/HomeController.mm Cydia/PackageControllers.mm \
+		Cydia/Package.mm Cydia/Source.mm Cydia/Relations.mm \
+		Cydia/MIMEAddress.mm Cydia/ProgressData.mm Cydia/ProgressEvent.mm \
+		Cydia/ConfirmationController.mm Cydia/ProgressController.mm \
+		Cydia/HomeController.h Cydia/HomeController.mm \
+		Cydia/HomeControllerProbe.h Cydia/HomeControllerProbe.mm \
+		Cydia/HomeViewModel.h Cydia/HomeViewModel.mm
+	@$(NATIVE_UI_VERIFY_SCRIPT) all
+
+verify-no-remote-app-ui: $(NO_REMOTE_APP_UI_VERIFY_SCRIPT) \
+		Cydia/AppState.h MobileCydia.mm Cydia/Application+Navigation.mm \
+		Cydia/HomeController.mm Cydia/ConfirmationController.mm \
+		Cydia/ProgressController.mm Cydia/PackageControllers.mm \
+		Cydia/PackageDetailController.mm Cydia/PackageDepictionView.h \
+		Cydia/PackageDepictionView.mm Cydia/ExternalURLController.mm \
+		Cydia/ErrorViewController.mm
+	@$(NO_REMOTE_APP_UI_VERIFY_SCRIPT)
+
+verify-window-appearance: $(WINDOW_APPEARANCE_VERIFY_SCRIPT) \
+        MobileCydia.app/Info.plist Cydia/Appearance.h Cydia/Appearance.mm MobileCydia.mm \
+        Cydia/Application+Lifecycle.mm Cydia/TabBarController.mm \
+        Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@$(WINDOW_APPEARANCE_VERIFY_SCRIPT)
+
+verify-url-cache: $(URL_CACHE_VERIFY_SCRIPT) \
+		CyteKit/URLCache.h CyteKit/URLCache.mm CyteKit/Application.mm
+	@$(URL_CACHE_VERIFY_SCRIPT)
+
+ifeq ($(HOST_OS),Darwin)
+$(UI_ROUTE_CONTEXT_TEST): tests/UIRouteContextTests.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/UIRouteContextTests.mm Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-ui-route-context: $(UI_ROUTE_CONTEXT_TEST) tests/fixtures/ui/routes.tsv
+	@$< tests/fixtures/ui/routes.tsv
+
+$(EXTERNAL_URL_POLICY_TEST): tests/ExternalURLPolicyTests.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/ExternalURLPolicyTests.mm Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-external-url-policy: $(EXTERNAL_URL_POLICY_TEST)
+	@$<
+
+verify-external-url-controller: $(EXTERNAL_URL_CONTROLLER_VERIFY_SCRIPT) \
+		Cydia/ExternalURLController.h Cydia/ExternalURLController.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		tests/simulator/ExternalURLControllerProbe.h \
+		tests/simulator/ExternalURLControllerProbe.mm Cydia/AppearanceProbe.mm \
+		Cydia/Application+Navigation.mm Cydia/HomeController.mm \
+		Cydia/PackageControllers.mm mk/toolchain.mk
+	@$(EXTERNAL_URL_CONTROLLER_VERIFY_SCRIPT)
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/external-url-simulator-ios12" \
+		doIA=yes doExternalURLProbe=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/external-url-simulator-ios12/objects/Cydia/ExternalURLPolicy.o" \
+		"$(BUILD_DIR)/external-url-simulator-ios12/objects/Cydia/ExternalURLController.o" \
+		"$(BUILD_DIR)/external-url-simulator-ios12/objects/tests/simulator/ExternalURLControllerProbe.o" \
+		"$(BUILD_DIR)/external-url-simulator-ios12/objects/Cydia/AppearanceProbe.o"
+
+$(LEGACY_BRIDGE_POLICY_TEST): tests/LegacyBridgePolicyTests.mm \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgePolicy.h \
+		Cydia/LegacyBridgeProperties.def Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h tests/fixtures/ui/trusted-local.html
+	@mkdir -p $(dir $@)
+	@cp tests/fixtures/ui/trusted-local.html $(dir $@)trusted-local.html
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/LegacyBridgePolicyTests.mm Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.mm Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-legacy-bridge-policy: $(LEGACY_BRIDGE_POLICY_TEST) \
+		tests/fixtures/ui/legacy-api.tsv tests/fixtures/ui/legacy-properties.tsv
+	@$< tests/fixtures/ui/legacy-api.tsv tests/fixtures/ui/legacy-properties.tsv
+
+$(LEGACY_UI_COMPATIBILITY_TEST): tests/LegacyUICompatibilityTests.mm \
+		Cydia/LegacyUICompatibilitySignatures.def \
+		Cydia/LegacyUICompatibility.h Cydia/LegacyUICompatibility.mm \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgeProperties.def \
+		Cydia/LegacyBridgePolicy.h Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h tests/fixtures/ui/trusted-local.html
+	@mkdir -p $(dir $@)
+	@cp tests/fixtures/ui/trusted-local.html $(dir $@)trusted-local.html
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/LegacyUICompatibilityTests.mm \
+		Cydia/LegacyUICompatibility.mm Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.mm Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-legacy-ui-compatibility: $(LEGACY_UI_COMPATIBILITY_TEST)
+	@$<
+
+$(LEGACY_UI_COMPATIBILITY_FORMAT_TEST): tests/LegacyUICompatibilityFormatTests.mm \
+		Cydia/LegacyUICompatibility.h Cydia/LegacyUICompatibility.mm \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgeProperties.def \
+		Cydia/LegacyBridgePolicy.h Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/LegacyUICompatibilityFormatTests.mm \
+		Cydia/LegacyUICompatibility.mm Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.mm Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-legacy-ui-compatibility-format: $(LEGACY_UI_COMPATIBILITY_FORMAT_TEST) \
+		$(LEGACY_UI_COMPATIBILITY_FORMAT_CONTRACT_SCRIPT)
+	@$(LEGACY_UI_COMPATIBILITY_FORMAT_CONTRACT_SCRIPT)
+	@$<
+
+$(LEGACY_UI_COMPATIBILITY_NATIVE_TEST): tests/LegacyUICompatibilityNativeCallerTests.mm \
+		Cydia/LegacyUICompatibilityNativeCaller.h Cydia/LegacyUICompatibilityNativeCaller.mm \
+		Cydia/LegacyUICompatibilityNativeSnapshot.h Cydia/LegacyUICompatibilityNativeSnapshot.mm \
+		Cydia/LegacyUICompatibility.h Cydia/LegacyUICompatibility.mm \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgeProperties.def \
+		Cydia/LegacyUICompatibilitySignatures.def \
+		Cydia/LegacyBridgePolicy.h Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/UIRouteDispatch.h Cydia/UIRouteDispatch.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks -Wall -Wextra -I. \
+		tests/LegacyUICompatibilityNativeCallerTests.mm \
+		Cydia/LegacyUICompatibilityNativeCaller.mm Cydia/LegacyUICompatibilityNativeSnapshot.mm \
+		Cydia/LegacyUICompatibility.mm \
+		Cydia/LegacyBridgePolicy.mm Cydia/UIRouteContext.mm Cydia/UIRouteDispatch.mm \
+		Cydia/ExternalURLPolicy.mm -framework Foundation -o $@
+
+verify-legacy-ui-compatibility-native: $(LEGACY_UI_COMPATIBILITY_NATIVE_TEST) \
+		$(LEGACY_UI_COMPATIBILITY_NATIVE_CONTRACT_SCRIPT)
+	@$(LEGACY_UI_COMPATIBILITY_NATIVE_CONTRACT_SCRIPT)
+	@$<
+
+$(LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_TEST): tests/LegacyUICompatibilityNativeSnapshotTests.mm \
+		Cydia/LegacyUICompatibilityNativeSnapshot.h Cydia/LegacyUICompatibilityNativeSnapshot.mm \
+		Cydia/LegacyUICompatibilityNativeCaller.h Cydia/LegacyUICompatibilityNativeCaller.mm \
+		Cydia/LegacyUICompatibility.h Cydia/LegacyUICompatibility.mm \
+		Cydia/LegacyBridgeOperations.def Cydia/LegacyBridgeProperties.def \
+		Cydia/LegacyUICompatibilitySignatures.def \
+		Cydia/LegacyBridgePolicy.h Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/UIRouteDispatch.h Cydia/UIRouteDispatch.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks -Wall -Wextra -I. \
+		tests/LegacyUICompatibilityNativeSnapshotTests.mm \
+		Cydia/LegacyUICompatibilityNativeCaller.mm Cydia/LegacyUICompatibilityNativeSnapshot.mm \
+		Cydia/LegacyUICompatibility.mm Cydia/LegacyBridgePolicy.mm \
+		Cydia/UIRouteContext.mm Cydia/UIRouteDispatch.mm Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-legacy-ui-compatibility-native-snapshot: $(LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_TEST) \
+		$(LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_CONTRACT_SCRIPT)
+	@$(LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_CONTRACT_SCRIPT)
+	@$<
+
+verify-legacy-ui-compatibility-native-provider: $(LEGACY_UI_COMPATIBILITY_NATIVE_PROVIDER_CONTRACT_SCRIPT) \
+		Cydia/LegacyUICompatibilityNativeProvider.h Cydia/LegacyUICompatibilityNativeProvider.mm \
+		Cydia/LegacyUICompatibilityNativeProvider+Application.mm \
+		Cydia/LegacyUICompatibilityNativeRenderingProvider.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		Cydia/Application.h MobileCydia.mm Cydia/Application+Lifecycle.mm
+	@$(LEGACY_UI_COMPATIBILITY_NATIVE_PROVIDER_CONTRACT_SCRIPT)
+
+verify-legacy-ui-compatibility-native-consumer: $(LEGACY_UI_COMPATIBILITY_NATIVE_CONSUMER_CONTRACT_SCRIPT) \
+		Cydia/Application.h Cydia/Application+Data.mm MobileCydia.mm \
+		Cydia/LegacyUICompatibilityNativeProvider+Application.mm
+	@$(LEGACY_UI_COMPATIBILITY_NATIVE_CONSUMER_CONTRACT_SCRIPT)
+
+$(LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_TEST): tests/LegacyUICompatibilityRuntimeEvidenceTests.mm \
+		Cydia/LegacyUICompatibilityRuntimeEvidence.h Cydia/LegacyUICompatibilityRuntimeEvidence.mm \
+		Cydia/LegacyUICompatibilityNativeCaller.h Cydia/LegacyUICompatibility.h \
+		Cydia/LegacyUICompatibility.mm Cydia/LegacyBridgeOperations.def \
+		Cydia/LegacyBridgeProperties.def Cydia/LegacyBridgePolicy.h \
+		Cydia/LegacyBridgePolicy.mm Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/LegacyUICompatibilityRuntimeEvidenceTests.mm \
+		Cydia/LegacyUICompatibilityRuntimeEvidence.mm Cydia/LegacyUICompatibility.mm \
+		Cydia/LegacyBridgePolicy.mm Cydia/UIRouteContext.mm Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-legacy-ui-compatibility-runtime-evidence: $(LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_TEST) \
+		$(LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_CONTRACT_SCRIPT)
+	@$(LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_CONTRACT_SCRIPT)
+	@$<
+
+verify-package-controller-native-consumer: $(PACKAGE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT) \
+		Cydia/PackageControllers.h Cydia/PackageControllers.mm
+	@$(PACKAGE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT)
+
+verify-source-controller-native-consumer: $(SOURCE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT) \
+		Cydia/SourceControllers.h Cydia/SourceControllers.mm
+	@$(SOURCE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT)
+
+$(UI_ROUTE_DISPATCH_TEST): tests/UIRouteDispatchTests.mm \
+		Cydia/UIRouteDispatch.h Cydia/UIRouteDispatch.mm \
+		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
+		CyteKit/WebNavigationContext.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. tests/UIRouteDispatchTests.mm \
+		Cydia/UIRouteDispatch.mm Cydia/UIRouteContext.mm \
+		Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-ui-route-dispatch: $(UI_ROUTE_DISPATCH_TEST) tests/fixtures/ui/route-dispatch.tsv
+	@$< tests/fixtures/ui/route-dispatch.tsv
+
+$(UI_RESTORATION_STATE_TEST): tests/RestorationStateTests.mm \
+		Cydia/UIRestorationState.h Cydia/UIRestorationState.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/RestorationStateTests.mm Cydia/UIRestorationState.mm \
+		-framework Foundation -o $@
+
+verify-ui-restoration-state: $(UI_RESTORATION_STATE_TEST)
+	@$<
+
+$(PACKAGE_DETAIL_VIEW_MODEL_TEST): tests/PackageDetailViewModelTests.mm \
+		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/PackageDetailViewModelTests.mm Cydia/PackageDetailViewModel.mm \
+		-framework Foundation -o $@
+
+verify-package-detail-view-model: $(PACKAGE_DETAIL_VIEW_MODEL_TEST)
+	@$<
+
+$(PACKAGE_DEPICTION_POLICY_TEST): tests/PackageDepictionPolicyTests.mm \
+		Cydia/PackageDepictionPolicy.h Cydia/PackageDepictionPolicy.mm \
+		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/PackageDepictionPolicyTests.mm Cydia/PackageDepictionPolicy.mm \
+		Cydia/ExternalURLPolicy.mm \
+		-framework Foundation -o $@
+
+verify-package-depiction-policy: $(PACKAGE_DEPICTION_POLICY_TEST)
+	@$<
+
+$(PACKAGE_LEGACY_METADATA_POLICY_TEST): tests/PackageLegacyMetadataPolicyTests.mm \
+		Cydia/PackageLegacyMetadataPolicy.h Cydia/PackageLegacyMetadataPolicy.mm \
+		tests/fixtures/ui/package-api/choicy.response
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks -Wall -Wextra -I. \
+		tests/PackageLegacyMetadataPolicyTests.mm \
+		Cydia/PackageLegacyMetadataPolicy.mm \
+		-framework Foundation -o $@
+
+verify-package-legacy-metadata-policy: $(PACKAGE_LEGACY_METADATA_POLICY_TEST)
+	@$< tests/fixtures/ui/package-api/choicy.response
+
+$(URL_PROTOCOL_POLICY_TEST): tests/URLProtocolPolicyTests.mm \
+		Cydia/URLProtocolPolicy.h Cydia/URLProtocolPolicy.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/URLProtocolPolicyTests.mm Cydia/URLProtocolPolicy.mm \
+		-framework Foundation -o $@
+
+verify-url-protocol-policy: $(URL_PROTOCOL_POLICY_TEST) \
+		$(URL_PROTOCOL_POLICY_CONTRACT_SCRIPT) Cydia/URLProtocol.mm \
+		Cydia/URLResourceResolver.h Cydia/URLResourceResolver.mm \
+		CyteKit/URLProtocol.mm
+	@$<
+	@$(URL_PROTOCOL_POLICY_CONTRACT_SCRIPT)
+
+verify-package-depiction-view: $(PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT) \
+		Cydia/PackageDepictionView.h Cydia/PackageDepictionView.mm \
+		Cydia/PackageDepictionPolicy.h Cydia/PackageDepictionPolicy.mm \
+		Cydia/URLResourceResolver.h Cydia/URLResourceResolver.mm
+	@$(PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT)
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/package-depiction-simulator-ios12" \
+		doIA=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/PackageDepictionView.o" \
+		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/URLResourceResolver.o" \
+		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/URLProtocol.o"
+
+verify-package-detail-controller: $(PACKAGE_DETAIL_CONTROLLER_VERIFY_SCRIPT) \
+		Cydia/PackageDetailController.h Cydia/PackageDetailController.mm \
+		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm \
+		Cydia/PackageDetailControllerProbe.h Cydia/PackageDetailControllerProbe.mm \
+		Cydia/AppearanceProbe.mm \
+		Cydia/Application+Navigation.mm Cydia/PackageControllers.mm \
+		MobileCydia.app/settings.png MobileCydia.app/email.png \
+		MobileCydia.app/console.png MobileCydia.app/warning.png \
+		MobileCydia.app/web.png MobileCydia.app/version.png \
+		MobileCydia.app/filesystem.png \
+		MobileCydia.app/Modes/DOWNGRADE.png MobileCydia.app/Modes/INSTALL.png \
+		MobileCydia.app/Modes/PURGE.png MobileCydia.app/Modes/REINSTALL.png \
+		MobileCydia.app/Modes/REMOVE.png MobileCydia.app/Modes/UPGRADE.png
+	@$(PACKAGE_DETAIL_CONTROLLER_VERIFY_SCRIPT)
+
+verify-package-detail-contact: $(PACKAGE_DETAIL_CONTACT_VERIFY_SCRIPT) \
+		Cydia/PackageDetailController.mm
+	@$(PACKAGE_DETAIL_CONTACT_VERIFY_SCRIPT)
+
+verify-package-detail-controller-simulator:
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/package-detail-simulator-ios12" \
+		doIA=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageDetailController.o" \
+		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageControllers.o" \
+		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/tests/PackageDetailControllerSimulatorCompile.o"
+
+$(SOURCE_VERIFICATION_REQUEST_POLICY_TEST): \
+		tests/SourceVerificationRequestPolicyTests.mm \
+		Cydia/SourceVerificationRequestPolicy.h \
+		Cydia/SourceVerificationRequestPolicy.mm Cydia/SourceControllers.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/SourceVerificationRequestPolicyTests.mm \
+		Cydia/SourceVerificationRequestPolicy.mm -framework Foundation -o $@
+
+verify-source-verification-request-policy: $(SOURCE_VERIFICATION_REQUEST_POLICY_TEST)
+	@$< Cydia/SourceControllers.mm
+
+$(CONFIRMATION_VIEW_MODEL_TEST): tests/ConfirmationViewModelTests.mm \
+		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
+		Cydia/AptCompatibility.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. tests/ConfirmationViewModelTests.mm \
+		Cydia/ConfirmationViewModel.mm -framework Foundation -o $@
+
+verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
+	@$<
+
+$(CONFIRMATION_CONTROLLER_TEST): tests/ConfirmationControllerContractTests.mm \
+		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
+		Cydia/AptCompatibility.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. tests/ConfirmationControllerContractTests.mm \
+		Cydia/ConfirmationViewModel.mm -framework Foundation -o $@
+
+verify-confirmation-controller: $(CONFIRMATION_CONTROLLER_TEST)
+	@$<
+
+verify-confirmation-controller-appearance: $(CONFIRMATION_CONTROLLER_APPEARANCE_VERIFY_SCRIPT) \
+		Cydia/ConfirmationController.h Cydia/ConfirmationController.mm \
+		Cydia/ConfirmationControllerProbe.mm
+	@$(CONFIRMATION_CONTROLLER_APPEARANCE_VERIFY_SCRIPT)
+
+verify-confirmation-controller-simulator:
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/confirmation-simulator-ios12" \
+		doIA=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/confirmation-simulator-ios12/objects/Cydia/ConfirmationController.o" \
+		"$(BUILD_DIR)/confirmation-simulator-ios12/objects/tests/ConfirmationControllerSimulatorCompile.o"
+
+$(HOME_VIEW_MODEL_TEST): tests/HomeViewModelTests.mm \
+		Cydia/HomeViewModel.h Cydia/HomeViewModel.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/HomeViewModelTests.mm Cydia/HomeViewModel.mm \
+		-framework Foundation -o $@
+
+verify-home-view-model: $(HOME_VIEW_MODEL_TEST)
+	@$<
+
+verify-home-controller: $(HOME_CONTROLLER_VERIFY_SCRIPT) $(HOME_LOCALIZATION_VERIFY_SCRIPT) \
+	Cydia/HomeController.h Cydia/HomeController.mm \
+	Cydia/HomeSplitDisclosure.h Cydia/HomeSplitDisclosure.mm \
+	Cydia/HomeViewModel.h Cydia/HomeViewModel.mm \
+		Cydia/Application+Navigation.mm
+	@$(HOME_CONTROLLER_VERIFY_SCRIPT)
+
+verify-home-controller-simulator:
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/home-simulator-ios12" \
+		doIA=yes doHomeProbe=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeController.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeControllerProbe.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeViewModel.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/AppearanceProbe.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/tests/HomeControllerSimulatorCompile.o"
+
+$(ERROR_VIEW_MODEL_TEST): tests/ErrorViewModelTests.mm \
+		Cydia/ErrorViewModel.h Cydia/ErrorViewModel.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. tests/ErrorViewModelTests.mm \
+		Cydia/ErrorViewModel.mm -framework Foundation -o $@
+
+verify-error-view-model: $(ERROR_VIEW_MODEL_TEST)
+	@$<
+
+verify-error-view-controller: $(ERROR_VIEW_CONTROLLER_VERIFY_SCRIPT) \
+		Cydia/ErrorViewController.h Cydia/ErrorViewController.mm \
+		Cydia/ErrorViewModel.h Cydia/ErrorViewModel.mm \
+		tests/simulator/ErrorViewRuntimeProbe.h \
+		tests/simulator/ErrorViewRuntimeProbe.mm
+	@$(ERROR_VIEW_CONTROLLER_VERIFY_SCRIPT)
+	@$(MAKE) --no-print-directory \
+		BUILD_DIR="$(BUILD_DIR)/error-view-simulator-ios12" \
+		doIA=yes kind=iphonesimulator arch=x86_64 \
+		"$(BUILD_DIR)/error-view-simulator-ios12/objects/Cydia/ErrorViewModel.o" \
+		"$(BUILD_DIR)/error-view-simulator-ios12/objects/Cydia/ErrorViewController.o" \
+		"$(BUILD_DIR)/error-view-simulator-ios12/objects/tests/simulator/ErrorViewRuntimeProbe.o"
+else
+verify-ui-route-context:
+	@echo "[verify] UI route runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-external-url-policy:
+	@echo "[verify] External URL policy runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-external-url-controller:
+	@$(EXTERNAL_URL_CONTROLLER_VERIFY_SCRIPT)
+
+verify-legacy-bridge-policy:
+	@echo "[verify] Legacy bridge policy runtime test requires a Darwin host; portable inventory coverage remains enabled"
+
+verify-legacy-ui-compatibility:
+	@echo "[verify] Legacy UI compatibility runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-legacy-ui-compatibility-format: $(LEGACY_UI_COMPATIBILITY_FORMAT_CONTRACT_SCRIPT)
+	@$(LEGACY_UI_COMPATIBILITY_FORMAT_CONTRACT_SCRIPT)
+
+verify-legacy-ui-compatibility-native:
+	@echo "[verify] Native legacy UI compatibility runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-ui-route-dispatch:
+	@echo "[verify] UI route dispatch runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-ui-restoration-state:
+	@echo "[verify] UI restoration state runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-package-detail-view-model:
+	@echo "[verify] Package detail view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-package-depiction-policy:
+	@echo "[verify] Package depiction policy runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-package-legacy-metadata-policy:
+	@echo "[verify] Package legacy metadata policy runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-url-protocol-policy: $(URL_PROTOCOL_POLICY_CONTRACT_SCRIPT) \
+		Cydia/URLProtocol.mm Cydia/URLResourceResolver.h \
+		Cydia/URLResourceResolver.mm CyteKit/URLProtocol.mm
+	@echo "[verify] URL protocol policy host test requires a Darwin host; source compile coverage remains enabled"
+	@$(URL_PROTOCOL_POLICY_CONTRACT_SCRIPT)
+
+verify-package-depiction-view:
+	@$(PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT)
+
+verify-package-detail-controller:
+	@$(PACKAGE_DETAIL_CONTROLLER_VERIFY_SCRIPT)
+
+verify-package-detail-contact:
+	@$(PACKAGE_DETAIL_CONTACT_VERIFY_SCRIPT)
+
+verify-package-detail-controller-simulator:
+	@echo "[verify] Package detail simulator seam compile requires a Darwin host"
+
+verify-source-verification-request-policy:
+	@echo "[verify] Source verification request policy runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-confirmation-view-model:
+	@echo "[verify] Confirmation view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-confirmation-controller:
+	@echo "[verify] Confirmation controller contract test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-confirmation-controller-simulator:
+	@echo "[verify] Confirmation simulator seam compile requires a Darwin host"
+
+verify-home-view-model:
+	@echo "[verify] Home view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-home-controller: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
+	@$(HOME_CONTROLLER_VERIFY_SCRIPT)
+
+verify-home-controller-simulator:
+	@echo "[verify] Home simulator seam compile requires a Darwin host"
+
+verify-error-view-model:
+	@echo "[verify] Error view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-error-view-controller:
+	@$(ERROR_VIEW_CONTROLLER_VERIFY_SCRIPT)
+endif
+
+ifneq ($(HOST_OS),Darwin)
+verify-legacy-ui-compatibility-native-snapshot: $(LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_CONTRACT_SCRIPT)
+	@$(LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_CONTRACT_SCRIPT)
+endif
+
+ifeq ($(HOST_OS),Darwin)
+$(PROGRESS_VIEW_MODEL_TEST): tests/ProgressViewModelTests.mm \
+		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm \
+		Cydia/ProgressData.h Cydia/ProgressData.mm Cydia/ProgressEvent.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra \
+		-Wno-unused-parameter -I. \
+		tests/ProgressViewModelTests.mm Cydia/ProgressViewModel.mm \
+		Cydia/ProgressData.mm -framework Foundation -o $@
+
+verify-progress-view-model: $(PROGRESS_VIEW_MODEL_TEST)
+	@$<
+else
+verify-progress-view-model:
+	@echo "[verify] Progress view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
+endif
+
+verify-progress-controller: $(PROGRESS_CONTROLLER_VERIFY_SCRIPT) \
+		Cydia/ProgressController.h Cydia/ProgressController.mm \
+		Cydia/ProgressEventCell.h Cydia/ProgressEventCell.mm \
+		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm
+	@$(PROGRESS_CONTROLLER_VERIFY_SCRIPT)
+
+verify-native-ui: verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch \
+	verify-window-appearance \
+	verify-url-cache \
+	verify-ui-restoration-state \
+	verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format \
+	verify-url-protocol-policy \
+	verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance \
+	verify-confirmation-controller-simulator verify-progress-view-model \
+	verify-progress-controller verify-package-detail-view-model \
+	verify-package-depiction-policy verify-package-legacy-metadata-policy verify-package-depiction-view \
+	verify-package-detail-controller verify-package-detail-contact \
+	verify-package-detail-controller-simulator \
+	verify-home-view-model verify-home-controller verify-home-controller-simulator \
+	verify-error-view-model verify-error-view-controller
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \
 		$(EXEC_COMPAT_SOURCE_DIR)/get_new_argv.c \
@@ -238,7 +993,7 @@ verify-apt-sources: $(APT_VERIFY_SCRIPT) mk/apt.mk
 		"$(apt_excluded_contrib_sources)" "$(notdir $(apt_http_source))" \
 		"$(apt_excluded_method_sources)"
 
-verify-static: $(VERIFY_SCRIPT)
+verify-static: verify-native-ui-contract verify-no-remote-app-ui verify-window-appearance verify-url-cache $(VERIFY_SCRIPT)
 	@status=0; \
 	$(MAKE) --no-print-directory verify-config || status=1; \
 	$(MAKE) --no-print-directory verify-ownership || status=1; \
@@ -265,6 +1020,44 @@ verify-size: $(VERIFY_SCRIPT)
 verify-compile: $(verify_objc_objects) $(POSTINST_BINARY) $(CFVERSION_BINARY)
 	@echo "[verify] Objective-C/Objective-C++ compile graph is up to date"
 
+# Binary inspection is intentionally explicit: it consumes an already-built
+# app binary and never starts a build as a side effect of static verification.
+verify-native-ui-binary: $(NATIVE_UI_BINARY_VERIFY_SCRIPT)
+	@test -f "$(APP_BINARY)" || { \
+		echo "[verify-native-ui-binary][FAIL] build $(APP_BINARY) first" >&2; exit 2; \
+	}
+	@$(NATIVE_UI_BINARY_VERIFY_SCRIPT) "$(APP_BINARY)"
+
+# Provenance inspection is deliberately build-free.  The link recipe records
+# this sidecar after strip/uikit; verification refuses an unrecorded or stale
+# binary instead of relinking it as a side effect of `make verify`.
+verify-build-provenance: $(BUILD_PROVENANCE_SCRIPT)
+	@$(BUILD_PROVENANCE_SCRIPT) verify "$(CURDIR)" "$(APP_BINARY)" \
+		"$(VERSION_HEADER)" "$(APP_BINARY_PROVENANCE)"
+
+# Keep a descriptive alias beside the native-UI binary gate.
+verify-native-ui-provenance: verify-build-provenance
+
+verify-build-provenance-contract: $(BUILD_PROVENANCE_CONTRACT_TEST) \
+		$(BUILD_PROVENANCE_SCRIPT)
+	@$(BUILD_PROVENANCE_CONTRACT_TEST)
+
+# Package archive inspection is opt-in and never builds or selects an archive
+# implicitly.  Supply both variables explicitly, for example:
+#   make verify-package-artifacts PACKAGE_VERIFY_LAYOUT=rootless \
+#       PACKAGE_VERIFY_DIR=/tmp/cydia-packages
+PACKAGE_VERIFY_LAYOUT ?=
+PACKAGE_VERIFY_DIR ?=
+verify-package-artifacts: $(PACKAGE_ARTIFACT_VERIFY_SCRIPT)
+	@test -n "$(PACKAGE_VERIFY_LAYOUT)" || { \
+		echo "[verify-package][FAIL] PACKAGE_VERIFY_LAYOUT is required" >&2; exit 2; \
+	}
+	@test -n "$(PACKAGE_VERIFY_DIR)" || { \
+		echo "[verify-package][FAIL] PACKAGE_VERIFY_DIR is required" >&2; exit 2; \
+	}
+	@$(PACKAGE_ARTIFACT_VERIFY_SCRIPT) "$(PACKAGE_VERIFY_LAYOUT)" \
+		"$(PACKAGE_VERIFY_DIR)"
+
 # Runtime UI verification is intentionally opt-in because it installs a probe
 # app and changes simulator appearance. The script restores appearance and
 # removes its uniquely identified app when it exits.
@@ -274,3 +1067,100 @@ verify-appearance-simulator: $(APPEARANCE_VERIFY_SCRIPT)
 	}
 	@$(APPEARANCE_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
 		"$(IOS12_SIMULATOR_UDID)" "$(MAKE)" "$(BUILD_DIR)/appearance-simulator"
+
+verify-progress-simulator: $(PROGRESS_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(SIMULATOR_UDID)" || { \
+		echo "SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(PROGRESS_SIMULATOR_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
+		"$(MAKE)" "$(BUILD_DIR)/progress-simulator"
+
+verify-confirmation-simulator: $(CONFIRMATION_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(SIMULATOR_UDID)" || { \
+		echo "SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(CONFIRMATION_SIMULATOR_VERIFY_SCRIPT) "$(SIMULATOR_UDID)" \
+		"$(MAKE)" "$(BUILD_DIR)/confirmation-simulator"
+
+# This probe installs the native package shell on exactly one already-booted
+# runtime, drives real HID taps/swipes, and retains screenshots plus an
+# in-process accessibility tree. Invoke ios12 and ios15 separately so the two
+# simulators are never resident together. Production package routes remain
+# latched to CYPackageController.
+verify-package-detail-simulator: $(PACKAGE_DETAIL_SIMULATOR_VERIFY_SCRIPT) \
+		tests/simulator/package_depiction_server.py
+	@case_name="$(PACKAGE_DETAIL_SIMULATOR_CASE)"; \
+	case "$$case_name" in \
+		ios12) simulator="$(IOS12_SIMULATOR_UDID)";; \
+		ios15) simulator="$(IOS15_SIMULATOR_UDID)";; \
+		*) echo "PACKAGE_DETAIL_SIMULATOR_CASE must be ios12 or ios15" >&2; exit 2;; \
+	esac; \
+	test -n "$$simulator" || { \
+		echo "simulator UDID is required for $$case_name" >&2; exit 2; \
+	}; \
+	$(PACKAGE_DETAIL_SIMULATOR_VERIFY_SCRIPT) "$$case_name" "$$simulator" \
+		"$(MAKE)" "$(BUILD_DIR)/package-detail-simulator/$$case_name"
+
+# Prepare the exact shared Home probe with one job and zero booted simulators.
+# Runtime cases cannot build and must reuse the source/toolchain-bound receipt.
+# The finalizer never starts a simulator.
+verify-home-simulator-prepare: $(HOME_SIMULATOR_VERIFY_SCRIPT)
+	@$(HOME_SIMULATOR_VERIFY_SCRIPT) --prepare --make "$(MAKE)" \
+		--build-dir "$(BUILD_DIR)/home-simulator" \
+		--developer-dir "$(HOME_SIMULATOR_DEVELOPER_DIR)" \
+		--jobs "$(HOME_SIMULATOR_JOBS)"
+
+verify-home-simulator: $(HOME_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(HOME_SIMULATOR_CASE)" || { \
+		echo "HOME_SIMULATOR_CASE is required" >&2; exit 2; \
+	}
+	@case "$(HOME_SIMULATOR_CASE)" in \
+		ios12-phone) simulator="$(IOS12_SIMULATOR_UDID)";; \
+		ios15-phone) simulator="$(IOS15_SIMULATOR_UDID)";; \
+		ios12-ipad) simulator="$(IPAD_SIMULATOR_UDID)";; \
+		*) echo "unknown HOME_SIMULATOR_CASE: $(HOME_SIMULATOR_CASE)" >&2; exit 2;; \
+	esac; \
+	if test -z "$$simulator"; then \
+		echo "the selected Home simulator UDID is required" >&2; exit 2; \
+	fi; \
+	$(HOME_SIMULATOR_VERIFY_SCRIPT) --case "$(HOME_SIMULATOR_CASE)" \
+		--simulator "$$simulator" \
+		--build-dir "$(BUILD_DIR)/home-simulator" \
+		--developer-dir "$(HOME_SIMULATOR_DEVELOPER_DIR)" \
+		--jobs "$(HOME_SIMULATOR_JOBS)"
+
+verify-home-simulator-matrix: $(HOME_SIMULATOR_VERIFY_SCRIPT)
+	@$(HOME_SIMULATOR_VERIFY_SCRIPT) --finalize \
+		--build-dir "$(BUILD_DIR)/home-simulator" \
+		--developer-dir "$(HOME_SIMULATOR_DEVELOPER_DIR)"
+
+verify-home-simulator-matrix-contract: $(HOME_SIMULATOR_MATRIX_TEST) \
+		$(HOME_SIMULATOR_VERIFY_SCRIPT)
+	@$(HOME_SIMULATOR_MATRIX_TEST)
+
+# This installs the native cydia://url coordinator sequentially on the two
+# supported simulator generations. It proves the canonical route, OS-owned
+# Safari presentation, native fallback state, Dynamic Type, and scoped cleanup.
+verify-external-url-simulator: $(EXTERNAL_URL_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(IOS12_SIMULATOR_UDID)" || { \
+		echo "IOS12_SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@test -n "$(IOS15_SIMULATOR_UDID)" || { \
+		echo "IOS15_SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(EXTERNAL_URL_SIMULATOR_VERIFY_SCRIPT) "$(IOS12_SIMULATOR_UDID)" \
+		"$(IOS15_SIMULATOR_UDID)" "$(MAKE)" \
+		"$(BUILD_DIR)/external-url-simulator"
+
+# This installs the native top-level failure surface sequentially on the two
+# supported simulator generations and proves sanitized details plus exact Retry.
+verify-native-error-simulator: $(NATIVE_ERROR_SIMULATOR_VERIFY_SCRIPT)
+	@test -n "$(IOS12_SIMULATOR_UDID)" || { \
+		echo "IOS12_SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@test -n "$(IOS15_SIMULATOR_UDID)" || { \
+		echo "IOS15_SIMULATOR_UDID is required" >&2; exit 2; \
+	}
+	@$(NATIVE_ERROR_SIMULATOR_VERIFY_SCRIPT) "$(IOS12_SIMULATOR_UDID)" \
+		"$(IOS15_SIMULATOR_UDID)" "$(MAKE)" \
+		"$(BUILD_DIR)/native-error-simulator"

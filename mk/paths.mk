@@ -24,6 +24,8 @@ PACKAGE_DIR := $(BUILD_DIR)/packages
 STAGE_DIR := $(BUILD_DIR)/stage
 
 APP_BINARY := $(BIN_DIR)/MobileCydia
+APP_BINARY_PROVENANCE := $(BIN_DIR)/MobileCydia.provenance
+BUILD_PROVENANCE_SCRIPT := scripts/verify-build-provenance.sh
 POSTINST_BINARY := $(BIN_DIR)/postinst
 CYDO_BINARY := $(BIN_DIR)/cydo
 SETNSFPN_BINARY := $(BIN_DIR)/setnsfpn

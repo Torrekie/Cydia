@@ -33,6 +33,7 @@ probe_app=$temporary/CydiaAppearanceProbe.app
 original_appearance=
 appearance_control=system
 probe_launch_argument=--cydia-appearance-probe
+build_jobs=${APPEARANCE_BUILD_JOBS:-1}
 
 fail() {
     echo "[verify-appearance][FAIL] $*" >&2
@@ -42,6 +43,10 @@ fail() {
 pass() {
     echo "[verify-appearance][ ok ] $*"
 }
+
+case "$build_jobs" in
+    ''|*[!0-9]*|0) fail "APPEARANCE_BUILD_JOBS must be a positive integer" ;;
+esac
 
 run_with_timeout() {
     rwt_seconds=$1
@@ -141,18 +146,12 @@ wait_for_style() {
         if [ -f "$file" ]; then
             style=$(read_state "$file" style || true)
             updates=$(read_state "$file" updates || true)
-            web_ready=$(read_state "$file" webReady || true)
-            web_style=$(read_state "$file" webStyle || true)
-            web_events=$(read_state "$file" webAppearanceEvents || true)
-            web_child_style=$(read_state "$file" webChildStyle || true)
-            web_child_events=$(read_state "$file" webChildAppearanceEvents || true)
+            native_ready=$(read_state "$file" nativeSurfaceReady || true)
+            native_identifier=$(read_state "$file" nativeSurfaceIdentifier || true)
             case "$updates" in ''|*[!0-9]*) updates=0 ;; esac
-            case "$web_events" in ''|*[!0-9]*) web_events=0 ;; esac
-            case "$web_child_events" in ''|*[!0-9]*) web_child_events=0 ;; esac
             if [ "$style" = "$expected" ] && [ "$updates" -ge "$minimum_updates" ] && \
-               [ "$web_ready" = "true" ] && [ "$web_style" = "$expected" ] && \
-               [ "$web_events" -ge 1 ] && [ "$web_child_style" = "$expected" ] && \
-               [ "$web_child_events" -ge 1 ]; then
+               [ "$native_ready" = "true" ] && \
+               [ "$native_identifier" = "appearance.native-surface" ]; then
                 return 0
             fi
         fi
@@ -177,7 +176,7 @@ launch_probe() {
 }
 
 mkdir -p "$artifact_dir"
-"$make_program" --no-print-directory -B -j6 -C "$source_root" \
+"$make_program" --no-print-directory -B -j"$build_jobs" -C "$source_root" \
     doIA=yes BUILD_DIR="$build_dir" all >"$artifact_dir/build.log" 2>&1 || {
         grep -n -E 'error:|fatal error:|undefined reference|ld:|make: \*\*\*' \
             "$artifact_dir/build.log" | head -80 >&2 || true
@@ -218,24 +217,14 @@ light_package=$(read_state "$modern_state" packageBackgroundLuminance)
 light_section=$(read_state "$modern_state" sectionBackgroundLuminance)
 light_source=$(read_state "$modern_state" sourceBackgroundLuminance)
 light_loading=$(read_state "$modern_state" loadingBackgroundLuminance)
-light_web=$(read_state "$modern_state" webBackgroundLuminance)
-light_web_label=$(read_state "$modern_state" webLabelLuminance)
-light_web_image=$(read_state "$modern_state" webBackgroundImage)
-light_web_events=$(read_state "$modern_state" webAppearanceEvents)
-light_child=$(read_state "$modern_state" webChildBackgroundLuminance)
-light_child_events=$(read_state "$modern_state" webChildAppearanceEvents)
+light_native=$(read_state "$modern_state" nativeSurfaceBackgroundLuminance)
+light_native_label=$(read_state "$modern_state" nativeSurfaceLabelLuminance)
 require_integer light_package "$light_package"
 require_integer light_section "$light_section"
 require_integer light_source "$light_source"
 require_integer light_loading "$light_loading"
-require_integer light_web "$light_web"
-require_integer light_web_label "$light_web_label"
-require_integer light_web_events "$light_web_events"
-require_integer light_child "$light_child"
-require_integer light_child_events "$light_child_events"
-if [ -z "$light_web_image" ] || [ "$light_web_image" = "none" ]; then
-    fail "light legacy web fixture did not retain its background image"
-fi
+require_integer light_native "$light_native"
+require_integer light_native_label "$light_native_label"
 sleep 1
 simctl_with_timeout 30 io "$modern_udid" screenshot "$artifact_dir/modern-light.png" >/dev/null ||
     fail "could not capture light appearance"
@@ -252,21 +241,14 @@ dark_package=$(read_state "$modern_state" packageBackgroundLuminance)
 dark_section=$(read_state "$modern_state" sectionBackgroundLuminance)
 dark_source=$(read_state "$modern_state" sourceBackgroundLuminance)
 dark_loading=$(read_state "$modern_state" loadingBackgroundLuminance)
-dark_web=$(read_state "$modern_state" webBackgroundLuminance)
-dark_web_label=$(read_state "$modern_state" webLabelLuminance)
-dark_web_image=$(read_state "$modern_state" webBackgroundImage)
-dark_web_events=$(read_state "$modern_state" webAppearanceEvents)
-dark_child=$(read_state "$modern_state" webChildBackgroundLuminance)
-dark_child_events=$(read_state "$modern_state" webChildAppearanceEvents)
+dark_native=$(read_state "$modern_state" nativeSurfaceBackgroundLuminance)
+dark_native_label=$(read_state "$modern_state" nativeSurfaceLabelLuminance)
 require_integer dark_package "$dark_package"
 require_integer dark_section "$dark_section"
 require_integer dark_source "$dark_source"
 require_integer dark_loading "$dark_loading"
-require_integer dark_web "$dark_web"
-require_integer dark_web_label "$dark_web_label"
-require_integer dark_web_events "$dark_web_events"
-require_integer dark_child "$dark_child"
-require_integer dark_child_events "$dark_child_events"
+require_integer dark_native "$dark_native"
+require_integer dark_native_label "$dark_native_label"
 if [ "$light_package" -le "$dark_package" ] || \
    [ "$light_section" -le "$dark_section" ] || \
    [ "$light_source" -le "$dark_source" ]; then
@@ -275,14 +257,9 @@ fi
 if [ "$light_loading" -le "$dark_loading" ]; then
     fail "native loading view did not resolve through its own trait hook"
 fi
-if [ "$light_web" -le "$dark_web" ] || [ "$light_web_label" -ge "$dark_web_label" ] || \
-   [ "$light_child" -le "$dark_child" ] || \
-   [ "$dark_web_events" -le "$light_web_events" ] || \
-   [ "$dark_child_events" -le "$light_child_events" ]; then
-    fail "Cyte main/child web content did not receive and render the live appearance event"
-fi
-if [ "$dark_web_image" != "none" ]; then
-    fail "dark legacy web fallback did not clear its pinstripe background image (got: $dark_web_image)"
+if [ "$light_native" -le "$dark_native" ] || \
+   [ "$light_native_label" -ge "$dark_native_label" ]; then
+    fail "native UIKit surface did not redraw its background and label"
 fi
 kill -0 "$modern_pid" 2>/dev/null || fail "probe relaunched or exited during live appearance switch"
 sleep 1
@@ -291,7 +268,7 @@ simctl_with_timeout 30 io "$modern_udid" screenshot "$artifact_dir/modern-dark.p
 cp "$modern_state" "$artifact_dir/modern-dark-state.plist" || fail "could not preserve modern dark state"
 cmp -s "$artifact_dir/modern-light.png" "$artifact_dir/modern-dark.png" &&
     fail "light and dark screenshots are byte-identical"
-pass "same process redrew already-visible cells, UIKit, and web content from light to dark ($appearance_control traits)"
+pass "same process redrew already-visible cells and UIKit from light to dark ($appearance_control traits)"
 
 if [ -n "$ios12_udid" ]; then
     install_probe "$ios12_udid" ios12 || fail "could not install on iOS 12 simulator"
@@ -304,16 +281,14 @@ if [ -n "$ios12_udid" ]; then
     palette=$(read_state "$ios12_state" paletteAssertions || true)
     [ "$palette" = "true" ] || fail "iOS 12 explicit trait fallback assertions failed"
     ios12_loading=$(read_state "$ios12_state" loadingBackgroundLuminance)
-    ios12_web=$(read_state "$ios12_state" webBackgroundLuminance)
-    ios12_web_label=$(read_state "$ios12_state" webLabelLuminance)
-    ios12_child=$(read_state "$ios12_state" webChildBackgroundLuminance)
+    ios12_native=$(read_state "$ios12_state" nativeSurfaceBackgroundLuminance)
+    ios12_native_label=$(read_state "$ios12_state" nativeSurfaceLabelLuminance)
     require_integer ios12_loading "$ios12_loading"
-    require_integer ios12_web "$ios12_web"
-    require_integer ios12_web_label "$ios12_web_label"
-    require_integer ios12_child "$ios12_child"
-    [ "$ios12_loading" -ge 0 ] && [ "$ios12_web" -ge 0 ] && \
-        [ "$ios12_web_label" -ge 0 ] && [ "$ios12_child" -ge 0 ] ||
-        fail "iOS 12 UIKit/web fallbacks did not resolve"
+    require_integer ios12_native "$ios12_native"
+    require_integer ios12_native_label "$ios12_native_label"
+    [ "$ios12_loading" -ge 0 ] && [ "$ios12_native" -ge 0 ] && \
+        [ "$ios12_native_label" -ge 0 ] ||
+        fail "iOS 12 UIKit fallbacks did not resolve"
     kill -0 "$ios12_pid" 2>/dev/null || fail "appearance probe exited on iOS 12"
     sleep 1
     simctl_with_timeout 30 io "$ios12_udid" screenshot "$artifact_dir/ios12-light.png" >/dev/null ||

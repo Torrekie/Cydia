@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished native progress work Copyright (C) 2026 Torrekie
  */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -25,7 +26,8 @@
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Appearance.h"
 #include "Cydia/Database.h"
-#include "Cydia/PrivateServices.h"
+#include "Cydia/Package.h"
+#include "Cydia/ProgressEventCell.h"
 #include "Cydia/RebootCompat.h"
 #include "CyteKit/Localize.h"
 #include "Menes/yieldToSelector.h"
@@ -33,12 +35,41 @@
 
 #include <notify.h>
 
-extern const NSString *UI_;
 extern bool RestartSubstrate_;
 extern void UpdateExternalStatus(uint64_t newStatus);
 
 #define SpringBoard_ "/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"
 #define NotifyConfig_ "/etc/notify.conf"
+
+static NSString * const CydiaProgressEventCellIdentifier = @"CydiaProgressEventCell";
+
+/* Progress is the native presentation of dpkg's terminal stream.  Resolve
+ * its semantic colors against an explicit dark trait instead of the owning
+ * controller's trait: a Light system appearance must not turn command output
+ * into a white terminal.  Fonts still use the controller trait below so
+ * Dynamic Type and accessibility sizes remain fully effective. */
+static UITraitCollection *CydiaProgressTerminalTraits(void) {
+    return [UITraitCollection traitCollectionWithUserInterfaceStyle:
+        UIUserInterfaceStyleDark];
+}
+
+/* Package::name is a CYString view over the temporary Package pool.  A
+ * resolver call commonly creates a short-lived Package, so returning that
+ * no-copy view would leave the progress model holding bytes after the pool is
+ * destroyed.  Materialize the display name while the Package is still alive.
+ */
+static NSString *CydiaOwnedPackageDisplayName(Package *package) {
+    if (package == nil)
+        return nil;
+
+    NSString *name([package name]);
+    if (name == nil)
+        return nil;
+
+    NSMutableString *owned([[NSMutableString alloc] initWithCapacity:[name length]]);
+    [owned appendString:name];
+    return [owned copy];
+}
 
 static std::string FileFingerprint(const char *path) {
     if (path == NULL)
@@ -58,139 +89,529 @@ static std::string FileFingerprint(const char *path) {
 - (void) reloadSpringBoard;
 @end
 
-@implementation ProgressController
+@interface ProgressController () <UITableViewDataSource, UITableViewDelegate>
+@end
+
+@implementation ProgressController {
+    UIView *footerView_;
+    UILabel *statusLabel_;
+    UIProgressView *progressView_;
+    UIButton *finishButton_;
+    UITableView *eventsView_;
+    UIBarButtonItem *cancelItem_;
+    UIBarButtonItem *finishItem_;
+    CydiaProgressViewState *renderedState_;
+    NSInvocation *pendingInvocation_;
+    NSString *pendingInvocationTitle_;
+    BOOL invocationScheduled_;
+    BOOL invocationStarted_;
+    BOOL invocationStartQueued_;
+    BOOL visible_;
+}
+
+- (UIStatusBarStyle) preferredStatusBarStyle {
+    /* The terminal canvas is black in both system appearances. */
+    return UIStatusBarStyleLightContent;
+}
 
 - (void) dealloc {
-    [database_ setProgressDelegate:nil];
+    [progressModel_ setObserver:nil];
+    if ([database_ progressDelegate] == (CydiaProgressViewModel *) progressModel_)
+        [database_ setProgressDelegate:nil];
 }
 
-- (UIBarButtonItem *) leftButton {
-    return cancel_ == 1 ? [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CANCEL")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(cancel)
-    ] : nil;
-}
+- (instancetype) initWithProgressModel:(CydiaProgressViewModel *)model
+                               database:(Database *)database
+                               delegate:(id)delegate {
+    if ((self = [super init]) != nil) {
+        NSParameterAssert(model != nil);
+        database_ = database;
+        progressModel_ = model;
+        self.delegate = delegate;
+        renderedState_ = model.state;
 
-- (void) updateCancel {
-    [super applyLeftButton];
+        cancelItem_ = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("CANCEL")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(cancel)];
+        finishItem_ = [[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("CLOSE")
+            style:UIBarButtonItemStyleDone
+            target:self
+            action:@selector(close)];
+
+        self.navigationItem.hidesBackButton = YES;
+        [progressModel_ setObserver:self];
+        [database_ setProgressDelegate:progressModel_];
+        [self updateNavigationActionsForState:renderedState_];
+    }
+    return self;
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-        self.delegate = delegate;
-
-        [database_ setProgressDelegate:self];
-
-        progress_ = [[CydiaProgressData alloc] init];
-        [progress_ setDelegate:self];
-
-        [self setURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/progress/", UI_]]];
-
-        [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
-                                      traitCollection:self.traitCollection]];
-
-        [[self navigationItem] setHidesBackButton:YES];
-
-        [self updateCancel];
-    } return self;
+    __weak Database *weakDatabase(database);
+    CydiaProgressViewModel *model([[CydiaProgressViewModel alloc]
+        initWithPackageNameResolver:^NSString *(NSString *identifier) {
+            if (![weakDatabase hasPackages])
+                return nil;
+            Package *package([weakDatabase packageWithName:identifier]);
+            return CydiaOwnedPackageDisplayName(package);
+        }]);
+    return [self initWithProgressModel:model database:database delegate:delegate];
 }
 
-- (void) webView:(WebView *)view didClearWindowObject:(WebScriptObject *)window forFrame:(WebFrame *)frame {
-    [super webView:view didClearWindowObject:window forFrame:frame];
-    [window setValue:progress_ forKey:@"cydiaProgress"];
+#if TARGET_OS_SIMULATOR
+/* The installed probe uses the production controller with a deterministic
+ * model, but never constructs Database or invokes privileged finish actions. */
+- (id) initWithProgressModelForTesting:(CydiaProgressViewModel *)model delegate:(id)delegate {
+    return [self initWithProgressModel:model database:nil delegate:delegate];
+}
+#endif
+
+- (void) loadView {
+    UIView *view([[UIView alloc] initWithFrame:[UIScreen mainScreen].applicationFrame]);
+    view.autoresizingMask = CydiaAutoresizingFlexibleBoth;
+    view.accessibilityIdentifier = @"cydia.progress.root";
+    self.view = view;
+
+    statusLabel_ = [[UILabel alloc] init];
+    statusLabel_.numberOfLines = 0;
+    statusLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    statusLabel_.adjustsFontForContentSizeCategory = YES;
+    statusLabel_.textAlignment = NSTextAlignmentCenter;
+    statusLabel_.accessibilityIdentifier = @"cydia.progress.status";
+
+    progressView_ = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+    progressView_.isAccessibilityElement = YES;
+    progressView_.accessibilityLabel = UCLocalize("RUNNING");
+    progressView_.accessibilityIdentifier = @"cydia.progress.percent";
+
+    finishButton_ = [UIButton buttonWithType:UIButtonTypeSystem];
+    finishButton_.hidden = YES;
+    finishButton_.titleLabel.numberOfLines = 0;
+    finishButton_.titleLabel.textAlignment = NSTextAlignmentCenter;
+    finishButton_.titleLabel.adjustsFontForContentSizeCategory = YES;
+    finishButton_.contentEdgeInsets = UIEdgeInsetsMake(12.0, 8.0, 12.0, 8.0);
+    finishButton_.layer.borderWidth = 1.0;
+    finishButton_.layer.cornerRadius = 9.0;
+    finishButton_.accessibilityIdentifier = @"cydia.progress.finish";
+    [finishButton_ addTarget:self action:@selector(close)
+            forControlEvents:UIControlEventTouchUpInside];
+
+    UIStackView *footerStack([[UIStackView alloc]
+        initWithArrangedSubviews:@[statusLabel_, progressView_, finishButton_]]);
+    footerStack.translatesAutoresizingMaskIntoConstraints = NO;
+    footerStack.axis = UILayoutConstraintAxisVertical;
+    footerStack.alignment = UIStackViewAlignmentCenter;
+    footerStack.spacing = 10.0;
+
+    footerView_ = [[UIView alloc] init];
+    footerView_.translatesAutoresizingMaskIntoConstraints = NO;
+    footerView_.accessibilityIdentifier = @"cydia.progress.footer";
+    [footerView_ addSubview:footerStack];
+    [view addSubview:footerView_];
+
+    eventsView_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    eventsView_.translatesAutoresizingMaskIntoConstraints = NO;
+    eventsView_.autoresizingMask = CydiaAutoresizingFlexibleBoth;
+    eventsView_.dataSource = self;
+    eventsView_.delegate = self;
+    eventsView_.rowHeight = UITableViewAutomaticDimension;
+    /* Caption-sized output plus one-point vertical insets restores the compact
+     * rhythm of the legacy dpkg log while multiline diagnostics remain
+     * self-sized by Auto Layout. */
+    eventsView_.estimatedRowHeight = 20.0;
+    eventsView_.separatorStyle = UITableViewCellSeparatorStyleNone;
+    eventsView_.contentInset = UIEdgeInsetsMake(20.0, 0, 12.0, 0);
+    eventsView_.scrollIndicatorInsets = eventsView_.contentInset;
+    eventsView_.tableFooterView = [[UIView alloc] initWithFrame:CGRectZero];
+    eventsView_.accessibilityIdentifier = @"cydia.progress.events";
+    [eventsView_ registerClass:[CydiaProgressEventCell class]
+        forCellReuseIdentifier:CydiaProgressEventCellIdentifier];
+    [view addSubview:eventsView_];
+
+    UILayoutGuide *footerMargins(footerView_.layoutMarginsGuide);
+    [NSLayoutConstraint activateConstraints:@[
+        [footerView_.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
+        [footerView_.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+        [footerView_.bottomAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.bottomAnchor],
+        [footerStack.leadingAnchor constraintEqualToAnchor:footerMargins.leadingAnchor constant:4.0],
+        [footerStack.trailingAnchor constraintEqualToAnchor:footerMargins.trailingAnchor constant:-4.0],
+        [footerStack.topAnchor constraintEqualToAnchor:footerMargins.topAnchor constant:8.0],
+        [footerStack.bottomAnchor constraintEqualToAnchor:footerMargins.bottomAnchor constant:-16.0],
+        [statusLabel_.widthAnchor constraintEqualToAnchor:footerStack.widthAnchor],
+        [progressView_.widthAnchor constraintEqualToConstant:158.0],
+        [finishButton_.widthAnchor constraintEqualToAnchor:footerStack.widthAnchor],
+        [finishButton_.heightAnchor constraintGreaterThanOrEqualToConstant:50.0],
+        [eventsView_.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
+        [eventsView_.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+        [eventsView_.topAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor],
+        [eventsView_.bottomAnchor constraintEqualToAnchor:footerView_.topAnchor],
+    ]];
+
+    [self applyTypography];
+    [self applyColorAppearance];
+    [self renderState:renderedState_ previous:nil change:CydiaProgressViewModelChangeNone];
 }
 
-- (void) updateProgress {
-    [self dispatchEvent:@"CydiaProgressUpdate"];
+- (void) releaseSubviews {
+    eventsView_.dataSource = nil;
+    eventsView_.delegate = nil;
+    footerView_ = nil;
+    statusLabel_ = nil;
+    progressView_ = nil;
+    finishButton_ = nil;
+    eventsView_ = nil;
+    [super releaseSubviews];
 }
 
-- (void) viewWillAppear:(BOOL)animated {
-    [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
-    [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
-                                  traitCollection:self.traitCollection]];
-    [super viewWillAppear:animated];
+- (void) applyColorAppearance {
+    UITraitCollection *terminalTraits(CydiaProgressTerminalTraits());
+    /* The enclosing Confirmation navigation may be a form sheet, but Progress
+     * remains a terminal surface in either presentation.  Confirmation's
+     * placeholder owns its elevated cell background separately. */
+    UIColor *canvas([UIColor cydiaColorForRole:CydiaColorRoleBackground
+                                 traitCollection:terminalTraits]);
+    UIColor *secondary([UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                    traitCollection:terminalTraits]);
+    UIColor *separator([UIColor cydiaColorForRole:CydiaColorRoleSeparator
+                                    traitCollection:terminalTraits]);
+    UIColor *accent([UIColor cydiaColorForRole:CydiaColorRoleAccent
+                               traitCollection:terminalTraits]);
+    UIColor *label([UIColor cydiaColorForRole:CydiaColorRoleLabel
+                              traitCollection:terminalTraits]);
+    self.view.backgroundColor = canvas;
+    self.view.opaque = YES;
+    footerView_.backgroundColor = canvas;
+    footerView_.opaque = YES;
+    eventsView_.backgroundColor = canvas;
+    eventsView_.opaque = YES;
+    if (eventsView_.backgroundView == nil)
+        eventsView_.backgroundView = [[UIView alloc] initWithFrame:CGRectZero];
+    eventsView_.backgroundView.backgroundColor = canvas;
+    eventsView_.backgroundView.opaque = YES;
+    statusLabel_.textColor = secondary;
+    progressView_.progressTintColor = accent;
+    progressView_.trackTintColor = separator;
+    [finishButton_ setTitleColor:label forState:UIControlStateNormal];
+    finishButton_.layer.borderColor = [label CGColor];
+    if (self.navigationController != nil) {
+        self.navigationController.view.backgroundColor = canvas;
+        self.navigationController.view.opaque = YES;
+        UINavigationBar *navigationBar(self.navigationController.navigationBar);
+        navigationBar.barStyle = UIBarStyleBlack;
+        navigationBar.translucent = NO;
+        navigationBar.barTintColor = canvas;
+        navigationBar.backgroundColor = canvas;
+        navigationBar.tintColor = accent;
+        navigationBar.titleTextAttributes = @{NSForegroundColorAttributeName: label};
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+        if (@available(iOS 13.0, *)) {
+            UINavigationBarAppearance *appearance([[UINavigationBarAppearance alloc] init]);
+            [appearance configureWithOpaqueBackground];
+            appearance.backgroundColor = canvas;
+            appearance.titleTextAttributes = @{NSForegroundColorAttributeName: label};
+            navigationBar.standardAppearance = appearance;
+            navigationBar.scrollEdgeAppearance = appearance;
+        }
+#endif
+    }
+    [self setNeedsStatusBarAppearanceUpdate];
+}
+
+- (void) applyTypography {
+    UITraitCollection *traits(self.traitCollection);
+    statusLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody
+                               compatibleWithTraitCollection:traits];
+    finishButton_.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline
+                                          compatibleWithTraitCollection:traits];
 }
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
-    BOOL appearanceChanged = CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection);
-    if (appearanceChanged)
-        [self setPageColor:[UIColor cydiaColorForRole:CydiaColorRoleBackground
-                                      traitCollection:self.traitCollection]];
-
-    // CyteWebViewController repaints its scroller from pageColor in its trait
-    // callback, so update the explicit progress color before calling super.
     [super traitCollectionDidChange:previousTraitCollection];
-    if (appearanceChanged)
-        [[[self navigationController] navigationBar] setBarStyle:UIBarStyleDefault];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection))
+        [self applyColorAppearance];
+    if (self.isViewLoaded && (previousTraitCollection == nil ||
+        ![self.traitCollection.preferredContentSizeCategory isEqualToString:
+            previousTraitCollection.preferredContentSizeCategory])) {
+        BOOL follow([self shouldFollowEventTail]);
+        [self applyTypography];
+        [eventsView_ reloadData];
+        [footerView_ setNeedsLayout];
+        [eventsView_ setNeedsLayout];
+        if (follow && [renderedState_.events count] != 0) {
+            __weak ProgressController *weakSelf(self);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [weakSelf scrollToLastEventAnimated:NO];
+            });
+        }
+    }
+}
+
+- (void) viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self applyColorAppearance];
+    CydiaProgressViewState *state([progressModel_ state]);
+    CydiaProgressViewState *previous(renderedState_);
+    renderedState_ = state;
+    [self renderState:state previous:previous change:CydiaProgressViewModelChangeNone];
+}
+
+- (void) startPendingInvocationIfVisible {
+    invocationStartQueued_ = NO;
+    if (!visible_ || !invocationScheduled_ || invocationStarted_)
+        return;
+
+    invocationStarted_ = YES;
+    NSInvocation *invocation(pendingInvocation_);
+    NSString *title(pendingInvocationTitle_);
+    pendingInvocation_ = nil;
+    pendingInvocationTitle_ = nil;
+    [self invoke:invocation withTitle:title];
+}
+
+- (void) schedulePendingInvocationIfVisible {
+    if (!visible_ || !invocationScheduled_ || invocationStarted_ ||
+        invocationStartQueued_)
+        return;
+
+    /* viewDidAppear may still be running in UIKit's transition run-loop mode.
+     * yieldToSelector intentionally services the mode in which it begins, so
+     * entering it synchronously there can starve navigation-bar touch delivery.
+     * A zero-delay selector starts acquisition on the next default-mode turn. */
+    invocationStartQueued_ = YES;
+    [self performSelector:@selector(startPendingInvocationIfVisible)
+               withObject:nil
+               afterDelay:0.0];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    visible_ = YES;
+    [self schedulePendingInvocationIfVisible];
+}
+
+- (void) viewWillDisappear:(BOOL)animated {
+    visible_ = NO;
+    [NSObject cancelPreviousPerformRequestsWithTarget:self
+                                             selector:@selector(startPendingInvocationIfVisible)
+                                               object:nil];
+    invocationStartQueued_ = NO;
+    [super viewWillDisappear:animated];
+}
+
+- (NSString *) accessibilityPercentForState:(CydiaProgressViewState *)state {
+    if (!state.progressDeterminate)
+        return UCLocalize("UNKNOWN");
+    return [NSNumberFormatter localizedStringFromNumber:@(state.displayPercent)
+                                            numberStyle:NSNumberFormatterPercentStyle];
+}
+
+- (CydiaProgressFinishAction) effectiveFinishActionForState:(CydiaProgressViewState *)state {
+    return CydiaProgressEffectiveFinishAction(state.finishAction, Finish_);
+}
+
+- (NSString *) effectiveFinishTitleForState:(CydiaProgressViewState *)state {
+    CydiaProgressFinishAction action([self effectiveFinishActionForState:state]);
+    if (action == CydiaProgressFinishActionNone)
+        return nil;
+    if (action == state.finishAction && [state.finishTitle length] != 0)
+        return state.finishTitle;
+    return UCLocalizeEx(CydiaProgressFinishLocalizationKey(action));
+}
+
+- (NSString *) accessibilityValueForState:(CydiaProgressViewState *)state {
+    NSString *percent([self accessibilityPercentForState:state]);
+    NSString *finishTitle([self effectiveFinishTitleForState:state]);
+    if (state.running || [finishTitle length] == 0)
+        return percent;
+    return [NSString stringWithFormat:UCLocalize("COMMA_DELIMITED"),
+        percent, finishTitle];
+}
+
+- (BOOL) eventsWereAppendedFrom:(NSArray *)previous to:(NSArray *)events {
+    if ([previous count] > [events count])
+        return NO;
+    for (NSUInteger index(0); index != [previous count]; ++index)
+        if ([previous objectAtIndex:index] != [events objectAtIndex:index])
+            return NO;
+    return YES;
+}
+
+- (BOOL) shouldFollowEventTail {
+    if ([renderedState_.events count] == 0)
+        return YES;
+    CGFloat visibleBottom(CGRectGetMaxY(eventsView_.bounds));
+    return eventsView_.contentSize.height - visibleBottom <= 72.0;
+}
+
+- (void) scrollToLastEventAnimated:(BOOL)animated {
+    NSUInteger count([renderedState_.events count]);
+    if (count == 0)
+        return;
+    [eventsView_ scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:count - 1 inSection:0]
+                       atScrollPosition:UITableViewScrollPositionBottom
+                               animated:animated];
+}
+
+- (void) renderEventsFromState:(CydiaProgressViewState *)state
+                      previous:(CydiaProgressViewState *)previous {
+    NSArray *oldEvents(previous == nil ? @[] : previous.events);
+    NSArray *newEvents(state.events);
+    BOOL appended([self eventsWereAppendedFrom:oldEvents to:newEvents]);
+    BOOL follow([oldEvents count] == 0 || [self shouldFollowEventTail]);
+    if (previous == nil || !appended) {
+        [eventsView_ reloadData];
+    } else if ([oldEvents count] != [newEvents count]) {
+        /* iOS 12 can retain an estimated height for a newly inserted
+         * multiline cell. A nonanimated reload commits final Auto Layout
+         * heights while preserving this immutable state's event order. */
+        [eventsView_ reloadData];
+    }
+    if (follow && [newEvents count] != 0) {
+        __weak ProgressController *weakSelf(self);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf scrollToLastEventAnimated:NO];
+        });
+    }
+}
+
+- (void) redrawCompletedHierarchy {
+    /* Completion changes only the navigation and bottom controls. Keep the
+     * already-rendered event cells in place: reloading an unchanged table at
+     * the same time as its footer resizes can leave incomplete CoreAnimation
+     * tiles on iOS 12. */
+    [self.view setNeedsLayout];
+    [self.view layoutIfNeeded];
+    [footerView_ setNeedsDisplay];
+    [finishButton_ setNeedsDisplay];
+    [self.view setNeedsDisplay];
+}
+
+- (void) renderState:(CydiaProgressViewState *)state
+             previous:(CydiaProgressViewState *)previous
+               change:(CydiaProgressViewModelChange)change {
+    if (state == nil || !self.isViewLoaded)
+        return;
+    NSString *title(state.localizedTitle ?: state.rawTitle ?: @"");
+    self.navigationItem.title = title;
+    statusLabel_.text = state.statusText ?: @"";
+    statusLabel_.accessibilityLabel = statusLabel_.text;
+    NSString *finishTitle([self effectiveFinishTitleForState:state]);
+    [finishButton_ setTitle:[finishTitle length] == 0 ? UCLocalize("CLOSE") : finishTitle
+                   forState:UIControlStateNormal];
+    BOOL finished(!state.running && [finishTitle length] != 0);
+    statusLabel_.hidden = !state.running;
+    progressView_.hidden = !state.running;
+    finishButton_.hidden = !finished;
+    progressView_.accessibilityLabel = state.running ?
+        UCLocalize("RUNNING") : UCLocalize("COMPLETE");
+    progressView_.accessibilityValue = [self accessibilityValueForState:state];
+    [progressView_ setProgress:state.displayPercent
+                      animated:previous != nil &&
+                               (change & CydiaProgressViewModelChangeMetrics) != 0];
+    [self updateNavigationActionsForState:state];
+
+    if (previous == nil ||
+        (change & CydiaProgressViewModelChangeEvents) != 0 ||
+        ![previous.events isEqualToArray:state.events])
+        [self renderEventsFromState:state previous:previous];
+
+    if (previous != nil && previous.running && !state.running)
+        [self redrawCompletedHierarchy];
+}
+
+- (void) updateNavigationActionsForState:(CydiaProgressViewState *)state {
+    BOOL cancellable(state.cancellationState == CydiaProgressCancellationAvailable);
+    self.navigationItem.leftBarButtonItem = cancellable ? cancelItem_ : nil;
+
+    CydiaProgressFinishAction action([self effectiveFinishActionForState:state]);
+    BOOL finished(!state.running && action != CydiaProgressFinishActionNone);
+    NSString *finishTitle([self effectiveFinishTitleForState:state]);
+    finishItem_.title = [finishTitle length] == 0 ? UCLocalize("CLOSE") : finishTitle;
+    self.navigationItem.rightBarButtonItem = finished ? finishItem_ : nil;
+    [finishButton_ setTitle:finishItem_.title forState:UIControlStateNormal];
+}
+
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void) tableView;
+    (void) section;
+    return (NSInteger) [renderedState_.events count];
+}
+
+- (UITableViewCell *) tableView:(UITableView *)tableView
+          cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    CydiaProgressEventCell *cell([tableView
+        dequeueReusableCellWithIdentifier:CydiaProgressEventCellIdentifier
+                              forIndexPath:indexPath]);
+    [cell configureWithEvent:[renderedState_.events objectAtIndex:(NSUInteger) indexPath.row]];
+    return cell;
+}
+
+- (void) dismissProgressInterface {
+    [[[self navigationController] parentOrPresentingViewController]
+        dismissModalViewControllerAnimated:YES];
 }
 
 - (void) close {
     UpdateExternalStatus(0);
 
     id<ProgressControllerDelegate> delegate(self.delegate);
-    if (Finish_ > 1)
+    CydiaProgressFinishAction action(CydiaProgressEffectiveFinishAction(
+        [[progressModel_ state] finishAction], Finish_));
+    CydiaProgressFinishPlan plan(CydiaProgressFinishPlanForAction(action));
+    if (plan.savesState)
         [delegate saveState];
 
-    switch (Finish_) {
-        case 0:
+    switch (plan.sideEffect) {
+        case CydiaProgressFinishSideEffectNone:
+            _assume(false);
+        break;
+
+        case CydiaProgressFinishSideEffectReturnToCydia:
             [delegate returnToCydia];
         break;
 
-        case 1:
+        case CydiaProgressFinishSideEffectTerminate:
             [delegate terminateWithSuccess];
-            /*if ([self.delegate respondsToSelector:@selector(suspendWithAnimation:)])
-                [self.delegate suspendWithAnimation:YES];
-            else
-                [self.delegate suspend];*/
         break;
 
-        case 2:
+        case CydiaProgressFinishSideEffectReloadSpringBoard: {
             _trace();
-            goto reload;
-
-        case 3:
-            _trace();
-            goto reload;
-
-        reload: {
             UIProgressHUD *hud([delegate addProgressHUD]);
             [hud setText:UCLocalize("LOADING")];
-            [(NSObject *) delegate performSelector:@selector(reloadSpringBoard) withObject:nil afterDelay:0.5];
+            [(NSObject *) delegate performSelector:@selector(reloadSpringBoard)
+                                         withObject:nil afterDelay:0.5];
             return;
         }
 
-        case 4:
+        case CydiaProgressFinishSideEffectRebootDevice:
             _trace();
             CydiaReboot(RB_AUTOBOOT);
         break;
     }
 
-    [super close];
+    if (plan.dismissesController)
+        [self dismissProgressInterface];
 }
 
 - (void) setTitle:(NSString *)title {
-    [progress_ setTitle:title];
-    [self updateProgress];
+    [progressModel_ setTitle:title];
 }
 
-- (UIBarButtonItem *) rightButton {
-    return [[progress_ running] boolValue] ? [super rightButton] : [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CLOSE")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(close)
-    ];
+- (void) invokeWhenVisible:(NSInvocation *)invocation withTitle:(NSString *)title {
+    NSAssert([NSThread isMainThread], @"progress invocation must be scheduled on the main thread");
+    NSAssert(!invocationScheduled_, @"a progress controller runs one invocation");
+    pendingInvocation_ = invocation;
+    pendingInvocationTitle_ = [title copy];
+    invocationScheduled_ = YES;
+    [self schedulePendingInvocationIfVisible];
 }
 
 - (void) invoke:(NSInvocation *)invocation withTitle:(NSString *)title {
     UpdateExternalStatus(1);
-
-    [progress_ setRunning:true];
-    [self setTitle:title];
-    // implicit updateProgress
+    [progressModel_ beginWithTitle:title];
 
     std::string notifyconf(FileFingerprint(NotifyConfig_));
     std::string springlist(FileFingerprint(SpringBoard_));
@@ -200,88 +621,53 @@ static std::string FileFingerprint(const char *path) {
         [self setTitle:@"COMPLETE"];
     }
 
-    if (Finish_ < 4) {
-        if (notifyconf != FileFingerprint(NotifyConfig_))
-            Finish_ = 4;
-    }
-
-    if (Finish_ < 3) {
-        if (springlist != FileFingerprint(SpringBoard_))
-            Finish_ = 3;
-    }
-
-    if (Finish_ < 2) {
-        if (RestartSubstrate_)
-            Finish_ = 2;
-    }
+    if (Finish_ < 4 && notifyconf != FileFingerprint(NotifyConfig_))
+        Finish_ = 4;
+    if (Finish_ < 3 && springlist != FileFingerprint(SpringBoard_))
+        Finish_ = 3;
+    if (Finish_ < 2 && RestartSubstrate_)
+        Finish_ = 2;
 
     RestartSubstrate_ = false;
-
-    switch (Finish_) {
-        case 0: [progress_ setFinish:UCLocalize("RETURN_TO_CYDIA")]; break; /* XXX: Maybe UCLocalize("DONE")? */
-        case 1: [progress_ setFinish:UCLocalize("CLOSE_CYDIA")]; break;
-        case 2: [progress_ setFinish:UCLocalize("RESTART_SPRINGBOARD")]; break;
-        case 3: [progress_ setFinish:UCLocalize("RELOAD_SPRINGBOARD")]; break;
-        case 4: [progress_ setFinish:UCLocalize("REBOOT_DEVICE")]; break;
-    }
-
     UpdateExternalStatus(Finish_ == 0 ? 0 : 2);
-
-    [progress_ setRunning:false];
-    [self updateProgress];
-
-    [self applyRightButton];
+    [progressModel_ completeWithFinishAction:static_cast<CydiaProgressFinishAction>(Finish_)];
 }
 
 - (void) addProgressEvent:(CydiaProgressEvent *)event {
-    [progress_ addEvent:event];
-    [self updateProgress];
+    [progressModel_ addProgressEvent:event];
 }
 
 - (bool) isProgressCancelled {
-    return cancel_ == 2;
+    return [progressModel_ isProgressCancelled];
 }
 
 - (void) cancel {
-    cancel_ = 2;
-    [self updateCancel];
+    [progressModel_ requestCancellation];
 }
 
 - (void) setCancellable:(bool)cancellable {
-    unsigned cancel(cancel_);
-
-    if (!cancellable)
-        cancel_ = 0;
-    else if (cancel_ == 0)
-        cancel_ = 1;
-
-    if (cancel != cancel_)
-        [self updateCancel];
+    [progressModel_ setCancellable:cancellable];
 }
 
 - (void) setProgressCancellable:(NSNumber *)cancellable {
-    [self setCancellable:[cancellable boolValue]];
+    [progressModel_ setProgressCancellable:cancellable];
 }
 
 - (void) setProgressPercent:(NSNumber *)percent {
-    [progress_ setPercent:[percent floatValue]];
-    [self updateProgress];
+    [progressModel_ setProgressPercent:percent];
 }
 
 - (void) setProgressStatus:(NSDictionary *)status {
-    if (status == nil) {
-        [progress_ setCurrent:0];
-        [progress_ setTotal:0];
-        [progress_ setSpeed:0];
-    } else {
-        [progress_ setPercent:[[status objectForKey:@"Percent"] floatValue]];
+    [progressModel_ setProgressStatus:status];
+}
 
-        [progress_ setCurrent:[[status objectForKey:@"Current"] floatValue]];
-        [progress_ setTotal:[[status objectForKey:@"Total"] floatValue]];
-        [progress_ setSpeed:[[status objectForKey:@"Speed"] floatValue]];
-    }
-
-    [self updateProgress];
+- (void) progressViewModel:(CydiaProgressViewModel *)model
+           didPublishState:(CydiaProgressViewState *)state
+                    change:(CydiaProgressViewModelChange)change {
+    (void) model;
+    CydiaProgressViewState *previous(renderedState_);
+    renderedState_ = state;
+    [self renderState:state previous:previous change:change];
 }
 
 @end

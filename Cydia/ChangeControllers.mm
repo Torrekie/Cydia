@@ -6,7 +6,6 @@
 #include "Cydia/ChangeControllers.h"
 
 #include "Cydia/Appearance.h"
-#include "Cydia/AppState.h"
 #include "Cydia/ControllerState.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
@@ -30,7 +29,7 @@
 @implementation ChangesController
 
 - (NSURL *) referrerURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/changes/", UI_]];
+    return [self navigationURL];
 }
 
 - (NSURL *) navigationURL {
@@ -214,7 +213,7 @@
 }
 
 - (NSURL *) referrerURL {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"%@/#!/search?q=%@", UI_, [([search_ text] ?: @"") stringByAddingPercentEscapesIncludingReserved]]];
+    return [self navigationURL];
 }
 
 - (NSURL *) navigationURL {

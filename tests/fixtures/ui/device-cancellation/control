@@ -1,0 +1,12 @@
+Package: com.torrekie.cydia-ui-cancellation-fixture
+Name: Cydia UI Cancellation Fixture
+Version: 1.0
+Architecture: iphoneos-arm64
+Section: Development
+Priority: optional
+Maintainer: Torrekie <noreply@invalid.example>
+Installed-Size: 8192
+Description: Disposable slow acquisition for native Progress cancellation evidence
+ This package owns one inert zero-filled payload below /var/jb/var/tmp. It has
+ no maintainer scripts, dependencies, triggers, configuration files, or system
+ integration. Its uncompressed archive keeps acquisition cancellable on demand.

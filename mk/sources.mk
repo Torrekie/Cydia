@@ -21,6 +21,17 @@ source += $(filter %.c,$(code)) $(filter %.cpp,$(code)) $(filter %.cc,$(code))
 header := $(filter %.h,$(code)) $(filter %.hpp,$(code)) $(filter %.hh,$(code))
 header += $(APT_PROVENANCE_STAMP) $(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET)
 
+ifeq ($(doIA),yes)
+ifeq ($(doExternalURLProbe),yes)
+source += tests/simulator/ExternalURLControllerProbe.mm
+header += tests/simulator/ExternalURLControllerProbe.h
+endif
+ifeq ($(doErrorViewProbe),yes)
+source += tests/simulator/ErrorViewRuntimeProbe.mm
+header += tests/simulator/ErrorViewRuntimeProbe.h
+endif
+endif
+
 object := $(source)
 object := $(object:.c=.o)
 object := $(object:.cpp=.o)

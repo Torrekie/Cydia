@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Modified work Copyright (C) 2026       Torrekie
  */
 
 #include "CyteKit/UCPlatform.h"
@@ -9,11 +10,13 @@
 #include "Cydia/Appearance.h"
 #include "Cydia/AppState.h"
 #include "Cydia/CydiaDelegate.h"
-#include "Cydia/CydiaWebViewController.h"
 #include "Cydia/Database.h"
+#include "Cydia/LegacyUICompatibilityNativeCaller.h"
 #include "Cydia/SectionControllers.h"
 #include "Cydia/Source.h"
+#include "Cydia/SourceVerificationRequestPolicy.h"
 #include "Cydia/URLHelpers.h"
+#include "Sources.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/TableViewCell.h"
 #include "CyteKit/extern.h"
@@ -22,6 +25,8 @@
 #include "iPhonePrivate.h"
 
 #include <QuartzCore/QuartzCore.h>
+
+#include <objc/runtime.h>
 
 #include <cstdio>
 
@@ -184,6 +189,11 @@
 @end
 /* }}} */
 /* Sources Controller {{{ */
+@protocol SourcesControllerApplicationDelegate <CydiaDelegate, NSObject>
+- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForSource:(Source *)source
+                                                                              presenter:(id)presenter;
+@end
+
 @interface SourcesController () <UITableViewDataSource, UITableViewDelegate>
 @end
 
@@ -202,8 +212,70 @@
     __strong NSURLConnection *trivial_bz2_;
     __strong NSURLConnection *trivial_gz_;
     __strong NSURLConnection *trivial_xz_;
+    __strong NSMapTable *source_verification_trackers_;
+
+    __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilitySession_;
 
     BOOL cydia_;
+}
+
+- (void) invalidateLegacyCompatibilitySession {
+    [legacyCompatibilitySession_ invalidate];
+    legacyCompatibilitySession_ = nil;
+}
+
+- (BOOL) sourceIsCanonical:(Source *)source {
+    BOOL exactSource(object_getClass(source) == [Source class]);
+    if (database_ == nil || !exactSource)
+        return NO;
+    @synchronized (database_) {
+        if ([database_ era] != era_)
+            return NO;
+        for (id candidate in [database_ sources])
+            if (candidate == source)
+                return YES;
+    }
+    return NO;
+}
+
+- (void) bindLegacyCompatibilitySessionForSource:(Source *)source {
+    id delegate([self delegate]);
+    NSString *sourceKey([source key]);
+    BOOL validKey([sourceKey isKindOfClass:[NSString class]] &&
+        [sourceKey length] != 0 &&
+        [sourceKey rangeOfCharacterFromSet:[NSCharacterSet controlCharacterSet]].location == NSNotFound);
+    if (!validKey || ![self sourceIsCanonical:source] || delegate == nil ||
+        ![delegate respondsToSelector:@selector(
+            legacyUICompatibilitySessionForSource:presenter:)]) {
+        [self invalidateLegacyCompatibilitySession];
+        return;
+    }
+
+    if (legacyCompatibilitySession_ != nil &&
+        [legacyCompatibilitySession_ isActive] &&
+        [legacyCompatibilitySession_ target] == source &&
+        [[legacyCompatibilitySession_ sourceKey] isEqualToString:sourceKey])
+        return;
+
+    [self invalidateLegacyCompatibilitySession];
+    CydiaLegacyUICompatibilityNativeSession *session(
+        [(id<SourcesControllerApplicationDelegate>)delegate
+            legacyUICompatibilitySessionForSource:source presenter:nil]);
+    if (session == nil || ![session isActive] || [session target] != source) {
+        [session invalidate];
+        return;
+    }
+
+    id identity([session invokeScope:@"Source"
+        memberKind:CydiaLegacyBridgeMemberKindAttribute memberName:@"key"
+        arguments:@[] targetOrigin:nil]);
+    if (![identity isKindOfClass:[NSString class]] ||
+        ![identity isEqualToString:sourceKey] ||
+        ![[session sourceKey] isEqualToString:sourceKey]) {
+        [session invalidate];
+        return;
+    }
+    legacyCompatibilitySession_ = session;
 }
 
 - (void) _cancelConnection:(NSURLConnection *)connection {
@@ -214,9 +286,11 @@
 }
 
 - (void) dealloc {
+    [self invalidateLegacyCompatibilitySession];
     [self _cancelConnection:trivial_gz_];
     [self _cancelConnection:trivial_bz2_];
     [self _cancelConnection:trivial_xz_];
+    [source_verification_trackers_ removeAllObjects];
 }
 
 - (NSURL *) navigationURL {
@@ -275,9 +349,11 @@
 }
 
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    Source *source([self sourceAtIndexPath:indexPath]);
+    [self bindLegacyCompatibilitySessionForSource:source];
     SectionsController *controller([[SectionsController alloc]
         initWithDatabase:database_
-        source:[self sourceAtIndexPath:indexPath]
+        source:source
     ]);
 
     [controller setDelegate:self.delegate];
@@ -285,19 +361,24 @@
 }
 
 - (BOOL) tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    if ([indexPath section] != 1)
+    if (!CydiaCanEditManagedSources() || [indexPath section] != 1)
         return false;
     Source *source = [self sourceAtIndexPath:indexPath];
-    return [source record] != nil;
+    /* The ownership marker, rather than the optional Sources_ metadata
+     * record, is authoritative.  Keep an owned row deletable even if its
+     * preference record disappeared during a migration. */
+    return source != nil && CydiaManagedSourceKeyIsOwned([source key]);
 }
 
 - (void) tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
     _assert([indexPath section] == 1);
+    if (!CydiaCanEditManagedSources())
+        return;
     if (editingStyle ==  UITableViewCellEditingStyleDelete) {
         Source *source = [self sourceAtIndexPath:indexPath];
-        if (source == nil) return;
+        if (source == nil || !CydiaManagedSourceKeyIsOwned([source key])) return;
 
-        [Sources_ removeObjectForKey:[source key]];
+        CydiaRemoveSource([source key]);
 
         [(NSObject<CydiaDelegate> *) [self delegate] syncData];
     }
@@ -308,6 +389,10 @@
 }
 
 - (void) complete {
+    if (!CydiaCanEditManagedSources()) {
+        href_ = nil;
+        return;
+    }
     [(NSObject<CydiaDelegate> *) [self delegate] addTrivialSource:href_];
     href_ = nil;
 
@@ -334,6 +419,8 @@
 
 - (void) _endConnection:(NSURLConnection *)connection {
     // XXX: the memory management in this method is horribly awkward
+
+    [source_verification_trackers_ removeObjectForKey:connection];
 
     if (connection == trivial_bz2_)
         trivial_bz2_ = nil;
@@ -417,6 +504,16 @@
     }
 }
 
+- (NSURLRequest *) connection:(NSURLConnection *)connection
+              willSendRequest:(NSURLRequest *)request
+             redirectResponse:(NSURLResponse *)response {
+    CydiaSourceVerificationRedirectTracker *tracker(
+        [source_verification_trackers_ objectForKey:connection]);
+    if (tracker == nil)
+        return CydiaSourceVerificationRedirectRequest(request);
+    return [tracker requestForProposedRequest:request redirectResponse:response];
+}
+
 - (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
     lprintf("connection:\"%s\" didFailWithError:\"%s\"\n", [href_ UTF8String], [[error localizedDescription] UTF8String]);
     error_ = error;
@@ -438,18 +535,20 @@
 
     [request setHTTPMethod:method];
 
-    if (Machine_ != NULL)
-        [request setValue:[NSString stringWithUTF8String:Machine_] forHTTPHeaderField:@"X-Machine"];
+    NSString *machine(Machine_ == NULL ? nil :
+        [NSString stringWithUTF8String:Machine_]);
+    NSURLRequest *verified(CydiaSourceVerificationInitialRequest(
+        request, machine, UniqueID_));
+    NSURLConnection *connection([[NSURLConnection alloc]
+        initWithRequest:verified delegate:self startImmediately:NO]);
+    if (connection == nil)
+        return nil;
 
-    if (UniqueID_ != nil)
-        [request setValue:UniqueID_ forHTTPHeaderField:@"X-Unique-ID"];
-
-    if ([url isCydiaSecure]) {
-        if (UniqueID_ != nil)
-            [request setValue:UniqueID_ forHTTPHeaderField:@"X-Cydia-Id"];
-    }
-
-    return [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    CydiaSourceVerificationRedirectTracker *tracker(
+        [[CydiaSourceVerificationRedirectTracker alloc]
+            initWithInitialURL:[verified URL]]);
+    [source_verification_trackers_ setObject:tracker forKey:connection];
+    return connection;
 }
 
 - (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
@@ -474,6 +573,12 @@
                 hud_ = [(NSObject<CydiaDelegate> *) [self delegate] addProgressHUD];
                 [hud_ setText:UCLocalize("VERIFYING_URL")];
                 [(NSObject<CydiaDelegate> *) [self delegate] retainNetworkActivityIndicator];
+
+                /* All ivars and UI state must be installed before a deferred
+                 * connection can deliver a delegate callback. */
+                [trivial_bz2_ start];
+                [trivial_gz_ start];
+                [trivial_xz_ start];
             } break;
 
             case 0:
@@ -504,6 +609,18 @@
 }
 
 - (void) updateButtonsForEditingStatusAnimated:(BOOL)animated {
+    if (!CydiaCanEditManagedSources()) {
+        [list_ setEditing:NO animated:animated];
+        [[self navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
+            initWithTitle:UCLocalize("REFRESH")
+            style:UIBarButtonItemStylePlain
+            target:self
+            action:@selector(refreshButtonClicked)
+        ] animated:animated];
+        [[self navigationItem] setRightBarButtonItem:nil animated:animated];
+        return;
+    }
+
     BOOL editing([list_ isEditing]);
 
     if (editing)
@@ -571,13 +688,17 @@
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
+        source_verification_trackers_ = [NSMapTable weakToStrongObjectsMapTable];
     } return self;
 }
 
 - (void) reloadData {
+    NSString *boundSourceKey([legacyCompatibilitySession_ sourceKey]);
+    [self invalidateLegacyCompatibilitySession];
     [super reloadData];
     [self updateButtonsForEditingStatusAnimated:YES];
 
+    Source *sourceToRebind(nil);
 @synchronized (database_) {
     era_ = [database_ era];
 
@@ -595,10 +716,24 @@
         offset_++;
     }
 
+    if ([boundSourceKey isKindOfClass:[NSString class]] &&
+        [boundSourceKey length] != 0)
+        for (id candidate in (NSArray *)sources_)
+            if (object_getClass(candidate) == [Source class] &&
+                [[(Source *)candidate key] isEqualToString:boundSourceKey]) {
+                sourceToRebind = (Source *)candidate;
+                break;
+            }
+
     [list_ reloadData];
-} }
+}
+    if (boundSourceKey != nil)
+        [self bindLegacyCompatibilitySessionForSource:sourceToRebind];
+}
 
 - (void) showAddSourcePrompt {
+    if (!CydiaCanEditManagedSources())
+        return;
     UIAlertView *alert = [[UIAlertView alloc]
         initWithTitle:UCLocalize("ENTER_APT_URL")
         message:nil
@@ -638,6 +773,8 @@
 }
 
 - (void) editButtonClicked {
+    if (!CydiaCanEditManagedSources())
+        return;
     [list_ setEditing:![list_ isEditing] animated:YES];
     [self updateButtonsForEditingStatusAnimated:YES];
 }

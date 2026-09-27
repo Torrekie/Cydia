@@ -22,4 +22,11 @@ extern _H<UIFont> Font18_;
 extern _H<UIFont> Font18Bold_;
 extern _H<UIFont> Font22Bold_;
 
+/* iOS 13+ compatibility for legacy rootful launch environments that do not
+ * propagate the Settings style into an Automatic root window.  Exact Light
+ * and Dark modes are reconciled at startup and activation only when inherited
+ * traits disagree; unknown modes and explicit caller/probe overrides remain
+ * under UIKit or caller ownership. */
+FOUNDATION_EXPORT void CydiaApplyLegacyInterfaceStyleCompatibility(UIWindow *window);
+
 #endif//Cydia_Appearance_H

@@ -11,21 +11,6 @@
     } return self;
 }
 
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"operator",
-        @"value",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
-}
-
 - (NSString *) operator {
     return operator_;
 }
@@ -49,21 +34,6 @@
     } return self;
 }
 
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"package",
-        @"version",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
-}
-
 - (NSString *) package {
     return package_;
 }
@@ -85,21 +55,6 @@
              clause != data.clauses.end(); ++clause)
             [clauses_ addObject:[[CydiaClause alloc] initWithData:*clause]];
     } return self;
-}
-
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"clauses",
-        @"relationship",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
 }
 
 - (NSString *) relationship {

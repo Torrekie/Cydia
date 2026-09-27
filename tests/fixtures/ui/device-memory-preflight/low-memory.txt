@@ -1,0 +1,14 @@
+__CYDIA_MEMORY__
+System-wide memory free percentage: 13%
+__CYDIA_SWAP__
+vm.swapusage: total = 512.00M used = 370.75M free = 141.25M (encrypted)
+__CYDIA_ARCH__
+iphoneos-arm64
+__CYDIA_UID__
+0
+__CYDIA_PREFIX__
+rootless
+__CYDIA_PROCESSES__
+  101 launchd
+  202 Cydia
+__CYDIA_END__

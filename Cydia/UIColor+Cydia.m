@@ -42,6 +42,8 @@ static UIColor *FixedColor(CydiaColorRole role, UIUserInterfaceStyle style) {
             return dark ? RGBA8(0, 0, 0, 255) : RGBA8(255, 255, 255, 255);
         case CydiaColorRoleGroupedBackground:
             return dark ? RGBA8(0, 0, 0, 255) : RGBA8(239, 239, 244, 255);
+        case CydiaColorRoleCellBackground:
+            return dark ? RGBA8(28, 28, 30, 255) : RGBA8(255, 255, 255, 255);
         case CydiaColorRoleLabel:
             return dark ? RGBA8(255, 255, 255, 255) : RGBA8(0, 0, 0, 255);
         case CydiaColorRoleSecondaryLabel:
@@ -62,6 +64,10 @@ static UIColor *FixedColor(CydiaColorRole role, UIUserInterfaceStyle style) {
             return dark ? RGBA8(84, 84, 88, 153) : RGBA8(60, 60, 67, 74);
         case CydiaColorRoleAccent:
             return dark ? RGBA8(10, 132, 255, 255) : RGBA8(0, 122, 255, 255);
+        case CydiaColorRoleWarningLabel:
+            return dark ? RGBA8(255, 214, 10, 255) : RGBA8(138, 75, 0, 255);
+        case CydiaColorRoleErrorLabel:
+            return dark ? RGBA8(255, 105, 97, 255) : RGBA8(176, 0, 32, 255);
     }
 }
 
@@ -79,6 +85,8 @@ static UIColor *DynamicColor(CydiaColorRole role) {
             return UIColorClassColor(@selector(systemBackgroundColor));
         case CydiaColorRoleGroupedBackground:
             return UIColorClassColor(@selector(systemGroupedBackgroundColor));
+        case CydiaColorRoleCellBackground:
+            return CustomDynamicColor(role);
         case CydiaColorRoleLabel:
             return UIColorClassColor(@selector(labelColor));
         case CydiaColorRoleSecondaryLabel:
@@ -91,10 +99,13 @@ static UIColor *DynamicColor(CydiaColorRole role) {
             return UIColorClassColor(@selector(separatorColor));
         case CydiaColorRoleAccent:
             return UIColorClassColor(@selector(systemBlueColor));
+        case CydiaColorRoleErrorLabel:
+            return UIColorClassColor(@selector(systemRedColor));
         case CydiaColorRoleSelectedLabel:
         case CydiaColorRoleCommercialSecondaryLabel:
         case CydiaColorRoleInstallingBackground:
         case CydiaColorRoleRemovingBackground:
+        case CydiaColorRoleWarningLabel:
             return CustomDynamicColor(role);
     }
 }
@@ -166,6 +177,14 @@ static UIColor *DynamicColor(CydiaColorRole role) {
 
 + (UIColor *)cydiaAccentColor {
     return [self cydiaColorForRole:CydiaColorRoleAccent];
+}
+
++ (UIColor *)cydiaWarningLabelColor {
+    return [self cydiaColorForRole:CydiaColorRoleWarningLabel];
+}
+
++ (UIColor *)cydiaErrorLabelColor {
+    return [self cydiaColorForRole:CydiaColorRoleErrorLabel];
 }
 
 @end

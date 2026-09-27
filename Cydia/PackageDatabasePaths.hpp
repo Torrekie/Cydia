@@ -32,6 +32,9 @@ enum class BootstrapBSDCommand {
     Copy,
     Link,
     Remove,
+    /* Added after the original values to keep the legacy enum ordinals
+     * stable for callers that may persist or exchange the command kind. */
+    Move,
 };
 
 class PackageDatabasePaths {
@@ -59,9 +62,15 @@ class PackageDatabasePaths {
 
     std::string AptSourcesListPath() const;
     std::string AptSourcesDirectory() const;
+    /* Historical package path used only by upgrade migration.  New APT
+     * callers must use the effective paths loaded from apt.conf. */
+    std::string LegacyCydiaSourcesListPath() const;
+    /* Compatibility spelling retained for older migration callers. */
     std::string CydiaSourcesListPath() const;
     std::string CydiaMetadataPath() const;
     std::string CydiaFirmwareVersionPath() const;
+    /* Durable maintainer-script handoff state lives outside dpkg/info. */
+    std::string CydiaLegacySourceMarkerPath() const;
 
     /* Rootless installs do not own the historical /User compatibility link. */
     bool RequiresLegacyUserMigration(bool userDirectoryExists) const;

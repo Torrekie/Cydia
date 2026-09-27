@@ -1,0 +1,64 @@
+#!/bin/sh
+# Offline stand-in for the safety-critical live SSH branch.
+
+set -eu
+
+[ -n "${CYDIA_PREFLIGHT_FAKE_REPORT:-}" ]
+[ -n "${CYDIA_PREFLIGHT_FAKE_TARGET:-}" ]
+
+saw_no_tty=no
+saw_batch=no
+saw_connect_timeout=no
+saw_connection_attempts=no
+saw_keepalive=no
+saw_keepalive_count=no
+saw_target=no
+saw_shell=no
+for argument in "$@"; do
+    case "$argument" in
+        -T) saw_no_tty=yes ;;
+        BatchMode=yes) saw_batch=yes ;;
+        ConnectTimeout=8) saw_connect_timeout=yes ;;
+        ConnectionAttempts=1) saw_connection_attempts=yes ;;
+        ServerAliveInterval=3) saw_keepalive=yes ;;
+        ServerAliveCountMax=1) saw_keepalive_count=yes ;;
+        "$CYDIA_PREFLIGHT_FAKE_TARGET") saw_target=yes ;;
+        'if [ -x /var/jb/bin/bash ]; then exec /var/jb/bin/bash --noprofile --norc -s; elif [ -x /bin/bash ]; then exec /bin/bash --noprofile --norc -s; else exit 127; fi') saw_shell=yes ;;
+    esac
+done
+
+for observed in "$saw_no_tty" "$saw_batch" "$saw_connect_timeout" \
+        "$saw_connection_attempts" "$saw_keepalive" \
+        "$saw_keepalive_count" "$saw_target" "$saw_shell"; do
+    [ "$observed" = yes ] || exit 97
+done
+
+remote_body=$(awk '{ print }')
+for required in \
+        'LC_ALL=C' \
+        'PATH=/var/jb/usr/bin:/var/jb/usr/sbin:/var/jb/bin:/var/jb/sbin:/usr/bin:/usr/sbin:/bin:/sbin' \
+        'memory_pressure_command=$(command -v memory_pressure || true)' \
+        '"$memory_pressure_command" -Q' \
+        '"$sysctl_command" vm.swapusage' \
+        '"$dpkg_command" --print-architecture' \
+        '"$id_command" -u' \
+        '"$ps_command" -axo pid=,comm='; do
+    printf '%s\n' "$remote_body" | grep -Fq "$required" || exit 98
+done
+
+case "${CYDIA_PREFLIGHT_FAKE_MODE:-pass}" in
+    pass)
+        cat "$CYDIA_PREFLIGHT_FAKE_REPORT"
+        ;;
+    fail)
+        echo __CYDIA_MEMORY__
+        exit 23
+        ;;
+    hang)
+        trap 'exit 0' HUP INT TERM
+        while :; do
+            sleep 1
+        done
+        ;;
+    *) exit 99 ;;
+esac

@@ -8,6 +8,16 @@ objc_arc := -fobjc-arc
 ifeq ($(doIA),yes)
 kind := iphonesimulator
 arch := x86_64
+flag += -DCYDIA_APPEARANCE_SIMULATOR_PROBE=1
+ifeq ($(doHomeProbe),yes)
+flag += -DCYDIA_HOME_SIMULATOR_PROBE=1
+endif
+ifeq ($(doExternalURLProbe),yes)
+flag += -DCYDIA_EXTERNAL_URL_SIMULATOR_PROBE=1
+endif
+ifeq ($(doErrorViewProbe),yes)
+flag += -DCYDIA_ERROR_VIEW_SIMULATOR_PROBE=1
+endif
 else
 kind := iphoneos
 arch := arm64
@@ -55,10 +65,16 @@ cycc := $(gxx)
 
 cycc += -isysroot $(sdk)
 cycc += -idirafter $(mac)/usr/include
-cycc += -F$(sdk)/System/Library/PrivateFrameworks
+private_frameworks_dir := $(sdk)/System/Library/PrivateFrameworks
+ifneq ($(wildcard $(private_frameworks_dir)),)
+cycc += -F$(private_frameworks_dir)
+endif
 
 ifeq ($(doIA),yes)
-cycc += -Xarch_x86_64 -F$(sdk)/../../../../iPhoneOS.platform/Developer/Library/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks
+simulator_private_frameworks_dir := $(sdk)/../../../../iPhoneOS.platform/Developer/Library/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks
+ifneq ($(wildcard $(simulator_private_frameworks_dir)),)
+cycc += -Xarch_x86_64 -F$(simulator_private_frameworks_dir)
+endif
 endif
 
 cycc += -include system.h
@@ -103,7 +119,6 @@ flag += -idirafter icu/icuSources/i18n
 
 flag += -Wall
 flag += -Wno-dangling-else
-flag += -Wno-deprecated-declarations
 flag += -Wno-objc-protocol-method-implementation
 flag += -Wno-logical-op-parentheses
 flag += -Wno-shift-op-parentheses
@@ -132,6 +147,7 @@ endif
 endif
 libs += -framework IOKit
 libs += -framework QuartzCore
+libs += -framework SafariServices
 springboard_services_framework := $(firstword $(wildcard \
     $(sdk)/System/Library/PrivateFrameworks/SpringBoardServices.framework \
     $(sdk)/System/Library/Frameworks/SpringBoardServices.framework))

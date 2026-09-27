@@ -1,0 +1,14 @@
+__CYDIA_MEMORY__
+System-wide memory free percentage: 44%
+__CYDIA_SWAP__
+vm.swapusage: total = 512.00M used = 64.00M free = 448.00M (encrypted)
+__CYDIA_ARCH__
+iphoneos-arm64
+__CYDIA_UID__
+0
+__CYDIA_PREFIX__
+rootless
+__CYDIA_PROCESSES__
+  101 launchd
+  303 /var/jb/usr/sbin/dpkg-preconfigure
+__CYDIA_END__

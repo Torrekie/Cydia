@@ -162,7 +162,7 @@ $(APT_LIBRARY): $(APT_PROVENANCE_STAMP) $(libapt64)
 	@tmp="$@.tmp"; rm -f "$$tmp"; \
 		$(CYAR) -rc "$$tmp" $(filter %.o,$^) && mv -f "$$tmp" "$@"
 
-$(APP_BINARY): $(object) entitlements.xml $(lapt)
+$(APP_BINARY): $(object) entitlements.xml $(lapt) $(BUILD_PROVENANCE_SCRIPT)
 	@mkdir -p $(dir $@) $(ARCHIVE_DIR)
 	@echo "[link] $@"
 	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit)
@@ -171,10 +171,7 @@ $(APP_BINARY): $(object) entitlements.xml $(lapt)
 	@printf '%s\n' "$(version)" | grep -q '~' && echo "skipping..." || $(CYSTRIP) $@
 	@echo "[uikt] $@"
 	@./uikit.sh $@
-	@$(INSTALL_NAME_TOOL) -add_rpath /System/Library/Frameworks $@
-	@$(INSTALL_NAME_TOOL) -add_rpath /System/Library/PrivateFrameworks $@
-	@$(INSTALL_NAME_TOOL) -change /System/Library/Frameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
-	@$(INSTALL_NAME_TOOL) -change /System/Library/PrivateFrameworks/WebKit.framework/WebKit @rpath/WebKit.framework/WebKit $@
+	@$(BUILD_PROVENANCE_SCRIPT) record "$(CURDIR)" "$@" "$(VERSION_HEADER)" "$(APP_BINARY_PROVENANCE)"
 
 $(CFVERSION_BINARY): cfversion.mm
 	@mkdir -p $(dir $@)
@@ -192,7 +189,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings
 	@$(LDID) -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+$(POSTINST_BINARY): postinst.mm Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
 	@$(LDID) -T0 -Sgenent.xml $@

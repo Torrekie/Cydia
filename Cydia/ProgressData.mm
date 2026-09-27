@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished native-model work Copyright (C) 2026 Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -23,30 +24,8 @@
 #include "Cydia/ProgressData.h"
 
 #include "Cydia/ProgressEvent.h"
-#include "iPhonePrivate.h"
 
 @implementation CydiaProgressData
-
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"current",
-        @"events",
-        @"finish",
-        @"percent",
-        @"running",
-        @"speed",
-        @"title",
-        @"total",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
-}
 
 - (id) init {
     if ((self = [super init]) != nil) {

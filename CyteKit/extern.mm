@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Copyright (C) 2026       Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -22,7 +23,6 @@
 #include <CyteKit/UCPlatform.h>
 
 #include <CyteKit/RegEx.hpp>
-#include <CyteKit/WebViewController.h>
 #include <CyteKit/extern.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -37,6 +37,15 @@ CGFloat ScreenScale_;
 
 char *Machine_;
 const char *System_;
+static _H<NSString> ApplicationNameForUserAgent_;
+
+void CyteSetApplicationNameForUserAgent(NSString *agent) {
+    ApplicationNameForUserAgent_ = [agent copy];
+}
+
+NSString *CyteApplicationNameForUserAgent(void) {
+    return ApplicationNameForUserAgent_;
+}
 
 bool CyteIsReachable(const char *name) {
     SCNetworkReachabilityFlags flags; {
@@ -107,5 +116,5 @@ void CyteInitialize(NSString *agent) {
         if (RegEx match = RegEx("([0-9]+(\\.[0-9]+)+).*", product))
             agent = [NSString stringWithFormat:@"Version/%@ %@", match[1], agent];
 
-    [CyteWebViewController setApplicationNameForUserAgent:agent];
+    CyteSetApplicationNameForUserAgent(agent);
 }

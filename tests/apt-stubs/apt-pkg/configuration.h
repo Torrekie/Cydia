@@ -28,11 +28,24 @@ class Configuration {
         values_[name] = std::to_string(value);
     }
 
+    void CndSet(const char *name, const char *value) {
+        if (Find(name).empty())
+            Set(name, value);
+    }
+
     std::string Find(const char *name, const char *defaultValue = NULL) const {
         std::map<std::string, std::string>::const_iterator value(values_.find(name));
         if (value != values_.end())
             return value->second;
         return defaultValue == NULL ? std::string() : std::string(defaultValue);
+    }
+
+    std::string FindFile(const char *name, const char *defaultValue = NULL) const {
+        return ResolvePath(Find(name, defaultValue), false);
+    }
+
+    std::string FindDir(const char *name, const char *defaultValue = NULL) const {
+        return ResolvePath(Find(name, defaultValue), true);
     }
 
     void Clear(const std::string &name) {
@@ -59,6 +72,44 @@ class Configuration {
     }
 
   private:
+    std::string ResolvePath(const std::string &value, bool directory) const {
+        if (value.empty() || value == "/dev/null")
+            return ApplyRoot(value);
+        std::string result(value);
+        if (result[0] != '/') {
+            const std::string parent(Find("Dir::Etc"));
+            if (!parent.empty())
+                result = parent + "/" + result;
+        }
+        if (result.compare(0, 10, "/dev/null/") == 0)
+            result.erase(9);
+        result = ApplyRoot(result);
+        if (result == "/dev/null" ||
+            (result.size() > 9 && result.compare(result.size() - 9, 9, "/dev/null") == 0))
+            return result;
+        if (directory && result[result.size() - 1] != '/')
+            result += '/';
+        return result;
+    }
+
+    std::string ApplyRoot(const std::string &value) const {
+        if (value.empty())
+            return value;
+
+        const std::string root(Find("RootDir"));
+        if (root.empty() || root == "/")
+            return value;
+
+        std::string result(root);
+        if (result[result.size() - 1] != '/')
+            result += '/';
+        if (value[0] == '/')
+            result.append(value, 1, std::string::npos);
+        else
+            result += value;
+        return result;
+    }
+
     std::map<std::string, std::string> values_;
 };
 

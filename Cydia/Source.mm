@@ -3,55 +3,11 @@
 
 #include "Cydia/Profile.hpp"
 #include "iPhonePrivate.h"
+#include "Sources.h"
 
 static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch | NSCaseInsensitiveSearch;
 
 @implementation Source
-
-+ (NSString *) webScriptNameForSelector:(SEL)selector {
-    if (false);
-    else if (selector == @selector(addSection:))
-        return @"addSection";
-    else if (selector == @selector(getField:))
-        return @"getField";
-    else if (selector == @selector(removeSection:))
-        return @"removeSection";
-    else if (selector == @selector(remove))
-        return @"remove";
-    else
-        return nil;
-}
-
-+ (BOOL) isSelectorExcludedFromWebScript:(SEL)selector {
-    return [self webScriptNameForSelector:selector] == nil;
-}
-
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"baseuri",
-        @"distribution",
-        @"host",
-        @"key",
-        @"iconuri",
-        @"label",
-        @"name",
-        @"origin",
-        @"rooturi",
-        @"sections",
-        @"shortDescription",
-        @"trusted",
-        @"type",
-        @"version",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
-}
 
 - (void) setSnapshot:(const CydiaAPT::SourceSnapshot &)snapshot inPool:(CYPool *)pool {
     trusted_ = snapshot.trusted;
@@ -135,7 +91,7 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (void) _addSection:(NSString *)section {
-    if (record_ == nil)
+    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
         return;
     else if (NSMutableArray *sections = [record_ objectForKey:@"Sections"]) {
         if (![sections containsObject:section])
@@ -145,7 +101,7 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (bool) addSection:(NSString *)section {
-    if (record_ == nil)
+    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
         return false;
 
     [self performSelectorOnMainThread:@selector(_addSection:) withObject:section waitUntilDone:NO];
@@ -153,7 +109,7 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (void) _removeSection:(NSString *)section {
-    if (record_ == nil)
+    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
         return;
 
     if (NSMutableArray *sections = [record_ objectForKey:@"Sections"])
@@ -162,7 +118,7 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (bool) removeSection:(NSString *)section {
-    if (record_ == nil)
+    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
         return false;
 
     [self performSelectorOnMainThread:@selector(_removeSection:) withObject:section waitUntilDone:NO];
@@ -170,11 +126,16 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (void) _remove {
-    [Sources_ removeObjectForKey:[self key]];
+    CydiaRemoveSource([self key]);
 }
 
 - (bool) remove {
-    bool value(record_ != nil);
+    /* The marker is the persistent ownership authority.  A source metadata
+     * record may be absent after a preference migration or package upgrade,
+     * but that must not make an owned line undeletable. */
+    bool value(CydiaManagedSourceKeyIsOwned([self key]));
+    if (!value)
+        return false;
     [self performSelectorOnMainThread:@selector(_remove) withObject:nil waitUntilDone:NO];
     return value;
 }

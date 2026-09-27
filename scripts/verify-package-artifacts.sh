@@ -114,6 +114,14 @@ require_path() {
 }
 
 require_path "$cydia_paths" "${prefix:+$prefix/}Applications/Cydia.app/Cydia"
+for asset in cydia7.png facebook.png twitter.png featured.png themes.png account.png; do
+    require_path "$cydia_paths" \
+        "${prefix:+$prefix/}Applications/Cydia.app/Home/$asset"
+done
+for asset in DOWNGRADE.png INSTALL.png PURGE.png REINSTALL.png REMOVE.png UPGRADE.png; do
+    require_path "$cydia_paths" \
+        "${prefix:+$prefix/}Applications/Cydia.app/Modes/$asset"
+done
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/cydo"
 require_path "$cydia_paths" "${prefix:+$prefix/}Library/LaunchDaemons/com.saurik.Cydia.Startup.plist"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/NOTICE"

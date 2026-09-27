@@ -1,0 +1,22 @@
+# route	caller	source-known	outcome	policy-enforced	shadow-denied	kind	required-source	external-url	requires-confirmation
+https://example.com/guide	trusted-native	yes	unhandled	yes	no	-	-	-	no
+cydia:home	trusted-native	yes	reject	yes	no	-	-	-	no
+cydia://package	trusted-native	yes	reject	yes	no	-	-	-	no
+cydia://home	trusted-native	yes	allow	yes	no	home	-	-	no
+cydia://home	external-url	yes	reject	yes	no	home	-	-	no
+cydia://launch/com.example.app	trusted-native	yes	allow	yes	no	launch	-	-	no
+cydia://launch/com.example.app	trusted-legacy	yes	reject	yes	no	launch	-	-	no
+cydia://sources/add	external-url	yes	allow	yes	no	source-add	-	-	yes
+cydia://sources/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F	external-url	yes	allow	yes	no	source	deb:https://repo.example/:./	-	no
+cydia://sources/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F	external-url	no	reject	yes	no	source	deb:https://repo.example/:./	-	no
+cydia://sources/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F	repository-depiction	yes	reject	yes	no	source	-	-	no
+cydia://sources/deb%3Ahttps%3A%2F%2Fmissing.example%2F%3A.%2F	repository-depiction	no	reject	yes	no	source	-	-	no
+cydia://sections/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F/Utilities	trusted-native	no	reject	yes	no	section	deb:https://repo.example/:./	-	no
+cydia://package/example:iphoneos-arm64	repository-depiction	yes	allow	yes	no	package	-	-	no
+apptapp://package/example:iphoneos-arm64	external-url	yes	allow	yes	no	package	-	-	no
+cydia://url/https%3A%2F%2Fexample.com%2Fguide	trusted-native	yes	allow	yes	no	external-open	-	https://example.com/guide	no
+cydia://url/file:///etc/passwd	trusted-native	yes	reject	yes	no	external-open	-	file:///etc/passwd	no
+cydia://url/file:///etc/passwd	trusted-legacy	yes	reject	yes	no	external-open	-	file:///etc/passwd	no
+cydia://url/https://example.com/automatic	untrusted-web	yes	reject	yes	no	external-open	-	https://example.com/automatic	no
+cydia://home	trusted-legacy	yes	allow	yes	no	home	-	-	no
+cydia://url/https%3A%2F%2Fexample.com%2Fgesture	repository-depiction	yes	allow	yes	no	external-open	-	https://example.com/gesture	no

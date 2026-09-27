@@ -1,0 +1,11 @@
+Package: com.torrekie.cydia-ui-recovery-fixture
+Name: Cydia UI Recovery Fixture
+Version: 1.0
+Architecture: iphoneos-arm64
+Section: Development
+Priority: optional
+Maintainer: Torrekie <noreply@invalid.example>
+Installed-Size: 1
+Description: Disposable baseline for native transaction failure evidence
+ This package owns one inert marker below /var/jb/var/tmp. It has no dependencies,
+ triggers, configuration files, or system integration.

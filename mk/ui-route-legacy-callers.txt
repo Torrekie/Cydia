@@ -1,0 +1,3 @@
+# Transitional forExternal selector occurrences. Counts may decrease, never grow.
+Cydia/Application+Navigation.mm	2
+Cydia/Application.h	2

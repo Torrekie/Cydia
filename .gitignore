@@ -1,3 +1,16 @@
 .DS_Store
 build/
 sysroot/
+
+# Migration handoffs, runtime receipts, and local evidence stay outside the product tree.
+/docs/ui-migration-*
+/docs/bootstrap-runtime-status.md
+/docs/multiarch-launch-status.md
+/docs/apt-dpkg-canary.md
+/docs/modernization.md
+/local-artifacts/
+/evidence/
+/artifacts/
+*.receipt
+*.receipt.json
+*.jsonl

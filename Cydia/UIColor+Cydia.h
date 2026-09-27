@@ -26,6 +26,10 @@ typedef NS_ENUM(NSUInteger, CydiaColorRole) {
     CydiaColorRoleRemovingBackground,
     CydiaColorRoleSeparator,
     CydiaColorRoleAccent,
+    CydiaColorRoleWarningLabel,
+    CydiaColorRoleErrorLabel,
+    /* Appended to preserve the numeric values of the original public roles. */
+    CydiaColorRoleCellBackground,
 };
 
 @interface UIColor (CydiaAppearance)
@@ -52,6 +56,8 @@ typedef NS_ENUM(NSUInteger, CydiaColorRole) {
 @property(class, nonatomic, readonly) UIColor *cydiaRemovingBackgroundColor;
 @property(class, nonatomic, readonly) UIColor *cydiaSeparatorColor;
 @property(class, nonatomic, readonly) UIColor *cydiaAccentColor;
+@property(class, nonatomic, readonly) UIColor *cydiaWarningLabelColor;
+@property(class, nonatomic, readonly) UIColor *cydiaErrorLabelColor;
 
 @end
 

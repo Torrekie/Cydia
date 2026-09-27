@@ -6,14 +6,27 @@
 #ifndef Cydia_HomeController_H
 #define Cydia_HomeController_H
 
-#include "Cydia/CydiaWebViewController.h"
+#include "CyteKit/ViewController.h"
+#include "Cydia/HomeViewModel.h"
 
 #include <SystemConfiguration/SystemConfiguration.h>
 
-@interface HomeController : CydiaWebViewController {
+@class Database;
+
+@interface HomeController : CyteViewController {
     CFRunLoopRef runloop_;
     SCNetworkReachabilityRef reachability_;
 }
+
+- (instancetype) initWithDatabase:(Database *)database;
+- (void) aboutButtonClicked;
+- (void) refreshButtonClicked;
+
+#if defined(CYDIA_HOME_SIMULATOR_PROBE)
+- (instancetype) initWithViewModel:(CydiaHomeViewModel *)viewModel;
+- (void) setProbeReachabilityKnown:(BOOL)known reachable:(BOOL)reachable;
+- (CydiaHomeViewModel *) probeViewModel;
+#endif
 
 @end
 

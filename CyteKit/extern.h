@@ -1,5 +1,6 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Copyright (C) 2008-2015  Jay Freeman (saurik)
+ * Copyright (C) 2026       Torrekie
 */
 
 /* GNU General Public License, Version 3 {{{ */
@@ -34,6 +35,8 @@ extern const char *System_;
 bool CyteIsReachable(const char *name);
 
 void CyteInitialize(NSString *agent);
+void CyteSetApplicationNameForUserAgent(NSString *agent);
+NSString *CyteApplicationNameForUserAgent(void);
 
 static inline double Retina(double value) {
     value *= ScreenScale_;

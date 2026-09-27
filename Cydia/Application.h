@@ -1,6 +1,7 @@
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
  * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
+ * Refurbished compatibility work Copyright (C) 2026  Torrekie
  */
 
 #ifndef Cydia_Application_H
@@ -11,29 +12,35 @@
 #include "Cydia/ConfirmationController.h"
 #include "Cydia/CydiaDelegate.h"
 #include "Cydia/Database.h"
+#include "Cydia/UIRouteContext.h"
 #include "Menes/ObjectHandle.h"
 
-@class AppCacheController;
 @class CydiaProgressEvent;
 @class CydiaTabBarController;
 @class CyteTabBarController;
 @class CyteViewController;
 @class CyteWindow;
 @class Package;
+@class Source;
 @class ProgressController;
 @class StashController;
 @class UIProgressHUD;
+@class CydiaLegacyUICompatibilityNativeCaller;
+@class CydiaLegacyUICompatibilityNativeProvider;
+@class CydiaLegacyUICompatibilityNativeSession;
 
 @interface Cydia : CyteApplication <ConfirmationControllerDelegate, DatabaseDelegate, CydiaDelegate> {
     _H<CyteWindow> window_;
     _H<CydiaTabBarController> tabbar_;
     _H<CyteTabBarController> emulated_;
-    _H<AppCacheController> appcache_;
-
     _H<NSMutableArray> essential_;
     _H<NSMutableArray> broken_;
 
     __strong Database *database_;
+    __strong CydiaLegacyUICompatibilityNativeCaller *legacyCompatibilityCaller_;
+    __strong CydiaLegacyUICompatibilityNativeProvider *legacyCompatibilityProvider_;
+    __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilityApplicationSession_;
+    BOOL legacyCompatibilityRuntimeEvidenceConsumed_;
 
     _H<NSURL> starturl_;
     unsigned locked_;
@@ -45,6 +52,8 @@
 - (void) unlockSuspend;
 - (void) _loaded;
 - (void) reloadSpringBoard;
+/* Retained for trusted in-process extensions built against legacy Cydia. */
+- (void) system:(NSString *)command;
 - (void) _saveConfig;
 - (void) _updateData;
 - (void) _refreshIfPossible;
@@ -57,11 +66,31 @@
 - (void) detachNewProgressSelector:(SEL)selector toTarget:(id)target forController:(UINavigationController *)navigation title:(NSString *)title;
 - (void) reloadData;
 - (void) cancelAndClear:(bool)clear;
+- (CyteViewController *) pageForURL:(NSURL *)url
+                            context:(NSObject<CyteWebNavigationContext> *)context
+                       withReferrer:(NSString *)referrer;
+- (BOOL) openCydiaURL:(NSURL *)url context:(CydiaUIRouteContext *)context;
+/* Source-compatible route adapters retained for existing native callers. */
 - (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer;
 - (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external;
 - (void) removeStashController;
 - (void) addStashController;
 - (void) loadData;
+
+/* App-owned, capability-bound compatibility entry points.  These factories
+ * are intentionally the only production way to obtain a native legacy
+ * session; the generic service initializer remains policy-only. */
+- (CydiaLegacyUICompatibilityNativeCaller *) legacyUICompatibilityCaller;
+- (CydiaLegacyUICompatibilityNativeProvider *) legacyUICompatibilityProvider;
+- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForPackage:(Package *)package
+                                                                              presenter:(id)presenter;
+- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForSource:(Source *)source
+                                                                            presenter:(id)presenter;
+- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForApplicationWithPresenter:(id)presenter;
+- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForRenderingWithPresenter:(id)presenter;
+- (void) consumeLegacyUICompatibilityApplicationSessionIfRequested;
+- (void) consumeLegacyUICompatibilityRuntimeEvidenceIfRequested;
+- (void) invalidateLegacyUICompatibility;
 
 @end
 

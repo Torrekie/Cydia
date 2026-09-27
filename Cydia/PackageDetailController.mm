@@ -1,0 +1,1118 @@
+/* Cydia Refurbished native package-detail shell.
+ * Copyright (C) 2026 Torrekie
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+#include "Cydia/PackageDetailController.h"
+
+#include "Cydia/Appearance.h"
+#include "Cydia/PackageDepictionPolicy.h"
+#include "Cydia/PackageDepictionView.h"
+#include "CyteKit/Localize.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace {
+
+typedef NS_ENUM(NSUInteger, CydiaPackageDetailSectionKind) {
+    CydiaPackageDetailSectionKindQueue,
+    CydiaPackageDetailSectionKindActions,
+    CydiaPackageDetailSectionKindWarnings,
+    CydiaPackageDetailSectionKindDepiction,
+    CydiaPackageDetailSectionKindDescription,
+    CydiaPackageDetailSectionKindHomepage,
+    CydiaPackageDetailSectionKindInstalled,
+    CydiaPackageDetailSectionKindSource,
+};
+
+NSString *PackageSizeDescription(uint64_t bytes) {
+    if (bytes == 0)
+        return nil;
+    double kilobytes(static_cast<double>(bytes) / 1024.0);
+    if (std::floor(kilobytes) == kilobytes)
+        return [NSString stringWithFormat:@"%.0f kB", kilobytes];
+    return [NSString stringWithFormat:@"%.1f kB", kilobytes];
+}
+
+NSString *ContactTitle(CydiaPackageDetailViewModel *viewModel) {
+    switch ([viewModel contactKind]) {
+        case CydiaPackageDetailContactKindAuthor:
+        case CydiaPackageDetailContactKindMaintainer:
+            return UCLocalize("AUTHOR");
+        case CydiaPackageDetailContactKindPackageSupport:
+            return UCLocalizeEx(@"PACKAGE_SUPPORT", @"Package Support");
+    }
+}
+
+UIImage *PackageRowImage(UIImage *image) {
+    if (image == nil)
+        return nil;
+    if (image.size.width <= 0.0 || image.size.height <= 0.0)
+        return image;
+    CGSize box(CGSizeMake(29.0, 29.0));
+    CGFloat scale(std::min(box.width / image.size.width,
+                           box.height / image.size.height));
+    CGSize size(CGSizeMake(std::max<CGFloat>(1.0, std::floor(image.size.width * scale)),
+                           std::max<CGFloat>(1.0, std::floor(image.size.height * scale))));
+    UIGraphicsBeginImageContextWithOptions(box, NO, 0.0);
+    [image drawInRect:CGRectMake((box.width - size.width) / 2.0,
+                                 (box.height - size.height) / 2.0,
+                                 size.width, size.height)];
+    UIImage *result(UIGraphicsGetImageFromCurrentImageContext());
+    UIGraphicsEndImageContext();
+    return result;
+}
+
+UIImage *LocalPackageImage(NSString *name) {
+    return PackageRowImage([UIImage imageNamed:name]);
+}
+
+/* The retained package page uses a distinct 32-point glyph for each queued
+ * operation.  Keep the input closed over the historical operation names so a
+ * malformed or future mode can never turn into an arbitrary resource path. */
+NSString *PackageModeAsset(NSString *mode) {
+    if (![mode isKindOfClass:[NSString class]])
+        return @"installing.png";
+    NSString *normalized([mode uppercaseString]);
+    if ([normalized isEqualToString:@"NEW_INSTALL"])
+        normalized = @"INSTALL";
+    static NSSet<NSString *> *knownModes;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        knownModes = [NSSet setWithObjects:
+            @"DOWNGRADE", @"INSTALL", @"PURGE", @"REINSTALL", @"REMOVE",
+            @"UPGRADE", nil];
+    });
+    if (![knownModes containsObject:normalized])
+        return @"installing.png";
+    NSString *asset([NSString stringWithFormat:@"Modes/%@.png", normalized]);
+    return [UIImage imageNamed:asset] == nil ? @"installing.png" : asset;
+}
+
+void SetLegacyPackageRowImage(UITableViewCell *cell, NSString *name) {
+    cell.imageView.image = LocalPackageImage(name);
+    cell.imageView.accessibilityIdentifier = name;
+}
+
+UIImage *LocalPackageImageForURLString(NSString *URLString, NSString *fallback) {
+    NSURL *URL([NSURL URLWithString:URLString]);
+    if ([URL isFileURL]) {
+        UIImage *image([UIImage imageWithContentsOfFile:[URL path]]);
+        if (image != nil)
+            return PackageRowImage(image);
+    }
+    return LocalPackageImage(fallback);
+}
+
+NSString *FooterDetail(CydiaPackageDetailViewModel *viewModel) {
+    NSString *source([[viewModel source] name]);
+    NSString *section([viewModel localizedSection]);
+    if ([source length] != 0 && [section length] != 0)
+        return [NSString stringWithFormat:@"%@ · %@", source, section];
+    return [source length] != 0 ? source : section;
+}
+
+NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
+    NSString *address([viewModel contactAddress]);
+    if ([address length] != 0 &&
+        [viewModel contactKind] != CydiaPackageDetailContactKindPackageSupport)
+        return [@"mailto:" stringByAppendingString:address];
+    return [viewModel supportURLString];
+}
+
+} // namespace
+
+
+@interface CydiaPackageDetailHeaderView : UIView
+@property(nonatomic, strong, readonly) UIImageView *iconView;
+@property(nonatomic, strong, readonly) UILabel *nameLabel;
+@property(nonatomic, strong, readonly) UILabel *versionLabel;
+@property(nonatomic, strong, readonly) UILabel *sizeLabel;
+- (instancetype)initWithViewModel:(CydiaPackageDetailViewModel *)viewModel
+                              icon:(UIImage *)icon;
+- (CGFloat)preferredHeightForWidth:(CGFloat)width;
+- (void)applyColorAppearance;
+@end
+
+@implementation CydiaPackageDetailHeaderView
+
+- (instancetype)initWithViewModel:(CydiaPackageDetailViewModel *)viewModel
+                              icon:(UIImage *)icon {
+    if ((self = [super initWithFrame:CGRectMake(0, 0, 320, 88)]) != nil) {
+        self.accessibilityIdentifier = @"cydia.package.header";
+
+        _iconView = [[UIImageView alloc] initWithImage:icon];
+        _iconView.translatesAutoresizingMaskIntoConstraints = NO;
+        _iconView.contentMode = UIViewContentModeScaleAspectFit;
+        _iconView.layer.cornerRadius = 9.0;
+        _iconView.layer.masksToBounds = YES;
+        _iconView.isAccessibilityElement = YES;
+        _iconView.accessibilityIdentifier = @"cydia.package.header.icon";
+        _iconView.accessibilityLabel = [viewModel displayName];
+
+        _nameLabel = [[UILabel alloc] init];
+        _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _nameLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+        _nameLabel.adjustsFontForContentSizeCategory = YES;
+        _nameLabel.numberOfLines = 2;
+        _nameLabel.text = [viewModel displayName];
+        _nameLabel.accessibilityIdentifier = @"cydia.package.header.name";
+
+        _versionLabel = [[UILabel alloc] init];
+        _versionLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _versionLabel.adjustsFontForContentSizeCategory = YES;
+        _versionLabel.text = [viewModel latestVersion];
+        _versionLabel.accessibilityIdentifier = @"cydia.package.header.version";
+
+        _sizeLabel = [[UILabel alloc] init];
+        _sizeLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
+        _sizeLabel.adjustsFontForContentSizeCategory = YES;
+        _sizeLabel.textAlignment = NSTextAlignmentRight;
+        _sizeLabel.text = PackageSizeDescription([viewModel installedSizeBytes]);
+        _sizeLabel.accessibilityIdentifier = @"cydia.package.header.size";
+
+        UIStackView *metadata([[UIStackView alloc]
+            initWithArrangedSubviews:@[_versionLabel, _sizeLabel]]);
+        metadata.axis = UILayoutConstraintAxisHorizontal;
+        metadata.alignment = UIStackViewAlignmentFirstBaseline;
+        metadata.distribution = UIStackViewDistributionFill;
+        metadata.spacing = 8.0;
+
+        UIStackView *text([[UIStackView alloc]
+            initWithArrangedSubviews:@[_nameLabel, metadata]]);
+        text.translatesAutoresizingMaskIntoConstraints = NO;
+        text.axis = UILayoutConstraintAxisVertical;
+        text.alignment = UIStackViewAlignmentFill;
+        text.spacing = 7.0;
+
+        [self addSubview:_iconView];
+        [self addSubview:text];
+        UILayoutGuide *margins(self.layoutMarginsGuide);
+        [NSLayoutConstraint activateConstraints:@[
+            [_iconView.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
+            [_iconView.topAnchor constraintEqualToAnchor:margins.topAnchor],
+            [_iconView.widthAnchor constraintEqualToConstant:64.0],
+            [_iconView.heightAnchor constraintEqualToConstant:64.0],
+            [text.leadingAnchor constraintEqualToAnchor:_iconView.trailingAnchor constant:10.0],
+            [text.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
+            [text.topAnchor constraintEqualToAnchor:margins.topAnchor],
+            [text.bottomAnchor constraintEqualToAnchor:margins.bottomAnchor],
+            [_iconView.bottomAnchor constraintLessThanOrEqualToAnchor:margins.bottomAnchor],
+        ]];
+        [_nameLabel setContentCompressionResistancePriority:UILayoutPriorityRequired
+                                                      forAxis:UILayoutConstraintAxisVertical];
+        [_sizeLabel setContentHuggingPriority:UILayoutPriorityRequired
+                                       forAxis:UILayoutConstraintAxisHorizontal];
+        [self applyColorAppearance];
+    }
+    return self;
+}
+
+- (CGFloat)preferredHeightForWidth:(CGFloat)width {
+    UIEdgeInsets margins(self.layoutMargins);
+    CGFloat textWidth(std::max<CGFloat>(1.0,
+        width - margins.left - margins.right - 64.0 - 10.0));
+    CGFloat nameHeight(std::ceil([_nameLabel
+        sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)].height));
+    CGFloat versionHeight(std::ceil([_versionLabel
+        sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)].height));
+    CGFloat sizeHeight(std::ceil([_sizeLabel
+        sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)].height));
+    CGFloat textHeight(nameHeight + 7.0 + std::max(versionHeight, sizeHeight));
+    return std::ceil(margins.top + std::max<CGFloat>(64.0, textHeight) + margins.bottom);
+}
+
+- (void)applyColorAppearance {
+    UITraitCollection *traits(self.traitCollection);
+    self.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground
+                                       traitCollection:traits];
+    _nameLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
+                                       traitCollection:traits];
+    _versionLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleCommercialSecondaryLabel
+                                          traitCollection:traits];
+    _sizeLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleCommercialSecondaryLabel
+                                       traitCollection:traits];
+}
+
+@end
+
+
+@interface CydiaPackageDetailBodyCell : UITableViewCell
+@property(nonatomic, strong, readonly) UILabel *bodyLabel;
+@end
+
+@implementation CydiaPackageDetailBodyCell
+
+- (instancetype)initWithReuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithStyle:UITableViewCellStyleDefault
+                      reuseIdentifier:reuseIdentifier]) != nil) {
+        _bodyLabel = [[UILabel alloc] init];
+        _bodyLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        _bodyLabel.numberOfLines = 0;
+        _bodyLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _bodyLabel.adjustsFontForContentSizeCategory = YES;
+        [self.contentView addSubview:_bodyLabel];
+        UILayoutGuide *margins(self.contentView.layoutMarginsGuide);
+        [NSLayoutConstraint activateConstraints:@[
+            [_bodyLabel.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
+            [_bodyLabel.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
+            [_bodyLabel.topAnchor constraintEqualToAnchor:margins.topAnchor],
+            [_bodyLabel.bottomAnchor constraintEqualToAnchor:margins.bottomAnchor],
+            [self.contentView.heightAnchor constraintGreaterThanOrEqualToConstant:44.0],
+        ]];
+    }
+    return self;
+}
+
+@end
+
+
+@interface CydiaPackageDepictionCell : UITableViewCell
+@property(nonatomic, strong, readonly) UIView *contentHost;
+@property(nonatomic, strong, readonly) UIActivityIndicatorView *activityIndicator;
+@property(nonatomic, strong, readonly) UILabel *loadingLabel;
+@property(nonatomic, strong, readonly) UILabel *errorLabel;
+@property(nonatomic, strong, readonly) UIStackView *loadingContainer;
+@property(nonatomic, strong, readonly) UIStackView *errorContainer;
+@property(nonatomic, strong, readonly) UIStackView *buttonContainer;
+@property(nonatomic, strong, readonly) UIButton *retryButton;
+@property(nonatomic, strong, readonly) UIButton *externalButton;
+@property(nonatomic, strong, readonly) NSLayoutConstraint *contentHeightConstraint;
+@property(nonatomic, strong) PackageDepictionView *depictionView;
+- (instancetype)initWithReuseIdentifier:(NSString *)reuseIdentifier;
+- (void)applyDepictionPresentation;
+- (void)applyColorAppearance:(UITraitCollection *)traits;
+@end
+
+@implementation CydiaPackageDepictionCell
+
+- (instancetype)initWithReuseIdentifier:(NSString *)reuseIdentifier {
+    if ((self = [super initWithStyle:UITableViewCellStyleDefault
+                      reuseIdentifier:reuseIdentifier]) != nil) {
+        self.selectionStyle = UITableViewCellSelectionStyleNone;
+        self.accessibilityIdentifier = @"cydia.package.depiction.cell";
+        self.isAccessibilityElement = NO;
+
+        _contentHost = [[UIView alloc] init];
+        _contentHost.translatesAutoresizingMaskIntoConstraints = NO;
+        _contentHost.clipsToBounds = YES;
+        [self.contentView addSubview:_contentHost];
+        [NSLayoutConstraint activateConstraints:@[
+            [_contentHost.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
+            [_contentHost.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
+            [_contentHost.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
+            [_contentHost.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
+        ]];
+        _contentHeightConstraint = [_contentHost.heightAnchor constraintEqualToConstant:52.0];
+        _contentHeightConstraint.priority = UILayoutPriorityRequired;
+        _contentHeightConstraint.active = YES;
+
+        _activityIndicator = [[UIActivityIndicatorView alloc]
+            initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+        _activityIndicator.accessibilityIdentifier = @"cydia.package.depiction.loading.indicator";
+        [_activityIndicator startAnimating];
+        _loadingLabel = [[UILabel alloc] init];
+        _loadingLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _loadingLabel.adjustsFontForContentSizeCategory = YES;
+        _loadingLabel.text = UCLocalize("LOADING");
+        _loadingLabel.accessibilityIdentifier = @"cydia.package.depiction.loading";
+
+        _loadingContainer = [[UIStackView alloc]
+            initWithArrangedSubviews:@[_activityIndicator, _loadingLabel]];
+        _loadingContainer.translatesAutoresizingMaskIntoConstraints = NO;
+        _loadingContainer.axis = UILayoutConstraintAxisHorizontal;
+        _loadingContainer.alignment = UIStackViewAlignmentCenter;
+        _loadingContainer.spacing = 9.0;
+        _loadingContainer.accessibilityIdentifier = @"cydia.package.depiction.loading.container";
+        [_contentHost addSubview:_loadingContainer];
+        [NSLayoutConstraint activateConstraints:@[
+            [_loadingContainer.centerXAnchor constraintEqualToAnchor:_contentHost.centerXAnchor],
+            [_loadingContainer.centerYAnchor constraintEqualToAnchor:_contentHost.centerYAnchor],
+            [_loadingContainer.leadingAnchor constraintGreaterThanOrEqualToAnchor:
+                _contentHost.layoutMarginsGuide.leadingAnchor],
+            [_loadingContainer.trailingAnchor constraintLessThanOrEqualToAnchor:
+                _contentHost.layoutMarginsGuide.trailingAnchor],
+        ]];
+
+        _errorLabel = [[UILabel alloc] init];
+        _errorLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _errorLabel.adjustsFontForContentSizeCategory = YES;
+        _errorLabel.numberOfLines = 0;
+        _errorLabel.textAlignment = NSTextAlignmentCenter;
+        _errorLabel.text = UCLocalize("UNABLE_TO_LOAD");
+        _errorLabel.accessibilityIdentifier = @"cydia.package.depiction.error";
+
+        _retryButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        _retryButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _retryButton.titleLabel.adjustsFontForContentSizeCategory = YES;
+        _retryButton.titleLabel.numberOfLines = 0;
+        _retryButton.titleLabel.textAlignment = NSTextAlignmentCenter;
+        [_retryButton setTitle:UCLocalize("RELOAD") forState:UIControlStateNormal];
+        _retryButton.accessibilityIdentifier = @"cydia.package.depiction.retry";
+        [_retryButton.heightAnchor constraintGreaterThanOrEqualToConstant:44.0].active = YES;
+
+        _externalButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        _externalButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        _externalButton.titleLabel.adjustsFontForContentSizeCategory = YES;
+        _externalButton.titleLabel.numberOfLines = 0;
+        _externalButton.titleLabel.textAlignment = NSTextAlignmentCenter;
+        [_externalButton setTitle:UCLocalize("MORE_INFORMATION")
+                         forState:UIControlStateNormal];
+        _externalButton.accessibilityIdentifier = @"cydia.package.depiction.external";
+        [_externalButton.heightAnchor constraintGreaterThanOrEqualToConstant:44.0].active = YES;
+
+        _buttonContainer = [[UIStackView alloc]
+            initWithArrangedSubviews:@[_retryButton, _externalButton]];
+        _buttonContainer.axis = UILayoutConstraintAxisHorizontal;
+        _buttonContainer.alignment = UIStackViewAlignmentFill;
+        _buttonContainer.distribution = UIStackViewDistributionFillEqually;
+        _buttonContainer.spacing = 12.0;
+
+        _errorContainer = [[UIStackView alloc]
+            initWithArrangedSubviews:@[_errorLabel, _buttonContainer]];
+        _errorContainer.translatesAutoresizingMaskIntoConstraints = NO;
+        _errorContainer.axis = UILayoutConstraintAxisVertical;
+        _errorContainer.alignment = UIStackViewAlignmentFill;
+        _errorContainer.spacing = 4.0;
+        _errorContainer.accessibilityIdentifier = @"cydia.package.depiction.error.container";
+        _errorContainer.hidden = YES;
+        [_contentHost addSubview:_errorContainer];
+        [NSLayoutConstraint activateConstraints:@[
+            [_errorContainer.leadingAnchor constraintEqualToAnchor:
+                _contentHost.layoutMarginsGuide.leadingAnchor],
+            [_errorContainer.trailingAnchor constraintEqualToAnchor:
+                _contentHost.layoutMarginsGuide.trailingAnchor],
+            [_errorContainer.topAnchor constraintEqualToAnchor:
+                _contentHost.layoutMarginsGuide.topAnchor],
+            [_errorContainer.bottomAnchor constraintEqualToAnchor:
+                _contentHost.layoutMarginsGuide.bottomAnchor],
+        ]];
+    }
+    return self;
+}
+
+- (void)setDepictionView:(PackageDepictionView *)depictionView {
+    if (_depictionView == depictionView)
+        return;
+    [_depictionView removeFromSuperview];
+    _depictionView = depictionView;
+    if (_depictionView != nil) {
+        _depictionView.translatesAutoresizingMaskIntoConstraints = NO;
+        [_contentHost insertSubview:_depictionView atIndex:0];
+        [NSLayoutConstraint activateConstraints:@[
+            [_depictionView.leadingAnchor constraintEqualToAnchor:_contentHost.leadingAnchor],
+            [_depictionView.trailingAnchor constraintEqualToAnchor:_contentHost.trailingAnchor],
+            [_depictionView.topAnchor constraintEqualToAnchor:_contentHost.topAnchor],
+            [_depictionView.bottomAnchor constraintEqualToAnchor:_contentHost.bottomAnchor],
+        ]];
+    }
+    [self applyDepictionPresentation];
+}
+
+- (void)applyDepictionPresentation {
+    CydiaPackageDepictionViewState state([_depictionView state]);
+    BOOL failed(state == CydiaPackageDepictionViewStateFailed ||
+                state == CydiaPackageDepictionViewStatePathologicalContent);
+    BOOL loaded(state == CydiaPackageDepictionViewStateLoaded);
+    _loadingContainer.hidden = failed || loaded;
+    _errorContainer.hidden = !failed;
+    _depictionView.hidden = !loaded;
+    if (failed || loaded)
+        [_activityIndicator stopAnimating];
+    else
+        [_activityIndicator startAnimating];
+    if (loaded)
+        _contentHeightConstraint.constant = std::max<CGFloat>(44.0, [_depictionView contentHeight]);
+    else if (failed) {
+        CGFloat fitting([_errorContainer systemLayoutSizeFittingSize:
+            UILayoutFittingCompressedSize].height + _contentHost.layoutMargins.top +
+            _contentHost.layoutMargins.bottom);
+        _contentHeightConstraint.constant = std::max<CGFloat>(108.0, std::ceil(fitting));
+    } else {
+        CGFloat fitting([_loadingContainer systemLayoutSizeFittingSize:
+            UILayoutFittingCompressedSize].height + 16.0);
+        _contentHeightConstraint.constant = std::max<CGFloat>(52.0, std::ceil(fitting));
+    }
+}
+
+- (void)applyColorAppearance:(UITraitCollection *)traits {
+    UIColor *background([UIColor cydiaColorForRole:CydiaColorRoleCellBackground
+                                    traitCollection:traits]);
+    self.backgroundColor = background;
+    _contentHost.backgroundColor = background;
+    _loadingLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                          traitCollection:traits];
+    _errorLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleErrorLabel
+                                        traitCollection:traits];
+    _activityIndicator.color = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                           traitCollection:traits];
+    _buttonContainer.axis = UIContentSizeCategoryIsAccessibilityCategory(
+        traits.preferredContentSizeCategory) ? UILayoutConstraintAxisVertical :
+                                               UILayoutConstraintAxisHorizontal;
+    [self applyDepictionPresentation];
+}
+
+@end
+
+
+@interface PackageDetailController () <UITableViewDataSource, UITableViewDelegate,
+                                        PackageDepictionViewDelegate>
+@property(nonatomic, strong) UITableView *tableView;
+@property(nonatomic, strong) CydiaPackageDetailHeaderView *packageHeaderView;
+@property(nonatomic, strong) UIView *packageFooterView;
+@property(nonatomic, strong) UILabel *packageFooterLabel;
+@property(nonatomic, copy) NSArray<NSNumber *> *sections;
+@property(nonatomic) BOOL depictionEligible;
+@property(nonatomic, strong) PackageDepictionView *depictionView;
+@property(nonatomic, strong) CydiaPackageDepictionCell *depictionCell;
+@property(nonatomic) BOOL depictionTableUpdateScheduled;
+/* CyteViewController.delegate remains the application coordinator.  Keep the
+ * package-shell callbacks on a distinct weak channel so production routing can
+ * install both delegates without one silently replacing the other. */
+@property(nonatomic, weak) id<PackageDetailControllerDelegate> packageDelegate;
+@end
+
+@implementation PackageDetailController
+
+- (UIStatusBarStyle)preferredStatusBarStyle {
+    return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ?
+        UIStatusBarStyleLightContent : UIStatusBarStyleDefault;
+}
+
+- (instancetype)initWithViewModel:(CydiaPackageDetailViewModel *)viewModel
+                       headerIcon:(UIImage *)headerIcon
+                         delegate:(id<PackageDetailControllerDelegate>)delegate {
+    NSParameterAssert(viewModel != nil);
+    if ((self = [super init]) != nil) {
+        _viewModel = viewModel;
+        _headerIcon = headerIcon ?: [UIImage imageNamed:@"unknown.png"] ?: [[UIImage alloc] init];
+        _depictionEligible = [[CydiaPackageDepictionPolicy alloc]
+            initWithURLString:[viewModel depictionURLString]] != nil;
+        _packageDelegate = delegate;
+        [self rebuildSections];
+    }
+    return self;
+}
+
+- (void)configureNavigationItem {
+    self.navigationItem.title = UCLocalize("DETAILS");
+    NSString *key([_viewModel primaryModifyTitleLocalizationKey]);
+    if (key == nil) {
+        self.navigationItem.rightBarButtonItem = nil;
+        return;
+    }
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithTitle:UCLocalizeEx(key)
+        style:UIBarButtonItemStylePlain
+        target:self
+        action:@selector(modifyButtonClicked)];
+    self.navigationItem.rightBarButtonItem.accessibilityIdentifier =
+        @"cydia.package.modify";
+}
+
+- (void)updateFooterLabel {
+    NSString *detail(FooterDetail(_viewModel));
+    _packageFooterLabel.text = [detail length] == 0 ? [_viewModel identity] :
+        [NSString stringWithFormat:@"%@\n%@", [_viewModel identity], detail];
+    _packageFooterLabel.accessibilityLabel = [_viewModel identity];
+    _packageFooterLabel.accessibilityValue = detail;
+}
+
+- (void)updateWithViewModel:(CydiaPackageDetailViewModel *)viewModel
+                 headerIcon:(UIImage *)headerIcon {
+    NSParameterAssert(viewModel != nil);
+    _viewModel = viewModel;
+    _headerIcon = headerIcon ?: [UIImage imageNamed:@"unknown.png"] ?: [[UIImage alloc] init];
+    _depictionEligible = [[CydiaPackageDepictionPolicy alloc]
+        initWithURLString:[viewModel depictionURLString]] != nil;
+    _depictionView = nil;
+    _depictionCell = nil;
+    [self rebuildSections];
+    if (![self isViewLoaded])
+        return;
+
+    _packageHeaderView = [[CydiaPackageDetailHeaderView alloc]
+        initWithViewModel:_viewModel icon:_headerIcon];
+    _tableView.tableHeaderView = _packageHeaderView;
+    [self updateFooterLabel];
+    [self configureNavigationItem];
+    [_tableView reloadData];
+    [self applyColorAppearance];
+    [self.view setNeedsLayout];
+}
+
+- (void)updateHeaderIcon:(UIImage *)headerIcon {
+    _headerIcon = headerIcon ?: [UIImage imageNamed:@"unknown.png"] ?: [[UIImage alloc] init];
+    if (![self isViewLoaded])
+        return;
+    _packageHeaderView.iconView.image = _headerIcon;
+    [_packageHeaderView setNeedsLayout];
+}
+
+- (NSURL *)navigationURL {
+    return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@",
+                                                          [_viewModel identity]]];
+}
+
+- (void)rebuildSections {
+    NSMutableArray<NSNumber *> *sections([NSMutableArray array]);
+    if ([_viewModel modeLocalizationKey] != nil)
+        [sections addObject:@(CydiaPackageDetailSectionKindQueue)];
+    [sections addObject:@(CydiaPackageDetailSectionKindActions)];
+    if ([[_viewModel warnings] count] != 0)
+        [sections addObject:@(CydiaPackageDetailSectionKindWarnings)];
+    if (_depictionEligible) {
+        [sections addObject:@(CydiaPackageDetailSectionKindDepiction)];
+    } else {
+        if ([[_viewModel displayDescription] length] != 0)
+            [sections addObject:@(CydiaPackageDetailSectionKindDescription)];
+        if ([[_viewModel homepageURLString] length] != 0)
+            [sections addObject:@(CydiaPackageDetailSectionKindHomepage)];
+    }
+    if ([_viewModel isInstalled])
+        [sections addObject:@(CydiaPackageDetailSectionKindInstalled)];
+    if ([_viewModel source] != nil)
+        [sections addObject:@(CydiaPackageDetailSectionKindSource)];
+    _sections = [sections copy];
+}
+
+- (void)loadView {
+    UIView *root([[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]]);
+    root.backgroundColor = UIColor.cydiaGroupedBackgroundColor;
+    [self setView:root];
+
+    UITableView *table([[UITableView alloc] initWithFrame:CGRectZero
+                                                    style:UITableViewStyleGrouped]);
+    table.translatesAutoresizingMaskIntoConstraints = NO;
+    table.dataSource = self;
+    table.delegate = self;
+    table.estimatedRowHeight = 52.0;
+    table.rowHeight = UITableViewAutomaticDimension;
+    table.estimatedSectionHeaderHeight = 0.0;
+    table.estimatedSectionFooterHeight = 0.0;
+    table.accessibilityIdentifier = @"cydia.package.table";
+    if ([table respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)])
+        table.cellLayoutMarginsFollowReadableWidth = NO;
+    [root addSubview:table];
+    UILayoutGuide *safe(root.safeAreaLayoutGuide);
+    NSLayoutConstraint *fullWidth([table.widthAnchor constraintEqualToAnchor:safe.widthAnchor]);
+    fullWidth.priority = UILayoutPriorityDefaultHigh;
+    [NSLayoutConstraint activateConstraints:@[
+        [table.topAnchor constraintEqualToAnchor:safe.topAnchor],
+        [table.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
+        [table.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+        [table.widthAnchor constraintLessThanOrEqualToConstant:414.0],
+        [table.leadingAnchor constraintGreaterThanOrEqualToAnchor:safe.leadingAnchor],
+        [table.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor],
+        fullWidth,
+    ]];
+    _tableView = table;
+
+    _packageHeaderView = [[CydiaPackageDetailHeaderView alloc]
+        initWithViewModel:_viewModel icon:_headerIcon];
+    table.tableHeaderView = _packageHeaderView;
+
+    UIView *footer([[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 66)]);
+    UILabel *footerLabel([[UILabel alloc] init]);
+    footerLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    footerLabel.numberOfLines = 2;
+    footerLabel.textAlignment = NSTextAlignmentCenter;
+    footerLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    footerLabel.adjustsFontForContentSizeCategory = YES;
+    footerLabel.accessibilityIdentifier = @"cydia.package.footer";
+    [footer addSubview:footerLabel];
+    UILayoutGuide *footerMargins(footer.layoutMarginsGuide);
+    [NSLayoutConstraint activateConstraints:@[
+        [footerLabel.leadingAnchor constraintEqualToAnchor:footerMargins.leadingAnchor],
+        [footerLabel.trailingAnchor constraintEqualToAnchor:footerMargins.trailingAnchor],
+        [footerLabel.topAnchor constraintEqualToAnchor:footerMargins.topAnchor],
+        [footerLabel.bottomAnchor constraintEqualToAnchor:footerMargins.bottomAnchor],
+    ]];
+    _packageFooterView = footer;
+    _packageFooterLabel = footerLabel;
+    [self updateFooterLabel];
+    table.tableFooterView = footer;
+    [self applyColorAppearance];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    [self configureNavigationItem];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    [self resizeTableSupplementaryView:_packageHeaderView minimumHeight:88.0 header:YES];
+    [self resizeTableSupplementaryView:_packageFooterView minimumHeight:66.0 header:NO];
+}
+
+- (void)resizeTableSupplementaryView:(UIView *)view
+                       minimumHeight:(CGFloat)minimumHeight
+                              header:(BOOL)header {
+    if (view == nil || CGRectGetWidth(_tableView.bounds) <= 0.0)
+        return;
+    CGRect frame(view.frame);
+    frame.size.width = CGRectGetWidth(_tableView.bounds);
+    view.frame = frame;
+    CGFloat height([view systemLayoutSizeFittingSize:CGSizeMake(frame.size.width, 0.0)
+                       withHorizontalFittingPriority:UILayoutPriorityRequired
+                             verticalFittingPriority:UILayoutPriorityFittingSizeLevel].height);
+    if (header)
+        height = std::max(height, [_packageHeaderView preferredHeightForWidth:frame.size.width]);
+    height = std::max(minimumHeight, std::ceil(height));
+    if (std::fabs(CGRectGetHeight(frame) - height) < 0.5)
+        return;
+    frame.size.height = height;
+    view.frame = frame;
+    if (header)
+        _tableView.tableHeaderView = view;
+    else
+        _tableView.tableFooterView = view;
+}
+
+- (void)applyColorAppearance {
+    UITraitCollection *traits(self.traitCollection);
+    UIColor *grouped([UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground
+                                 traitCollection:traits]);
+    UIColor *label([UIColor cydiaColorForRole:CydiaColorRoleLabel
+                              traitCollection:traits]);
+    UIColor *accent([UIColor cydiaColorForRole:CydiaColorRoleAccent
+                               traitCollection:traits]);
+    self.view.backgroundColor = grouped;
+    _tableView.backgroundColor = grouped;
+    _tableView.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator
+                                           traitCollection:traits];
+    [_packageHeaderView applyColorAppearance];
+    _packageFooterView.backgroundColor = grouped;
+    _packageFooterLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                                traitCollection:traits];
+    [_depictionCell applyColorAppearance:traits];
+    if (self.navigationController != nil) {
+        UINavigationBar *navigationBar(self.navigationController.navigationBar);
+        navigationBar.barStyle = traits.userInterfaceStyle == UIUserInterfaceStyleDark ?
+            UIBarStyleBlack : UIBarStyleDefault;
+        navigationBar.tintColor = accent;
+        navigationBar.titleTextAttributes = @{NSForegroundColorAttributeName: label};
+    }
+    [self setNeedsStatusBarAppearanceUpdate];
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection) ||
+        ![self.traitCollection.preferredContentSizeCategory
+            isEqualToString:previousTraitCollection.preferredContentSizeCategory]) {
+        [self applyColorAppearance];
+        [_tableView reloadData];
+        [self.view setNeedsLayout];
+    }
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self applyColorAppearance];
+}
+
+- (void)reloadData {
+    [super reloadData];
+    [_tableView reloadData];
+}
+
+- (void)releaseSubviews {
+    _tableView = nil;
+    _packageHeaderView = nil;
+    _packageFooterView = nil;
+    _packageFooterLabel = nil;
+    _depictionView = nil;
+    _depictionCell = nil;
+    [super releaseSubviews];
+}
+
+- (CydiaPackageDetailSectionKind)sectionKind:(NSInteger)section {
+    return static_cast<CydiaPackageDetailSectionKind>([[_sections objectAtIndex:section]
+        unsignedIntegerValue]);
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    (void)tableView;
+    return [_sections count];
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void)tableView;
+    switch ([self sectionKind:section]) {
+        case CydiaPackageDetailSectionKindQueue:
+        case CydiaPackageDetailSectionKindDepiction:
+        case CydiaPackageDetailSectionKindDescription:
+        case CydiaPackageDetailSectionKindHomepage:
+            return 1;
+        case CydiaPackageDetailSectionKindActions:
+            return 2 + ([_viewModel isConsolePackage] ? 1 : 0) +
+                [[_viewModel applications] count];
+        case CydiaPackageDetailSectionKindWarnings:
+            return [[_viewModel warnings] count];
+        case CydiaPackageDetailSectionKindInstalled:
+            return 2;
+        case CydiaPackageDetailSectionKindSource:
+            return [[[_viewModel source] sourceDescription] length] == 0 ? 1 : 2;
+    }
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void)tableView;
+    switch ([self sectionKind:section]) {
+        case CydiaPackageDetailSectionKindInstalled:
+            return UCLocalize("INSTALLED_DETAILS");
+        case CydiaPackageDetailSectionKindSource:
+            return UCLocalize("SOURCE_DETAILS");
+        default:
+            return nil;
+    }
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    (void)tableView;
+    CydiaPackageDetailSectionKind kind([self sectionKind:section]);
+    if (kind == CydiaPackageDetailSectionKindDepiction)
+        return 0.01;
+    return kind == CydiaPackageDetailSectionKindInstalled ||
+           kind == CydiaPackageDetailSectionKindSource ? 28.0 : 9.0;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    (void)tableView;
+    (void)section;
+    return 0.01;
+}
+
+- (UITableViewCell *)standardCellForTable:(UITableView *)tableView {
+    static NSString *identifier = @"CydiaPackageDetailValue";
+    UITableViewCell *cell([tableView dequeueReusableCellWithIdentifier:identifier]);
+    if (cell == nil)
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1
+                                      reuseIdentifier:identifier];
+    cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    cell.textLabel.adjustsFontForContentSizeCategory = YES;
+    cell.textLabel.numberOfLines = 0;
+    cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
+    cell.detailTextLabel.numberOfLines = 0;
+    cell.textLabel.text = nil;
+    cell.detailTextLabel.text = nil;
+    cell.imageView.image = nil;
+    cell.imageView.accessibilityIdentifier = nil;
+    cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.accessibilityIdentifier = nil;
+    cell.accessibilityLabel = nil;
+    cell.accessibilityValue = nil;
+    cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground
+                                      traitCollection:self.traitCollection];
+    cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
+                                          traitCollection:self.traitCollection];
+    cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                                traitCollection:self.traitCollection];
+    return cell;
+}
+
+- (UITableViewCell *)bodyCellForTable:(UITableView *)tableView {
+    static NSString *identifier = @"CydiaPackageDetailBody";
+    CydiaPackageDetailBodyCell *cell((CydiaPackageDetailBodyCell *)
+        [tableView dequeueReusableCellWithIdentifier:identifier]);
+    if (cell == nil)
+        cell = [[CydiaPackageDetailBodyCell alloc] initWithReuseIdentifier:identifier];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.isAccessibilityElement = YES;
+    cell.accessibilityTraits = UIAccessibilityTraitStaticText;
+    cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground
+                                      traitCollection:self.traitCollection];
+    cell.bodyLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
+                                          traitCollection:self.traitCollection];
+    return cell;
+}
+
+- (UITableViewCell *)depictionCellForTable:(UITableView *)tableView {
+    (void)tableView;
+    if (_depictionCell == nil) {
+        _depictionCell = [[CydiaPackageDepictionCell alloc]
+            initWithReuseIdentifier:@"CydiaPackageDepiction"];
+        [_depictionCell.retryButton addTarget:self action:@selector(retryDepiction)
+                               forControlEvents:UIControlEventTouchUpInside];
+        [_depictionCell.externalButton addTarget:self
+                                          action:@selector(openDepictionExternally)
+                                forControlEvents:UIControlEventTouchUpInside];
+        _depictionView = [[PackageDepictionView alloc]
+            initWithURLString:[_viewModel depictionURLString] delegate:self];
+        _depictionCell.depictionView = _depictionView;
+        [_depictionCell applyColorAppearance:self.traitCollection];
+        [_depictionView startLoading];
+    }
+    [_depictionCell applyDepictionPresentation];
+    return _depictionCell;
+}
+
+- (void)configureActionCell:(UITableViewCell *)cell row:(NSInteger)row {
+    if (row == 0) {
+        cell.textLabel.text = UCLocalize("CHANGE_PACKAGE_SETTINGS");
+        SetLegacyPackageRowImage(cell, @"settings.png");
+        cell.accessibilityIdentifier = @"cydia.package.action.settings";
+    } else if (row == 1) {
+        cell.textLabel.text = ContactTitle(_viewModel);
+        cell.detailTextLabel.text = [_viewModel contactName];
+        SetLegacyPackageRowImage(cell, @"email.png");
+        cell.accessibilityIdentifier = @"cydia.package.action.contact";
+        NSString *contactURL(ContactURLString(_viewModel));
+        cell.selectionStyle = [contactURL length] == 0 ?
+            UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault;
+        return;
+    } else {
+        NSInteger offset(row - 2);
+        if ([_viewModel isConsolePackage]) {
+            if (offset == 0) {
+                cell.textLabel.text = UCLocalize("CONSOLE_PACKAGE");
+                SetLegacyPackageRowImage(cell, @"console.png");
+                cell.accessibilityIdentifier = @"cydia.package.action.console";
+                cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+                return;
+            }
+            --offset;
+        }
+        CydiaPackageDetailApplication *application([[_viewModel applications]
+            objectAtIndex:offset]);
+        cell.textLabel.text = [application displayName];
+        cell.imageView.image = LocalPackageImageForURLString(
+            [application iconURLString], @"Icon-Small.png");
+        cell.accessibilityIdentifier = [NSString stringWithFormat:
+            @"cydia.package.action.application.%ld", (long)offset];
+    }
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView
+         cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    CydiaPackageDetailSectionKind kind([self sectionKind:indexPath.section]);
+    if (kind == CydiaPackageDetailSectionKindDepiction)
+        return [self depictionCellForTable:tableView];
+    if (kind == CydiaPackageDetailSectionKindDescription) {
+        CydiaPackageDetailBodyCell *cell((CydiaPackageDetailBodyCell *)
+            [self bodyCellForTable:tableView]);
+        cell.bodyLabel.text = [_viewModel displayDescription];
+        cell.accessibilityIdentifier = @"cydia.package.description";
+        cell.accessibilityLabel = cell.bodyLabel.text;
+        return cell;
+    }
+
+    UITableViewCell *cell([self standardCellForTable:tableView]);
+    switch (kind) {
+        case CydiaPackageDetailSectionKindQueue: {
+            cell.textLabel.text = UCLocalize("PACKAGE_QUEUE");
+            cell.detailTextLabel.text = UCLocalizeEx([_viewModel modeLocalizationKey]);
+            NSString *modeAsset(PackageModeAsset([_viewModel modeLocalizationKey]));
+            cell.imageView.image = LocalPackageImage(modeAsset);
+            cell.imageView.accessibilityIdentifier = modeAsset;
+            cell.accessibilityIdentifier = @"cydia.package.queue";
+            break;
+        }
+        case CydiaPackageDetailSectionKindActions:
+            [self configureActionCell:cell row:indexPath.row];
+            break;
+        case CydiaPackageDetailSectionKindWarnings:
+            cell.textLabel.text = [[_viewModel warnings] objectAtIndex:indexPath.row];
+            SetLegacyPackageRowImage(cell, @"warning.png");
+            cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleRemovingBackground
+                                              traitCollection:self.traitCollection];
+            cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleErrorLabel
+                                                  traitCollection:self.traitCollection];
+            cell.accessibilityIdentifier = [NSString stringWithFormat:
+                @"cydia.package.warning.%ld", (long)indexPath.row];
+            cell.accessibilityLabel = [NSString stringWithFormat:@"%@: %@",
+                UCLocalize("WARNING"), cell.textLabel.text];
+            break;
+        case CydiaPackageDetailSectionKindDepiction:
+            break;
+        case CydiaPackageDetailSectionKindHomepage:
+            cell.textLabel.text = UCLocalize("MORE_INFORMATION");
+            SetLegacyPackageRowImage(cell, @"web.png");
+            cell.accessibilityIdentifier = @"cydia.package.action.homepage";
+            cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+            break;
+        case CydiaPackageDetailSectionKindInstalled:
+            if (indexPath.row == 0) {
+                cell.textLabel.text = UCLocalize("VERSION");
+                cell.detailTextLabel.text = [_viewModel installedVersion];
+                SetLegacyPackageRowImage(cell, @"version.png");
+                cell.accessibilityIdentifier = @"cydia.package.installed.version";
+            } else {
+                cell.textLabel.text = UCLocalize("FILESYSTEM_CONTENT");
+                SetLegacyPackageRowImage(cell, @"filesystem.png");
+                cell.accessibilityIdentifier = @"cydia.package.action.files";
+                cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+            }
+            break;
+        case CydiaPackageDetailSectionKindSource:
+            if (indexPath.row == 0) {
+                cell.textLabel.text = [[_viewModel source] name];
+                cell.detailTextLabel.text = [[_viewModel source] host];
+                cell.imageView.image = LocalPackageImageForURLString(
+                    [[_viewModel source] iconURLString], @"folder.png");
+                cell.accessibilityIdentifier = @"cydia.package.source.name";
+            } else {
+                cell.textLabel.text = [[_viewModel source] sourceDescription];
+                cell.accessibilityIdentifier = @"cydia.package.source.description";
+            }
+            break;
+        case CydiaPackageDetailSectionKindDescription:
+            break;
+    }
+    cell.isAccessibilityElement = YES;
+    if (cell.accessibilityLabel == nil)
+        cell.accessibilityLabel = cell.textLabel.text;
+    if ([cell.detailTextLabel.text length] != 0)
+        cell.accessibilityValue = cell.detailTextLabel.text;
+    cell.accessibilityTraits = cell.selectionStyle == UITableViewCellSelectionStyleNone ?
+        UIAccessibilityTraitStaticText : UIAccessibilityTraitButton;
+    return cell;
+}
+
+- (void)scheduleDepictionTableUpdate {
+    if (_depictionTableUpdateScheduled)
+        return;
+    _depictionTableUpdateScheduled = YES;
+    __weak PackageDetailController *weakSelf(self);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        PackageDetailController *strongSelf(weakSelf);
+        strongSelf.depictionTableUpdateScheduled = NO;
+        if (strongSelf.depictionCell == nil || strongSelf.tableView == nil)
+            return;
+        [strongSelf.depictionCell applyDepictionPresentation];
+        [UIView performWithoutAnimation:^{
+            [strongSelf.tableView beginUpdates];
+            [strongSelf.tableView endUpdates];
+        }];
+    });
+}
+
+- (void)packageDepictionViewDidChangePresentation:(PackageDepictionView *)view {
+    if (view == _depictionView)
+        [self scheduleDepictionTableUpdate];
+}
+
+- (void)packageDepictionView:(PackageDepictionView *)view
+       didRequestURLHandoff:(NSURL *)URL {
+    if (view != _depictionView || URL == nil)
+        return;
+    [_packageDelegate packageDetailController:self
+                      didSelectNavigationKind:CydiaPackageDetailNavigationKindDepictionLink
+                                    URLString:[URL absoluteString]
+                                   identifier:[_viewModel identity]];
+}
+
+- (void)retryDepiction {
+    [_depictionView retryLoading];
+}
+
+- (void)openDepictionExternally {
+    [self packageDepictionView:_depictionView
+          didRequestURLHandoff:[_depictionView initialURL]];
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    id<PackageDetailControllerDelegate> delegate(_packageDelegate);
+    if (delegate == nil)
+        return;
+    CydiaPackageDetailSectionKind kind([self sectionKind:indexPath.section]);
+    CydiaPackageDetailNavigationKind navigationKind;
+    NSString *URLString(nil);
+    NSString *identifier(nil);
+    if (kind == CydiaPackageDetailSectionKindActions) {
+        if (indexPath.row == 0) {
+            navigationKind = CydiaPackageDetailNavigationKindSettings;
+            URLString = [NSString stringWithFormat:@"cydia://package/%@/settings",
+                                                   [_viewModel identity]];
+        } else if (indexPath.row == 1) {
+            navigationKind = CydiaPackageDetailNavigationKindContact;
+            URLString = ContactURLString(_viewModel);
+            if ([URLString length] == 0)
+                return;
+            identifier = [_viewModel identity];
+        } else {
+            NSInteger offset(indexPath.row - 2);
+            if ([_viewModel isConsolePackage]) {
+                if (offset == 0) {
+                    navigationKind = CydiaPackageDetailNavigationKindConsole;
+                    URLString = @"http://cydia.saurik.com/purpose/console/";
+                    goto dispatch;
+                }
+                --offset;
+            }
+            CydiaPackageDetailApplication *application([[_viewModel applications]
+                objectAtIndex:offset]);
+            navigationKind = CydiaPackageDetailNavigationKindApplication;
+            identifier = [application bundleIdentifier];
+        }
+    } else if (kind == CydiaPackageDetailSectionKindHomepage) {
+        navigationKind = CydiaPackageDetailNavigationKindHomepage;
+        URLString = [_viewModel homepageURLString];
+    } else if (kind == CydiaPackageDetailSectionKindInstalled && indexPath.row == 1) {
+        navigationKind = CydiaPackageDetailNavigationKindFiles;
+        URLString = [NSString stringWithFormat:@"cydia://package/%@/files",
+                                               [_viewModel identity]];
+    } else {
+        return;
+    }
+
+dispatch:
+    [delegate packageDetailController:self
+              didSelectNavigationKind:navigationKind
+                            URLString:URLString
+                           identifier:identifier];
+}
+
+- (void)modifyButtonClicked {
+    NSArray<CydiaPackageDetailModifyAction *> *actions([_viewModel modifyActions]);
+    if ([actions count] == 1) {
+        [self selectModifyAction:[actions objectAtIndex:0]];
+        return;
+    }
+    UIAlertController *sheet([UIAlertController
+        alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet]);
+    for (CydiaPackageDetailModifyAction *action in actions) {
+        [sheet addAction:[UIAlertAction actionWithTitle:UCLocalizeEx([action titleLocalizationKey])
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(__unused UIAlertAction *selected) {
+            [self selectModifyAction:action];
+        }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL")
+                                              style:UIAlertActionStyleCancel handler:nil]];
+    sheet.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItem;
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action {
+    if ([action kind] != CydiaPackageDetailModifyActionKindDowngrade) {
+        [_packageDelegate packageDetailController:self
+                            didSelectModifyAction:action
+                                     versionChoice:nil];
+        return;
+    }
+    UIAlertController *sheet([UIAlertController
+        alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet]);
+    for (CydiaPackageDetailVersionChoice *choice in [action versions]) {
+        [sheet addAction:[UIAlertAction actionWithTitle:[choice version]
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(__unused UIAlertAction *selected) {
+            [self.packageDelegate packageDetailController:self
+                                    didSelectModifyAction:action
+                                             versionChoice:choice];
+        }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL")
+                                              style:UIAlertActionStyleCancel handler:nil]];
+    sheet.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItem;
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+@end

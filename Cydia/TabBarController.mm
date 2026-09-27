@@ -43,6 +43,16 @@
     __weak NSObject<CydiaDelegate> *updatedelegate_;
 }
 
+- (UIStatusBarStyle) preferredStatusBarStyle {
+    return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ?
+        UIStatusBarStyleLightContent : UIStatusBarStyleDefault;
+}
+
+- (void) applyTabBarAppearance {
+    self.tabBar.barStyle = self.traitCollection.userInterfaceStyle ==
+        UIUserInterfaceStyleDark ? UIBarStyleBlack : UIBarStyleDefault;
+}
+
 - (id) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
         database_ = database;
@@ -54,14 +64,17 @@
         [indicator_ setOrigin:CGPointMake(kCFCoreFoundationVersionNumber >= 800 ? 2 : 4, 2)];
 
         [[self view] setAutoresizingMask:CydiaAutoresizingFlexibleBoth];
+        [self applyTabBarAppearance];
     } return self;
 }
 
 - (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     [super traitCollectionDidChange:previousTraitCollection];
-    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection))
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previousTraitCollection)) {
         [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleSelectedLabel
                                        traitCollection:self.traitCollection]];
+        [self applyTabBarAppearance];
+    }
 }
 
 - (void) beginUpdate {

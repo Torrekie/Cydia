@@ -6,11 +6,14 @@
 #include "Cydia/AppearanceProbe.h"
 
 #include "Cydia/Appearance.h"
+#include "Cydia/AppState.h"
+#include "Cydia/ConfirmationControllerProbe.h"
 #include "Cydia/LoadingView.h"
 #include "Cydia/PackageViews.h"
+#include "Cydia/PackageDetailControllerProbe.h"
+#include "Cydia/ProgressControllerProbe.h"
 #include "Cydia/UIColor+Cydia.h"
 #include "CyteKit/Localize.h"
-#include "CyteKit/WebViewController.h"
 #include "CyteKit/extern.h"
 
 #include <UIKit/UIKit.h>
@@ -19,17 +22,21 @@
 #include <cmath>
 #include <cstdio>
 
-#if TARGET_OS_SIMULATOR
+#if defined(CYDIA_APPEARANCE_SIMULATOR_PROBE)
+#if defined(CYDIA_HOME_SIMULATOR_PROBE)
+#include "Cydia/HomeControllerProbe.h"
+#endif
+#if defined(CYDIA_EXTERNAL_URL_SIMULATOR_PROBE)
+#include "tests/simulator/ExternalURLControllerProbe.h"
+#endif
+#if defined(CYDIA_ERROR_VIEW_SIMULATOR_PROBE)
+#include "tests/simulator/ErrorViewRuntimeProbe.h"
+#endif
 
 @class CydiaAppearanceProbeViewController;
 
-@interface CydiaAppearanceProbeWebController : CyteWebViewController
-@property(nonatomic, weak) CydiaAppearanceProbeViewController *probeController;
-@end
-
 @interface CydiaAppearanceProbeViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
 - (void) scheduleProbeStateWrite;
-- (void) webProbeDidLoad;
 @end
 
 @interface CydiaAppearanceProbeHostController : UIViewController
@@ -94,14 +101,64 @@ static void EnsureProbeMetrics(void) {
     Elision_ = UCLocalize("ELISION");
     EnsureProbeMetrics();
 
-    [CyteWebViewController _initialize];
-    ProbePalettePassed = ProbePaletteAssertions();
+    /* The appearance entry point returns before MobileCydia's normal
+     * bootstrap. Initialize shared platform fields (notably Machine_) so
+     * the native Home footer is exercised with production values. */
+    CyteInitialize([NSString stringWithFormat:@"Cydia/%@", Cydia_ ?: @""]);
+    if ([UniqueID_ length] == 0) {
+        /* MobileCydia normally obtains this through MobileGestalt before
+         * UIApplicationMain. The simulator probe has no such bootstrap;
+         * identifierForVendor is an equivalent local-only fixture value. */
+        UniqueID_ = [UIDevice currentDevice].identifierForVendor.UUIDString ?:
+            [[NSUUID UUID] UUIDString];
+    }
 
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    BOOL progressProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-progress-probe"];
+    BOOL confirmationProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-confirmation-probe"];
+    BOOL packageDetailProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-package-detail-probe"];
+#if defined(CYDIA_HOME_SIMULATOR_PROBE)
+    BOOL homeProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-home-probe"];
+#endif
+#if defined(CYDIA_EXTERNAL_URL_SIMULATOR_PROBE)
+    BOOL externalURLProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-external-url-probe"];
+#endif
+#if defined(CYDIA_ERROR_VIEW_SIMULATOR_PROBE)
+    BOOL errorViewProbe = [[[NSProcessInfo processInfo] arguments]
+        containsObject:@"--cydia-native-error-probe"];
+#endif
     BOOL controlledTraits = [[[NSProcessInfo processInfo] arguments]
         containsObject:@"--cydia-appearance-probe-controlled-traits"];
-    self.window.rootViewController = [[CydiaAppearanceProbeHostController alloc]
-        initWithControlledTraits:controlledTraits];
+    UIViewController *rootController(nil);
+#if defined(CYDIA_EXTERNAL_URL_SIMULATOR_PROBE)
+    if (externalURLProbe)
+        rootController = CydiaExternalURLControllerProbeRootController();
+#endif
+#if defined(CYDIA_ERROR_VIEW_SIMULATOR_PROBE)
+    if (rootController == nil && errorViewProbe)
+        rootController = CydiaErrorViewRuntimeProbeRootController();
+#endif
+#if defined(CYDIA_HOME_SIMULATOR_PROBE)
+    if (rootController == nil && homeProbe)
+        rootController = CydiaHomeControllerProbeRootController();
+#endif
+    if (rootController == nil && packageDetailProbe)
+        rootController = CydiaPackageDetailControllerProbeRootController();
+    if (rootController == nil && confirmationProbe)
+        rootController = CydiaConfirmationControllerProbeRootController();
+    if (rootController == nil && progressProbe)
+        rootController = CydiaProgressControllerProbeRootController();
+    if (rootController == nil) {
+        ProbePalettePassed = ProbePaletteAssertions();
+        rootController = [[CydiaAppearanceProbeHostController alloc]
+            initWithControlledTraits:controlledTraits];
+    }
+    self.window.rootViewController = rootController;
     [self.window makeKeyAndVisible];
     return YES;
 }
@@ -161,22 +218,6 @@ static void EnsureProbeMetrics(void) {
 
 @end
 
-@implementation CydiaAppearanceProbeWebController
-
-- (bool) retainsNetworkActivityIndicator {
-    return false;
-}
-
-- (bool) usesDocumentAppearanceFallback {
-    return true;
-}
-
-- (void) didFinishLoading {
-    [self.probeController webProbeDidLoad];
-}
-
-@end
-
 @implementation CydiaAppearanceProbeViewController {
     UITableView *tableView_;
     UIView *headerView_;
@@ -190,8 +231,8 @@ static void EnsureProbeMetrics(void) {
     CyteTableViewCell *sourceCell_;
     UITableViewCell *loadingCell_;
     CydiaLoadingView *loadingView_;
-    UITableViewCell *webCell_;
-    CydiaAppearanceProbeWebController *webController_;
+    UITableViewCell *nativeSurfaceCell_;
+    UILabel *nativeSurfaceLabel_;
     NSArray<UIView *> *swatches_;
     NSArray<UILabel *> *swatchLabels_;
     NSUInteger appearanceUpdateCount_;
@@ -230,7 +271,7 @@ static void EnsureProbeMetrics(void) {
     resultLabel_ = [[UILabel alloc] init];
     resultLabel_.font = Font12_;
     resultLabel_.textColor = UIColor.cydiaSecondaryLabelColor;
-    resultLabel_.text = @"Cells, UIKit, and web content update live";
+    resultLabel_.text = @"Cells and UIKit update live";
     [headerView_ addSubview:resultLabel_];
 
     NSArray *roles = @[
@@ -281,38 +322,17 @@ static void EnsureProbeMetrics(void) {
     loadingView_.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [loadingCell_.contentView addSubview:loadingView_];
 
-    webCell_ = [[UITableViewCell alloc] initWithFrame:CGRectMake(0, 0, 320, 112)
-                                       reuseIdentifier:@"AppearanceProbeWeb"];
-    webCell_.selectionStyle = UITableViewCellSelectionStyleNone;
-    webController_ = [[CydiaAppearanceProbeWebController alloc] init];
-    webController_.probeController = self;
-    [self addChildViewController:webController_];
-    UIView *webView(webController_.view);
-    webView.frame = webCell_.contentView.bounds;
-    webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    webView.userInteractionEnabled = NO;
-    [webCell_.contentView addSubview:webView];
-    [webController_ didMoveToParentViewController:self];
-
-    NSString *html =
-        @"<!doctype html><html><head><meta name='viewport' content='width=device-width'>"
-        @"<style>html,body{height:100%;margin:0}body{display:flex;align-items:center;"
-        @"justify-content:center;font:600 16px -apple-system;background:#000;color:#fff;"
-        @"background-image:-webkit-linear-gradient(#fff,#fff)}</style><script>"
-        @"window.cydiaAppearanceEvents=0;"
-        @"window.cydiaChildAppearanceEvents=0;"
-        @"document.addEventListener('CydiaAppearanceChanged',function(){"
-        @"window.cydiaAppearanceEvents++;},false);"
-        @"</script></head><body class='pinstripe'>Cyte Web Appearance Event"
-        @"<iframe id='appearance-child' style='display:none' srcdoc=\""
-        @"<style>html,body{background:#000;color:#fff}</style>"
-        @"<script>document.addEventListener('CydiaAppearanceChanged',function(){"
-        @"parent.cydiaChildAppearanceEvents++;},false);</script>\"></iframe>"
-        @"</body></html>";
-    NSString *base64([[html dataUsingEncoding:NSUTF8StringEncoding]
-        base64EncodedStringWithOptions:0]);
-    NSURL *probeURL([NSURL URLWithString:[@"data:text/html;base64," stringByAppendingString:base64]]);
-    [webController_ loadRequest:[NSURLRequest requestWithURL:probeURL]];
+    nativeSurfaceCell_ = [[UITableViewCell alloc]
+        initWithStyle:UITableViewCellStyleDefault
+        reuseIdentifier:@"AppearanceProbeNativeSurface"];
+    nativeSurfaceCell_.selectionStyle = UITableViewCellSelectionStyleNone;
+    nativeSurfaceCell_.accessibilityIdentifier = @"appearance.native-surface";
+    nativeSurfaceLabel_ = nativeSurfaceCell_.textLabel;
+    nativeSurfaceLabel_.text = @"Native UIKit Appearance Surface";
+    nativeSurfaceLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    nativeSurfaceLabel_.adjustsFontForContentSizeCategory = YES;
+    nativeSurfaceLabel_.numberOfLines = 0;
+    nativeSurfaceLabel_.accessibilityIdentifier = @"appearance.native-surface.label";
 
     [tableView_ reloadData];
     [self updateProbeAppearance];
@@ -372,6 +392,12 @@ static void EnsureProbeMetrics(void) {
     headerView_.backgroundColor = groupedBackgroundColor;
     styleLabel_.backgroundColor = groupedBackgroundColor;
     resultLabel_.backgroundColor = groupedBackgroundColor;
+    nativeSurfaceCell_.backgroundColor = [UIColor
+        cydiaColorForRole:CydiaColorRoleBackground
+        traitCollection:self.traitCollection];
+    nativeSurfaceCell_.contentView.backgroundColor =
+        nativeSurfaceCell_.backgroundColor;
+    nativeSurfaceLabel_.textColor = labelColor;
     for (NSUInteger index(0); index != [swatches_ count]; ++index) {
         UIView *swatch([swatches_ objectAtIndex:index]);
         CydiaColorRole role = index == 0 ? CydiaColorRoleBackground :
@@ -392,35 +418,8 @@ static void EnsureProbeMetrics(void) {
     });
 }
 
-- (void) webProbeDidLoad {
-    [self scheduleProbeStateWrite];
-}
-
 - (void) writeProbeState {
     UIUserInterfaceStyle style(self.traitCollection.userInterfaceStyle);
-    CyteWebView *webView(webController_.webView);
-    NSString *webReady([webView stringByEvaluatingJavaScriptFromString:@"document.readyState"] ?: @"");
-    NSString *webStyle([webView stringByEvaluatingJavaScriptFromString:
-        @"document.documentElement.getAttribute('data-cydia-appearance')||''"] ?: @"");
-    NSString *webEvents([webView stringByEvaluatingJavaScriptFromString:
-        @"String(window.cydiaAppearanceEvents||0)"] ?: @"0");
-    NSString *webLuminance([webView stringByEvaluatingJavaScriptFromString:
-        @"(function(){var c=getComputedStyle(document.body).backgroundColor.match(/\\d+/g);"
-        @"return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
-    NSString *webLabelLuminance([webView stringByEvaluatingJavaScriptFromString:
-        @"(function(){var c=getComputedStyle(document.body).color.match(/\\d+/g);"
-        @"return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
-    NSString *webBackgroundImage([webView stringByEvaluatingJavaScriptFromString:
-        @"getComputedStyle(document.body).backgroundImage || ''"] ?: @"");
-    NSString *childStyle([webView stringByEvaluatingJavaScriptFromString:
-        @"(function(){var f=document.getElementById('appearance-child');return f&&f.contentDocument?"
-         "(f.contentDocument.documentElement.getAttribute('data-cydia-appearance')||''):'';})()"] ?: @"");
-    NSString *childEvents([webView stringByEvaluatingJavaScriptFromString:
-        @"String(window.cydiaChildAppearanceEvents||0)"] ?: @"0");
-    NSString *childLuminance([webView stringByEvaluatingJavaScriptFromString:
-        @"(function(){var f=document.getElementById('appearance-child');if(!f||!f.contentWindow)return'-1';"
-         "var c=f.contentWindow.getComputedStyle(f.contentDocument.body).backgroundColor.match(/\\d+/g);"
-         "return c?String(Math.round((Number(c[0])+Number(c[1])+Number(c[2]))/3)):'-1';})()"] ?: @"-1");
     NSDictionary *state = @{
         @"style": style == UIUserInterfaceStyleDark ? @"dark" : @"light",
         @"updates": @(appearanceUpdateCount_),
@@ -429,15 +428,14 @@ static void EnsureProbeMetrics(void) {
         @"sectionBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(sectionCell_.content.backgroundColor) * 1000)),
         @"sourceBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(sourceCell_.content.backgroundColor) * 1000)),
         @"loadingBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(loadingView_.backgroundColor) * 1000)),
-        @"webReady": @([webReady isEqualToString:@"complete"]),
-        @"webStyle": webStyle,
-        @"webAppearanceEvents": @([webEvents integerValue]),
-        @"webBackgroundLuminance": @([webLuminance integerValue]),
-        @"webLabelLuminance": @([webLabelLuminance integerValue]),
-        @"webBackgroundImage": webBackgroundImage,
-        @"webChildStyle": childStyle,
-        @"webChildAppearanceEvents": @([childEvents integerValue]),
-        @"webChildBackgroundLuminance": @([childLuminance integerValue]),
+        @"nativeSurfaceReady": @(nativeSurfaceLabel_.superview != nil &&
+            [nativeSurfaceLabel_.text length] != 0),
+        @"nativeSurfaceIdentifier":
+            nativeSurfaceCell_.accessibilityIdentifier ?: @"",
+        @"nativeSurfaceBackgroundLuminance": @((NSInteger) lround(
+            ProbeLuminance(nativeSurfaceCell_.contentView.backgroundColor) * 1000)),
+        @"nativeSurfaceLabelLuminance": @((NSInteger) lround(
+            ProbeLuminance(nativeSurfaceLabel_.textColor) * 1000)),
     };
     [state writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:@"cydia-appearance-probe.plist"] atomically:YES];
 }
@@ -470,7 +468,7 @@ static void EnsureProbeMetrics(void) {
         case 1: return 50;
         case 2: return 58;
         case 3: return 72;
-        default: return 112;
+        default: return 72;
     }
 }
 
@@ -481,7 +479,7 @@ static void EnsureProbeMetrics(void) {
         case 1: return sectionCell_;
         case 2: return sourceCell_;
         case 3: return loadingCell_;
-        default: return webCell_;
+        default: return nativeSurfaceCell_;
     }
 }
 

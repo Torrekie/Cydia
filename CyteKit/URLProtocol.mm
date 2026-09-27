@@ -55,12 +55,15 @@
 }
 
 - (void) _returnPNGWithImage:(UIImage *)icon forRequest:(NSURLRequest *)request {
+    NSData *data(icon == nil ? nil : UIImagePNGRepresentation(icon));
+    [self _returnPNGData:data forRequest:request];
+}
+
+- (void) _returnPNGData:(NSData *)data forRequest:(NSURLRequest *)request {
     id<NSURLProtocolClient> client([self client]);
-    if (icon == nil)
+    if (data == nil)
         [client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil]];
     else {
-        NSData *data(UIImagePNGRepresentation(icon));
-
         NSURLResponse *response([[NSURLResponse alloc] initWithURL:[request URL] MIMEType:@"image/png" expectedContentLength:-1 textEncodingName:nil]);
         [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
         [client URLProtocol:self didLoadData:data];

@@ -44,21 +44,6 @@
     return [[MIMEAddress alloc] initWithString:string];
 }
 
-+ (NSArray *) _attributeKeys {
-    return [NSArray arrayWithObjects:
-        @"address",
-        @"name",
-    nil];
-}
-
-- (NSArray *) attributeKeys {
-    return [[self class] _attributeKeys];
-}
-
-+ (BOOL) isKeyExcludedFromWebScript:(const char *)name {
-    return ![[self _attributeKeys] containsObject:[NSString stringWithUTF8String:name]] && [super isKeyExcludedFromWebScript:name];
-}
-
 - (id) initWithString:(NSString *)string {
     if ((self = [super init]) != nil) {
         const char *data = [string UTF8String];
