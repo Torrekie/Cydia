@@ -178,6 +178,19 @@
     [self beginOpening];
 }
 
+- (BOOL)hasPendingOpenRequest {
+    return (_state == CydiaExternalURLControllerStateReady && !_attempted) ||
+        _state == CydiaExternalURLControllerStateOpening ||
+        _state == CydiaExternalURLControllerStatePresented;
+}
+
+- (BOOL)coalescePendingDestinationURL:(NSURL *)URL {
+    if (![self hasPendingOpenRequest])
+        return NO;
+    return [URL isKindOfClass:[NSURL class]] &&
+        [[_policy destinationURL] isEqual:URL];
+}
+
 - (void)beginOpening {
     if (_attempted)
         return;

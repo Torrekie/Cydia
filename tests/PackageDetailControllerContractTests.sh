@@ -268,6 +268,11 @@ grep -Fq '[[CYPackageController alloc] initWithDatabase:database_' "$navigation"
 for token in \
         'initWithViewModel:viewModel' \
         'updateWithViewModel:viewModel' \
+        'reloadTable:NO' \
+        'CydiaPackageRouteIsAlreadyVisible' \
+        'selectedViewController' \
+        'unselectedViewController' \
+        'second PackageDetailController' \
         'didSelectModifyAction' \
         'didSelectNavigationKind' \
         '_allowJavaScriptPanel' \
@@ -276,9 +281,15 @@ for token in \
         'repositoryDepictionContextWithOrigin' \
         'pageForURL:route context:context' \
         'launchApplicationWithIdentifier:identifier suspended:NO'; do
-    grep -Fq "$token" "$legacy" ||
+    grep -Fq "$token" "$legacy" "$navigation" ||
         fail "missing production package adapter contract: $token"
 done
+grep -Fq -- '- (BOOL)openCydiaURL:(NSURL *)URL context:(CydiaUIRouteContext *)context' "$legacy" ||
+    fail "package adapter cannot use the application route coordinator"
+grep -Fq 'CydiaUIParseRouteURL(route' "$legacy" &&
+    grep -Fq 'CydiaUIRouteKindExternalOpen' "$legacy" &&
+    grep -Fq 'openCydiaURL:route context:context' "$legacy" ||
+    fail "package More Information handoff bypasses the typed coordinator"
 package_allocations=$(find "$root/Cydia" -type f -name '*.mm' \
     -exec grep -h -F '[[PackageDetailController alloc]' {} + | wc -l | tr -d ' ')
 test "$package_allocations" -eq 0 ||

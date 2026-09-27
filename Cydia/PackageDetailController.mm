@@ -520,7 +520,8 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 }
 
 - (void)updateWithViewModel:(CydiaPackageDetailViewModel *)viewModel
-                 headerIcon:(UIImage *)headerIcon {
+                 headerIcon:(UIImage *)headerIcon
+                 reloadTable:(BOOL)reloadTable {
     NSParameterAssert(viewModel != nil);
     _viewModel = viewModel;
     _headerIcon = headerIcon ?: [UIImage imageNamed:@"unknown.png"] ?: [[UIImage alloc] init];
@@ -537,9 +538,15 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     _tableView.tableHeaderView = _packageHeaderView;
     [self updateFooterLabel];
     [self configureNavigationItem];
-    [_tableView reloadData];
+    if (reloadTable)
+        [_tableView reloadData];
     [self applyColorAppearance];
     [self.view setNeedsLayout];
+}
+
+- (void)updateWithViewModel:(CydiaPackageDetailViewModel *)viewModel
+                 headerIcon:(UIImage *)headerIcon {
+    [self updateWithViewModel:viewModel headerIcon:headerIcon reloadTable:YES];
 }
 
 - (void)updateHeaderIcon:(UIImage *)headerIcon {

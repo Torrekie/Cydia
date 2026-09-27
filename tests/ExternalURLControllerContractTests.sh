@@ -59,6 +59,24 @@ grep -Fq '[[ExternalURLController alloc]' "$application" &&
 if grep -q 'CydiaWebViewController' "$application"; then
     fail "application external routing still constructs the legacy browser"
 fi
+external_entry=$(sed -n '/if (\[\[route descriptor\] kind\] == CydiaUIRouteKindExternalOpen)/,/^        } else {/p' "$application")
+printf '%s\n' "$external_entry" | grep -q '\[tabbar_\ selectedViewController\]' &&
+    printf '%s\n' "$external_entry" | grep -q '\[navigation pushViewController:page animated:YES\]' ||
+    fail "external deep link does not preserve its originating navigation stack"
+if printf '%s\n' "$external_entry" | grep -q 'setUnselectedViewController'; then
+    fail "external deep link still discards its transient package root"
+fi
+printf '%s\n' "$external_entry" | grep -q '\[pending hasPendingOpenRequest\]' &&
+    printf '%s\n' "$external_entry" | grep -q 'return \[pending coalescePendingDestinationURL:' ||
+    fail "overlapping system handoffs can stack duplicate coordinators"
+pending_state=$(sed -n '/- (BOOL)hasPendingOpenRequest/,/^- (BOOL)coalescePendingDestinationURL:/p' "$controller")
+printf '%s\n' "$pending_state" | grep -q 'CydiaExternalURLControllerStateReady && !_attempted' &&
+    printf '%s\n' "$pending_state" | grep -q 'CydiaExternalURLControllerStateOpening' &&
+    printf '%s\n' "$pending_state" | grep -q 'CydiaExternalURLControllerStatePresented' ||
+    fail "pending handoff omits the pre-appearance, opening or presented state"
+pending_match=$(sed -n '/- (BOOL)coalescePendingDestinationURL:/,/^- (void)beginOpening/p' "$controller")
+printf '%s\n' "$pending_match" | grep -Fq '[[_policy destinationURL] isEqual:URL]' ||
+    fail "pending handoff does not compare the canonical destination"
 grep -q 'CydiaExternalURLRouteURL(url)' "$root/Cydia/HomeController.mm" ||
     fail "Home external links bypass the shared typed route"
 grep -q 'CydiaExternalURLRouteURL(destination)' "$root/Cydia/PackageControllers.mm" ||

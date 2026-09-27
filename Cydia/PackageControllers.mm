@@ -52,11 +52,15 @@
 - (CyteViewController *)pageForURL:(NSURL *)URL
                            context:(NSObject<CyteWebNavigationContext> *)context
                       withReferrer:(NSString *)referrer;
+- (BOOL)openCydiaURL:(NSURL *)URL context:(CydiaUIRouteContext *)context;
 - (void)launchApplicationWithIdentifier:(NSString *)identifier suspended:(BOOL)suspended;
 @end
 
 @interface PackageDetailController (CYPackageControllerProtected)
 - (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action;
+- (void)updateWithViewModel:(CydiaPackageDetailViewModel *)viewModel
+                 headerIcon:(UIImage *)headerIcon
+                 reloadTable:(BOOL)reloadTable;
 @end
 
 namespace {
@@ -269,7 +273,13 @@ NSURL *PackageRouteURL(NSString *URLString) {
     [self bindLegacyCompatibilitySessionForPackage:package];
     if (viewModel != nil) {
         [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
-        [self updateWithViewModel:viewModel headerIcon:[package icon]];
+        /* PackageDetailController reloadData performs the one table reload
+         * after the model is rebound. Avoid the old update-then-super double
+         * reload: UITableView may create two depiction cells before the first
+         * WK load settles, yielding duplicate initial GETs. */
+        [self updateWithViewModel:viewModel
+                       headerIcon:[package icon]
+                       reloadTable:NO];
         [self startLegacyAlternateIconLoadForViewModel:viewModel];
     } else {
         [self cancelLegacyAlternateIconLoad];
@@ -342,6 +352,19 @@ NSURL *PackageRouteURL(NSString *URLString) {
         if (context == nil)
             context = [CydiaUIRouteContext untrustedWebPageContextWithOrigin:origin
                 mainFrame:YES userGesture:YES];
+
+        /* External depiction handoffs must go through the application
+         * coordinator. The package controller is a transient child and its
+         * navigationController can be absent or no longer be the selected
+         * stack while the tab transition settles. Keep pageForURL as a
+         * compatibility fallback for older coordinators. */
+        NSError *routeError(nil);
+        CydiaUIRouteDescriptor *descriptor(CydiaUIParseRouteURL(route, &routeError));
+        if ([descriptor kind] == CydiaUIRouteKindExternalOpen &&
+            [application respondsToSelector:@selector(openCydiaURL:context:)]) {
+            if ([application openCydiaURL:route context:context])
+                return;
+        }
     } else {
         context = [CydiaUIRouteContext trustedNativeContext];
     }

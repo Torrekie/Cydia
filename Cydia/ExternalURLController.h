@@ -26,12 +26,16 @@ typedef NS_ENUM(NSUInteger, CydiaExternalURLControllerState) {
 
 @property(nonatomic, readonly) CydiaExternalURLControllerState state;
 @property(nonatomic, copy, readonly) NSURL *destinationURL;
+@property(nonatomic, readonly) BOOL hasPendingOpenRequest;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 - (nullable instancetype)initWithRouteDescriptor:(CydiaUIRouteDescriptor *)descriptor;
 
 - (void)retryButtonClicked;
+/* A repeated delivery while the same system handoff is pending is already
+ * handled. Different destinations must not stack over an in-flight request. */
+- (BOOL)coalescePendingDestinationURL:(NSURL *)URL;
 - (void)close;
 
 @end

@@ -31,6 +31,25 @@
 #undef _trace
 #define _trace(args...)
 
+static BOOL CydiaPackageRouteMatchesController(UIViewController *controller,
+                                               NSString *identity) {
+    if ([controller isKindOfClass:[UINavigationController class]])
+        controller = [(UINavigationController *) controller topViewController];
+    if (![identity isKindOfClass:[NSString class]] ||
+        ![controller respondsToSelector:@selector(navigationURL)])
+        return NO;
+    NSString *existingURL([[[controller navigationURL] absoluteString] copy]);
+    NSString *expectedURL([NSString stringWithFormat:@"cydia://package/%@", identity]);
+    return [existingURL isEqualToString:expectedURL];
+}
+
+static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
+                                              NSString *identity) {
+    if (CydiaPackageRouteMatchesController([tabbar unselectedViewController], identity))
+        return YES;
+    return CydiaPackageRouteMatchesController([tabbar selectedViewController], identity);
+}
+
 @implementation Cydia (Navigation)
 - (void) disemulate {
     if (emulated_ == nil)
@@ -173,6 +192,16 @@
     if (![route isAllowed])
         return nil;
 
+    /* A depiction/native caller can deliver the same package URL while the
+     * transient package tab is settling. Returning no new page prevents a
+     * second PackageDetailController and its initial WK load. */
+    if ([[route descriptor] kind] == CydiaUIRouteKindPackage) {
+        NSArray *arguments([[route descriptor] arguments]);
+        NSString *identity([arguments count] == 0 ? nil : [arguments objectAtIndex:0]);
+        if (CydiaPackageRouteIsAlreadyVisible(tabbar_, identity))
+            return nil;
+    }
+
     return [self _pageForRoute:route context:routeContext
         withReferrer:referrer];
 }
@@ -199,11 +228,41 @@
     if (![route isAllowed])
         return NO;
 
+    if ([[route descriptor] kind] == CydiaUIRouteKindPackage) {
+        NSArray *arguments([[route descriptor] arguments]);
+        NSString *identity([arguments count] == 0 ? nil : [arguments objectAtIndex:0]);
+        if (CydiaPackageRouteIsAlreadyVisible(tabbar_, identity))
+            return YES;
+    }
+
     CyteViewController *page([self _pageForRoute:route context:context
         withReferrer:nil]);
 
-    if (page != nil)
-        [tabbar_ setUnselectedViewController:page];
+    if (page != nil) {
+        if ([[route descriptor] kind] == CydiaUIRouteKindExternalOpen) {
+            /* An external coordinator is a temporary child of the current
+             * page, not a replacement for the transient tab's root. */
+            UIViewController *selected([tabbar_ selectedViewController]);
+            if (![selected isKindOfClass:[UINavigationController class]])
+                return NO;
+            UINavigationController *navigation((UINavigationController *) selected);
+            if ([[navigation topViewController] isKindOfClass:[ExternalURLController class]]) {
+                ExternalURLController *pending((ExternalURLController *)
+                    [navigation topViewController]);
+                if ([pending hasPendingOpenRequest])
+                    return [pending coalescePendingDestinationURL:
+                        [[route descriptor] externalURL]];
+            }
+            if ([navigation topViewController] == nil ||
+                [tabbar_ presentedViewController] != nil ||
+                [navigation presentedViewController] != nil ||
+                [[navigation topViewController] presentedViewController] != nil)
+                return NO;
+            [navigation pushViewController:page animated:YES];
+        } else {
+            [tabbar_ setUnselectedViewController:page];
+        }
+    }
 
     if (page != nil)
         return YES;
