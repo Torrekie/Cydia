@@ -26,6 +26,9 @@ libiosexec/debian/copyright.  Both are copied into the package as
 LIBIOSEXEC-LICENSE and LIBIOSEXEC-COPYRIGHT.  The fallback declarations in
 Cydia/ICUTransliterator.h retain the Unicode/ICU permission notice in
 Cydia/ICU-LICENSE; the Torrekie notice covers only the compatibility wrapper.
+APT 2.7.9 cache hashing uses the pinned xxHash 0.8.2 header-only source; its
+BSD 2-Clause notice is retained in xxhash/LICENSE and copied into the package
+as XXHASH-LICENSE.
 SDURLCache remains Copyright (c) 2010 Olivier Poitrey and is distributed under
 the license in SDURLCache/LICENCE.  Narrow Apple platform declarations in the
 compatibility wrappers retain their underlying platform provenance; the

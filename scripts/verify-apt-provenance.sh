@@ -51,8 +51,8 @@ check_equal() {
 }
 
 check_provenance() {
-    if [ "$#" -ne 12 ]; then
-        fail "provenance expects 12 arguments"
+    if [ "$#" -ne 16 ]; then
+        fail "provenance expects 16 arguments"
         return
     fi
 
@@ -70,6 +70,10 @@ check_provenance() {
     shift
     contrib_include_dir=$1
     deb_include_dir=$2
+    xxhash_dir=$3
+    expected_xxhash_commit=$4
+    expected_xxhash_url=$5
+    expected_xxhash_version=$6
 
     case "$source_trust" in
         legacy-unverified)
@@ -159,6 +163,47 @@ check_provenance() {
     overlay_deb=$(cd "$deb_include_dir" 2>/dev/null && pwd -P || true)
     check_equal "APT contrib include target" "$overlay_contrib" "$source_contrib"
     check_equal "APT deb include target" "$overlay_deb" "$source_deb"
+
+    if ! git -C "$xxhash_dir" rev-parse --git-dir >/dev/null 2>&1; then
+        fail "$xxhash_dir is not an initialized git worktree"
+    else
+        xxhash_commit=$(git -C "$xxhash_dir" rev-parse HEAD 2>/dev/null || true)
+        check_equal "recorded xxhash commit" \
+            "$(git ls-files -s -- "$xxhash_dir" | awk '$1 == "160000" { print $2; exit }')" \
+            "$expected_xxhash_commit"
+        check_equal "checked-out xxhash commit" "$xxhash_commit" "$expected_xxhash_commit"
+        xxhash_changes=$(git -C "$xxhash_dir" status --porcelain --untracked-files=all 2>/dev/null || true)
+        if [ -z "$xxhash_changes" ]; then
+            pass "embedded xxhash checkout is clean"
+        else
+            echo "$xxhash_changes" >&2
+            fail "embedded xxhash checkout has local changes"
+        fi
+        xxhash_submodule_name=$(git config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
+            awk -v path="$xxhash_dir" '$2 == path {
+                name = $1
+                sub(/^submodule\./, "", name)
+                sub(/\.path$/, "", name)
+                print name
+                exit
+            }')
+        if [ -z "$xxhash_submodule_name" ]; then
+            fail "no .gitmodules entry points to $xxhash_dir"
+        else
+            xxhash_url=$(git config -f .gitmodules --get "submodule.$xxhash_submodule_name.url" || true)
+            check_equal "xxhash source URL" "$xxhash_url" "$expected_xxhash_url"
+        fi
+        xxhash_header="$xxhash_dir/xxhash.h"
+        if [ ! -f "$xxhash_header" ]; then
+            fail "missing xxhash header: $xxhash_header"
+        else
+            xxhash_major=$(read_define "$xxhash_header" XXH_VERSION_MAJOR)
+            xxhash_minor=$(read_define "$xxhash_header" XXH_VERSION_MINOR)
+            xxhash_release=$(read_define "$xxhash_header" XXH_VERSION_RELEASE)
+            xxhash_version="$xxhash_major.$xxhash_minor.$xxhash_release"
+            check_equal "xxhash version" "$xxhash_version" "$expected_xxhash_version"
+        fi
+    fi
 }
 
 write_list() {

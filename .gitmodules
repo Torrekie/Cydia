@@ -1,9 +1,9 @@
-[submodule "icu"]
-	path = icu
-	url = git://git.saurik.com/apple/icu.git
 [submodule "apt64"]
 	path = apt64
-	url = git://git.bingner.com/apt.git
+	url = https://salsa.debian.org/apt-team/apt.git
 [submodule "libiosexec"]
 	path = libiosexec
 	url = https://github.com/Remorix/libiosexec.git
+[submodule "xxhash"]
+	path = xxhash
+	url = https://github.com/Cyan4973/xxHash.git

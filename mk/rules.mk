@@ -35,7 +35,7 @@ $(OBJECT_DIR)/apt64/apt-pkg/tagfile.o: $(tagfile_keys_header)
 $(OBJECT_DIR)/apt64/apt-pkg/deb/deblistparser.o: $(tagfile_keys_header)
 $(tagfile_keys_object): $(tagfile_keys_source) $(tagfile_keys_header)
 
-$(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk .gitmodules apt.h apt-extra/*.h \
+$(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk .gitmodules apt.h apt-extra/*.h $(APT_TRIEHASH) \
 	$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET) | verify-apt
 	@mkdir -p $(dir $@)
 	@tmp="$@.tmp"; \
@@ -45,7 +45,8 @@ $(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.
 		while IFS= read -r path; do cksum "$(APT_SOURCE_DIR)/$$path"; done; \
 	} | cksum | awk '{ print $$1 ":" $$2 }'); \
 	config_state=$$(cksum mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk \
-		.gitmodules apt.h apt-extra/*.h | cksum | awk '{ print $$1 ":" $$2 }'); \
+		.gitmodules apt.h apt-extra/*.h $(APT_TRIEHASH) | cksum | awk '{ print $$1 ":" $$2 }'); \
+	xxhash_commit=$$(git -C $(XXHASH_SOURCE_DIR) rev-parse HEAD 2>/dev/null || echo missing); \
 	toolchain_state=$$(printf '%s\n' \
 		"compiler=$(gxx)" "sdk=$(sdk)" "mac-sdk=$(mac)" \
 		"icu-include=$(ICU_INCLUDE_DIR)" "kind=$(kind)" | \
@@ -58,6 +59,10 @@ $(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.
 		echo "toolchain-state=$$toolchain_state"; \
 		echo "source-url=$(APT_SOURCE_URL)"; \
 		echo "version=$(APT_SOURCE_VERSION)"; \
+		echo "xxhash-source-dir=$(XXHASH_SOURCE_DIR)"; \
+		echo "xxhash-commit=$$xxhash_commit"; \
+		echo "xxhash-source-url=$(XXHASH_SOURCE_URL)"; \
+		echo "xxhash-version=$(XXHASH_SOURCE_VERSION)"; \
 		echo "cxx-level=$(APT_SOURCE_CXX_LEVEL)"; \
 		echo "cxx-standard=$(APT_SOURCE_CXX_STANDARD)"; \
 		echo "trust=$(APT_SOURCE_TRUST)"; \
@@ -71,11 +76,15 @@ $(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.
 	if test -f "$@" && cmp -s "$$tmp" "$@"; \
 	then rm -f "$$tmp"; else mv -f "$$tmp" "$@"; fi
 
+$(tagfile_keys_clean_list): $(APT_SOURCE_DIR)/apt-pkg/tagfile-keys.list
+	@mkdir -p $(dir $@)
+	@tmp="$@.tmp"; grep -v '^#' "$<" >"$$tmp" && mv -f "$$tmp" "$@"
+
 $(tagfile_keys_stamp): $(APT_PROVENANCE_STAMP) \
-	$(APT_SOURCE_DIR)/apt-pkg/tagfile-keys.list $(APT_SOURCE_DIR)/triehash/triehash.pl
+	$(tagfile_keys_clean_list) $(APT_TRIEHASH)
 	@mkdir -p $(tagfile_keys_dir)
 	@echo "[trie] $(tagfile_keys_header)"
-	@$(APT_SOURCE_DIR)/triehash/triehash.pl \
+	@$(APT_TRIEHASH) \
             --ignore-case \
             --header $(tagfile_keys_header) \
             --code $(tagfile_keys_source) \
@@ -83,7 +92,7 @@ $(tagfile_keys_stamp): $(APT_PROVENANCE_STAMP) \
             --enum-name pkgTagSection::Key \
             --function-name pkgTagHash \
             --include "<apt-pkg/tagfile.h>" \
-            $(APT_SOURCE_DIR)/apt-pkg/tagfile-keys.list
+		$(tagfile_keys_clean_list)
 	@perl -pi -e 's@typedef char static_assert64@//typedef char static_assert64@' $(tagfile_keys_source)
 	@touch $@
 

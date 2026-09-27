@@ -78,6 +78,8 @@ source_dir=$(cd "$source_dir" 2>/dev/null && pwd -P) ||
     fail "could not resolve APT source directory: $source_dir"
 [ -d "$source_dir/apt-pkg" ] || fail "missing APT source directory: $source_dir/apt-pkg"
 [ -f "$source_dir/apt-pkg/contrib/macros.h" ] || fail "missing APT ABI header"
+[ -f "$icu_include_dir/unicode/utypes.h" ] ||
+    fail "ICU_INCLUDE_DIR must provide Apple OSS/iPhoneOS ICU headers: $icu_include_dir"
 
 for source_file in "$@"; do
     [ -f "$source_file" ] || fail "missing compatibility source: $source_file"
@@ -145,8 +147,6 @@ for source_file in "$@"; do
         -I"$generated_dir" \
         -isystem sysroot/usr/include \
         -idirafter "$icu_include_dir" \
-        -idirafter icu/icuSources/common \
-        -idirafter icu/icuSources/i18n \
         -Wno-deprecated-declarations \
         -Wno-unknown-warning-option \
         -include system.h \

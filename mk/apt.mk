@@ -9,22 +9,30 @@
 # a wildcard.
 
 APT_SOURCE_DIR := apt64
-APT_SOURCE_COMMIT := 0623baaaae02d4b1648c5674b9836adcf31d36a7
-APT_SOURCE_URL := git://git.bingner.com/apt.git
-APT_SOURCE_VERSION := 1.8.2
-APT_SOURCE_CXX_LEVEL := 11
-APT_SOURCE_CXX_STANDARD := c++11
+APT_SOURCE_COMMIT := ed053de346d92c1a4218a7b80a20158f3535fe2a
+APT_SOURCE_URL := https://salsa.debian.org/apt-team/apt.git
+APT_SOURCE_VERSION := 2.7.9
+APT_SOURCE_CXX_LEVEL := 17
+APT_SOURCE_CXX_STANDARD := c++17
 # The inherited git:// source has no recorded signed tag or signer identity.
 # Keep that limitation machine-visible until a reviewed upstream import adds a
 # real signature-verification gate.
 APT_SOURCE_TRUST := legacy-unverified
+# APT 2.7.9 uses XXH3 for cache hashing.  iPhoneOS does not ship libxxhash,
+# so use the pinned header-only implementation below and keep its exact source
+# commit in the build provenance.
+XXHASH_SOURCE_DIR := xxhash
+XXHASH_SOURCE_COMMIT := bbb27a5efb85b92a0486cf361a8635715a53f6ba
+XXHASH_SOURCE_URL := https://github.com/Cyan4973/xxHash.git
+XXHASH_SOURCE_VERSION := 0.8.2
 # APT_PKG_MAJOR/MINOR identify the ABI/SOVERSION; RELEASE is the compatible
 # library release component in the version triplet.
-APT_ABI_MAJOR := 5
+APT_ABI_MAJOR := 6
 APT_ABI_MINOR := 0
-APT_ABI_RELEASE := 2
+APT_ABI_RELEASE := 0
 APT_LICENSE_FILES := COPYING COPYING.GPL
 APT_PROVENANCE_STAMP := $(GENERATED_DIR)/apt64/apt-provenance.stamp
+APT_TRIEHASH := scripts/apt-triehash.pl
 # APT headers use an `apt-pkg/...` include root.  Generate that small overlay
 # inside BUILD_DIR from the selected source tree instead of relying on the
 # repository's legacy convenience symlinks (which could mix revisions).
@@ -43,6 +51,7 @@ APT_AUDIT_CXX_STANDARD ?= $(APT_SOURCE_CXX_STANDARD)
 # this list explicit: an APT update must review every Cydia-facing API use,
 # even when the source file itself does not include an apt-pkg header.
 apt_api_sources := \
+    Cydia/APTSrvCompat.cpp \
     Cydia/AptBackend.cpp \
     Cydia/AptBackendFacade.cpp \
     Cydia/AptBackendOperations.cpp \
@@ -72,18 +81,18 @@ apt_core_sources := \
     algorithms.cc \
     aptconfiguration.cc \
     cachefile.cc \
+    cachefilter-patterns.cc \
     cachefilter.cc \
     cacheset.cc \
     cdrom.cc \
     clean.cc \
     depcache.cc \
+    dirstream.cc \
     edsp.cc \
-    getservbyport_r.cc \
     indexcopy.cc \
     indexfile.cc \
     init.cc \
     install-progress.cc \
-    memrchr.cc \
     metaindex.cc \
     orderlist.cc \
     packagemanager.cc \
@@ -93,12 +102,9 @@ apt_core_sources := \
     pkgsystem.cc \
     policy.cc \
     prettyprinters.cc \
-    rawmemchr.cc \
     sourcelist.cc \
     srcrecords.cc \
     statechanges.cc \
-    strchrnul.cc \
-    tagfile-compat.cc \
     tagfile.cc \
     update.cc \
     upgrade.cc \
@@ -106,6 +112,7 @@ apt_core_sources := \
     versionmatch.cc
 
 apt_deb_sources := \
+    debfile.cc \
     debindexfile.cc \
     deblistparser.cc \
     debmetaindex.cc \
@@ -116,34 +123,34 @@ apt_deb_sources := \
     dpkgpm.cc
 
 apt_contrib_sources := \
+    arfile.cc \
     cdromutl.cc \
     cmndline.cc \
     configuration.cc \
-    crc-16.cc \
     error.cc \
+    extracttar.cc \
     fileutl.cc \
     gpgv.cc \
     hashes.cc \
-    hashsum.cc \
-    md5.cc \
     mmap.cc \
     netrc.cc \
     progress.cc \
     proxy.cc \
-    sha1.cc \
-    sha2_internal.cc \
     strutl.cc
 
-# srvrec.cc has never been part of Cydia's embedded library.  Keep the
-# exclusion explicit so an upstream source refresh must review it deliberately.
+# APT's rred method uses the small command-line parser from apt-private.  Keep
+# that parser in the embedded archive; the remaining apt-private commands are
+# intentionally not part of Cydia.
 apt_excluded_contrib_sources := srvrec.cc
+apt_private_sources := apt-private/private-cmndline.cc apt-private/private-main.cc
 
 methods := copy file rred gpgv
-apt_method_sources := store.cc basehttp.cc $(addsuffix .cc,$(methods))
-apt_excluded_method_sources := cdrom.cc connect.cc ftp.cc mirror.cc rfc2553emu.cc rsh.cc
+apt_method_sources := store.cc basehttp.cc connect.cc $(addsuffix .cc,$(methods))
+apt_excluded_method_sources := cdrom.cc ftp.cc mirror.cc rfc2553emu.cc rsh.cc
 apt_http_source := $(APT_SOURCE_DIR)/methods/http.cc
 
 apt_sources := $(addprefix $(APT_SOURCE_DIR)/apt-pkg/,$(apt_core_sources))
 apt_sources += $(addprefix $(APT_SOURCE_DIR)/apt-pkg/deb/,$(apt_deb_sources))
 apt_sources += $(addprefix $(APT_SOURCE_DIR)/apt-pkg/contrib/,$(apt_contrib_sources))
 apt_sources += $(addprefix $(APT_SOURCE_DIR)/methods/,$(apt_method_sources))
+apt_sources += $(addprefix $(APT_SOURCE_DIR)/,$(apt_private_sources))

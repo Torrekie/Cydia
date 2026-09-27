@@ -118,7 +118,7 @@ verify_size_sources += postinst.mm cfversion.mm
 # Candidate set for the APT-consumer inventory.  The inventory script checks
 # that every raw APT token in app-owned C++/Objective-C++ is represented by the
 # reviewed `apt_api_sources` manifest above.
-apt_api_candidates := $(filter-out apt64/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
+apt_api_candidates := $(filter-out $(APT_SOURCE_DIR)/% SDURLCache/%,$(filter %.mm %.cpp %.cc,$(code)))
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-native-ui-binary verify-build-provenance verify-native-ui-provenance verify-build-provenance-contract verify-package-artifacts
 .PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-apt-source-isolation verify-legacy-source-handoff verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
@@ -242,17 +242,15 @@ verify-multiarch-fixture: $(MULTIARCH_FIXTURE_TEST)
 $(DPKG_VERSION_POLICY_TEST): tests/DpkgVersionPolicyTests.cpp \
 		Cydia/AptVersionPolicy.cpp Cydia/AptVersionPolicyInternal.hpp \
 		$(APT_SOURCE_DIR)/apt-pkg/deb/debversion.cc \
-		$(APT_SOURCE_DIR)/apt-pkg/version.cc \
-		$(APT_SOURCE_DIR)/apt-pkg/memrchr.cc \
+		$(APT_SOURCE_DIR)/apt-pkg/version.cc Cydia/APTMemoryCompat.cpp \
 		$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET)
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra \
 		-Iapt-extra -I$(APT_SOURCE_DIR) -I$(APT_CONTRIB_INCLUDE_DIR) \
-		-I$(APT_DEB_INCLUDE_DIR) -I. -include $(APT_SOURCE_DIR)/apt-pkg/missing.h \
+		-I$(APT_DEB_INCLUDE_DIR) -I. -include apt.h \
 		tests/DpkgVersionPolicyTests.cpp Cydia/AptVersionPolicy.cpp \
 		$(APT_SOURCE_DIR)/apt-pkg/deb/debversion.cc \
-		$(APT_SOURCE_DIR)/apt-pkg/version.cc \
-		$(APT_SOURCE_DIR)/apt-pkg/memrchr.cc -o $@
+		$(APT_SOURCE_DIR)/apt-pkg/version.cc Cydia/APTMemoryCompat.cpp -o $@
 
 verify-dpkg-version-policy: $(DPKG_VERSION_POLICY_TEST)
 	@command -v dpkg >/dev/null || { echo "dpkg is required" >&2; exit 2; }
@@ -984,7 +982,9 @@ verify-apt-provenance: $(APT_VERIFY_SCRIPT) mk/apt.mk .gitmodules \
 		"$(APT_SOURCE_TRUST)" \
 		"$(APT_ABI_MAJOR)" "$(APT_ABI_MINOR)" "$(APT_ABI_RELEASE)" \
 		"$(APT_LICENSE_FILES)" \
-		"$(APT_CONTRIB_INCLUDE_TARGET)" "$(APT_DEB_INCLUDE_TARGET)"
+		"$(APT_CONTRIB_INCLUDE_TARGET)" "$(APT_DEB_INCLUDE_TARGET)" \
+		"$(XXHASH_SOURCE_DIR)" "$(XXHASH_SOURCE_COMMIT)" "$(XXHASH_SOURCE_URL)" \
+		"$(XXHASH_SOURCE_VERSION)"
 
 verify-apt-sources: $(APT_VERIFY_SCRIPT) mk/apt.mk
 	@$(APT_VERIFY_SCRIPT) sources "$(APT_SOURCE_DIR)" \

@@ -90,6 +90,7 @@ iapt += -I$(APT_SOURCE_DIR)
 iapt += -I$(APT_CONTRIB_INCLUDE_DIR)
 iapt += -I$(APT_DEB_INCLUDE_DIR)
 iapt += -Iapt-extra
+iapt += -I$(XXHASH_SOURCE_DIR)
 iapt += -I$(GENERATED_DIR)/apt64
 
 ifeq ($(HOST_OS),Linux)
@@ -110,12 +111,10 @@ else
 ICU_SDK ?= $(HOME)/iPhoneOS14.5.sdk
 endif
 ICU_INCLUDE_DIR ?= $(if $(wildcard $(ICU_SDK)/usr/include/unicode/utypes.h),$(ICU_SDK)/usr/include,$(mac)/usr/include)
-ifneq ($(wildcard $(ICU_INCLUDE_DIR)/unicode/utypes.h),)
-flag += -idirafter $(ICU_INCLUDE_DIR)
+ifeq ($(wildcard $(ICU_INCLUDE_DIR)/unicode/utypes.h),)
+$(error ICU_INCLUDE_DIR must point to Apple OSS/iPhoneOS ICU headers: $(ICU_INCLUDE_DIR))
 endif
-
-flag += -idirafter icu/icuSources/common
-flag += -idirafter icu/icuSources/i18n
+flag += -idirafter $(ICU_INCLUDE_DIR)
 
 flag += -Wall
 flag += -Wno-dangling-else
@@ -127,6 +126,7 @@ flag += -Wno-unknown-warning-option
 
 plus += -fobjc-call-cxx-cdtors
 plus += -fvisibility-inlines-hidden
+plus += -include apt.h
 
 link += -multiply_defined suppress
 
@@ -158,6 +158,7 @@ endif
 endif
 libs += -framework SystemConfiguration
 libs += -framework CFNetwork
+libs += -framework Security
 libs += -framework WebKit
 ifeq ($(HOST_OS),Linux)
 libs += -Wl,-force_load,$(APT_LIBRARY)
@@ -190,13 +191,16 @@ endif
 
 apt64 := $(cycc) $(target) $(flag)
 apt64 += -include apt.h
+apt64 += -DAPT_COMPILING_APT
+apt64 += -DXXH_INLINE_ALL
 apt64 += -D'VERSION="$(APT_SOURCE_VERSION)"'
 apt64 += -D'PACKAGE_VERSION="$(APT_SOURCE_VERSION)"'
 apt64 += -Wno-deprecated-register
+apt64 += -Wno-c++11-narrowing
 apt64 += -Wno-unused-private-field
 apt64 += -Wno-unused-variable
 apt64 += -DNDEBUG
 
 cycc += $(target)
 plus += -std=c++11
-apt_plus := $(filter-out -std=%,$(plus)) -std=$(APT_SOURCE_CXX_STANDARD)
+apt_plus := $(filter-out -std=%,$(plus)) -std=$(APT_SOURCE_CXX_STANDARD) -DAPT_COMPILING_APT -Wno-c++11-narrowing

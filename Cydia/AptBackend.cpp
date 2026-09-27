@@ -31,7 +31,7 @@ class ParserView {
     pkgRecords::Parser *parser_;
 
     std::string Field(const char *name) const {
-#if APT_PKG_MAJOR < 7
+#if APT_PKG_MAJOR < 6
         const char *start(NULL);
         const char *end(NULL);
         if (!parser_->Find(name, start, end))

@@ -52,9 +52,11 @@ libapt64 := $(patsubst $(APT_SOURCE_DIR)/%.cc,$(OBJECT_DIR)/apt64/%.o,$(apt_sour
 tagfile_keys_dir := $(GENERATED_DIR)/apt64/apt-pkg
 tagfile_keys_header := $(tagfile_keys_dir)/tagfile-keys.h
 tagfile_keys_source := $(tagfile_keys_dir)/tagfile-keys.cc
+tagfile_keys_clean_list := $(tagfile_keys_dir)/tagfile-keys.clean.list
 tagfile_keys_stamp := $(tagfile_keys_dir)/tagfile-keys.stamp
 tagfile_keys_object := $(OBJECT_DIR)/apt64/apt-pkg/tagfile-keys.o
 libapt64 += $(tagfile_keys_object)
+header += $(tagfile_keys_header)
 
 images := $(shell find MobileCydia.app/ -type f -name '*.png')
 images := $(images:%=$(IMAGE_DIR)/%)

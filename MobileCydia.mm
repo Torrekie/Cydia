@@ -717,7 +717,7 @@ static NSMutableDictionary *DeepMutableCopyOfDictionary(CFTypeRef type) {
 int main_copy();
 int main_file();
 int main_gpgv();
-int main_rred(int, char *argv[]);
+int main_rred(int, const char *argv[]);
 
 #ifndef __arm__
 #define main_gzip main_store
@@ -753,7 +753,7 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv0, "gpgv"))
         return main_gpgv();
     else if (!strcmp(argv0, "rred"))
-        return main_rred(argc, argv);
+        return main_rred(argc, const_cast<const char **>(argv));
 #ifdef __arm__
     else if (!strcmp(argv0, "bzip2"))
         return main_gzip(argc, argv);
