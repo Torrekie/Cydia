@@ -977,7 +977,7 @@ verify-apt-compile: $(APT_LIBRARY) $(apt_http_object) $(apt_compat_object)
 verify-apt-provenance: $(APT_VERIFY_SCRIPT) mk/apt.mk .gitmodules \
 	$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET)
 	@$(APT_VERIFY_SCRIPT) provenance \
-		"$(APT_SOURCE_DIR)" "$(APT_SOURCE_COMMIT)" "$(APT_SOURCE_URL)" \
+		"$(APT_SOURCE_DIR)" "$(APT_SOURCE_COMMIT)" "$(APT_SOURCE_BASE_COMMIT)" "$(APT_SOURCE_URL)" \
 		"$(APT_SOURCE_VERSION)" "$(APT_SOURCE_CXX_LEVEL)" \
 		"$(APT_SOURCE_TRUST)" \
 		"$(APT_ABI_MAJOR)" "$(APT_ABI_MINOR)" "$(APT_ABI_RELEASE)" \

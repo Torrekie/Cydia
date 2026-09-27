@@ -9,12 +9,15 @@
 # a wildcard.
 
 APT_SOURCE_DIR := apt64
-APT_SOURCE_COMMIT := ed053de346d92c1a4218a7b80a20158f3535fe2a
+APT_SOURCE_COMMIT := 9c189c40b78b765a341dcf3288117b0aeb93df72
+APT_SOURCE_BASE_COMMIT := ed053de346d92c1a4218a7b80a20158f3535fe2a
 APT_SOURCE_URL := https://salsa.debian.org/apt-team/apt.git
 APT_SOURCE_VERSION := 2.7.9
 APT_SOURCE_CXX_LEVEL := 17
 APT_SOURCE_CXX_STANDARD := c++17
-# The inherited git:// source has no recorded signed tag or signer identity.
+# The inherited upstream source has no recorded signed tag or signer identity;
+# APT_SOURCE_COMMIT is the local Cydia compatibility commit above that exact
+# 2.7.9 base.
 # Keep that limitation machine-visible until a reviewed upstream import adds a
 # real signature-verification gate.
 APT_SOURCE_TRUST := legacy-unverified

@@ -54,6 +54,7 @@ $(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.
 	{ \
 		echo "source-dir=$(APT_SOURCE_DIR)"; \
 		echo "commit=$$(git -C $(APT_SOURCE_DIR) rev-parse HEAD 2>/dev/null || echo missing)"; \
+		echo "base-commit=$(APT_SOURCE_BASE_COMMIT)"; \
 		echo "tree-state=$$tree_state"; \
 		echo "config-state=$$config_state"; \
 		echo "toolchain-state=$$toolchain_state"; \

@@ -51,21 +51,22 @@ check_equal() {
 }
 
 check_provenance() {
-    if [ "$#" -ne 16 ]; then
-        fail "provenance expects 16 arguments"
+    if [ "$#" -ne 17 ]; then
+        fail "provenance expects 17 arguments"
         return
     fi
 
     source_dir=$1
     expected_commit=$2
-    expected_url=$3
-    expected_version=$4
-    expected_cxx_level=$5
-    source_trust=$6
-    expected_major=$7
-    expected_minor=$8
-    expected_release=$9
-    shift 9
+    expected_base_commit=$3
+    expected_url=$4
+    expected_version=$5
+    expected_cxx_level=$6
+    source_trust=$7
+    expected_major=$8
+    expected_minor=$9
+    expected_release=${10}
+    shift 10
     license_files=$1
     shift
     contrib_include_dir=$1
@@ -99,6 +100,11 @@ check_provenance() {
 
     checkout=$(git -C "$source_dir" rev-parse HEAD 2>/dev/null || true)
     check_equal "checked-out APT commit" "$checkout" "$expected_commit"
+    if git -C "$source_dir" merge-base --is-ancestor "$expected_base_commit" "$checkout" >/dev/null 2>&1; then
+        pass "APT upstream base commit $expected_base_commit is in checkout ancestry"
+    else
+        fail "APT upstream base commit $expected_base_commit is not in checkout ancestry"
+    fi
 
     changes=$(git -C "$source_dir" status --porcelain --untracked-files=all 2>/dev/null || true)
     if [ -z "$changes" ]; then
