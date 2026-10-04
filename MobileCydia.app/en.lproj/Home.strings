@@ -1,0 +1,22 @@
+/* Imported from first-party Home HTML; English entries preserve partial coverage. */
+"BY" = "by %@";
+"DEVELOPERS_ONLY" = "Developers Only";
+"FREQUENTLY_ASKED_QUESTIONS" = "Frequently Asked Questions";
+"HOME_COPYING_FILES" = "Copying Files to/from Device";
+"HOME_CREDITS_THANK_YOU" = "Credits / Thank You";
+"HOME_DEVELOPER_RESOURCES" = "Useful Developer Resources";
+"HOME_FEATURED" = "Featured";
+"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
+"HOME_IPAD_EXTENSIONS" = "Extensions Useful on iPad";
+"HOME_IPAD_PRODUCTS" = "Products Designed for iPad";
+"HOME_MANAGE_ACCOUNT" = "Manage Account";
+"HOME_NEW" = "New";
+"HOME_OPENSSH_HELP" = "OpenSSH Access How-To";
+"HOME_PRIVACY_POLICY" = "Privacy Policy";
+"HOME_ROOT_PASSWORD_HELP" = "Root Password How-To";
+"HOME_STORAGE_INFORMATION" = "Storage Information";
+"HOME_THEMES" = "Themes";
+"HOME_UPGRADING_HELP" = "Upgrading & Jailbreaking Help";
+"MORE_PACKAGE_SOURCES" = "More Package Sources";
+"USER_GUIDES" = "User Guides";
+"WELCOME_TO_CYDIA" = "Welcome to Cydia™";

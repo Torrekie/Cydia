@@ -149,12 +149,19 @@ static NSString *HomeNSString(const char *value) {
     return value == NULL ? nil : [NSString stringWithUTF8String:value];
 }
 
+static NSString *HomeLocalizedString(NSString *key, NSString *fallback) {
+    if (key == nil)
+        return fallback;
+    NSBundle *bundle([NSBundle mainBundle]);
+    // Preserve the website's translations without replacing unrelated app
+    // terminology. Missing Home entries retain the existing app fallback;
+    // explicit English entries preserve the website's partial translations.
+    NSString *appFallback([bundle localizedStringForKey:key value:fallback table:nil]);
+    return [bundle localizedStringForKey:key value:appFallback table:@"Home"];
+}
+
 static NSString *HomeLocalized(const char *key, const char *fallback) {
-    NSString *fallbackString(HomeNSString(fallback));
-    if (key == NULL)
-        return fallbackString;
-    return [[NSBundle mainBundle] localizedStringForKey:HomeNSString(key)
-        value:fallbackString table:nil];
+    return HomeLocalizedString(HomeNSString(key), HomeNSString(fallback));
 }
 
 static UIImage *HomeImage(NSString *name) {
@@ -621,7 +628,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [header_ addSubview:logo_];
 
     title_ = [[UILabel alloc] init];
-    title_.text = UCLocalize("WELCOME_TO_CYDIA");
+    title_.text = HomeLocalized("WELCOME_TO_CYDIA", "Welcome to Cydia™");
     title_.accessibilityIdentifier = @"cydia.home.header.title";
     /* The legacy banner uses a compact headline beside the logo.  Title2
      * makes the native replacement visually heavier than the source page on
@@ -633,7 +640,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [header_ addSubview:title_];
 
     author_ = [UIButton buttonWithType:UIButtonTypeSystem];
-    [author_ setTitle:[NSString stringWithFormat:UCLocalize("BY"),
+    [author_ setTitle:[NSString stringWithFormat:HomeLocalized("BY", "by %@"),
         @"Jay Freeman (saurik)"] forState:UIControlStateNormal];
     author_.accessibilityIdentifier = @"cydia.home.header.author";
     author_.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
@@ -1064,9 +1071,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
             HomeLocalized("HOME_IPAD_EXTENSIONS", "Extensions Useful on iPad") :
             HomeLocalized("HOME_IPAD_PRODUCTS", "Products Designed for iPad");
     if (section == HomeSectionGuides)
-        return UCLocalize("USER_GUIDES");
+        return HomeLocalized("USER_GUIDES", "User Guides");
     if (section == HomeSectionDevelopers)
-        return UCLocalize("DEVELOPERS_ONLY");
+        return HomeLocalized("DEVELOPERS_ONLY", "Developers Only");
     return nil;
 }
 

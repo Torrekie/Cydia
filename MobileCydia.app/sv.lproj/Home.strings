@@ -1,0 +1,22 @@
+/* Imported from first-party Home HTML; English entries preserve partial coverage. */
+"BY" = "av %@";
+"DEVELOPERS_ONLY" = "Endast utvecklare";
+"FREQUENTLY_ASKED_QUESTIONS" = "Vanliga frågor";
+"HOME_COPYING_FILES" = "Kopiera filer till/från enhet";
+"HOME_CREDITS_THANK_YOU" = "Beröm / Tack";
+"HOME_DEVELOPER_RESOURCES" = "Gemenskap";
+"HOME_FEATURED" = "Utvalda";
+"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
+"HOME_IPAD_EXTENSIONS" = "Tillägg användbara på iPad";
+"HOME_IPAD_PRODUCTS" = "Produkter utformade för iPad";
+"HOME_MANAGE_ACCOUNT" = "Hantera konto";
+"HOME_NEW" = "Ny";
+"HOME_OPENSSH_HELP" = "Så här öppna du OpenSSH";
+"HOME_PRIVACY_POLICY" = "Integritetspolicy";
+"HOME_ROOT_PASSWORD_HELP" = "Så här ändrar du administratörslösenordet";
+"HOME_STORAGE_INFORMATION" = "Lagring";
+"HOME_THEMES" = "Teman";
+"HOME_UPGRADING_HELP" = "Hjälp med uppgradering och jailbreak";
+"MORE_PACKAGE_SOURCES" = "Fler paketkällor";
+"USER_GUIDES" = "Användarguider";
+"WELCOME_TO_CYDIA" = "Välkommen till Cydia™";

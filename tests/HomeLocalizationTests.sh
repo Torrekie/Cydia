@@ -144,3 +144,55 @@ test "$locale_count" -gt 0 || fail "no bundled locale files were audited"
 
 pair_count=$(wc -l <"$pairs" | tr -d '[:space:]')
 echo "[verify-home-localization][ ok ] $pair_count Home keys resolve in $locale_count bundled locales"
+
+# The first-party Home table supersedes authored app translations only on Home.
+# Check the offline dump, partial coverage and language/script mappings without
+# requiring the original server or changing simulator language preferences.
+python3 - "$root" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+app = root / "MobileCydia.app"
+catalog = json.loads((app / "HomeLocalizationCatalog.json").read_text())
+expected = {
+    "en-us": "en", "ar": "ar", "de": "de", "el": "el", "es": "es",
+    "fr": "fr", "he": "he", "it": "it", "ja": "ja", "ko": "ko",
+    "nl": "nl", "pl": "pl", "pt-br": "pt", "pt-pt": "pt-PT", "ru": "ru",
+    "sv": "sv", "th": "th", "tr": "tr", "vi": "vi", "zh-cn": "zh-Hans",
+    "zh-tw": "zh-Hant",
+}
+assert {entry["source_locale"]: entry["native_locale"]
+        for entry in catalog["locales"]} == expected, "source/native locale mapping changed"
+keys = set(catalog["keys"])
+assert len(keys) == 21, "first-party Home label count changed"
+quoted = r'"(?:[^"\\]|\\.)*"'
+entry_pattern = re.compile(r'(' + quoted + r')\s*=\s*(' + quoted + r')\s*;')
+tables = {}
+for locale in expected.values():
+    content = (app / (locale + ".lproj") / "Home.strings").read_text()
+    entries = [(json.loads(key), json.loads(value))
+               for key, value in entry_pattern.findall(content)]
+    values = dict(entries)
+    assert len(entries) == len(values), locale + ": duplicate Home key"
+    assert set(values) == keys, locale + ": incomplete Home table"
+    assert all(value and value != key for key, value in entries), locale + ": invalid value"
+    assert values["BY"].count("%@") == 1, locale + ": byline must preserve one author slot"
+    assert values["HOME_FIND_EXTENSIONS"] == "Find Extensions for Applications", locale + ": invented source translation"
+    tables[locale] = values
+for entry in catalog["locales"]:
+    values = tables[entry["native_locale"]]
+    translated = {key for key in keys if values[key] != tables["en"][key]}
+    assert translated == set(entry["translated_keys"]), "incorrect translation coverage"
+    assert keys - translated == set(entry["untranslated_keys"]), "incorrect fallback coverage"
+assert "WELCOME_TO_CYDIA" in next(entry for entry in catalog["locales"]
+                                  if entry["native_locale"] == "ja")["untranslated_keys"]
+assert tables["pt"] != tables["pt-PT"], "Brazilian and European Portuguese were collapsed"
+controller = (root / "Cydia" / "HomeController.mm").read_text()
+assert 'table:@"Home"' in controller, "native Home bypasses first-party strings"
+for key in ("WELCOME_TO_CYDIA", "BY", "USER_GUIDES", "DEVELOPERS_ONLY"):
+    assert re.search(r'HomeLocalized\("' + key + r'"', controller), key + ": not wired to Home"
+print("[verify-home-localization][ ok ] 21 first-party labels in 21 native locale tables; partial coverage and regional mappings preserved")
+PY

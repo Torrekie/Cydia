@@ -1,0 +1,22 @@
+/* Imported from first-party Home HTML; English entries preserve partial coverage. */
+"BY" = "by %@";
+"DEVELOPERS_ONLY" = "開発者向け";
+"FREQUENTLY_ASKED_QUESTIONS" = "よくある質問";
+"HOME_COPYING_FILES" = "デバイスに／デバイスからファイルをコピー";
+"HOME_CREDITS_THANK_YOU" = "クレジット / Thank You";
+"HOME_DEVELOPER_RESOURCES" = "開発者のためのリソース";
+"HOME_FEATURED" = "おすすめ";
+"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
+"HOME_IPAD_EXTENSIONS" = "Extensions Useful on iPad";
+"HOME_IPAD_PRODUCTS" = "Products Designed for iPad";
+"HOME_MANAGE_ACCOUNT" = "アカウントの管理";
+"HOME_NEW" = "New";
+"HOME_OPENSSH_HELP" = "OpenSSHを使ったアクセス";
+"HOME_PRIVACY_POLICY" = "プライバシーポリシー";
+"HOME_ROOT_PASSWORD_HELP" = "ルートパスワードの変更";
+"HOME_STORAGE_INFORMATION" = "ストレージ";
+"HOME_THEMES" = "テーマ";
+"HOME_UPGRADING_HELP" = "アップグレード ＆ 脱獄ヘルプ";
+"MORE_PACKAGE_SOURCES" = "その他のソース";
+"USER_GUIDES" = "ユーザーガイド";
+"WELCOME_TO_CYDIA" = "Welcome to Cydia™";

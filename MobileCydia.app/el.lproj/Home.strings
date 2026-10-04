@@ -1,0 +1,22 @@
+/* Imported from first-party Home HTML; English entries preserve partial coverage. */
+"BY" = "από %@";
+"DEVELOPERS_ONLY" = "Μόνο Developers";
+"FREQUENTLY_ASKED_QUESTIONS" = "Συχνές Ερωτήσεις";
+"HOME_COPYING_FILES" = "Αντιγραφή αρχείων από/προς τη συσκευή";
+"HOME_CREDITS_THANK_YOU" = "Credits / Ευχαριστούμε";
+"HOME_DEVELOPER_RESOURCES" = "Χρήσιμες πηγές για developers";
+"HOME_FEATURED" = "Προβεβλημένα";
+"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
+"HOME_IPAD_EXTENSIONS" = "Χρήσιμες επεκτάσεις για το iPad";
+"HOME_IPAD_PRODUCTS" = "Προϊόντα που έχουν σχεδιαστεί για το iPad";
+"HOME_MANAGE_ACCOUNT" = "Διαχείριση λογαριασμού";
+"HOME_NEW" = "Νέα";
+"HOME_OPENSSH_HELP" = "Πώς να αποκτήσετε πρόσβαση με OpenSSH";
+"HOME_PRIVACY_POLICY" = "Πολιτική Προστασίας Προσωπικών Δεδομένων";
+"HOME_ROOT_PASSWORD_HELP" = "Πώς να ορίσετε κωδικό πρόσβασης root";
+"HOME_STORAGE_INFORMATION" = "Χώρος";
+"HOME_THEMES" = "Θέματα";
+"HOME_UPGRADING_HELP" = "Βοήθεια Αναβάθμισης & Jailbreaking";
+"MORE_PACKAGE_SOURCES" = "Περισσότερα Sources Πακέτων";
+"USER_GUIDES" = "Οδηγοί χρήσης";
+"WELCOME_TO_CYDIA" = "Καλώς ήλθες στο Cydia™";

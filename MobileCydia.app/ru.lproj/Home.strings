@@ -1,0 +1,22 @@
+/* Imported from first-party Home HTML; English entries preserve partial coverage. */
+"BY" = "от: %@";
+"DEVELOPERS_ONLY" = "Только для разработчиков";
+"FREQUENTLY_ASKED_QUESTIONS" = "Вопросы и ответы";
+"HOME_COPYING_FILES" = "Копирование файлов";
+"HOME_CREDITS_THANK_YOU" = "Благодарности / Спасибо!";
+"HOME_DEVELOPER_RESOURCES" = "Ресурсы для разработчиков";
+"HOME_FEATURED" = "Избранные";
+"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
+"HOME_IPAD_EXTENSIONS" = "Extensions Useful on iPad";
+"HOME_IPAD_PRODUCTS" = "Products Designed for iPad";
+"HOME_MANAGE_ACCOUNT" = "Управление аккаунтом";
+"HOME_NEW" = "Новое";
+"HOME_OPENSSH_HELP" = "Доступ к OpenSSH";
+"HOME_PRIVACY_POLICY" = "Политика конфиденциальности";
+"HOME_ROOT_PASSWORD_HELP" = "Пароль корневого пользователя";
+"HOME_STORAGE_INFORMATION" = "Хранилище";
+"HOME_THEMES" = "Темы";
+"HOME_UPGRADING_HELP" = "Обновление и джейлбрейк";
+"MORE_PACKAGE_SOURCES" = "Другие источники пакетов";
+"USER_GUIDES" = "Справочная информация";
+"WELCOME_TO_CYDIA" = "Добро пожаловать в Cydia™!";

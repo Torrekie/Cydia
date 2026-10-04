@@ -1,0 +1,22 @@
+/* Imported from first-party Home HTML; English entries preserve partial coverage. */
+"BY" = "開發者：%@";
+"DEVELOPERS_ONLY" = "僅限開發人員";
+"FREQUENTLY_ASKED_QUESTIONS" = "常見問題";
+"HOME_COPYING_FILES" = "將檔案拷貝至/出設備";
+"HOME_CREDITS_THANK_YOU" = "工作人員名單 / 感謝您";
+"HOME_DEVELOPER_RESOURCES" = "開發者常用資源";
+"HOME_FEATURED" = "精選";
+"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
+"HOME_IPAD_EXTENSIONS" = "iPad 的實用延伸功能";
+"HOME_IPAD_PRODUCTS" = "iPad 專屬產品";
+"HOME_MANAGE_ACCOUNT" = "管理帳號";
+"HOME_NEW" = "新加入";
+"HOME_OPENSSH_HELP" = "OpenSSH 使用方式";
+"HOME_PRIVACY_POLICY" = "隱私權政策";
+"HOME_ROOT_PASSWORD_HELP" = "Root 密碼使用方式";
+"HOME_STORAGE_INFORMATION" = "儲存空間";
+"HOME_THEMES" = "主題";
+"HOME_UPGRADING_HELP" = "升級和越獄輔助說明";
+"MORE_PACKAGE_SOURCES" = "更多套件來源";
+"USER_GUIDES" = "使用手冊";
+"WELCOME_TO_CYDIA" = "歡迎使用 Cydia™";

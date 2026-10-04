@@ -9,6 +9,11 @@
 #include <limits.h>
 #include <string.h>
 
+static NSString *StorageTitle(NSString *fallback) {
+    return [[NSBundle mainBundle] localizedStringForKey:@"HOME_STORAGE_INFORMATION"
+        value:UCLocalizeEx(@"HOME_STORAGE_INFORMATION", fallback) table:@"Home"];
+}
+
 static unsigned long long AllocatedUsageAtPath(const char *path) {
     struct stat item;
     if (lstat(path, &item) != 0)
@@ -57,7 +62,7 @@ static NSString *StoragePercent(unsigned long long bytes, unsigned long long tot
 @implementation HomeStorageController
 - (instancetype)init {
     if ((self = [super init]))
-        self.title = UCLocalizeEx(@"HOME_STORAGE_INFORMATION", @"Storage Information");
+        self.title = StorageTitle(@"Storage Information");
     return self;
 }
 
