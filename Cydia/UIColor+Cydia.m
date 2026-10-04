@@ -100,7 +100,12 @@ static UIColor *DynamicColor(CydiaColorRole role) {
         case CydiaColorRoleAccent:
             return UIColorClassColor(@selector(systemBlueColor));
         case CydiaColorRoleErrorLabel:
-            return UIColorClassColor(@selector(systemRedColor));
+            /* UIKit's systemRedColor is too light for normal-size Light-mode
+             * error text on a white Package cell (the installed iOS 14
+             * surface measured 3.5594:1).  Keep the same trait-driven custom
+             * fallback used by the iOS 12 path so both OS generations share
+             * the calibrated semantic role. */
+            return CustomDynamicColor(role);
         case CydiaColorRoleSelectedLabel:
         case CydiaColorRoleCommercialSecondaryLabel:
         case CydiaColorRoleInstallingBackground:

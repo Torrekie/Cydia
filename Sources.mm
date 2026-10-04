@@ -378,6 +378,8 @@ struct ParsedSourceLine {
     std::string type;
     std::string uri;
     std::string distribution;
+    std::string options;
+    std::vector<std::string> sections;
 };
 
 /* Parse only a classic one-line APT source definition.  Unknown syntax and
@@ -390,6 +392,8 @@ static bool ParseSourceLine(const std::string &line, ParsedSourceLine *source) {
     source->type.clear();
     source->uri.clear();
     source->distribution.clear();
+    source->options.clear();
+    source->sections.clear();
 
     std::size_t offset(0);
     if (!NextSourceToken(line, &offset, &source->type) ||
@@ -409,6 +413,7 @@ static bool ParseSourceLine(const std::string &line, ParsedSourceLine *source) {
             token += ' ';
             token += continuation;
         }
+        source->options = token;
         if (!NextSourceToken(line, &offset, &token))
             return false;
     }
@@ -417,6 +422,9 @@ static bool ParseSourceLine(const std::string &line, ParsedSourceLine *source) {
     if (!NextSourceToken(line, &offset, &source->distribution) ||
         source->uri.empty() || source->distribution.empty())
         return false;
+
+    while (NextSourceToken(line, &offset, &token))
+        source->sections.push_back(token);
 
     return true;
 }
@@ -610,6 +618,71 @@ bool CydiaManagedSourceKeyIsOwned(NSString *key) {
     return ManagedDocumentContainsKey(document, value);
 }
 
+bool CydiaUpdateSourceSection(NSString *key, NSString *section, bool add) {
+    if (![NSThread isMainThread] || !CydiaCanEditManagedSources() ||
+        Sources_ == nil || !IsSafeSourceField(key) || !IsSafeSourceField(section))
+        return false;
+    if (CydiaDeletedSourceKeys_.count([key UTF8String]))
+        return false;
+
+    std::string existing;
+    ManagedSourceDocument document;
+    if (!ReadManagedTarget(&existing) ||
+        !SplitManagedSourceDocument(existing, &document) || !document.hasBlock)
+        return false;
+
+    ParsedSourceLine owned;
+    bool found(false);
+    std::size_t offset(0);
+    while (offset < document.body.size()) {
+        const std::size_t newline(document.body.find('\n', offset));
+        const std::size_t length(newline == std::string::npos
+            ? document.body.size() - offset : newline + 1 - offset);
+        ParsedSourceLine parsed;
+        if (ParseSourceLine(document.body.substr(offset, length), &parsed) &&
+            parsed.type + ":" + parsed.uri + ":" + parsed.distribution == [key UTF8String]) {
+            if (found) // Multiple definitions cannot share one metadata record safely.
+                return false;
+            owned = parsed;
+            found = true;
+        }
+        offset += length;
+    }
+    if (!found || (add && owned.distribution.back() == '/'))
+        return false;
+
+    id cached([Sources_ objectForKey:key]);
+    if (cached != nil && ![cached isKindOfClass:[NSDictionary class]])
+        return false;
+    NSMutableDictionary *record(cached == nil ? [NSMutableDictionary dictionary] : [cached mutableCopy]);
+    id cachedSections([record objectForKey:@"Sections"]);
+    if (cachedSections != nil && ![cachedSections isKindOfClass:[NSArray class]])
+        return false;
+    NSMutableArray *sections(cachedSections == nil ? [NSMutableArray array] : [cachedSections mutableCopy]);
+    if (cachedSections == nil)
+        for (const std::string &value : owned.sections) {
+            NSString *component([NSString stringWithUTF8String:value.c_str()]);
+            if (!IsSafeSourceField(component))
+                return false;
+            [sections addObject:component];
+        }
+    for (id component in sections)
+        if (!IsSafeSourceField(component))
+            return false;
+    if (add) {
+        if (![sections containsObject:section])
+            [sections addObject:section];
+    } else
+        [sections removeObject:section];
+
+    record[@"Type"] = [NSString stringWithUTF8String:owned.type.c_str()];
+    record[@"URI"] = [NSString stringWithUTF8String:owned.uri.c_str()];
+    record[@"Distribution"] = [NSString stringWithUTF8String:owned.distribution.c_str()];
+    record[@"Sections"] = sections;
+    [Sources_ setObject:record forKey:key];
+    return true;
+}
+
 void CydiaRemoveSource(NSString *key) {
     if (![key isKindOfClass:[NSString class]] || [key length] == 0)
         return;
@@ -634,7 +707,7 @@ void CydiaRemoveSource(NSString *key) {
 }
 
 static bool FormatSourceLine(NSDictionary *source, const std::string &binaryOptions,
-                             std::string *line, std::string *key) {
+                             std::string *line, std::string *key, bool ownedOptions = false) {
     if (source == nil || line == NULL || key == NULL)
         return false;
 
@@ -660,7 +733,7 @@ static bool FormatSourceLine(NSDictionary *source, const std::string &binaryOpti
 
     std::string result(typeValue);
     result += " ";
-    if ([type isEqualToString:@"deb"])
+    if ([type isEqualToString:@"deb"] || ownedOptions)
         result += binaryOptions;
     result += uriValue;
     result += " ";
@@ -723,8 +796,11 @@ static std::string BuildManagedBlock(const ManagedSourceDocument &document,
                     [Sources_ objectForKey:objectKey]);
                 std::string formatted;
                 std::string formattedKey;
-                if (FormatSourceLine(source, binaryOptions, &formatted,
-                                     &formattedKey) && formattedKey == key)
+                ParsedSourceLine original;
+                const std::string options(ParseSourceLine(line, &original) && !original.options.empty()
+                    ? original.options + ' ' : binaryOptions);
+                if (FormatSourceLine(source, options, &formatted,
+                                     &formattedKey, !original.options.empty()) && formattedKey == key)
                     outputLine.swap(formatted);
             }
             body += outputLine;

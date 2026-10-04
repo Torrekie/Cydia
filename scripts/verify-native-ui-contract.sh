@@ -80,7 +80,9 @@ verify_policy() {
         if grep -Eq "$public_webkit_pattern" "$absolute"; then
             relative=${absolute#"$root/"}
             case "$relative" in
-                Cydia/PackageDepictionView.h|Cydia/PackageDepictionView.mm) ;;
+                Cydia/PackageDepictionView.h|Cydia/PackageDepictionView.mm|\
+                Cydia/PackageDepictionJavaScriptFacade.h|\
+                Cydia/PackageDepictionJavaScriptFacade.mm) ;;
                 *) fail "public WebKit is allowed only in PackageDepictionView: $relative";;
             esac
             echo "$relative" >>"$work/public-webkit.txt"

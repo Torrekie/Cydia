@@ -8,6 +8,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 evidence="$root/Cydia/LegacyUICompatibilityRuntimeEvidence.mm"
 header="$root/Cydia/LegacyUICompatibilityRuntimeEvidence.h"
 data="$root/Cydia/Application+Data.mm"
+matrix="$root/Cydia/LegacyUICompatibilityMatrix.mm"
 application="$root/Cydia/Application.h"
 verify_inventory="$root/tests/LegacyUICompatibilityInventoryContractTests.sh"
 
@@ -17,7 +18,7 @@ fail() {
 }
 
 command -v rg >/dev/null 2>&1 || fail "rg is required"
-for file in "$evidence" "$header" "$data" "$application" "$verify_inventory"; do
+for file in "$evidence" "$header" "$data" "$matrix" "$application" "$verify_inventory"; do
     test -f "$file" || fail "missing runtime evidence file: $file"
 done
 
@@ -46,8 +47,24 @@ for token in \
         'NSDataWritingAtomic' \
         'lstat' \
         'kMaximumEvidenceBytes'; do
-    rg -Fq "$token" "$evidence" "$header" "$data" || fail "missing evidence contract token: $token"
+    rg -Fq "$token" "$evidence" "$header" "$data" "$matrix" || fail "missing evidence contract token: $token"
 done
+
+for token in \
+        'CYDIA_NATIVE_COMPATIBILITY_MATRIX_PATH' \
+        'installed-boundary-matrix' \
+        'boundaryAttempted' \
+        'executorEntries == 0 && typedUnavailable' \
+        'executorEntries == 1 && nativeRejections == 0' \
+        'application-compatibility-service' \
+        'not_dispatched_mutation_boundary' \
+        'trusted_in_process'; do
+    rg -Fq "$token" "$matrix" || fail "missing installed matrix contract token: $token"
+done
+
+if rg -n 'invoked = value|invoked =.*Undefined' "$matrix" >/dev/null; then
+    fail "matrix conflates a boundary attempt with its return value"
+fi
 
 # The manifest source is decision-only.  These dispatch/route entry points may
 # not appear in it, and its application hook must remain environment-gated.

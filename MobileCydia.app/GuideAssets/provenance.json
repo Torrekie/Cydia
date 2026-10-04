@@ -1,0 +1,10 @@
+{
+  "retrieved": "2026-09-15",
+  "scope": "Original icons referenced by the frozen upgrading/news.html page; reused without visual alteration.",
+  "assets": {
+    "reddit": {"url": "https://cydia.saurik.com/icon/reddit.png", "sha256": "9730f747fea30af1a99e1790d3944ef487350a598acdae5ec303ec3fa01261fb"},
+    "web": {"url": "https://cache.saurik.com/crystal/64x64/apps/web.png", "sha256": "a3570bc334607c3ab5ad367e22636ebb14cdcbbf0d88153423e0e54b6e6ef4c0"},
+    "iclarified": {"url": "https://cydia.saurik.com/icon/iclarified.png", "sha256": "fd95d0df6ac8e6f2dd0215f02e21c5b220b65114c5a2bf804645f7cdfe455df0"},
+    "modmyi": {"url": "https://cydia.saurik.com/icon/modmyi.png", "sha256": "20c8ea2c7b2e49a49fa0a15e8a03503d5d9acc8cb08ea4be956559b5915d6161"}
+  }
+}

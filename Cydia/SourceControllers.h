@@ -14,7 +14,11 @@
 
 - (id) initWithDatabase:(Database *)database;
 - (void) showAddSourcePrompt;
+// Finite Home restoration catalog, not arbitrary URL/distribution input.
+- (void) showRestoreDefaultSourcePrompt:(NSString *)identifier completion:(void (^)(BOOL added))completion;
+- (void) cancelDefaultSourceRestoration;
 - (void) updateButtonsForEditingStatusAnimated:(BOOL)animated;
+- (NSDictionary *) cydiaNativeCompatibilitySourceSessionDiagnosticWithDelegate:(id)delegate;
 
 @end
 

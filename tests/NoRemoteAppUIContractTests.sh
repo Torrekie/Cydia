@@ -69,7 +69,9 @@ webkit_files=$(rg -l 'WebKit/WebKit|WKWebView' \
     --glob '*.{h,m,mm,cpp,hpp}' | sort)
 expected_webkit_files=$(printf '%s\n' \
     "$root/Cydia/PackageDepictionView.h" \
-    "$root/Cydia/PackageDepictionView.mm" | sort)
+    "$root/Cydia/PackageDepictionView.mm" \
+    "$root/Cydia/PackageDepictionJavaScriptFacade.h" \
+    "$root/Cydia/PackageDepictionJavaScriptFacade.mm" | sort)
 test "$webkit_files" = "$expected_webkit_files" ||
     fail "public WebKit escaped the package depiction adapter"
 

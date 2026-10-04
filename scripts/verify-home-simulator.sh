@@ -1073,6 +1073,80 @@ launchd_sim_absent() {
     [ -z "$launchd_matches" ]
 }
 
+cleanup_run_owned_audio_helpers() {
+    destination=$1
+    [ -f "$simulator_helper_baseline" ] || return 0
+    helper_snapshot=$scratch/shutdown-helper-processes.$$
+    new_audio_helpers=$scratch/shutdown-new-audio-helpers.$$
+    if ! ps -axo pid=,ucomm=,command= >"$helper_snapshot" 2>/dev/null; then
+        return 1
+    fi
+    : >"$new_audio_helpers"
+    while IFS= read -r helper_line; do
+        [ -n "$helper_line" ] || continue
+        case "$helper_line" in
+            *SimAudioProcessorService*|*SimStreamProcessorService*) ;;
+            *) continue ;;
+        esac
+        if grep -F -x "$helper_line" "$simulator_helper_baseline" >/dev/null 2>&1; then
+            continue
+        fi
+        printf '%s\n' "$helper_line" >>"$new_audio_helpers"
+    done <"$helper_snapshot"
+    while IFS= read -r helper_line; do
+        [ -n "$helper_line" ] || continue
+        helper_pid=$(printf '%s\n' "$helper_line" | awk '{print $1}')
+        case "$helper_pid" in ''|*[!0-9]*) return 1 ;; esac
+        helper_command=$(ps -p "$helper_pid" -o command= 2>/dev/null || true)
+        case "$helper_command" in
+            *SimAudioProcessorService*|*SimStreamProcessorService*) ;;
+            *) continue ;;
+        esac
+        kill -TERM "$helper_pid" 2>/dev/null || true
+        printf 'simulator-helper-terminated=%s %s\n' "$helper_pid" \
+            "$helper_command" >>"$destination/cleanup.log"
+    done <"$new_audio_helpers"
+    attempts=0
+    while [ "$attempts" -lt 20 ]; do
+        remaining=0
+        while IFS= read -r helper_line; do
+            [ -n "$helper_line" ] || continue
+            helper_pid=$(printf '%s\n' "$helper_line" | awk '{print $1}')
+            helper_command=$(ps -p "$helper_pid" -o command= 2>/dev/null || true)
+            case "$helper_command" in
+                *SimAudioProcessorService*|*SimStreamProcessorService*)
+                    remaining=1
+                    ;;
+            esac
+        done <"$new_audio_helpers"
+        [ "$remaining" -eq 0 ] && return 0
+        attempts=$((attempts + 1))
+        sleep 0.5
+    done
+    while IFS= read -r helper_line; do
+        [ -n "$helper_line" ] || continue
+        helper_pid=$(printf '%s\n' "$helper_line" | awk '{print $1}')
+        helper_command=$(ps -p "$helper_pid" -o command= 2>/dev/null || true)
+        case "$helper_command" in
+            *SimAudioProcessorService*|*SimStreamProcessorService*)
+                kill -KILL "$helper_pid" 2>/dev/null || true
+                printf 'simulator-helper-killed=%s %s\n' "$helper_pid" \
+                    "$helper_command" >>"$destination/cleanup.log"
+                ;;
+        esac
+    done <"$new_audio_helpers"
+    sleep 0.5
+    while IFS= read -r helper_line; do
+        [ -n "$helper_line" ] || continue
+        helper_pid=$(printf '%s\n' "$helper_line" | awk '{print $1}')
+        helper_command=$(ps -p "$helper_pid" -o command= 2>/dev/null || true)
+        case "$helper_command" in
+            *SimAudioProcessorService*|*SimStreamProcessorService*) return 1 ;;
+        esac
+    done <"$new_audio_helpers"
+    return 0
+}
+
 wait_for_shutdown() {
     attempts=0
     shutdown_list=$scratch/shutdown-list.$$
@@ -1324,6 +1398,11 @@ cleanup_runtime() {
             >>"$destination/shutdown.log" 2>&1 ||
             shutdown_status=$?
         if [ "$shutdown_status" -eq 0 ] && wait_for_shutdown; then
+            cleanup_run_owned_audio_helpers "$destination" || {
+                echo "[verify-home-simulator][cleanup] run-owned simulator audio helpers remain" >&2
+                cleanup_status=1
+            }
+            [ "$cleanup_status" -eq 0 ] || return "$cleanup_status"
             shutdown_required=0
             echo "simulator-state=Shutdown" >>"$destination/cleanup.log"
             echo "launchd-sim-absent=true" >>"$destination/cleanup.log"
@@ -1590,36 +1669,33 @@ verify_base() {
         "Facebook destination changed"
     assert_state "$state" actionDestinations.1 https://twitter.com/saurik \
         "Twitter destination changed"
-    assert_state "$state" actionDestinations.2 https://cydia.saurik.com/featured/ \
+    assert_state "$state" actionDestinations.2 cydia://home/featured \
         "Featured destination changed"
-    assert_state "$state" actionDestinations.3 https://cydia.saurik.com/themes/ \
+    assert_state "$state" actionDestinations.3 cydia://home/themes \
         "Themes destination changed"
-    assert_state "$state" actionDestinations.4 https://cydia.saurik.com/account/ \
+    assert_state "$state" actionDestinations.4 cydia://home/account \
         "Manage Account destination changed"
-    assert_state "$state" actionDestinations.5 https://cydia.saurik.com/upgrading/ \
+    assert_state "$state" actionDestinations.5 cydia://home/upgrading-jailbreaking/root \
         "Upgrading destination changed"
-    application_idiom=iphone
-    [ "$expected_layout" = ipad ] && application_idiom=ipad
-    assert_state "$state" actionDestinations.6 \
-        "https://cydia.saurik.com/ui/ios~$application_idiom/1.1/application/" \
+    assert_state "$state" actionDestinations.6 cydia://home/application-extensions \
         "application extensions destination changed"
-    assert_state "$state" actionDestinations.7 https://cydia.saurik.com/sources.html \
+    assert_state "$state" actionDestinations.7 cydia://home/more-sources \
         "More Package Sources destination changed"
-    assert_state "$state" actionDestinations.8 https://cydia.saurik.com/questions.html \
+    assert_state "$state" actionDestinations.8 cydia://home/faq \
         "FAQ destination changed"
-    assert_state "$state" actionDestinations.9 https://cydia.saurik.com/copying.html \
+    assert_state "$state" actionDestinations.9 cydia://home/copying-files \
         "Copying Files destination changed"
-    assert_state "$state" actionDestinations.10 https://cydia.saurik.com/openssh.html \
+    assert_state "$state" actionDestinations.10 cydia://home/openssh \
         "OpenSSH destination changed"
-    assert_state "$state" actionDestinations.11 https://cydia.saurik.com/password.html \
+    assert_state "$state" actionDestinations.11 cydia://home/root-password \
         "Root Password destination changed"
-    assert_state "$state" actionDestinations.12 https://cydia.saurik.com/storage.html \
+    assert_state "$state" actionDestinations.12 cydia://home/storage \
         "Storage destination changed"
-    assert_state "$state" actionDestinations.13 https://cydia.saurik.com/faq/developing.html \
+    assert_state "$state" actionDestinations.13 cydia://home/developer-resources \
         "developer resources destination changed"
-    assert_state "$state" actionDestinations.14 https://cydia.saurik.com/credits.html \
+    assert_state "$state" actionDestinations.14 cydia://home/credits \
         "Credits destination changed"
-    assert_state "$state" actionDestinations.15 https://cydia.saurik.com/policy/privacy/ \
+    assert_state "$state" actionDestinations.15 cydia://home/privacy \
         "Privacy destination changed"
     assert_state "$state" headerPresent true "Home header is absent"
     assert_state "$state" statusHidden true \
@@ -1960,10 +2036,10 @@ run_probe() {
     assert_state "$state" routeCount 1 \
         "Home More Package Sources did not use typed dispatch"
     assert_state "$state" fallbackRouteCount 0 "Home route fell through to legacy dispatch"
-    assert_state "$state" lastExternalURL https://cydia.saurik.com/sources.html \
-        "Home More Package Sources destination changed"
+    assert_state "$state" topControllerClass MoreSourcesController \
+        "Home More Package Sources did not reach UIKit"
     assert_state "$state" lastRoute \
-        cydia://url/https%3A%2F%2Fcydia.saurik.com%2Fsources.html \
+        cydia://home/more-sources \
         "Home More Package Sources route changed"
     assert_state "$state" lastReferrer cydia://home "Home route referrer changed"
     assert_state "$state" navigationDepth 2 \
@@ -1973,38 +2049,159 @@ run_probe() {
     wait_for_value "$state" navigationDepth 1 ||
         fail "$label native route return did not settle"
 
+    touch "$data_container/tmp/cydia-home-probe-upgrading-guide"
+    wait_for_state "$state" updating light large "$launched_pid" ||
+        fail "$label upgrading guide did not settle"
+    wait_for_value "$state" topControllerClass UpgradingGuideController ||
+        fail "$label upgrading guide native controller did not settle"
+    assert_state "$state" routeCount 2 "Home upgrading guide did not use typed dispatch"
+    assert_state "$state" lastRoute cydia://home/upgrading-jailbreaking/root \
+        "Home upgrading guide route changed"
+    assert_state "$state" navigationDepth 2 \
+        "Home upgrading guide did not push its native root"
+    assert_state "$state" upgradingGuideListVisible true \
+        "Home upgrading guide root list is not visible"
+    assert_state "$state" upgradingGuideRowCount 7 \
+        "Home upgrading guide root action count changed"
+    copy_state "$state" "$destination" upgrading-root "$simulator"
+    touch "$data_container/tmp/cydia-home-probe-upgrading-detail"
+    wait_for_value "$state" navigationDepth 3 ||
+        fail "$label upgrading tools child did not push"
+    wait_for_state "$state" updating light large "$launched_pid" ||
+        fail "$label upgrading tools child did not settle"
+    assert_state "$state" topNavigationURL \
+        cydia://home/upgrading-jailbreaking/tools \
+        "$label upgrading tools restoration URL changed"
+    assert_state "$state" upgradingGuideRowCount 18 \
+        "$label upgrading tools row count changed (Saffron and Star share a child)"
+    copy_state "$state" "$destination" upgrading-tools "$simulator"
+    touch "$data_container/tmp/cydia-home-probe-route-pop"
+    wait_for_value "$state" navigationDepth 1 ||
+        fail "$label upgrading guide back restoration did not settle"
+
     touch "$data_container/tmp/cydia-home-probe-guide"
     wait_for_state "$state" updating light large "$launched_pid" ||
         fail "$label external guide state did not settle"
-    wait_for_value "$state" lastExternalURL \
-        https://cydia.saurik.com/questions.html ||
-        fail "$label external guide action did not settle"
-    assert_state "$state" lastExternalURL \
-        https://cydia.saurik.com/questions.html \
-        "Home guide did not use the external handoff"
-    assert_state "$state" routeCount 2 \
-        "Home FAQ did not use typed external dispatch"
+    wait_for_value "$state" topControllerClass FAQController ||
+        fail "$label FAQ native controller did not settle"
+    assert_state "$state" routeCount 3 \
+        "Home FAQ did not use typed native dispatch"
     assert_state "$state" lastRoute \
-        cydia://url/https%3A%2F%2Fcydia.saurik.com%2Fquestions.html \
+        cydia://home/faq \
         "Home FAQ route changed"
     assert_state "$state" navigationDepth 2 \
         "Home FAQ did not push its typed destination"
+    assert_state "$state" topNavigationURL cydia://home/faq \
+        "Home FAQ root restoration URL changed"
+    assert_state "$state" faqListVisible true \
+        "Home FAQ list is not visible"
+    assert_state "$state" faqDetailVisible false \
+        "Home FAQ unexpectedly opened a detail page"
+    assert_state "$state" faqQuestionCount 6 \
+        "Home FAQ finite question model changed"
+    assert_state "$state" faqQuestionIdentifiers.0 \
+        cydia.home.faq.question.what-is-cydia \
+        "Home FAQ first question accessibility identifier changed"
+    assert_state "$state" faqRowsMeetTouchTarget true \
+        "Home FAQ question rows are below 44 points"
     copy_state "$state" "$destination" guide "$simulator"
+    touch "$data_container/tmp/cydia-home-probe-faq-detail"
+    wait_for_value "$state" navigationDepth 3 ||
+        fail "$label FAQ detail push did not settle"
+    wait_for_state "$state" updating light large "$launched_pid" ||
+        fail "$label FAQ detail state did not settle"
+    assert_state "$state" topControllerClass FAQController \
+        "$label FAQ detail controller changed"
+    assert_state "$state" navigationDepth 3 \
+        "$label FAQ detail did not push a child controller"
+    assert_state "$state" faqListVisible false \
+        "$label FAQ list remained visible over its detail"
+    assert_state "$state" faqDetailVisible true \
+        "$label FAQ answer is not visible"
+    assert_state "$state" topNavigationURL cydia://home/faq/what-is-cydia \
+        "$label FAQ detail restoration URL changed"
+    assert_state "$state" faqAnswerAccessibilityIdentifier \
+        cydia.home.faq.answer.what-is-cydia \
+        "$label FAQ answer accessibility identifier changed"
+    assert_number "$state" faqAnswerTextLength gt 40 \
+        "$label FAQ answer text is missing"
+    assert_number "$state" faqAnswerFrameWidth gt 0 \
+        "$label FAQ answer width is empty"
+    assert_number "$state" faqAnswerFrameHeight gt 0 \
+        "$label FAQ answer height is empty"
+    assert_state "$state" faqAnswerScrollEnabled true \
+        "$label FAQ answer is not scrollable"
+    copy_state "$state" "$destination" faq-detail "$simulator"
+    touch "$data_container/tmp/cydia-home-probe-faq-pop"
+    wait_for_value "$state" navigationDepth 2 ||
+        fail "$label FAQ back pop did not settle"
+    wait_for_state "$state" updating light large "$launched_pid" ||
+        fail "$label FAQ back state did not settle"
+    assert_state "$state" navigationDepth 2 \
+        "$label FAQ back did not restore the list depth"
+    assert_state "$state" topNavigationURL cydia://home/faq \
+        "$label FAQ back restoration URL changed"
+    assert_state "$state" faqListVisible true \
+        "$label FAQ back did not restore the list"
+    copy_state "$state" "$destination" faq-back "$simulator"
     touch "$data_container/tmp/cydia-home-probe-route-pop"
     wait_for_value "$state" navigationDepth 1 ||
-        fail "$label guide route return did not settle"
+        fail "$label FAQ route return did not settle"
+
+    touch "$data_container/tmp/cydia-home-probe-facebook"
+    wait_for_value "$state" routeCount 4 ||
+        fail "$label Facebook split control did not dispatch"
+    assert_state "$state" lastExternalURL \
+        https://www.facebook.com/Cydia \
+        "Home Facebook destination changed"
+    assert_state "$state" lastRoute \
+        cydia://url/https%3A%2F%2Fwww.facebook.com%2FCydia \
+        "Home Facebook route changed"
+    assert_state "$state" lastReferrer cydia://home \
+        "Home Facebook referrer changed"
+    assert_state "$state" topControllerClass CydiaHomeProbeDestinationController \
+        "Home Facebook did not reach the in-app browser destination"
+    assert_state "$state" navigationDepth 2 \
+        "Home Facebook did not push its browser destination"
+    copy_state "$state" "$destination" facebook "$simulator"
+    touch "$data_container/tmp/cydia-home-probe-route-pop"
+    wait_for_value "$state" navigationDepth 1 ||
+        fail "$label Facebook browser return did not settle"
+
+    touch "$data_container/tmp/cydia-home-probe-twitter"
+    wait_for_value "$state" routeCount 5 ||
+        fail "$label Twitter split control did not dispatch"
+    assert_state "$state" lastExternalURL \
+        https://twitter.com/saurik \
+        "Home Twitter destination changed"
+    assert_state "$state" lastRoute \
+        cydia://url/https%3A%2F%2Ftwitter.com%2Fsaurik \
+        "Home Twitter route changed"
+    assert_state "$state" lastReferrer cydia://home \
+        "Home Twitter referrer changed"
+    assert_state "$state" topControllerClass CydiaHomeProbeDestinationController \
+        "Home Twitter did not reach the in-app browser destination"
+    assert_state "$state" navigationDepth 2 \
+        "Home Twitter did not push its browser destination"
+    copy_state "$state" "$destination" twitter "$simulator"
+    touch "$data_container/tmp/cydia-home-probe-route-pop"
+    wait_for_value "$state" navigationDepth 1 ||
+        fail "$label Twitter browser return did not settle"
 
     touch "$data_container/tmp/cydia-home-probe-featured"
-    wait_for_value "$state" routeCount 3 ||
+    wait_for_value "$state" routeCount 6 ||
         fail "$label Featured split control did not dispatch"
-    assert_state "$state" lastExternalURL \
-        https://cydia.saurik.com/featured/ \
-        "Home Featured destination changed"
     assert_state "$state" lastRoute \
-        cydia://url/https%3A%2F%2Fcydia.saurik.com%2Ffeatured%2F \
+        cydia://home/featured \
         "Home Featured route changed"
+    assert_state "$state" topControllerClass HomePlaceholderController \
+        "Home Featured did not reach its native empty controller"
+    assert_state "$state" topNavigationURL cydia://home/featured \
+        "Home Featured restoration URL changed"
+    assert_state "$state" lastReferrer cydia://home \
+        "Home Featured referrer changed"
     assert_state "$state" navigationDepth 2 \
-        "Home Featured split control did not push its typed destination"
+        "Home Featured split control did not push its native destination"
     copy_state "$state" "$destination" featured "$simulator"
     touch "$data_container/tmp/cydia-home-probe-route-pop"
     wait_for_value "$state" navigationDepth 1 ||
@@ -2012,7 +2209,7 @@ run_probe() {
 
     if [ "$expected_layout" = ipad ]; then
         touch "$data_container/tmp/cydia-home-probe-ipad-package"
-        wait_for_value "$state" routeCount 4 ||
+        wait_for_value "$state" routeCount 7 ||
             fail "$label iPad package recommendation did not dispatch"
         assert_state "$state" lastRoute cydia://package/libactivator \
             "Home iPad package recommendation route changed"
@@ -2660,6 +2857,12 @@ phase_specs = {
     "cancel": ("updating", "light", "large"),
     "route-sources": ("updating", "light", "large"),
     "guide": ("updating", "light", "large"),
+    "upgrading-root": ("updating", "light", "large"),
+    "upgrading-tools": ("updating", "light", "large"),
+    "faq-detail": ("updating", "light", "large"),
+    "faq-back": ("updating", "light", "large"),
+    "facebook": ("updating", "light", "large"),
+    "twitter": ("updating", "light", "large"),
     "featured": ("updating", "light", "large"),
     "about": ("updating", "light", "large"),
 }
@@ -2806,7 +3009,9 @@ verify_case() {
             fail "$verified_case is missing required evidence: $required"
     done
     for phase in full-light full-dark full-dark-accessibility empty-light \
-            offline-dark updating-light refresh cancel route-sources guide featured about; do
+            offline-dark updating-light refresh cancel route-sources guide \
+            upgrading-root upgrading-tools faq-detail faq-back facebook twitter \
+            featured about; do
         for evidence in "$phase.png" "$phase-state.plist" "$phase-ui-tree.json"; do
             [ -f "$verified_dir/$evidence" ] ||
                 fail "$verified_case is missing required evidence: $evidence"

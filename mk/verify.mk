@@ -52,13 +52,16 @@ APT_SOURCE_CONTRACT_SCRIPT := tests/AptSourceIsolationContractTests.sh
 APT_SOURCE_LIST_MTIME_CONTRACT_SCRIPT := tests/AptSourceListMtimeContractTests.sh
 HOME_CONTROLLER_VERIFY_SCRIPT := tests/HomeControllerContractTests.sh
 HOME_LOCALIZATION_VERIFY_SCRIPT := tests/HomeLocalizationTests.sh
+FAQ_CONTROLLER_VERIFY_SCRIPT := tests/FAQControllerContractTests.sh
 EXTERNAL_URL_CONTROLLER_VERIFY_SCRIPT := tests/ExternalURLControllerContractTests.sh
 ERROR_VIEW_CONTROLLER_VERIFY_SCRIPT := tests/ErrorViewControllerContractTests.sh
 WINDOW_APPEARANCE_VERIFY_SCRIPT := tests/WindowAppearanceContractTests.sh
+UI_COLOR_APPEARANCE_VERIFY_SCRIPT := tests/UIColorAppearanceContractTests.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
 LEGACY_SOURCE_HANDOFF_TEST := $(BUILD_DIR)/tests/LegacySourceHandoffTests
+MANAGED_SOURCE_SECTION_TEST := $(BUILD_DIR)/tests/ManagedSourceSectionTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
@@ -81,6 +84,7 @@ CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
 CONFIRMATION_CONTROLLER_TEST := $(BUILD_DIR)/tests/ConfirmationControllerContractTests
 PROGRESS_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ProgressViewModelTests
 PACKAGE_DETAIL_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/PackageDetailViewModelTests
+PACKAGE_DEPICTION_FACADE_TEST := $(BUILD_DIR)/tests/PackageDepictionJavaScriptFacadeTests
 PACKAGE_DEPICTION_POLICY_TEST := $(BUILD_DIR)/tests/PackageDepictionPolicyTests
 PACKAGE_LEGACY_METADATA_POLICY_TEST := $(BUILD_DIR)/tests/PackageLegacyMetadataPolicyTests
 URL_PROTOCOL_POLICY_TEST := $(BUILD_DIR)/tests/URLProtocolPolicyTests
@@ -128,9 +132,9 @@ apt_api_candidates := $(filter-out $(APT_SOURCE_DIR)/% SDURLCache/%,$(filter %.m
 .PHONY: verify-native-ui verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch verify-ui-restoration-state verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-inventory verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer verify-source-controller-native-consumer verify-source-verification-request-policy
 .PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance verify-confirmation-controller-simulator
 .PHONY: verify-progress-view-model verify-progress-controller
-.PHONY: verify-package-detail-view-model verify-package-depiction-policy verify-package-legacy-metadata-policy verify-url-protocol-policy
+.PHONY: verify-package-detail-view-model verify-package-depiction-facade verify-package-depiction-policy verify-package-legacy-metadata-policy verify-url-protocol-policy
 .PHONY: verify-package-detail-controller verify-package-detail-contact verify-package-detail-controller-simulator verify-package-depiction-view
-.PHONY: verify-home-view-model verify-home-controller verify-home-localization verify-home-controller-simulator
+.PHONY: verify-home-view-model verify-home-controller verify-home-localization verify-home-controller-simulator verify-faq-controller verify-upgrading-guide
 .PHONY: verify-error-view-model verify-error-view-controller
 .PHONY: verify-window-appearance verify-url-cache verify-url-origin-validation-contract
 .PHONY: verify-exec-compat verify-exec-compat-provenance verify-exec-compat-archive
@@ -303,7 +307,12 @@ $(DPKG_STATUS_TEST): tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp 
 verify-dpkg-status: $(DPKG_STATUS_TEST)
 	@$<
 
-verify-bootstrap-helpers:
+$(BUILD_DIR)/tests/FirmwareMarkerPermissionsTests: tests/FirmwareMarkerPermissionsTests.cpp Cydia/FirmwareMarkerPermissions.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. $< -o $@
+
+verify-bootstrap-helpers: $(BUILD_DIR)/tests/FirmwareMarkerPermissionsTests
+	@$(BUILD_DIR)/tests/FirmwareMarkerPermissionsTests
 	@tests/BootstrapHelpersTests.sh
 
 verify-home-localization: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
@@ -348,6 +357,7 @@ verify-url-origin-validation-contract: $(URL_ORIGIN_VALIDATION_CONTRACT_SCRIPT) 
 
 verify-native-ui-contract: verify-legacy-ui-compatibility-inventory \
 		verify-url-origin-validation-contract \
+		verify-ui-color-appearance \
 		$(NATIVE_UI_VERIFY_SCRIPT) mk/ui-webkit-legacy.txt \
 		mk/ui-route-legacy-callers.txt tests/fixtures/ui/routes.tsv \
 		tests/fixtures/ui/route-dispatch.tsv tests/fixtures/ui/legacy-api.tsv \
@@ -371,6 +381,9 @@ verify-native-ui-contract: verify-legacy-ui-compatibility-inventory \
 		Cydia/HomeViewModel.h Cydia/HomeViewModel.mm
 	@$(NATIVE_UI_VERIFY_SCRIPT) all
 
+verify-ui-color-appearance: $(UI_COLOR_APPEARANCE_VERIFY_SCRIPT) Cydia/UIColor+Cydia.m
+	@$(UI_COLOR_APPEARANCE_VERIFY_SCRIPT)
+
 verify-no-remote-app-ui: $(NO_REMOTE_APP_UI_VERIFY_SCRIPT) \
 		Cydia/AppState.h MobileCydia.mm Cydia/Application+Navigation.mm \
 		Cydia/HomeController.mm Cydia/ConfirmationController.mm \
@@ -391,6 +404,20 @@ verify-url-cache: $(URL_CACHE_VERIFY_SCRIPT) \
 	@$(URL_CACHE_VERIFY_SCRIPT)
 
 ifeq ($(HOST_OS),Darwin)
+$(MANAGED_SOURCE_SECTION_TEST): tests/ManagedSourceSectionTests.mm Sources.mm Sources.h \
+		Cydia/AptRuntime.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
+		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/ManagedSourceSectionTests.mm Cydia/DpkgRunner.cpp \
+		Cydia/PackageDatabasePaths.cpp -framework Foundation -o $@
+
+.PHONY: verify-managed-source-sections
+verify-managed-source-sections: $(MANAGED_SOURCE_SECTION_TEST)
+	@$<
+
+verify: verify-managed-source-sections
+
 $(UI_ROUTE_CONTEXT_TEST): tests/UIRouteContextTests.mm \
 		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
 		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
@@ -535,6 +562,7 @@ verify-legacy-ui-compatibility-native-snapshot: $(LEGACY_UI_COMPATIBILITY_NATIVE
 
 verify-legacy-ui-compatibility-native-provider: $(LEGACY_UI_COMPATIBILITY_NATIVE_PROVIDER_CONTRACT_SCRIPT) \
 		Cydia/LegacyUICompatibilityNativeProvider.h Cydia/LegacyUICompatibilityNativeProvider.mm \
+		Cydia/NativeMutationConfirmation.h Cydia/NativeMutationConfirmation.mm \
 		Cydia/LegacyUICompatibilityNativeProvider+Application.mm \
 		Cydia/LegacyUICompatibilityNativeRenderingProvider.mm \
 		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
@@ -543,6 +571,8 @@ verify-legacy-ui-compatibility-native-provider: $(LEGACY_UI_COMPATIBILITY_NATIVE
 
 verify-legacy-ui-compatibility-native-consumer: $(LEGACY_UI_COMPATIBILITY_NATIVE_CONSUMER_CONTRACT_SCRIPT) \
 		Cydia/Application.h Cydia/Application+Data.mm MobileCydia.mm \
+		Cydia/NativeMutationDiagnostic.h Cydia/NativeMutationDiagnostic.mm \
+		tests/NativePackageMutationDiagnosticTests.sh tests/NativePackageMutationDiagnosticTests.mm \
 		Cydia/LegacyUICompatibilityNativeProvider+Application.mm
 	@$(LEGACY_UI_COMPATIBILITY_NATIVE_CONSUMER_CONTRACT_SCRIPT)
 
@@ -565,6 +595,40 @@ verify-legacy-ui-compatibility-runtime-evidence: $(LEGACY_UI_COMPATIBILITY_RUNTI
 		$(LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_CONTRACT_SCRIPT)
 	@$(LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_CONTRACT_SCRIPT)
 	@$<
+
+.PHONY: verify-native-mutation-evidence
+verify: verify-native-mutation-evidence
+
+.PHONY: verify-native-accessibility-trace
+verify: verify-native-accessibility-trace
+
+$(BUILD_DIR)/tests/NativeAccessibilityJournalTests: tests/NativeAccessibilityJournalTests.mm \
+		Cydia/NativeAccessibilityJournal.h Cydia/NativeAccessibilityJournal.mm \
+		Cydia/NativeAccessibilityColor.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/NativeAccessibilityJournalTests.mm Cydia/NativeAccessibilityJournal.mm \
+		-framework Foundation -o $@
+
+verify-native-accessibility-trace: $(BUILD_DIR)/tests/NativeAccessibilityJournalTests \
+		tests/NativeAccessibilityTraceContractTests.sh Cydia/NativeAccessibilityTrace.mm
+	@sh tests/NativeAccessibilityTraceContractTests.sh
+	@trace_test_dir=$$(mktemp -d "$(abspath $(BUILD_DIR))/tests/native-ax.XXXXXX"); \
+		"$<" "$$trace_test_dir"
+
+$(BUILD_DIR)/tests/NativeMutationEvidenceTests: tests/NativeMutationEvidenceTests.mm \
+		Cydia/NativeMutationEvidence.h Cydia/NativeMutationEvidence.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/NativeMutationEvidenceTests.mm Cydia/NativeMutationEvidence.mm \
+		-framework Foundation -o $@
+
+verify-native-mutation-evidence: $(BUILD_DIR)/tests/NativeMutationEvidenceTests \
+		tests/NativeMutationEvidenceContractTests.sh \
+		scripts/verify-native-mutation-evidence.sh \
+		Cydia/NativeMutationConfirmation.mm Cydia/LegacyUICompatibilityNativeProvider.mm
+	@sh tests/NativeMutationEvidenceContractTests.sh
+	@$< scripts/verify-native-mutation-evidence.sh
 
 verify-package-controller-native-consumer: $(PACKAGE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT) \
 		Cydia/PackageControllers.h Cydia/PackageControllers.mm
@@ -609,6 +673,17 @@ $(PACKAGE_DETAIL_VIEW_MODEL_TEST): tests/PackageDetailViewModelTests.mm \
 verify-package-detail-view-model: $(PACKAGE_DETAIL_VIEW_MODEL_TEST)
 	@$<
 
+$(PACKAGE_DEPICTION_FACADE_TEST): tests/PackageDepictionJavaScriptFacadeTests.mm \
+		Cydia/PackageDepictionJavaScriptFacade.h Cydia/PackageDepictionJavaScriptFacade.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks -Wall -Wextra -I. \
+		tests/PackageDepictionJavaScriptFacadeTests.mm \
+		Cydia/PackageDepictionJavaScriptFacade.mm \
+		-framework Foundation -framework WebKit -o $@
+
+verify-package-depiction-facade: $(PACKAGE_DEPICTION_FACADE_TEST)
+	@$<
+
 $(PACKAGE_DEPICTION_POLICY_TEST): tests/PackageDepictionPolicyTests.mm \
 		Cydia/PackageDepictionPolicy.h Cydia/PackageDepictionPolicy.mm \
 		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm
@@ -648,20 +723,23 @@ verify-url-protocol-policy: $(URL_PROTOCOL_POLICY_TEST) \
 	@$(URL_PROTOCOL_POLICY_CONTRACT_SCRIPT)
 
 verify-package-depiction-view: $(PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT) \
-		Cydia/PackageDepictionView.h Cydia/PackageDepictionView.mm \
-		Cydia/PackageDepictionPolicy.h Cydia/PackageDepictionPolicy.mm \
+	 Cydia/PackageDepictionView.h Cydia/PackageDepictionView.mm \
+	 Cydia/PackageDepictionJavaScriptFacade.h Cydia/PackageDepictionJavaScriptFacade.mm \
+	 Cydia/PackageDepictionPolicy.h Cydia/PackageDepictionPolicy.mm \
 		Cydia/URLResourceResolver.h Cydia/URLResourceResolver.mm
 	@$(PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT)
 	@$(MAKE) --no-print-directory \
 		BUILD_DIR="$(BUILD_DIR)/package-depiction-simulator-ios12" \
 		doIA=yes kind=iphonesimulator arch=x86_64 \
 		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/PackageDepictionView.o" \
+		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/PackageDepictionJavaScriptFacade.o" \
 		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/URLResourceResolver.o" \
 		"$(BUILD_DIR)/package-depiction-simulator-ios12/objects/Cydia/URLProtocol.o"
 
 verify-package-detail-controller: $(PACKAGE_DETAIL_CONTROLLER_VERIFY_SCRIPT) \
 		Cydia/PackageDetailController.h Cydia/PackageDetailController.mm \
 		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm \
+		Cydia/PackageSupportController.h Cydia/PackageSupportController.mm \
 		Cydia/PackageDetailControllerProbe.h Cydia/PackageDetailControllerProbe.mm \
 		Cydia/AppearanceProbe.mm \
 		Cydia/Application+Navigation.mm Cydia/PackageControllers.mm \
@@ -749,11 +827,20 @@ verify-home-controller: $(HOME_CONTROLLER_VERIFY_SCRIPT) $(HOME_LOCALIZATION_VER
 		Cydia/Application+Navigation.mm
 	@$(HOME_CONTROLLER_VERIFY_SCRIPT)
 
+verify-faq-controller: $(FAQ_CONTROLLER_VERIFY_SCRIPT) \
+	Cydia/FAQController.h Cydia/FAQController.mm Cydia/HomeController.mm \
+	Cydia/Application+Navigation.mm Cydia/UIRouteContext.h Cydia/UIRouteContext.mm
+	@$(FAQ_CONTROLLER_VERIFY_SCRIPT)
+
 verify-home-controller-simulator:
 	@$(MAKE) --no-print-directory \
 		BUILD_DIR="$(BUILD_DIR)/home-simulator-ios12" \
 		doIA=yes doHomeProbe=yes kind=iphonesimulator arch=x86_64 \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeController.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/UpgradingGuideController.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/MoreSourcesController.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/CopyingFilesGuideController.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeGuideController.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeControllerProbe.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeViewModel.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/AppearanceProbe.o" \
@@ -854,6 +941,9 @@ verify-home-view-model:
 verify-home-controller: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
 	@$(HOME_CONTROLLER_VERIFY_SCRIPT)
 
+verify-faq-controller: $(FAQ_CONTROLLER_VERIFY_SCRIPT)
+	@$(FAQ_CONTROLLER_VERIFY_SCRIPT)
+
 verify-home-controller-simulator:
 	@echo "[verify] Home simulator seam compile requires a Darwin host"
 
@@ -892,6 +982,38 @@ verify-progress-controller: $(PROGRESS_CONTROLLER_VERIFY_SCRIPT) \
 		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm
 	@$(PROGRESS_CONTROLLER_VERIFY_SCRIPT)
 
+verify-upgrading-guide: tests/UpgradingGuideControllerContractTests.sh tests/UpgradingGuideContentTests.py \
+		MobileCydia.app/UpgradingGuide.json tests/fixtures/ui/upgrading-guide-baseline.json
+	@sh tests/UpgradingGuideControllerContractTests.sh
+
+.PHONY: verify-application-extensions verify-more-sources verify-copying-files verify-home-guides
+verify-home-guides:
+	@sh tests/HomeGuideControllerContractTests.sh
+verify-copying-files: tests/CopyingFilesGuideControllerContractTests.sh tests/CopyingFilesGuideContentTests.py \
+		MobileCydia.app/CopyingFilesGuide.json tests/fixtures/ui/copying-files-baseline.json
+	@sh tests/CopyingFilesGuideControllerContractTests.sh
+ifneq ($(HOST_OS),Linux)
+$(BUILD_DIR)/tests/MoreSourcesModelTests: tests/MoreSourcesModelTests.mm Cydia/MoreSourcesModel.mm Cydia/MoreSourcesModel.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/MoreSourcesModelTests.mm Cydia/MoreSourcesModel.mm -framework Foundation -o $@
+verify-more-sources: $(BUILD_DIR)/tests/MoreSourcesModelTests
+	@$< tests/fixtures/ui/more-sources/frozen-inputs.json
+$(BUILD_DIR)/tests/ApplicationExtensionsModelTests: tests/ApplicationExtensionsModelTests.mm \
+		Cydia/ApplicationExtensionsModel.mm Cydia/ApplicationExtensionsModel.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra \
+		-I. -I$(mac)/usr/include/libxml2 tests/ApplicationExtensionsModelTests.mm \
+		Cydia/ApplicationExtensionsModel.mm -framework Foundation -lxml2 -o $@
+verify-application-extensions: $(BUILD_DIR)/tests/ApplicationExtensionsModelTests
+	@$<
+else
+verify-more-sources:
+	@echo "[verify] More Sources Foundation model test requires a Darwin host"
+verify-application-extensions:
+	@echo "[verify] Application Extensions Foundation model test requires a Darwin host"
+endif
+
 verify-native-ui: verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch \
 	verify-window-appearance \
 	verify-url-cache \
@@ -900,11 +1022,11 @@ verify-native-ui: verify-native-ui-contract verify-no-remote-app-ui verify-ui-ro
 	verify-url-protocol-policy \
 	verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance \
 	verify-confirmation-controller-simulator verify-progress-view-model \
-	verify-progress-controller verify-package-detail-view-model \
+	verify-progress-controller verify-package-detail-view-model verify-package-depiction-facade \
 	verify-package-depiction-policy verify-package-legacy-metadata-policy verify-package-depiction-view \
 	verify-package-detail-controller verify-package-detail-contact \
 	verify-package-detail-controller-simulator \
-	verify-home-view-model verify-home-controller verify-home-controller-simulator \
+	verify-home-view-model verify-home-controller verify-faq-controller verify-upgrading-guide verify-application-extensions verify-more-sources verify-copying-files verify-home-guides verify-home-controller-simulator \
 	verify-error-view-model verify-error-view-controller
 
 $(EXEC_COMPAT_PARSER_TEST): tests/ExecCompatParserTests.c \

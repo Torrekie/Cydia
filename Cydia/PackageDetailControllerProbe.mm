@@ -42,6 +42,7 @@
 @property(nonatomic, copy) NSString *descriptionValue;
 @property(nonatomic, copy) NSString *hostValue;
 @property(nonatomic, strong) NSURL *iconValue;
+@property(nonatomic, copy) NSDictionary *recordValue;
 @end
 
 @implementation CydiaPackageProbeSource
@@ -50,6 +51,18 @@
 - (NSString *)shortDescription { return _descriptionValue; }
 - (NSString *)host { return _hostValue; }
 - (NSURL *)iconURL { return _iconValue; }
+- (NSString *)getField:(NSString *)name { return [_recordValue objectForKey:name]; }
+- (NSDictionary *)record { return _recordValue; }
+- (NSArray *)sections { return @[]; }
+- (BOOL)trusted { return YES; }
+- (NSString *)rooturi { return nil; }
+- (NSString *)distribution { return nil; }
+- (NSString *)type { return nil; }
+- (NSString *)baseuri { return nil; }
+- (NSString *)iconuri { return nil; }
+- (NSString *)label { return nil; }
+- (NSString *)origin { return nil; }
+- (NSString *)version { return nil; }
 @end
 
 
@@ -65,6 +78,8 @@
 @property(nonatomic, copy) NSString *multiArchValue;
 @property(nonatomic, copy) NSString *rawSectionValue;
 @property(nonatomic, copy) NSString *sectionValue;
+@property(nonatomic, copy) NSString *simpleSectionValue;
+@property(nonatomic, copy) NSString *shortSectionValue;
 @property(nonatomic, copy) NSString *shortDescriptionValue;
 @property(nonatomic, copy) NSString *longDescriptionValue;
 @property(nonatomic) size_t sizeValue;
@@ -85,6 +100,9 @@
 @property(nonatomic, copy) NSArray *applicationsValue;
 @property(nonatomic, copy) NSArray *downgradesValue;
 @property(nonatomic, strong) UIImage *iconValue;
+@property(nonatomic, copy) NSDictionary *fieldsValue;
+@property(nonatomic, copy) NSString *recordValue;
+@property(nonatomic, copy) NSArray *tagsValue;
 @end
 
 @implementation CydiaPackageProbePackage
@@ -99,7 +117,9 @@
 - (NSString *)architecture { return _architectureValue; }
 - (NSString *)multiArch { return _multiArchValue; }
 - (NSString *)section { return _rawSectionValue; }
+- (NSString *)simpleSection { return _simpleSectionValue; }
 - (NSString *)longSection { return _sectionValue; }
+- (NSString *)shortSection { return _shortSectionValue; }
 - (NSString *)shortDescription { return _shortDescriptionValue; }
 - (NSString *)longDescription { return _longDescriptionValue; }
 - (size_t)size { return _sizeValue; }
@@ -121,6 +141,9 @@
 - (CydiaPackageProbeSource *)source { return _sourceValue; }
 - (NSArray *)applications { return _applicationsValue; }
 - (NSArray *)downgrades { return _downgradesValue; }
+- (NSString *)getField:(NSString *)name { return [_fieldsValue objectForKey:name]; }
+- (NSString *)getRecord { return _recordValue; }
+- (NSArray *)tags { return _tagsValue; }
 - (UIImage *)icon { return _iconValue; }
 @end
 
@@ -235,6 +258,8 @@ static CydiaPackageProbePackage *CydiaPackageProbeFullPackage(NSString *phase) {
     package.multiArchValue = @"same";
     package.rawSectionValue = @"System";
     package.sectionValue = @"System";
+    package.simpleSectionValue = @"System";
+    package.shortSectionValue = @"System";
     package.shortDescriptionValue = @"Short fallback description";
     package.longDescriptionValue = @"This native package description remains expanded inside the single package table.\nIt is intentionally long enough to prove wrapping and footer scrolling.";
     package.sizeValue = 8 * 1024 * 1024;
@@ -245,6 +270,13 @@ static CydiaPackageProbePackage *CydiaPackageProbeFullPackage(NSString *phase) {
     package.essentialValue = YES;
     package.commercialValue = true;
     package.consoleValue = YES;
+    package.fieldsValue = @{
+        @"Package": package.identityValue,
+        @"Version": package.latestValue,
+        @"Description": package.longDescriptionValue,
+    };
+    package.recordValue = @"Package: runtime:iphoneos-arm64\nVersion: 2:1.1\n";
+    package.tagsValue = @[ @"purpose::console", @"role::developer" ];
     CydiaPackageProbeAddress *author([[CydiaPackageProbeAddress alloc] init]);
     author.nameValue = @"Runtime Author";
     author.addressValue = @"runtime@example.test";
@@ -265,6 +297,7 @@ static CydiaPackageProbePackage *CydiaPackageProbeFullPackage(NSString *phase) {
     source.descriptionValue = @"A deterministic repository description rendered below the source row.";
     source.hostValue = @"repo.example";
     source.iconValue = [NSURL URLWithString:@"https://repo.example/CydiaIcon.png"];
+    source.recordValue = @{ @"Origin": @"Runtime Repository" };
     package.sourceValue = source;
     package.applicationsValue = @[@[
         @"com.example.runtime", @"Open Runtime App",
@@ -394,6 +427,7 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
     NSString *depictionResourcePositiveSource_;
     NSString *depictionResourceRejectedSource_;
     NSString *depictionResourceProbeError_;
+    NSString *depictionFacadeText_;
 }
 
 - (UIStatusBarStyle) preferredStatusBarStyle {
@@ -437,6 +471,7 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
     depictionResourcePositiveSource_ = @"";
     depictionResourceRejectedSource_ = @"";
     depictionResourceProbeError_ = @"";
+    depictionFacadeText_ = @"";
     id package([phase isEqualToString:@"sparse"] ?
         CydiaPackageProbeSparsePackage() : CydiaPackageProbeFullPackage(phase));
     delegate_ = [[CydiaPackageDetailProbeDelegate alloc] init];
@@ -520,6 +555,9 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
             [values[@"badComplete"] boolValue];
         strongSelf->depictionResourceRejectedWidth_ =
             [values[@"badWidth"] integerValue];
+        strongSelf->depictionFacadeText_ =
+            [values[@"facadeText"] isKindOfClass:[NSString class]] ?
+                values[@"facadeText"] : @"";
         if ((!strongSelf->depictionResourcePositiveComplete_ ||
              !strongSelf->depictionResourceRejectedComplete_) &&
             strongSelf->depictionResourceProbeAttempts_ < 20) {
@@ -856,6 +894,7 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
             @(depictionResourceRejectedComplete_),
         @"depictionResourceRejectedNaturalWidth":
             @(depictionResourceRejectedWidth_),
+        @"depictionFacadeText": depictionFacadeText_ ?: @"",
         @"depictionDocumentPresent": @(CydiaPackageProbeView(
             controller_.view, @"cydia.package.depiction.document") != nil),
         @"depictionErrorRegionPresent": @(CydiaPackageProbeView(

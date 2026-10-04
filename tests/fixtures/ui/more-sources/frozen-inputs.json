@@ -1,0 +1,97 @@
+{
+  "source": "fd2388825c0df3049be23bc1ee1d820d3b4ab19e",
+  "original_url": "https://cydia.saurik.com/sources.html",
+  "html_sha256": "8e56c2a586d427897ef720e8e45136969bc5445c543a80f04964acf171cf48d6",
+  "owned_pages": [
+    "/sources.html"
+  ],
+  "owned_children": [],
+  "rows": [
+    {
+      "identifier": "bigboss",
+      "name": "BigBoss",
+      "rooturi": "http://apt.thebigboss.org/repofiles/cydia/",
+      "distribution": "stable",
+      "components": [
+        "main"
+      ],
+      "icon": "/icon/bigboss.png"
+    },
+    {
+      "identifier": "modmyi",
+      "name": "ModMyi",
+      "rooturi": "http://modmyi.saurik.com/",
+      "distribution": "stable",
+      "components": [
+        "main"
+      ],
+      "icon": "/icon/modmyi.png"
+    },
+    {
+      "identifier": "zodttd",
+      "name": "ZodTTD",
+      "rooturi": "http://cydia.zodttd.com/repo/cydia/",
+      "distribution": "stable",
+      "components": [
+        "main"
+      ],
+      "icon": "/icon/zodttd.png"
+    }
+  ],
+  "blocks": [
+    [
+      "What are package sources?",
+      "Cydia is an open, decentralized platform that helps you install software packages hosted by independent repositories, also called sources.",
+      "Each source chooses the packages it hosts, how its pages look, and how it is run. They may choose to have ads.",
+      "Cydia includes a few default sources (BigBoss, Cydia/Telesphoreo, Dev Team, ModMyi, and ZodTTD & MacCiti) that host thousands of popular and useful packages.",
+      "Anyone can run their own source (a source is basically a specialized website viewable in Cydia).",
+      "You are free to add un-trusted third-party sources, but you do that at your own risk (not recommended). Packages from third-party sources may not have the same strict quality control as the packages in default sources, and we do not screen them."
+    ],
+    [
+      "If you remove a default repository (BigBoss, ModMyi, or ZodTTD & MacCiti) from your Sources list, you can use this page to reinstall that default repository. Uninstalled default repositories are listed at the top of this page (if any)."
+    ]
+  ],
+  "assets": [
+    {
+      "path": "/cytyle/style-3c578a2a65b28de08a903cddcf2ea0feae341e61.js",
+      "bytes": 7333,
+      "sha256": "a7bdbea9428d5304d62e30c3943e0546cd338548c442a7169da61953ca23f6f2"
+    },
+    {
+      "path": "/cytyle/style-47aeb8b1957f6242425e881de23ebbe44bc4f055.css",
+      "bytes": 23380,
+      "sha256": "8769e1ec06548f4ce3f4dd860c6badf3bb2456b4e53b0f9e9967bdd0bbc53f1d"
+    },
+    {
+      "path": "/fastclick/lib/fastclick.js",
+      "bytes": 22721,
+      "sha256": "cee6c9d1ca8c1ecf1e758b5760eeeff74bb94b2503b3bc17a09f6e9942e45248"
+    },
+    {
+      "path": "/icon/bigboss.png",
+      "bytes": 6416,
+      "sha256": "04337b63cc7fe5152341396b40ea2bee8b249883d312fe123d54f3a780de3cee"
+    },
+    {
+      "path": "/icon/modmyi.png",
+      "bytes": 5528,
+      "sha256": "20c8ea2c7b2e49a49fa0a15e8a03503d5d9acc8cb08ea4be956559b5915d6161"
+    },
+    {
+      "path": "/icon/zodttd.png",
+      "bytes": 2458,
+      "sha256": "684ef56896a2594bbe4ab3261b9f78cbb930a262d5e3604d46c943562150d626"
+    },
+    {
+      "path": "/menes/menes.js",
+      "bytes": 15384,
+      "sha256": "3390ead97ba62c835030a82f3cedd179de236f1de2025ccdcf730e21392585fc"
+    },
+    {
+      "path": "/cytyle/closebox@2x.png",
+      "bytes": 2058,
+      "sha256": "6e2e3ce720a931ac4ad8e4cebbf2b5f1b78560f7dcc487e42854cf85f16a22a7"
+    }
+  ],
+  "behavior": "Exact rooturi/distribution matching with old ModMyi alias; Confirm addSource(tuple), refreshSources, deferred unload; Cancel no calls; CydiaReloadData reload. No package destination."
+}

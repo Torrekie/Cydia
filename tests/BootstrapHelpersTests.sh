@@ -151,16 +151,29 @@ printf 'mv %s\n' "$*" >>"${TRACE}"
 /bin/mv "$@"
 EOF
 
+cat >"${mock_bin}/chmod" <<'EOF'
+#!/bin/bash
+printf 'chmod %s\n' "$*" >>"${TRACE}"
+[[ ${FAIL_MARKER_CHMOD:-0} == 1 ]] && exit 79
+/bin/chmod "$@"
+EOF
+
 chmod +x "${fixture}/firmware.sh" "${fixture}/startup" \
     "${mock_bin}/dpkg-deb" "${mock_bin}/dpkg-query" "${mock_bin}/dpkg" \
     "${mock_bin}/sw_vers" "${mock_bin}/uname" "${mock_bin}/dirname" \
     "${mock_bin}/sysctl" \
     "${mock_bin}/gssc" "${mock_bin}/cp" "${mock_bin}/rm" \
-    "${mock_bin}/ln" "${mock_bin}/mv" "${mock_libexec}/cfversion"
+    "${mock_bin}/ln" "${mock_bin}/mv" "${mock_bin}/chmod" "${mock_libexec}/cfversion"
 
 run_firmware() {
     TRACE=${trace} CONTROL_DIR=${controls} QUERY_FIXTURE=${query_fixture} \
         DPKG_ARCH=${DPKG_ARCH:-iphoneos-arm64} /bin/bash "${fixture}/firmware.sh"
+}
+
+assert_firmware_version_readable() {
+    local marker=${mock_state}/firmware.ver
+    [[ $(find "${marker}" -prune -type f -perm 0644 -print) == "${marker}" ]] || \
+        fail "firmware version must be mode 0644 for the mobile Cydia reader"
 }
 
 # Lookups must use the in-memory index after one snapshot pass. Removing the
@@ -236,12 +249,14 @@ printf '%s\n' cy+model.iphone cy+kernel.darwin cy+lib.corefoundation >"${expecte
 cmp -s "${expected_manifest}" "${mock_state}/firmware-packages.list" || \
     fail "managed firmware manifest did not retain only Cydia-owned desired packages"
 [[ $(cat "${mock_state}/firmware.ver") == 6 ]] || fail "firmware version was not committed"
+assert_firmware_version_readable
 
 # With an empty database, dpkg's native architecture drives current virtual
 # names. uname is a hard-failing mock, so reaching this point also proves it
 # was not consulted.
 reset_firmware_fixture
 run_firmware
+assert_firmware_version_readable
 [[ -e ${controls}/cy+cpu.arm64.control ]] || fail "iphoneos-arm64 CPU package was not generated"
 [[ -e ${controls}/cy+os.iphoneos.control ]] || fail "iphoneos operating-system package was not generated"
 [[ ! -e ${controls}/cy+cpu.arm.control ]] || fail "legacy uname-derived CPU package was generated"
@@ -253,10 +268,35 @@ grep -q '^X-Cydia-Firmware-Owner: cydia-refurbished.torrekie.dev/v1$' \
 
 reset_firmware_fixture
 DPKG_ARCH=iphoneos-arm run_firmware
+assert_firmware_version_readable
 [[ -e ${controls}/cy+cpu.arm.control ]] || fail "iphoneos-arm CPU package was not generated"
 [[ ! -e ${controls}/cy+cpu.arm64.control ]] || fail "rooted layout generated the rootless CPU package"
 grep -q '^Architecture: iphoneos-arm$' "${controls}/cy+cpu.arm.control" || \
     fail "rooted generated package architecture did not come from dpkg"
+
+# Never publish a root-only completion marker if setting its mode fails.
+# Preserve an existing marker and remove only the new temporary file.
+for marker_prestate in absent existing; do
+    reset_firmware_fixture
+    if [[ ${marker_prestate} == existing ]]; then
+        printf '5\n' >"${mock_state}/firmware.ver"
+        /bin/chmod 644 "${mock_state}/firmware.ver"
+    fi
+    if TRACE=${trace} FAIL_MARKER_CHMOD=1 /bin/bash -c '
+        . "$1"
+        write_firmware_version
+    ' _ "${fixture}/firmware.sh"; then
+        fail "firmware marker ignored chmod failure"
+    fi
+    if [[ ${marker_prestate} == existing ]]; then
+        [[ $(cat "${mock_state}/firmware.ver") == 5 ]] || fail "failed chmod replaced prior marker"
+        assert_firmware_version_readable
+    else
+        [[ ! -e ${mock_state}/firmware.ver ]] || fail "failed chmod published a marker"
+    fi
+    [[ -z $(find "${mock_state}" -name '.firmware.ver.*' -print) ]] || \
+        fail "failed chmod leaked a temporary marker"
+done
 
 # A failed install must leave the previous durable state untouched. Retrying
 # without the injected failure must regenerate packages and commit state.

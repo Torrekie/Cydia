@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "title": "Copying Files to/from Device",
+  "title_key": "HOME_COPYING_FILES",
+  "sections": [
+    {
+      "id": "intro",
+      "rows": [
+        {
+          "id": "copying-files-intro",
+          "kind": "text",
+          "text": "Getting Files to/from Your Device\n\nOne of the advantages of having a jailbroken device is being able to access the filesystem on your device and modify its files or transfer any of them to another computer.\n\nTo get to the filesystem you might use any of the following tools:",
+          "runs": [
+            {
+              "text": "Getting Files to/from Your Device",
+              "bold": true
+            },
+            {
+              "text": "\n\nOne of the advantages of having a jailbroken device is being able to access the filesystem on your device and modify its files or transfer any of them to another computer.\n\nTo get to the filesystem you might use any of the following tools:"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "packages",
+      "rows": [
+        {
+          "id": "copying-files-packages",
+          "kind": "text",
+          "text": "Cydia Packages\n\nSecure Copy Protocol: Install OpenSSH to let you connect to your device with a standard SCP or SFTP client. You can use a terminal to connect (and you should use one to change the default password) or a graphical desktop application such as:\nCyberduck (Mac): http://cyberduck.ch/\nWinSCP (Windows): http://winscp.net/\n\nApple Filing Protocol: Install Netatalk to make your device show up in Finder under Shared. (You may need to reboot your device after installation for this to work.)\n\nOn Device: Install iFile to access the filesystem from an app on the device.",
+          "runs": [
+            {
+              "text": "Cydia Packages",
+              "bold": true
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "Secure Copy Protocol",
+              "bold": true
+            },
+            {
+              "text": ": Install "
+            },
+            {
+              "text": "OpenSSH",
+              "link": "cydia://package/openssh"
+            },
+            {
+              "text": " to let you connect to your device with a standard SCP or SFTP client. You can use a terminal to connect (and you should use one to "
+            },
+            {
+              "text": "change the default password",
+              "link": "cydia://home/root-password"
+            },
+            {
+              "text": ") or a graphical desktop application such as:\nCyberduck (Mac): "
+            },
+            {
+              "text": "http://cyberduck.ch/",
+              "link": "http://cyberduck.ch/"
+            },
+            {
+              "text": "\nWinSCP (Windows): "
+            },
+            {
+              "text": "http://winscp.net/",
+              "link": "http://winscp.net/"
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "Apple Filing Protocol",
+              "bold": true
+            },
+            {
+              "text": ": Install "
+            },
+            {
+              "text": "Netatalk",
+              "link": "cydia://package/netatalk"
+            },
+            {
+              "text": " to make your device show up in Finder under Shared. (You may need to reboot your device after installation for this to work.)\n\n"
+            },
+            {
+              "text": "On Device",
+              "bold": true
+            },
+            {
+              "text": ": Install "
+            },
+            {
+              "text": "iFile",
+              "link": "cydia://package/eu.heinelt.ifile"
+            },
+            {
+              "text": " to access the filesystem from an app on the device."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desktop",
+      "rows": [
+        {
+          "id": "copying-files-desktop",
+          "kind": "text",
+          "text": "Desktop Applications\n\nIf you jailbroke your device with Pangu or evasi0n7, you will first need to install Apple File Conduit \"2\" to get full filesystem access over USB. (Most earlier jailbreaks include this service by default.)\n\nDiskAid for Mac & Windows\n(free, $30 for extra features):\nhttp://www.digidna.net/diskaid/\n\niExplorer for Mac & Windows\n(free trial, $35 for full features):\nhttp://www.macroplant.com/iexplorer/\n\niPhoneBrowser for Windows (free):\nhttp://code.google.com/p/iphonebrowser/\n\nPhone Disk for Mac & Windows (free)\nhttp://www.macroplant.com/phonedisk/\n\nPhoneView for Mac\n(free trial, $30 for unlimited use):\nhttp://www.ecamm.com/mac/phoneview/",
+          "runs": [
+            {
+              "text": "Desktop Applications",
+              "bold": true
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "If you jailbroke your device with Pangu or evasi0n7, you will first need to install ",
+              "italic": true
+            },
+            {
+              "text": "Apple File Conduit \"2\"",
+              "italic": true,
+              "link": "cydia://package/com.saurik.afc2d"
+            },
+            {
+              "text": " to get full filesystem access over USB. (Most earlier jailbreaks include this service by default.)",
+              "italic": true
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "DiskAid",
+              "bold": true
+            },
+            {
+              "text": " for Mac & Windows\n(free, $30 for extra features):\n"
+            },
+            {
+              "text": "http://www.digidna.net/diskaid/",
+              "link": "http://www.digidna.net/diskaid/"
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "iExplorer",
+              "bold": true
+            },
+            {
+              "text": " for Mac & Windows\n(free trial, $35 for full features):\n"
+            },
+            {
+              "text": "http://www.macroplant.com/iexplorer/",
+              "link": "http://www.macroplant.com/iexplorer/"
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "iPhoneBrowser",
+              "bold": true
+            },
+            {
+              "text": " for Windows (free):\n"
+            },
+            {
+              "text": "http://code.google.com/p/iphonebrowser/",
+              "link": "http://code.google.com/p/iphonebrowser/"
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "Phone Disk",
+              "bold": true
+            },
+            {
+              "text": " for Mac & Windows (free)\n"
+            },
+            {
+              "text": "http://www.macroplant.com/phonedisk/",
+              "link": "http://www.macroplant.com/phonedisk/"
+            },
+            {
+              "text": "\n\n"
+            },
+            {
+              "text": "PhoneView",
+              "bold": true
+            },
+            {
+              "text": " for Mac\n(free trial, $30 for unlimited use):\n"
+            },
+            {
+              "text": "http://www.ecamm.com/mac/phoneview/",
+              "link": "http://www.ecamm.com/mac/phoneview/"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

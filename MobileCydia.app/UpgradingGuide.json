@@ -1,0 +1,2109 @@
+{
+  "schema": 1,
+  "archiveDate": "2015-09-08",
+  "pages": {
+    "root": {
+      "title": "Upgrading & Jailbreaking Help",
+      "body": "If you upgrade iOS with iTunes, your device will be un-jailbroken and Cydia packages will be deleted. Before upgrading iOS, make sure a jailbreak is available for the new version.\n\nAs of September 8, 2015\n\nNo jailbreak for 8.4.1\n\nCurrently there is no jailbreak for iOS 8.4.1. Avoid upgrading or restoring if you want a jailbroken device.\n\nIf you want to wipe all data on your device without upgrading the iOS, consider trying Cydia Impactor.\n\nFor frequently updated news, see /r/jailbreak on Reddit.\n\nUntethered jailbreak for 8.1.3-8.4\n\nTaiG has released an untethered jailbreak for iOS 8.1.3-8.4.\n\nYou can download it from http://www.taig.com/en/ for Windows and Mac.\n\nFor news, follow @TaiG_jailbreak.\n\nHow do I find my current version?\n\nOpen the Settings app, tap General, tap About, and look at Version.\n\n(Your device's version is also listed at the bottom of the Cydia \"homepage\".)",
+      "bodyParts": [
+        "If you upgrade iOS with iTunes, your device will be un-jailbroken and Cydia packages will be deleted. Before upgrading iOS, make sure a jailbreak is available for the new version.",
+        "As of September 8, 2015\n\nNo jailbreak for 8.4.1\n\nCurrently there is no jailbreak for iOS 8.4.1. Avoid upgrading or restoring if you want a jailbroken device.\n\nIf you want to wipe all data on your device without upgrading the iOS, consider trying Cydia Impactor.\n\nFor frequently updated news, see /r/jailbreak on Reddit.\n\nUntethered jailbreak for 8.1.3-8.4\n\nTaiG has released an untethered jailbreak for iOS 8.1.3-8.4.\n\nYou can download it from http://www.taig.com/en/ for Windows and Mac.\n\nFor news, follow @TaiG_jailbreak.",
+        "How do I find my current version?\n\nOpen the Settings app, tap General, tap About, and look at Version.\n\n(Your device's version is also listed at the bottom of the Cydia \"homepage\".)"
+      ],
+      "bodyRuns": [
+        [],
+        [
+          {
+            "text": "As of September 8, 2015",
+            "italic": true
+          },
+          {
+            "text": "No jailbreak for 8.4.1",
+            "bold": true,
+            "scale": 1.1
+          },
+          {
+            "text": "Cydia Impactor",
+            "link": "cydia://package/com.saurik.impactor"
+          },
+          {
+            "text": "/r/jailbreak on Reddit",
+            "link": "https://www.reddit.com/r/jailbreak/"
+          },
+          {
+            "text": "Untethered jailbreak for 8.1.3-8.4",
+            "bold": true,
+            "scale": 1.1
+          },
+          {
+            "text": "http://www.taig.com/en/",
+            "italic": true,
+            "link": "http://www.taig.com/en/"
+          },
+          {
+            "text": "@TaiG_jailbreak",
+            "link": "https://twitter.com/taig_jailbreak"
+          }
+        ],
+        [
+          {
+            "text": "How do I find my current version?",
+            "bold": true
+          },
+          {
+            "text": "Settings",
+            "italic": true
+          },
+          {
+            "text": "General",
+            "italic": true
+          },
+          {
+            "text": "About",
+            "italic": true
+          },
+          {
+            "text": "Version",
+            "italic": true
+          }
+        ]
+      ],
+      "links": [
+        {
+          "id": "tools",
+          "title": "Which free tools can I use to jailbreak eligible iOS versions?",
+          "destination": "cydia://home/upgrading-jailbreaking/tools"
+        },
+        {
+          "id": "news",
+          "title": "Where can I find reliable jailbreaking news and help?",
+          "destination": "cydia://home/upgrading-jailbreaking/news"
+        },
+        {
+          "id": "shsh",
+          "title": "Can I upgrade/downgrade iOS to any version? What is SHSH?",
+          "destination": "cydia://home/upgrading-jailbreaking/shsh"
+        },
+        {
+          "id": "impactor",
+          "title": "Cydia Impactor",
+          "destination": "cydia://package/com.saurik.impactor"
+        },
+        {
+          "id": "reddit",
+          "title": "/r/jailbreak on Reddit",
+          "destination": "https://www.reddit.com/r/jailbreak/"
+        },
+        {
+          "id": "taig-site",
+          "title": "http://www.taig.com/en/",
+          "destination": "http://www.taig.com/en/"
+        },
+        {
+          "id": "taig-news",
+          "title": "@TaiG_jailbreak",
+          "destination": "https://twitter.com/taig_jailbreak"
+        }
+      ],
+      "displayResources": [
+        "tools",
+        "news",
+        "shsh"
+      ]
+    },
+    "tools": {
+      "title": "Jailbreaking Tools",
+      "body": "Note: Real jailbreaking tools are available to download for free. Any site offering a paid jailbreak or unlock tool download (or requiring a survey before downloading) is a scam.",
+      "links": [
+        {
+          "id": "taig",
+          "detail": "Untethered jailbreak for 8.0 through 8.4 on all devices.",
+          "title": "TaiG (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/taig",
+          "detailRuns": [
+            {
+              "text": "8.0",
+              "bold": true
+            },
+            {
+              "text": "8.4",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "pangu8",
+          "detail": "Untethered jailbreak for 8.0 through 8.1 on all devices.",
+          "title": "Pangu 8 (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/pangu8",
+          "detailRuns": [
+            {
+              "text": "8.0",
+              "bold": true
+            },
+            {
+              "text": "8.1",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "pangu",
+          "detail": "Untethered jailbreak for 7.1 through 7.1.2 on all devices.",
+          "title": "Pangu 7 (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/pangu",
+          "detailRuns": [
+            {
+              "text": "7.1",
+              "bold": true
+            },
+            {
+              "text": "7.1.2",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "evasi0n7",
+          "detail": "Untethered jailbreak for 7.0 through 7.0.6 on all devices.",
+          "title": "evasi0n7 (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/evasi0n7",
+          "detailRuns": [
+            {
+              "text": "7.0",
+              "bold": true
+            },
+            {
+              "text": "7.0.6",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "p0sixspwn",
+          "detail": "Untethered jailbreak for 6.1.3 through 6.1.6 on all devices.",
+          "title": "p0sixspwn (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/p0sixspwn",
+          "detailRuns": [
+            {
+              "text": "6.1.3",
+              "bold": true
+            },
+            {
+              "text": "6.1.6",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "evasi0n",
+          "detail": "Untethered jailbreak for 6.0 through 6.1.2 on all devices.",
+          "title": "evasi0n (Windows, Mac, & Linux)",
+          "destination": "cydia://home/upgrading-jailbreaking/evasi0n",
+          "detailRuns": [
+            {
+              "text": "6.0",
+              "bold": true
+            },
+            {
+              "text": "6.1.2",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "redsn0w",
+          "detail": "Untethered jailbreak for 5.1.1 on iPad 3rd generation, iPad 2, and iPhone 4S; 5.1.1, 5.0.1, and 4.3.1 through 4.3.3 (on iPhone 3GS and 4, iPod touch 3g and 4g, and iPad 1); 5.0.1 on iPhone 4S and iPad 2; 5.0 on iPhone 4S; 4.1 through 4.2.1 on many.\n\nTethered jailbreak for 6.0 and 6.0.1 (on iPhone 3GS and 4, and iPod touch 4g); 5.1, 5.0, 4.3.5, 4.3.4 (on iPhone 3GS and 4, iPod touch 3g and 4g, and iPad 1); 4.2.9 and 4.2.10 on iPhone 4 CDMA.\n\nCan preserve unlockable basebands.",
+          "title": "redsn0w (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/redsn0w",
+          "detailRuns": [
+            {
+              "text": "5.1.1",
+              "bold": true
+            },
+            {
+              "text": "5.1.1",
+              "bold": true
+            },
+            {
+              "text": "5.0.1",
+              "bold": true
+            },
+            {
+              "text": "4.3.1",
+              "bold": true
+            },
+            {
+              "text": "4.3.3",
+              "bold": true
+            },
+            {
+              "text": "5.0.1",
+              "bold": true
+            },
+            {
+              "text": "5.0",
+              "bold": true
+            },
+            {
+              "text": "4.1",
+              "bold": true
+            },
+            {
+              "text": "4.2.1",
+              "bold": true
+            },
+            {
+              "text": "6.0",
+              "bold": true
+            },
+            {
+              "text": "6.0.1",
+              "bold": true
+            },
+            {
+              "text": "5.1",
+              "bold": true
+            },
+            {
+              "text": "5.0",
+              "bold": true
+            },
+            {
+              "text": "4.3.5",
+              "bold": true
+            },
+            {
+              "text": "4.3.4",
+              "bold": true
+            },
+            {
+              "text": "4.2.9",
+              "bold": true
+            },
+            {
+              "text": "4.2.10",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "absinthe2",
+          "detail": "Untethered jailbreak for 5.1.1 on iPad 3rd generation, iPad 2, iPad 1, iPhone 4S, iPhone 4, iPhone 3GS, and iPod touch 3g and 4g.",
+          "title": "Absinthe 2.0 (Windows, Mac, and Linux)",
+          "destination": "cydia://home/upgrading-jailbreaking/absinthe2",
+          "detailRuns": [
+            {
+              "text": "5.1.1",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "pwnagetool",
+          "detail": "Untethered jailbreak for 5.1.1, 5.0.1, and 4.0 through 4.3.3 (on most devices except iPad 3rd generation, iPad 2, and iPhone 4S); can preserve unlockable basebands.",
+          "title": "PwnageTool (Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/pwnagetool",
+          "detailRuns": [
+            {
+              "text": "5.1.1",
+              "bold": true
+            },
+            {
+              "text": "5.0.1",
+              "bold": true
+            },
+            {
+              "text": "4.0",
+              "bold": true
+            },
+            {
+              "text": "4.3.3",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "absinthe",
+          "detail": "Untethered jailbreak for 5.0.1 on iPhone 4S and iPad 2, and also 5.0 on iPhone 4S.",
+          "title": "Absinthe 0.4 (Windows, Mac, and Linux)",
+          "destination": "cydia://home/upgrading-jailbreaking/absinthe",
+          "detailRuns": [
+            {
+              "text": "5.0.1",
+              "bold": true
+            },
+            {
+              "text": "5.0",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "jailbreakme-saffron",
+          "detail": "Untethered jailbreak for 4.3 through 4.3.3 (on iPhone 3GS and 4, iPod touch 3g and 4g, and iPad 1), 4.2.6 through 4.2.8 (iPhone 4 CDMA), and 4.3.3 on iPad 2.",
+          "title": "JailbreakMe.com \"Saffron\" (Web)",
+          "destination": "cydia://home/upgrading-jailbreaking/jailbreakme",
+          "detailRuns": [
+            {
+              "text": "4.3",
+              "bold": true
+            },
+            {
+              "text": "4.3.3",
+              "bold": true
+            },
+            {
+              "text": "4.2.6",
+              "bold": true
+            },
+            {
+              "text": "4.2.8",
+              "bold": true
+            },
+            {
+              "text": "4.3.3",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "greenpois0n",
+          "detail": "Untethered jailbreak for 4.1 and 4.2.1 (on iPhone 3GS and 4; iPod touch 2g, 3g, and 4g; and iPad 1).",
+          "title": "greenpois0n (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/greenpois0n",
+          "detailRuns": [
+            {
+              "text": "4.1",
+              "bold": true
+            },
+            {
+              "text": "4.2.1",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "jailbreakme-star",
+          "detail": "3.1.2 through 4.0.1 (iPhone, iPod, iPad 1)",
+          "title": "JailbreakMe.com \"Star\" (Web)",
+          "destination": "cydia://home/upgrading-jailbreaking/jailbreakme",
+          "detailRuns": []
+        },
+        {
+          "id": "spirit",
+          "detail": "3.1.2, 3.1.3 (2G unlock), 3.2 (iPad 1)",
+          "title": "Spirit (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/spirit",
+          "detailRuns": []
+        },
+        {
+          "id": "blackra1n",
+          "detail": "3.1.2 (newer 3GS models tethered)",
+          "title": "blackra1n (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/blackra1n",
+          "detailRuns": []
+        },
+        {
+          "id": "purplera1n",
+          "detail": "3.0 (3GS Only)",
+          "title": "purplera1n (Windows & Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/purplera1n",
+          "detailRuns": []
+        },
+        {
+          "id": "quickpwn-mac",
+          "detail": "2.2.1",
+          "title": "QuickPwn (Mac)",
+          "destination": "cydia://home/upgrading-jailbreaking/quickpwn-mac",
+          "detailRuns": []
+        },
+        {
+          "id": "quickpwn-win",
+          "detail": "2.2.1",
+          "title": "QuickPwn (Windows)",
+          "destination": "cydia://home/upgrading-jailbreaking/quickpwn-win",
+          "detailRuns": []
+        }
+      ],
+      "displayResources": [
+        "taig",
+        "pangu8",
+        "pangu",
+        "evasi0n7",
+        "p0sixspwn",
+        "evasi0n",
+        "redsn0w",
+        "absinthe2",
+        "pwnagetool",
+        "absinthe",
+        "jailbreakme-saffron",
+        "greenpois0n",
+        "jailbreakme-star",
+        "spirit",
+        "blackra1n",
+        "purplera1n",
+        "quickpwn-mac",
+        "quickpwn-win"
+      ],
+      "bodyParts": [
+        "Note: Real jailbreaking tools are available to download for free. Any site offering a paid jailbreak or unlock tool download (or requiring a survey before downloading) is a scam."
+      ],
+      "bodyRuns": [
+        []
+      ]
+    },
+    "news": {
+      "title": "News and Help",
+      "body": "Forums\n\nNews\n\nGuides",
+      "groups": [
+        {
+          "id": "forums",
+          "title": "Forums",
+          "links": [
+            "reddit"
+          ]
+        },
+        {
+          "id": "news",
+          "title": "News",
+          "links": [
+            "taig",
+            "pangu",
+            "evad3rs"
+          ]
+        },
+        {
+          "id": "guides",
+          "title": "Guides",
+          "links": [
+            "iclarified",
+            "modmyi",
+            "jailbreakqa"
+          ]
+        }
+      ],
+      "links": [
+        {
+          "id": "reddit",
+          "title": "reddit.com/r/jailbreak",
+          "destination": "https://www.reddit.com/r/jailbreak/",
+          "image": "reddit"
+        },
+        {
+          "id": "taig",
+          "title": "@TaiG_Jailbreak on Twitter",
+          "destination": "https://twitter.com/taig_jailbreak",
+          "image": "web"
+        },
+        {
+          "id": "pangu",
+          "title": "@PanguTeam on Twitter",
+          "destination": "https://twitter.com/panguteam",
+          "image": "web"
+        },
+        {
+          "id": "evad3rs",
+          "title": "@evad3rs on Twitter",
+          "destination": "http://twitter.com/evad3rs",
+          "image": "web"
+        },
+        {
+          "id": "iclarified",
+          "title": "iclarified.com/jailbreak",
+          "destination": "http://iclarified.com/jailbreak/",
+          "image": "iclarified"
+        },
+        {
+          "id": "modmyi",
+          "title": "modmyi.com/jailbreak",
+          "destination": "http://modmyi.com/jailbreak/",
+          "image": "modmyi"
+        },
+        {
+          "id": "jailbreakqa",
+          "title": "jailbreakqa.com/faq",
+          "destination": "http://www.jailbreakqa.com/faq",
+          "image": "web"
+        }
+      ],
+      "displayResources": [
+        "reddit",
+        "taig",
+        "pangu",
+        "evad3rs",
+        "iclarified",
+        "modmyi",
+        "jailbreakqa"
+      ]
+    },
+    "shsh": {
+      "title": "Upgrading / Downgrading",
+      "body": "Can I downgrade/upgrade to the firmware version I want?\n\nProbably not, and here's why.\n\nApple has a system that tries to make sure you can only install the latest iOS firmware version: devices require their firmware installation to be verified (signed) by Apple during every restore or upgrade. Apple usually only signs a version while it's the latest version. This is designed to keep you from installing jailbreakable versions as Apple fixes exploitable bugs.\n\nIt is possible to save your device's available SHSH blobs (signatures) for the current iOS version that Apple is signing, using a free tool called TinyUmbrella. You may do this in the hope that you can restore your device with those firmware versions later (after Apple no longer signs them), but there are few loopholes for using SHSH blobs on devices newer than iPhone 4 and on iOS versions newer than iOS 5. Apple has improved the security of their signing system over the past few years.\n\nCydia used to automatically save SHSH blobs for devices, when SHSH blobs were more usable. For explanation of that system, see Caching Apple's Signature Server (September 2009).\n\nOn devices newer than iPhone 4 and on iOS versions newer than iOS 5, SHSH blobs are usually not usable — in other words, you can only upgrade, downgrade, or restore to iOS versions that Apple is signing (which is usually only the newest iOS version available for that device).",
+      "bodyParts": [
+        "Can I downgrade/upgrade to the firmware version I want?\n\nProbably not, and here's why.\n\nApple has a system that tries to make sure you can only install the latest iOS firmware version: devices require their firmware installation to be verified (signed) by Apple during every restore or upgrade. Apple usually only signs a version while it's the latest version. This is designed to keep you from installing jailbreakable versions as Apple fixes exploitable bugs.\n\nIt is possible to save your device's available SHSH blobs (signatures) for the current iOS version that Apple is signing, using a free tool called TinyUmbrella. You may do this in the hope that you can restore your device with those firmware versions later (after Apple no longer signs them), but there are few loopholes for using SHSH blobs on devices newer than iPhone 4 and on iOS versions newer than iOS 5. Apple has improved the security of their signing system over the past few years.\n\nCydia used to automatically save SHSH blobs for devices, when SHSH blobs were more usable. For explanation of that system, see Caching Apple's Signature Server (September 2009).",
+        "On devices newer than iPhone 4 and on iOS versions newer than iOS 5, SHSH blobs are usually not usable — in other words, you can only upgrade, downgrade, or restore to iOS versions that Apple is signing (which is usually only the newest iOS version available for that device)."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "Can I downgrade/upgrade to the firmware version I want?",
+            "bold": true,
+            "scale": 1.1
+          },
+          {
+            "text": "Probably not, and here's why.",
+            "bold": true
+          },
+          {
+            "text": "Caching Apple's Signature Server",
+            "link": "http://www.saurik.com/id/12"
+          }
+        ],
+        []
+      ],
+      "links": [
+        {
+          "id": "saurik",
+          "title": "Caching Apple's Signature Server",
+          "destination": "http://www.saurik.com/id/12"
+        },
+        {
+          "id": "tinyumbrella",
+          "title": "TinyUmbrella",
+          "destination": "http://blog.firmwareumbrella.com/",
+          "subtitle": "http://blog.firmwareumbrella.com/"
+        },
+        {
+          "id": "iphonewiki",
+          "title": "The iPhone Wiki (SHSH)",
+          "destination": "https://www.theiphonewiki.com/wiki/SHSH",
+          "subtitle": "https://www.theiphonewiki.com/wiki/SHSH"
+        },
+        {
+          "id": "wikipedia",
+          "title": "Wikipedia (SHSH blob)",
+          "destination": "https://en.wikipedia.org/wiki/SHSH_blob",
+          "subtitle": "https://en.wikipedia.org/wiki/SHSH_blob"
+        }
+      ],
+      "displayResources": [
+        "tinyumbrella",
+        "iphonewiki",
+        "wikipedia"
+      ]
+    },
+    "taig": {
+      "title": "TaiG",
+      "body": "TaiG is a series of tools that provide untethered jailbreaks for all devices on 8.0 through 8.4.\n\nTaiG version 1.2.1 for Windows is a tool that provides untethered jailbreaks for all devices on 8.0 through 8.1.2.\n\nTaiG version 2.4.3 for Windows and version 1.1.10 for Mac are tools that provide untethered jailbreaks for all devices on 8.1.3 through 8.4.\n\nOn the TaiG website, scroll down to \"Main Versions & Download Links\" to select the correct version for your computer and device.\n\nTaiG runs on already-upgraded\nun-jailbroken devices.\n\nOn Twitter: @TaiG_jailbreak.\n\nSteps: Read the instructions (tutorial) on TaiG's website. Make sure your computer has iTunes installed. Download TaiG. Open it, plug your device into your computer, and follow the instructions.",
+      "links": [
+        {
+          "id": "twitter",
+          "title": "@TaiG_jailbreak",
+          "destination": "https://twitter.com/taig_jailbreak"
+        },
+        {
+          "id": "website",
+          "title": "TaiG",
+          "destination": "http://www.taig.com/en/",
+          "subtitle": "http://www.taig.com/en/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "TaiG is a series of tools that provide untethered jailbreaks for all devices on 8.0 through 8.4.\n\nTaiG version 1.2.1 for Windows is a tool that provides untethered jailbreaks for all devices on 8.0 through 8.1.2.\n\nTaiG version 2.4.3 for Windows and version 1.1.10 for Mac are tools that provide untethered jailbreaks for all devices on 8.1.3 through 8.4.\n\nOn the TaiG website, scroll down to \"Main Versions & Download Links\" to select the correct version for your computer and device.\n\nTaiG runs on already-upgraded\nun-jailbroken devices.\n\nOn Twitter: @TaiG_jailbreak.\n\nSteps: Read the instructions (tutorial) on TaiG's website. Make sure your computer has iTunes installed. Download TaiG. Open it, plug your device into your computer, and follow the instructions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "8.0",
+            "bold": true
+          },
+          {
+            "text": "8.4",
+            "bold": true
+          },
+          {
+            "text": "8.0",
+            "bold": true
+          },
+          {
+            "text": "8.1.2",
+            "bold": true
+          },
+          {
+            "text": "8.1.3",
+            "bold": true
+          },
+          {
+            "text": "8.4",
+            "bold": true
+          },
+          {
+            "text": "@TaiG_jailbreak",
+            "link": "https://twitter.com/taig_jailbreak"
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          }
+        ]
+      ]
+    },
+    "pangu8": {
+      "title": "Pangu 8",
+      "body": "Pangu 8.0-8.1 is a tool for Windows and Mac that provides untethered jailbreaks for all devices on 8.0 through 8.1.\n\nPangu runs on already-upgraded\nun-jailbroken devices.\n\nOn Twitter: @PanguTeam.\n\nSteps: Read the instructions on Pangu's website. Make sure your computer has iTunes installed. Download Pangu. Open it, plug your device into your computer, and follow the instructions.",
+      "links": [
+        {
+          "id": "twitter",
+          "title": "@PanguTeam",
+          "destination": "https://twitter.com/panguteam"
+        },
+        {
+          "id": "website",
+          "title": "Pangu 8.0-8.1",
+          "destination": "http://en.pangu.io/",
+          "subtitle": "http://en.pangu.io/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "Pangu 8.0-8.1 is a tool for Windows and Mac that provides untethered jailbreaks for all devices on 8.0 through 8.1.\n\nPangu runs on already-upgraded\nun-jailbroken devices.\n\nOn Twitter: @PanguTeam.\n\nSteps: Read the instructions on Pangu's website. Make sure your computer has iTunes installed. Download Pangu. Open it, plug your device into your computer, and follow the instructions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "8.0",
+            "bold": true
+          },
+          {
+            "text": "8.1",
+            "bold": true
+          },
+          {
+            "text": "@PanguTeam",
+            "link": "https://twitter.com/panguteam"
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          }
+        ]
+      ]
+    },
+    "pangu": {
+      "title": "Pangu 7",
+      "body": "Pangu 7.1-7.1.2 is a tool for Windows and Mac that provides untethered jailbreaks for all devices on 7.1 through 7.1.2.\n\nPangu runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Make sure your computer has iTunes installed. Download Pangu. Open it, plug your device into your computer, and follow the instructions.",
+      "links": [
+        {
+          "id": "website",
+          "title": "Pangu 7.1-7.1.2",
+          "destination": "http://en.7.pangu.io/",
+          "subtitle": "http://en.7.pangu.io/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "Pangu 7.1-7.1.2 is a tool for Windows and Mac that provides untethered jailbreaks for all devices on 7.1 through 7.1.2.\n\nPangu runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Make sure your computer has iTunes installed. Download Pangu. Open it, plug your device into your computer, and follow the instructions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "7.1",
+            "bold": true
+          },
+          {
+            "text": "7.1.2",
+            "bold": true
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          }
+        ]
+      ]
+    },
+    "evasi0n7": {
+      "title": "evasi0n7",
+      "body": "evasi0n7 is a tool for Windows and Mac that provides untethered jailbreaks for:\n\n• iPhone 5S: 7.0 through 7.0.6\n• iPhone 5C: 7.0 through 7.0.6\n• iPhone 5: 7.0 through 7.0.6\n• iPhone 4S: 7.0 through 7.0.6\n• iPhone 4: 7.0 through 7.0.6\n• iPad Air: 7.0 through 7.0.6\n• iPad 4th generation: 7.0 through 7.0.6\n• iPad 3rd generation: 7.0 through 7.0.6\n• iPad 2: 7.0 through 7.0.6\n• iPad mini 2nd generation: 7.0 through 7.0.6\n• iPad mini 1st generation: 7.0 through 7.0.6\n• iPod touch 5th generation: 7.0 through 7.0.6\n\nevasi0n7 runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Download evasi0n7. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+      "links": [
+        {
+          "id": "website",
+          "title": "evad3rs (evasi0n7)",
+          "destination": "http://evasi0n.com/",
+          "subtitle": "http://evasi0n.com/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "evasi0n7 is a tool for Windows and Mac that provides untethered jailbreaks for:\n\n• iPhone 5S: 7.0 through 7.0.6\n• iPhone 5C: 7.0 through 7.0.6\n• iPhone 5: 7.0 through 7.0.6\n• iPhone 4S: 7.0 through 7.0.6\n• iPhone 4: 7.0 through 7.0.6\n• iPad Air: 7.0 through 7.0.6\n• iPad 4th generation: 7.0 through 7.0.6\n• iPad 3rd generation: 7.0 through 7.0.6\n• iPad 2: 7.0 through 7.0.6\n• iPad mini 2nd generation: 7.0 through 7.0.6\n• iPad mini 1st generation: 7.0 through 7.0.6\n• iPod touch 5th generation: 7.0 through 7.0.6\n\nevasi0n7 runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Download evasi0n7. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 5S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 5C",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 5",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad Air",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad mini 2nd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad mini 1st generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 5th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 7.0 through 7.0.6",
+            "scale": 0.9
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "evasi0n": {
+      "title": "evasi0n",
+      "body": "evasi0n is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:\n\n• iPhone 5: 6.0 through 6.1.2\n• iPhone 4S: 6.0 through 6.1.2\n• iPhone 4: 6.0 through 6.1.2\n• iPhone 3GS: 6.0 through 6.1.2\n• iPad 4th generation: 6.0 through 6.1.2\n• iPad 3rd generation: 6.0 through 6.1.2\n• iPad 2: 6.0 through 6.1.2\n• iPad mini: 6.0 through 6.1.2\n• iPod touch 5th generation: 6.0 through 6.1.2\n• iPod touch 4th generation: 6.0 through 6.1.2\n\nevasi0n runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Download evasi0n. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+      "links": [
+        {
+          "id": "website",
+          "title": "evad3rs (evasi0n)",
+          "destination": "http://evasi0n.com/iOS6/",
+          "subtitle": "http://evasi0n.com/iOS6/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "evasi0n is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:\n\n• iPhone 5: 6.0 through 6.1.2\n• iPhone 4S: 6.0 through 6.1.2\n• iPhone 4: 6.0 through 6.1.2\n• iPhone 3GS: 6.0 through 6.1.2\n• iPad 4th generation: 6.0 through 6.1.2\n• iPad 3rd generation: 6.0 through 6.1.2\n• iPad 2: 6.0 through 6.1.2\n• iPad mini: 6.0 through 6.1.2\n• iPod touch 5th generation: 6.0 through 6.1.2\n• iPod touch 4th generation: 6.0 through 6.1.2\n\nevasi0n runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Download evasi0n. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 5",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3GS",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad mini",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 5th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 6.0 through 6.1.2",
+            "scale": 0.9
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "p0sixspwn": {
+      "title": "p0sixspwn",
+      "body": "p0sixspwn is a tool for Windows and Mac that provides untethered jailbreaks for:\n\n• iPhone 5: iOS 6.1.3 and 6.1.4\n• iPhone 4S: iOS 6.1.3\n• iPhone 4: iOS 6.1.3\n• iPhone 3GS: iOS 6.1.3 and 6.1.6\n• iPad 4th generation: iOS 6.1.3\n• iPad 3rd generation: iOS 6.1.3\n• iPad 2: iOS 6.1.3\n• iPad mini: iOS 6.1.3\n• iPod touch 5th generation: iOS 6.1.3\n• iPod touch 4th generation: iOS 6.1.3, 6.1.5, and 6.1.6\n\np0sixspwn runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Download p0sixspwn. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+      "links": [
+        {
+          "id": "website",
+          "title": "p0sixspwn",
+          "destination": "http://p0sixspwn.com/",
+          "subtitle": "http://p0sixspwn.com/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "p0sixspwn is a tool for Windows and Mac that provides untethered jailbreaks for:\n\n• iPhone 5: iOS 6.1.3 and 6.1.4\n• iPhone 4S: iOS 6.1.3\n• iPhone 4: iOS 6.1.3\n• iPhone 3GS: iOS 6.1.3 and 6.1.6\n• iPad 4th generation: iOS 6.1.3\n• iPad 3rd generation: iOS 6.1.3\n• iPad 2: iOS 6.1.3\n• iPad mini: iOS 6.1.3\n• iPod touch 5th generation: iOS 6.1.3\n• iPod touch 4th generation: iOS 6.1.3, 6.1.5, and 6.1.6\n\np0sixspwn runs on already-upgraded\nun-jailbroken devices.\n\nSteps: Download p0sixspwn. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 5",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3 and 6.1.4",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3GS",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3 and 6.1.6",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad mini",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 5th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": iOS 6.1.3, 6.1.5, and 6.1.6",
+            "scale": 0.9
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "redsn0w": {
+      "title": "redsn0w",
+      "body": "redsn0w is a tool for Mac and Windows that provides untethered jailbreaks for iOS versions including:\n\n• iPhone 4S: 5.0, 5.0.1, and 5.1.1\n• iPhone 4 (GSM): 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1\n• iPhone 4 (CDMA): 4.2.8, 5.0.1, and 5.1.1\n• iPhone 3GS: 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1 (old-bootrom iPhone 3GS is untethered on all versions)\n• iPhone 3G: 4.1 through 4.2.1\n• iPad 3rd generation: 5.1.1\n• iPad 2: 5.0.1 and 5.1.1\n• iPad 1: 4.3.1 through 4.3.3; 5.0.1 and 5.1.1\n• iPod touch 3rd generation and 4th generation: 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1\n• iPod touch 2nd generation (which includes devices sold as iPod touch 3rd generation 8 GB): 4.1 through 4.2.1\n\nAnd tethered jailbreaks for iOS versions including:\n\n• iPhone 4 (GSM): 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1\n• iPhone 4 (CDMA): 4.2.9 through 5.0, 5.1, and 6.0 through 6.0.1\n• iPhone 3GS: 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1\n• iPad 1: 4.3.4 through 5.0, and 5.1\n• iPod touch 3rd generation: 4.3.4 through 5.0, and 5.1\n• iPod touch 4th generation: 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1\n\nredsn0w runs on already-upgraded un-jailbroken devices.\n\nSteps: Download redsn0w for Mac or Windows. Open it, plug your device into your computer, and follow redsn0w's instructions.\n\nIf your version of iOS has a tethered jailbreak, this means you need to plug your device into a computer and run redsn0w every time your device boots (such as when it runs out of battery), or else it may get stuck at the Apple logo while booting — or it may boot up but in a seemingly \"unjailbroken\" state where Cydia and Safari will crash when you try to open them. To boot tethered: open redsn0w, click \"Extras\" and then click \"Just Boot\".\n\nTips for Windows users: Extract redsn0w.exe to your desktop instead of running it from inside the .zip archive. You may need to right-click redsn0w to run it from an administrator account and/or run it in XP compatibility mode. If you use Internet Explorer to download an IPSW file, you may need to change the file extension from .zip to .ipsw in order to use it.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband. (Not currently possible on iPhone 4S.)",
+      "links": [
+        {
+          "id": "website",
+          "title": "iPhone Dev Team (redsn0w)",
+          "destination": "http://blog.iphone-dev.org/tagged/redsn0w",
+          "subtitle": "http://blog.iphone-dev.org/tagged/redsn0w"
+        },
+        {
+          "id": "firmware",
+          "title": "The iPhone Wiki (IPSW files)",
+          "destination": "http://theiphonewiki.com/wiki/index.php?title=Firmware",
+          "subtitle": "http://theiphonewiki.com/wiki/index.php?title=Firmware"
+        }
+      ],
+      "displayResources": [
+        "website",
+        "firmware"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "redsn0w is a tool for Mac and Windows that provides untethered jailbreaks for iOS versions including:\n\n• iPhone 4S: 5.0, 5.0.1, and 5.1.1\n• iPhone 4 (GSM): 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1\n• iPhone 4 (CDMA): 4.2.8, 5.0.1, and 5.1.1\n• iPhone 3GS: 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1 (old-bootrom iPhone 3GS is untethered on all versions)\n• iPhone 3G: 4.1 through 4.2.1\n• iPad 3rd generation: 5.1.1\n• iPad 2: 5.0.1 and 5.1.1\n• iPad 1: 4.3.1 through 4.3.3; 5.0.1 and 5.1.1\n• iPod touch 3rd generation and 4th generation: 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1\n• iPod touch 2nd generation (which includes devices sold as iPod touch 3rd generation 8 GB): 4.1 through 4.2.1\n\nAnd tethered jailbreaks for iOS versions including:\n\n• iPhone 4 (GSM): 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1\n• iPhone 4 (CDMA): 4.2.9 through 5.0, 5.1, and 6.0 through 6.0.1\n• iPhone 3GS: 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1\n• iPad 1: 4.3.4 through 5.0, and 5.1\n• iPod touch 3rd generation: 4.3.4 through 5.0, and 5.1\n• iPod touch 4th generation: 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1\n\nredsn0w runs on already-upgraded un-jailbroken devices.\n\nSteps: Download redsn0w for Mac or Windows. Open it, plug your device into your computer, and follow redsn0w's instructions.\n\nIf your version of iOS has a tethered jailbreak, this means you need to plug your device into a computer and run redsn0w every time your device boots (such as when it runs out of battery), or else it may get stuck at the Apple logo while booting — or it may boot up but in a seemingly \"unjailbroken\" state where Cydia and Safari will crash when you try to open them. To boot tethered: open redsn0w, click \"Extras\" and then click \"Just Boot\".\n\nTips for Windows users: Extract redsn0w.exe to your desktop instead of running it from inside the .zip archive. You may need to right-click redsn0w to run it from an administrator account and/or run it in XP compatibility mode. If you use Internet Explorer to download an IPSW file, you may need to change the file extension from .zip to .ipsw in order to use it.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband. (Not currently possible on iPhone 4S.)"
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "untethered",
+            "bold": true
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.0, 5.0.1, and 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4 (GSM)",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4 (CDMA)",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.2.8, 5.0.1, and 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3GS",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1 (old-bootrom iPhone 3GS is untethered on all versions)",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3G",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.1 through 4.2.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.0.1 and 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 1",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.3.1 through 4.3.3; 5.0.1 and 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 3rd generation and 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 2nd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": "(which includes devices sold as iPod touch 3rd generation 8 GB): 4.1 through 4.2.1",
+            "scale": 0.9
+          },
+          {
+            "text": "tethered",
+            "bold": true
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4 (GSM)",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4 (CDMA)",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.2.9 through 5.0, 5.1, and 6.0 through 6.0.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3GS",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 1",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.3.4 through 5.0, and 5.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.3.4 through 5.0, and 5.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1",
+            "scale": 0.9
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "tethered",
+            "bold": true
+          },
+          {
+            "text": "Tips for Windows users: Extract redsn0w.exe to your desktop instead of running it from inside the .zip archive. You may need to right-click redsn0w to run it from an administrator account and/or run it in XP compatibility mode. If you use Internet Explorer to download an IPSW file, you may need to change the file extension from .zip to .ipsw in order to use it.",
+            "scale": 0.9
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband. (Not currently possible on iPhone 4S.)",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "absinthe2": {
+      "title": "Absinthe 2.0.4",
+      "body": "Absinthe 2.0.4 is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:\n\n• iPad 3rd generation: 5.1.1\n• iPad 2: 5.1.1\n• iPad 1: 5.1.1\n• iPhone 4S: 5.1.1\n• iPhone 4: 5.1.1\n• iPhone 3GS: 5.1.1 (new-bootrom only)\n• iPod touch 3rd generation: 5.1.1\n• iPod touch 4th generation: 5.1.1\n\nAbsinthe 2.0.4 runs on already-upgraded un-jailbroken devices.\n\nSteps: Download Absinthe 2.0.4. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+      "links": [
+        {
+          "id": "website",
+          "title": "Chronic Dev Team (Absinthe 2.0.4)",
+          "destination": "http://greenpois0n.com/?p=324",
+          "subtitle": "http://greenpois0n.com/?p=324"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "Absinthe 2.0.4 is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:\n\n• iPad 3rd generation: 5.1.1\n• iPad 2: 5.1.1\n• iPad 1: 5.1.1\n• iPhone 4S: 5.1.1\n• iPhone 4: 5.1.1\n• iPhone 3GS: 5.1.1 (new-bootrom only)\n• iPod touch 3rd generation: 5.1.1\n• iPod touch 4th generation: 5.1.1\n\nAbsinthe 2.0.4 runs on already-upgraded un-jailbroken devices.\n\nSteps: Download Absinthe 2.0.4. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 1",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3GS",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1 (new-bootrom only)",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 3rd generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 4th generation",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.1.1",
+            "scale": 0.9
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "pwnagetool": {
+      "title": "PwnageTool",
+      "body": "PwnageTool is a tool for Mac that jailbreaks iOS 5.1.1, 5.0.1, and 4.0 through 4.3.3 (on most devices except iPad 3rd generation, iPad 2, and iPhone 4S). It is able to preserve unlocked basebands.\n\nSteps: Download PwnageTool. This will come in the form of an Apple disk image file. Copy PwnageTool to your hard disk before running it.\n\nUse PwnageTool to make a Custom Firmware that can be used to Restore your device with iTunes.\n\nWhen using this jailbreaking tool on iPhones unofficially unlocked with ultrasn0w, you should not check \"upgrade the baseband\".",
+      "links": [
+        {
+          "id": "website",
+          "title": "iPhone Dev Team (PwnageTool)",
+          "destination": "http://blog.iphone-dev.org/tagged/PwnageTool",
+          "subtitle": "http://blog.iphone-dev.org/tagged/PwnageTool"
+        },
+        {
+          "id": "firmware",
+          "title": "The iPhone Wiki (IPSW files)",
+          "destination": "http://theiphonewiki.com/wiki/index.php?title=Firmware",
+          "subtitle": "http://theiphonewiki.com/wiki/index.php?title=Firmware"
+        }
+      ],
+      "displayResources": [
+        "website",
+        "firmware"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "PwnageTool is a tool for Mac that jailbreaks iOS 5.1.1, 5.0.1, and 4.0 through 4.3.3 (on most devices except iPad 3rd generation, iPad 2, and iPhone 4S). It is able to preserve unlocked basebands.\n\nSteps: Download PwnageTool. This will come in the form of an Apple disk image file. Copy PwnageTool to your hard disk before running it.\n\nUse PwnageTool to make a Custom Firmware that can be used to Restore your device with iTunes.\n\nWhen using this jailbreaking tool on iPhones unofficially unlocked with ultrasn0w, you should not check \"upgrade the baseband\"."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "When using this jailbreaking tool on iPhones unofficially unlocked with ultrasn0w, you should",
+            "secondary": true
+          },
+          {
+            "text": "not",
+            "secondary": true,
+            "bold": true
+          },
+          {
+            "text": "check \"upgrade the baseband\".",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "absinthe": {
+      "title": "Absinthe 0.4",
+      "body": "Absinthe 0.4 is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:\n\n• iPhone 4S: 5.0 and 5.0.1\n• iPad 2: 5.0.1\n\nAbsinthe 0.4 runs on already-upgraded un-jailbroken devices.\n\nSteps: Download Absinthe 0.4. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+      "links": [
+        {
+          "id": "website",
+          "title": "Chronic Dev Team (Absinthe 0.4)",
+          "destination": "http://greenpois0n.com/?p=173",
+          "subtitle": "http://greenpois0n.com/?p=173"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "Absinthe 0.4 is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:\n\n• iPhone 4S: 5.0 and 5.0.1\n• iPad 2: 5.0.1\n\nAbsinthe 0.4 runs on already-upgraded un-jailbroken devices.\n\nSteps: Download Absinthe 0.4. Open it, plug your device into your computer, and follow the instructions.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4S",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.0 and 5.0.1",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2",
+            "scale": 0.9,
+            "bold": true
+          },
+          {
+            "text": ": 5.0.1",
+            "scale": 0.9
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "jailbreakme": {
+      "title": "JailbreakMe",
+      "body": "JailbreakMe is the easiest jailbreak tool to date. Jailbreaking your device can be done from anywhere, with no computer: just visit jailbreakme.com with the device's web browser.\n\nJailbreakMe 3.0 runs on already-upgraded un-jailbroken\niPhones, iPod touches, and iPads:\n\n• iPad 1: 4.3 through 4.3.3\n• iPad 2: 4.3.3\n• iPhone 3GS: 4.3 through 4.3.3\n• iPhone 4 (GSM): 4.3 through 4.3.3\n• iPhone 4 (CDMA): 4.2.6 through 4.2.8\n• iPod touch 3rd generation: 4.3, 4.3.2, 4.3.3\n• iPod touch 4th generation: 4.3 through 4.3.3\n\nFor devices on old firmwares (3.1.2 through 4.0.1): visit jailbreakme.com/star\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband.",
+      "links": [
+        {
+          "id": "star",
+          "title": "jailbreakme.com/star",
+          "destination": "http://www.jailbreakme.com/star/"
+        },
+        {
+          "id": "redsn0w",
+          "title": "redsn0w",
+          "destination": "cydia://home/upgrading-jailbreaking/redsn0w"
+        },
+        {
+          "id": "website",
+          "title": "JailbreakMe",
+          "destination": "http://jailbreakme.com/",
+          "subtitle": "http://www.jailbreakme.com/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "JailbreakMe is the easiest jailbreak tool to date. Jailbreaking your device can be done from anywhere, with no computer: just visit jailbreakme.com with the device's web browser.\n\nJailbreakMe 3.0 runs on already-upgraded un-jailbroken\niPhones, iPod touches, and iPads:\n\n• iPad 1: 4.3 through 4.3.3\n• iPad 2: 4.3.3\n• iPhone 3GS: 4.3 through 4.3.3\n• iPhone 4 (GSM): 4.3 through 4.3.3\n• iPhone 4 (CDMA): 4.2.6 through 4.2.8\n• iPod touch 3rd generation: 4.3, 4.3.2, 4.3.3\n• iPod touch 4th generation: 4.3 through 4.3.3\n\nFor devices on old firmwares (3.1.2 through 4.0.1): visit jailbreakme.com/star\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 1: 4.3 through 4.3.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPad 2: 4.3.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 3GS: 4.3 through 4.3.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4 (GSM): 4.3 through 4.3.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPhone 4 (CDMA): 4.2.6 through 4.2.8",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 3rd generation: 4.3, 4.3.2, 4.3.3",
+            "scale": 0.9
+          },
+          {
+            "text": "•",
+            "scale": 0.9
+          },
+          {
+            "text": "iPod touch 4th generation: 4.3 through 4.3.3",
+            "scale": 0.9
+          },
+          {
+            "text": "For devices on old firmwares (3.1.2 through 4.0.1): visit",
+            "scale": 0.9
+          },
+          {
+            "text": "jailbreakme.com/star",
+            "scale": 0.9,
+            "italic": true,
+            "link": "http://www.jailbreakme.com/star/"
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use",
+            "secondary": true
+          },
+          {
+            "text": "redsn0w",
+            "secondary": true,
+            "link": "cydia://home/upgrading-jailbreaking/redsn0w"
+          },
+          {
+            "text": "'s \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "greenpois0n": {
+      "title": "greenpois0n",
+      "body": "greenpois0n is a tool for Mac and Windows that jailbreaks iOS versions 4.1 and 4.2.1 (on iPad 1, iPhone 3GS and 4, and iPod touch 2nd generation, 3rd generation, and 4th generation).\n\ngreenpois0n runs on already upgraded un-jailbroken devices.\n\nSteps: Download greenpois0n for Mac or Windows. Plug in your device, run greenpois0n, and let the jailbreak complete. On the device, use the new Loader app to install Cydia.\n\nNote: if Loader fails to install Cydia, run redsn0w with only \"Install Cydia\" checked.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband.",
+      "links": [
+        {
+          "id": "redsn0w-loader",
+          "title": "redsn0w",
+          "destination": "cydia://home/upgrading-jailbreaking/redsn0w"
+        },
+        {
+          "id": "redsn0w-unlock",
+          "title": "redsn0w",
+          "destination": "cydia://home/upgrading-jailbreaking/redsn0w"
+        },
+        {
+          "id": "website",
+          "title": "Chronic Dev Team (greenpois0n)",
+          "destination": "http://greenpois0n.com/?page_id=18",
+          "subtitle": "http://greenpois0n.com/?page_id=18"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "greenpois0n is a tool for Mac and Windows that jailbreaks iOS versions 4.1 and 4.2.1 (on iPad 1, iPhone 3GS and 4, and iPod touch 2nd generation, 3rd generation, and 4th generation).\n\ngreenpois0n runs on already upgraded un-jailbroken devices.\n\nSteps: Download greenpois0n for Mac or Windows. Plug in your device, run greenpois0n, and let the jailbreak complete. On the device, use the new Loader app to install Cydia.\n\nNote: if Loader fails to install Cydia, run redsn0w with only \"Install Cydia\" checked.\n\nNote for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "Note: if Loader fails to install Cydia, run",
+            "scale": 0.9
+          },
+          {
+            "text": "redsn0w",
+            "scale": 0.9,
+            "link": "cydia://home/upgrading-jailbreaking/redsn0w"
+          },
+          {
+            "text": "with only \"Install Cydia\" checked.",
+            "scale": 0.9
+          },
+          {
+            "text": "Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use",
+            "secondary": true
+          },
+          {
+            "text": "redsn0w",
+            "secondary": true,
+            "link": "cydia://home/upgrading-jailbreaking/redsn0w"
+          },
+          {
+            "text": "'s \"Custom IPSW\" feature to upgrade and jailbreak your device while preserving your baseband.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "spirit": {
+      "title": "Spirit",
+      "body": "This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.\n\nSpirit is comparable to redsn0w.\nIt does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.1.* / 3.2 (all devices).\n\nSteps: Download Spirit. This will come in the form of a single .exe file (Windows) or .zip file (Mac OS X).\n\nUse iTunes to upgrade to the latest firmware. Spirit runs on already upgraded un-jailbroken iPhones.",
+      "links": [
+        {
+          "id": "website",
+          "title": "spiritjb.com",
+          "destination": "http://spiritjb.com/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.\n\nSpirit is comparable to redsn0w.\nIt does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.1.* / 3.2 (all devices).\n\nSteps: Download Spirit. This will come in the form of a single .exe file (Windows) or .zip file (Mac OS X).\n\nUse iTunes to upgrade to the latest firmware. Spirit runs on already upgraded un-jailbroken iPhones."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "does",
+            "bold": true
+          },
+          {
+            "text": "will",
+            "bold": true
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          }
+        ]
+      ]
+    },
+    "blackra1n": {
+      "title": "blackra1n",
+      "body": "This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.\n\nblackra1n is comparable to redsn0w.\nIt does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.1.* (all devices).\n\nSteps: Download blackra1n. This will come in the form of a single .exe file (Windows) or .zip file (Mac OS X).\n\nUse iTunes to upgrade to the latest firmware. blackra1n runs on already upgraded un-jailbroken iPhones.",
+      "links": [
+        {
+          "id": "firmware",
+          "title": "iPhone-Dev Blog (3.1.3 firmware)",
+          "destination": "http://blog.iphone-dev.org/post/367262620/3-1-3-and-thee"
+        },
+        {
+          "id": "website",
+          "title": "blackra1n.com",
+          "destination": "http://blackra1n.com/"
+        }
+      ],
+      "displayResources": [
+        "firmware",
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.\n\nblackra1n is comparable to redsn0w.\nIt does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.1.* (all devices).\n\nSteps: Download blackra1n. This will come in the form of a single .exe file (Windows) or .zip file (Mac OS X).\n\nUse iTunes to upgrade to the latest firmware. blackra1n runs on already upgraded un-jailbroken iPhones."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "does",
+            "bold": true
+          },
+          {
+            "text": "will",
+            "bold": true
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          }
+        ]
+      ]
+    },
+    "purplera1n": {
+      "title": "purplera1n",
+      "body": "purplera1n is comparable to redsn0w.\nIt does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.0 on the iPhone 3G[S].\n\nSteps: Download purplera1n for Mac OS or Windows. This will come in the form of a (compressed) .zip file (Mac OS) or a single .exe file (Windows).\n\nUse iTunes to upgrade to the latest firmware. purplera1n runs on already upgraded un-jailbroken iPhones.",
+      "links": [
+        {
+          "id": "website",
+          "title": "purplera1n.com",
+          "destination": "http://purplera1n.com/"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "purplera1n is comparable to redsn0w.\nIt does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.0 on the iPhone 3G[S].\n\nSteps: Download purplera1n for Mac OS or Windows. This will come in the form of a (compressed) .zip file (Mac OS) or a single .exe file (Windows).\n\nUse iTunes to upgrade to the latest firmware. purplera1n runs on already upgraded un-jailbroken iPhones."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "Steps:",
+            "bold": true
+          }
+        ]
+      ]
+    },
+    "quickpwn-mac": {
+      "title": "QuickPwn for Mac",
+      "body": "QuickPwn 3.x has not been released.\n\nSteps: Download version 2.2.5 of QuickPwn Mac. This will come in the form of an Apple disk image file.\n\nDo not run off the disk image, first copy QuickPwn to your hard disk.\n\nDo not download a .zip file instead.\n\nUse iTunes to upgrade to the latest firmware. QuickPwn runs on already upgraded un-jailbroken iPhones.\n\nThis method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.\n\nI (saurik) have not had a chance to use this tool yet. However, I have received many glowing reports of it.",
+      "links": [
+        {
+          "id": "website",
+          "title": "iPhone-Dev Blog",
+          "destination": "http://blog.iphone-dev.org/post/74278878/close-the-stable-door"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "QuickPwn 3.x has not been released.\n\nSteps: Download version 2.2.5 of QuickPwn Mac. This will come in the form of an Apple disk image file.\n\nDo not run off the disk image, first copy QuickPwn to your hard disk.\n\nDo not download a .zip file instead.\n\nUse iTunes to upgrade to the latest firmware. QuickPwn runs on already upgraded un-jailbroken iPhones.\n\nThis method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.\n\nI (saurik) have not had a chance to use this tool yet. However, I have received many glowing reports of it."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "has not",
+            "bold": true
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "not",
+            "bold": true
+          },
+          {
+            "text": "not",
+            "bold": true
+          },
+          {
+            "text": "does",
+            "bold": true
+          },
+          {
+            "text": "will",
+            "bold": true
+          },
+          {
+            "text": "I (saurik) have not had a chance to use this tool yet. However, I have received many glowing reports of it.",
+            "secondary": true
+          }
+        ]
+      ]
+    },
+    "quickpwn-win": {
+      "title": "QuickPwn for Windows",
+      "body": "QuickPwn 3.x has not been released.\n\nSteps: Download QuickPwn 2.2.5-2 for Windows. This will come in the form of a (compressed) .zip file.\n\nUse iTunes to upgrade to the latest firmware. QuickPwn runs on already upgraded un-jailbroken iPhones.\n\nThis method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.",
+      "links": [
+        {
+          "id": "website",
+          "title": "iPhone-Dev Blog",
+          "destination": "http://blog.iphone-dev.org/post/74278878/close-the-stable-door"
+        }
+      ],
+      "displayResources": [
+        "website"
+      ],
+      "resourceTitle": "Resources",
+      "bodyParts": [
+        "QuickPwn 3.x has not been released.\n\nSteps: Download QuickPwn 2.2.5-2 for Windows. This will come in the form of a (compressed) .zip file.\n\nUse iTunes to upgrade to the latest firmware. QuickPwn runs on already upgraded un-jailbroken iPhones.\n\nThis method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details."
+      ],
+      "bodyRuns": [
+        [
+          {
+            "text": "has not",
+            "bold": true
+          },
+          {
+            "text": "Steps:",
+            "bold": true
+          },
+          {
+            "text": "does",
+            "bold": true
+          },
+          {
+            "text": "will",
+            "bold": true
+          }
+        ]
+      ]
+    }
+  }
+}

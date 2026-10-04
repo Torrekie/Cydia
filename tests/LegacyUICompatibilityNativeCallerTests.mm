@@ -100,6 +100,8 @@ BOOL NativeSafeReachabilityName(id value) {
 @property (nonatomic) BOOL revokeDuringSourceLookup;
 @property (nonatomic, strong) id lastTarget;
 @property (nonatomic, copy) NSString *lastIdentity;
+@property (nonatomic, copy) NSString *lastMutationMember;
+@property (nonatomic, copy) NSArray *lastMutationArguments;
 @property (nonatomic) NSUInteger globalReadCount;
 @property (nonatomic) NSUInteger sessionReadCount;
 @property (nonatomic, copy) NSString *lastSessionKey;
@@ -206,8 +208,8 @@ BOOL NativeSafeReachabilityName(id value) {
                        arguments:(NSArray *)arguments
                         presenter:(id)presenter {
     (void)session;
-    (void)memberName;
-    (void)arguments;
+    _lastMutationMember = [memberName copy];
+    _lastMutationArguments = [arguments copy];
     Expect(presenter != nil, @"mutation receives bound presenter");
     ++_mutationCount;
     _mutationOnMainThread = [NSThread isMainThread];
@@ -259,6 +261,23 @@ BOOL NativeSafeReachabilityName(id value) {
     ++_routeCount;
     return [descriptor kind] == CydiaUIRouteKindPackage ||
         [descriptor kind] == CydiaUIRouteKindSource;
+}
+@end
+
+@interface NativePackageCommandProvider : NativeTestProvider
+@end
+@implementation NativePackageCommandProvider
+- (BOOL) legacyNativeSession:(CydiaLegacyUICompatibilityNativeSession *)session
+    requestApplicationMutation:(NSString *)memberName
+                       arguments:(NSArray *)arguments
+                        presenter:(id)presenter {
+    Expect(presenter == [session presenter], @"application mutation keeps bound presenter");
+    self.mutationCount += 1;
+    self.mutationOnMainThread = [NSThread isMainThread];
+    self.lastMutationMember = memberName;
+    self.lastMutationArguments = arguments;
+    self.lastTarget = [session target];
+    return YES;
 }
 @end
 
@@ -409,6 +428,100 @@ void VerifyIssuanceAndPolicy(void) {
     Expect(![expired isValid] &&
            [CydiaUIRouteContext trustedInProcessContextWithCapability:expired] == nil,
            @"weak issuer lifetime expires capability");
+}
+
+void VerifyExecutionObservations(void) {
+    id application(CydiaIssuer());
+    NativeTestProvider *provider([[NativeTestProvider alloc] init]);
+    auto capability([CydiaLegacyUICompatibilityNativeCaller
+        issueCapabilityForApplication:application]);
+    auto caller([[CydiaLegacyUICompatibilityNativeCaller alloc]
+        initWithCapability:capability reader:provider commander:provider router:provider]);
+    NSObject *presenter([[NSObject alloc] init]);
+    auto package([caller sessionForScope:@"Package" target:[[NSObject alloc] init]
+        packageIdentity:@"fixture.package" sourceKey:nil presenter:presenter]);
+    Expect([[package invokeScope:@"Package" memberKind:CydiaLegacyBridgeMemberKindAttribute
+        memberName:@"name" arguments:@[] targetOrigin:nil] isEqual:@"Fixture Package"] &&
+        [package executorEntryCount] == 1 && [provider readCount] == 1,
+        @"defined read enters the executor and provider once");
+    Expect(IsUndefined([package invokeScope:@"Package"
+        memberKind:CydiaLegacyBridgeMemberKindAttribute memberName:@"longDescription"
+        arguments:@[] targetOrigin:nil]) && [package executorEntryCount] == 2 &&
+        [package denialCount] == 0 && [provider readCount] == 2,
+        @"undefined read still enters the real provider once without rejection");
+    auto dictionary([caller sessionForScope:@"NSDictionary" target:@{}
+        packageIdentity:nil sourceKey:nil presenter:presenter]);
+    Expect(IsUndefined([dictionary invokeScope:@"NSDictionary"
+        memberKind:CydiaLegacyBridgeMemberKindDynamicMethod memberName:@"get"
+        arguments:@[@"missing"] targetOrigin:nil]) &&
+        [dictionary executorEntryCount] == 1 && [dictionary denialCount] == 0,
+        @"absent dictionary key is an executed read, not a missing target");
+    auto applicationSession([caller sessionForScope:@"CydiaObject" target:application
+        packageIdentity:nil sourceKey:nil presenter:presenter]);
+    NSUInteger denied(0);
+    for (CydiaLegacyBridgeMember *member in CydiaLegacyBridgeMembers()) {
+        auto family([member family]);
+        if (family != CydiaLegacyBridgeOperationFamilySensitive &&
+            family != CydiaLegacyBridgeOperationFamilyChrome &&
+            family != CydiaLegacyBridgeOperationFamilyClipboard &&
+            family != CydiaLegacyBridgeOperationFamilyRetired &&
+            !(family == CydiaLegacyBridgeOperationFamilySession &&
+                ![[member name] isEqualToString:@"getSessionValue"]) &&
+            [member trustedLegacyRequirement] != CydiaLegacyBridgeAccessRequirementDenied &&
+            [member trustedLegacyRequirement] != CydiaLegacyBridgeAccessRequirementRetired)
+            continue;
+        auto signature(CydiaLegacyUICompatibilitySignatureForMember(
+            [member scope], [member kind], [member name]));
+        NSMutableArray *arguments([NSMutableArray array]);
+        for (NSNumber *kind in [signature argumentKinds]) {
+            id argument([NSNull null]);
+            switch ([kind unsignedIntegerValue]) {
+                case CydiaLegacyUIArgumentKindString:
+                case CydiaLegacyUIArgumentKindOpaque:
+                    argument = @"fixture"; break;
+                case CydiaLegacyUIArgumentKindNumber: argument = @0; break;
+                case CydiaLegacyUIArgumentKindBooleanLike: argument = @NO; break;
+                case CydiaLegacyUIArgumentKindSequence: argument = @[]; break;
+                case CydiaLegacyUIArgumentKindURLString:
+                    argument = @"https://fixture.invalid/"; break;
+                case CydiaLegacyUIArgumentKindMetadataKey:
+                    argument = @"fixture.key"; break;
+                default: break; // Optional arguments deliberately remain null.
+            }
+            [arguments addObject:argument];
+        }
+        auto service([applicationSession service]);
+        auto decision([service decisionForScope:[member scope] memberKind:[member kind]
+            memberName:[member name] arguments:arguments targetOrigin:nil]);
+        Expect(![decision isAllowed] && [applicationSession executorEntryCount] == 0,
+            @"decision-only queries never enter an executor");
+        id result([service invokeScope:[member scope] memberKind:[member kind]
+            memberName:[member name] arguments:arguments targetOrigin:nil]);
+        Expect((result == [decision unavailableValue] || [result isEqual:[decision unavailableValue]]) &&
+            [applicationSession executorEntryCount] == 0 && [provider readCount] == 2 &&
+            [provider mutationCount] == 0 && [provider globalReadCount] == 0 &&
+            [provider sessionReadCount] == 0 && [provider routeCount] == 0,
+            [NSString stringWithFormat:@"denied %@.%@ returns typed unavailable with no executor/provider entry",
+                [member scope], [member name]]);
+        ++denied;
+    }
+    Expect(denied == 65, @"all 65 denied names actually attempt the bound service");
+    Expect(IsUndefined([package invokeScope:@"Source"
+        memberKind:CydiaLegacyBridgeMemberKindAttribute memberName:@"label"
+        arguments:@[] targetOrigin:nil]) && [package executorEntryCount] == 2 &&
+        [package denialCount] == 1,
+        @"out-of-scope boundary attempt rejects before executor entry");
+    NSUInteger entries([package executorEntryCount]);
+    [package invokeScope:@"Package" memberKind:CydiaLegacyBridgeMemberKindMethod
+        memberName:@"install" arguments:@[] targetOrigin:nil];
+    Expect([package executorEntryCount] == entries + 1 && [provider mutationCount] == 1,
+        @"confirmation executor entry is counted independently of its result kind");
+    [package invalidate];
+    Expect(IsUndefined([package invokeScope:@"Package"
+        memberKind:CydiaLegacyBridgeMemberKindAttribute memberName:@"name"
+        arguments:@[] targetOrigin:nil]) && [package executorEntryCount] == entries + 1 &&
+        [package denialCount] == 2,
+        @"revoked session increments rejection count without executor entry");
 }
 
 void VerifySession(void) {
@@ -806,6 +919,45 @@ void VerifySession(void) {
            @"caller invalidation revokes sessions and decisions");
 }
 
+void VerifyFourPackageMutationEntries(void) {
+    id application(CydiaIssuer());
+    NativePackageCommandProvider *provider([[NativePackageCommandProvider alloc] init]);
+    CydiaLegacyUICompatibilityNativeCaller *caller(
+        [[CydiaLegacyUICompatibilityNativeCaller alloc]
+            initWithCapability:[CydiaLegacyUICompatibilityNativeCaller
+                issueCapabilityForApplication:application]
+            reader:provider commander:provider router:provider]);
+    id fixture([[NSObject alloc] init]);
+    id presenter([[NSObject alloc] init]);
+    CydiaLegacyUICompatibilityNativeSession *package([caller sessionForScope:@"Package"
+        target:fixture packageIdentity:@"com.torrekie.cydia-ui-transaction-fixture"
+        sourceKey:nil presenter:presenter]);
+    for (NSString *member in @[@"clear", @"install", @"remove"]) {
+        NSUInteger before([package executorEntryCount]);
+        NSUInteger effects([provider mutationCount]);
+        id result([package invokeScope:@"Package" memberKind:CydiaLegacyBridgeMemberKindMethod
+            memberName:member arguments:@[] targetOrigin:nil]);
+        Expect(IsUndefined(result) && [package executorEntryCount] == before + 1 &&
+            [provider mutationCount] == effects + 1 && [provider mutationOnMainThread] &&
+            [package lastDenialReason] == CydiaLegacyUICompatibilityNativeDenialReasonNone &&
+            [provider lastTarget] == fixture && [[provider lastMutationMember] isEqualToString:member] &&
+            [[provider lastMutationArguments] count] == 0,
+            @"all three void package APIs reach one typed executor/provider request");
+    }
+    CydiaLegacyUICompatibilityNativeSession *app([caller sessionForScope:@"CydiaObject"
+        target:application packageIdentity:nil sourceKey:nil presenter:presenter]);
+    id result([app invokeScope:@"CydiaObject" memberKind:CydiaLegacyBridgeMemberKindMethod
+        memberName:@"installPackages" arguments:@[@[fixture]] targetOrigin:nil]);
+    Expect(IsUndefined(result) && [app executorEntryCount] == 1 &&
+        [provider mutationCount] == 4 && [provider lastTarget] == application &&
+        [app lastDenialReason] == CydiaLegacyUICompatibilityNativeDenialReasonNone &&
+        [[provider lastMutationMember] isEqualToString:@"installPackages"] &&
+        [[provider lastMutationArguments] count] == 1 &&
+        [[provider lastMutationArguments][0] count] == 1 &&
+        [provider lastMutationArguments][0][0] == fixture,
+        @"batch install keeps the exact fixture object in its one sequence argument");
+}
+
 void VerifyWeakExecutorLifetime(void) {
     CydiaLegacyUICompatibilityService *service(nil);
     @autoreleasepool {
@@ -831,13 +983,64 @@ void VerifyWeakExecutorLifetime(void) {
            @"weak executor expires after owner/session lifetime");
 }
 
+void VerifyExplicitFinalSessionRelease(void) {
+    id application(CydiaIssuer());
+    for (NSString *scope in @[@"Package", @"Source", @"CydiaObject"]) {
+        __weak CydiaLegacyUICompatibilityNativeSession *weakSession(nil);
+        __weak CydiaLegacyUICompatibilityNativeCaller *weakOwner(nil);
+        CydiaLegacyUICompatibilityService *service(nil);
+        const BOOL metadata([scope isEqualToString:@"CydiaObject"]);
+        NSString *member(metadata ? @"getMetadataValue" :
+            ([scope isEqualToString:@"Package"] ? @"name" : @"label"));
+        auto kind(metadata ? CydiaLegacyBridgeMemberKindMethod : CydiaLegacyBridgeMemberKindAttribute);
+        NSArray *arguments(metadata ? @[@"fixture.key"] : @[]);
+        @autoreleasepool {
+            NativeTestProvider *provider([[NativeTestProvider alloc] init]);
+            provider.metadataValue = @"fixture-value";
+            auto capability([CydiaLegacyUICompatibilityNativeCaller issueCapabilityForApplication:application]);
+            CydiaLegacyUICompatibilityNativeCaller *owner(
+                [[CydiaLegacyUICompatibilityNativeCaller alloc] initWithCapability:capability
+                    reader:provider commander:provider router:provider]);
+            CydiaLegacyUICompatibilityNativeSession *session([owner sessionForScope:scope
+                target:metadata ? application : [[NSObject alloc] init]
+                packageIdentity:[scope isEqualToString:@"Package"] ? @"fixture.package" : nil
+                sourceKey:[scope isEqualToString:@"Source"] ? @"deb:https://repo.example/:./" : nil
+                presenter:[[NSObject alloc] init]]);
+            weakOwner = owner;
+            weakSession = session;
+            service = [session service];
+            session = nil;
+            Expect(weakSession != nil && [weakSession isActive], @"owner retains session without a local strong reference");
+            session = weakSession;
+            id value([session invokeScope:scope memberKind:kind memberName:member
+                arguments:arguments targetOrigin:nil]);
+            Expect(value != nil && !IsUndefined(value) && [session executorEntryCount] == 1,
+                @"retained package/source/metadata session executes one typed read");
+            [owner invalidate];
+            Expect(IsUndefined([session invokeScope:scope memberKind:kind memberName:member
+                arguments:arguments targetOrigin:nil]) && [session executorEntryCount] == 1 &&
+                [session lastDenialReason] == CydiaLegacyUICompatibilityNativeDenialReasonInvalidCapability,
+                @"owner invalidation rejects without a second provider entry");
+            session = nil;
+            owner = nil;
+        }
+        Expect(weakSession == nil && weakOwner == nil, @"final strong-reference removal deallocates owned session and caller");
+        Expect(![service isExecutable] && IsUndefined([service invokeScope:scope
+            memberKind:kind memberName:member arguments:arguments targetOrigin:nil]),
+            @"retained service cannot execute after session deallocation");
+    }
+}
+
 } // namespace
 
 int main(void) {
     @autoreleasepool {
         VerifyIssuanceAndPolicy();
+        VerifyExecutionObservations();
         VerifySession();
+        VerifyFourPackageMutationEntries();
         VerifyWeakExecutorLifetime();
+        VerifyExplicitFinalSessionRelease();
         std::cout << "[verify-legacy-ui-compatibility-native][ ok ] "
                   << "capability, target binding, typed dispatch, confirmation, and routes"
                   << std::endl;

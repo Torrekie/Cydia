@@ -5,6 +5,8 @@
 
 #import "Cydia/PackageDetailViewModel.h"
 
+#include <ctime>
+
 @protocol CydiaPackageDetailAddressSource <NSObject>
 - (nullable NSString *)name;
 - (nullable NSString *)address;
@@ -28,14 +30,19 @@
 - (nullable NSString *)name;
 - (nullable NSString *)latest;
 - (nullable NSString *)installed;
+- (nullable NSString *)md5sum;
 - (nullable NSString *)architecture;
 - (nullable NSString *)multiArch;
 - (nullable NSString *)section;
+- (nullable NSString *)simpleSection;
 - (nullable NSString *)longSection;
+- (nullable NSString *)shortSection;
 - (nullable NSString *)shortDescription;
 - (nullable NSString *)longDescription;
 - (size_t)size;
 - (nullable NSString *)mode;
+- (nullable NSString *)state;
+- (nullable NSString *)selection;
 - (nullable NSArray *)warnings;
 - (BOOL)uninstalled;
 - (BOOL)upgradableAndEssential:(BOOL)essential;
@@ -51,6 +58,51 @@
 - (nullable id<CydiaPackageDetailSourceSource>)source;
 - (nullable NSArray *)applications;
 - (nullable NSArray *)downgrades;
+@optional
+- (nullable NSString *)getField:(NSString *)name;
+- (nullable NSString *)getRecord;
+- (nullable NSArray *)tags;
+- (nullable NSArray *)purposes;
+- (nullable NSArray *)relations;
+- (time_t)upgraded;
+@end
+
+@protocol CydiaPackageDetailSourceSnapshotSource <NSObject>
+@optional
+- (nullable NSString *)getField:(NSString *)name;
+- (nullable NSDictionary *)record;
+- (nullable NSArray *)sections;
+- (BOOL)trusted;
+- (nullable NSString *)rooturi;
+- (nullable NSString *)distribution;
+- (nullable NSString *)type;
+- (nullable NSString *)baseuri;
+- (nullable NSString *)iconuri;
+- (nullable NSString *)key;
+- (nullable NSString *)host;
+- (nullable NSString *)name;
+- (nullable NSString *)shortDescription;
+- (nullable NSString *)label;
+- (nullable NSString *)origin;
+- (nullable NSString *)version;
+@end
+
+@protocol CydiaPackageDetailRelationSnapshotSource <NSObject>
+@optional
+- (nullable NSString *)relationship;
+- (nullable NSArray *)clauses;
+@end
+
+@protocol CydiaPackageDetailClauseSnapshotSource <NSObject>
+@optional
+- (nullable NSString *)package;
+- (nullable id)version;
+@end
+
+@protocol CydiaPackageDetailOperationSnapshotSource <NSObject>
+@optional
+- (nullable NSString *)operator;
+- (nullable NSString *)value;
 @end
 
 namespace {
@@ -77,6 +129,159 @@ NSArray<NSString *> *StringArray(id value) {
             [strings addObject:string];
     }
     return [strings copy];
+}
+
+id PropertyListValue(id value, NSUInteger depth) {
+    if (value == nil || value == [NSNull null])
+        return value == [NSNull null] ? [NSNull null] : nil;
+    if (depth > 6)
+        return nil;
+    if ([value isKindOfClass:[NSString class]])
+        return [value copy];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value copy];
+    if ([value isKindOfClass:[NSURL class]])
+        return [[value absoluteString] copy];
+    if ([value isKindOfClass:[NSArray class]]) {
+        NSMutableArray *array([NSMutableArray array]);
+        for (id item in (NSArray *)value) {
+            id converted(PropertyListValue(item, depth + 1));
+            if (converted != nil)
+                [array addObject:converted];
+        }
+        return [array copy];
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *dictionary([NSMutableDictionary dictionary]);
+        for (id key in (NSDictionary *)value) {
+            if (![key isKindOfClass:[NSString class]] ||
+                [key length] == 0 || [key rangeOfString:@"__"].location == 0)
+                continue;
+            id converted(PropertyListValue([(NSDictionary *)value objectForKey:key],
+                                           depth + 1));
+            if (converted != nil)
+                [dictionary setObject:converted forKey:key];
+        }
+        return [dictionary copy];
+    }
+    return nil;
+}
+
+NSDictionary *AddressSnapshot(id address) {
+    if (address == nil)
+        return nil;
+    id<CydiaPackageDetailAddressSource> value((id<CydiaPackageDetailAddressSource>)address);
+    NSString *name(StringOrNil([value name]));
+    NSString *addressText(StringOrNil([value address]));
+    if (name == nil && addressText == nil)
+        return nil;
+    NSMutableDictionary *result([NSMutableDictionary dictionary]);
+    if (name != nil)
+        [result setObject:name forKey:@"name"];
+    if (addressText != nil)
+        [result setObject:addressText forKey:@"address"];
+    return [result copy];
+}
+
+NSDictionary *OperationSnapshot(id operation) {
+    if (operation == nil || operation == [NSNull null])
+        return operation == [NSNull null] ? (id) [NSNull null] : nil;
+    id<CydiaPackageDetailOperationSnapshotSource> value(
+        (id<CydiaPackageDetailOperationSnapshotSource>)operation);
+    NSString *operatorValue([value respondsToSelector:@selector(operator)] ?
+        StringOrNil([value operator]) : nil);
+    NSString *version([value respondsToSelector:@selector(value)] ?
+        StringOrNil([value value]) : nil);
+    if (operatorValue == nil && version == nil)
+        return nil;
+    NSMutableDictionary *result([NSMutableDictionary dictionary]);
+    if (operatorValue != nil)
+        [result setObject:operatorValue forKey:@"operator"];
+    if (version != nil)
+        [result setObject:version forKey:@"value"];
+    return [result copy];
+}
+
+NSDictionary *ClauseSnapshot(id clause) {
+    id<CydiaPackageDetailClauseSnapshotSource> value(
+        (id<CydiaPackageDetailClauseSnapshotSource>)clause);
+    NSString *package([value respondsToSelector:@selector(package)] ?
+        StringOrNil([value package]) : nil);
+    if (package == nil)
+        return nil;
+    NSMutableDictionary *result([NSMutableDictionary dictionaryWithObject:package
+                                                                         forKey:@"package"]);
+    id version([value respondsToSelector:@selector(version)] ?
+        OperationSnapshot([value version]) : nil);
+    if (version != nil)
+        [result setObject:version forKey:@"version"];
+    return [result copy];
+}
+
+NSArray *RelationsSnapshot(id relations) {
+    if (![relations isKindOfClass:[NSArray class]])
+        return @[];
+    NSMutableArray *result([NSMutableArray array]);
+    for (id relation in (NSArray *)relations) {
+        id<CydiaPackageDetailRelationSnapshotSource> value(
+            (id<CydiaPackageDetailRelationSnapshotSource>)relation);
+        NSString *relationship([value respondsToSelector:@selector(relationship)] ?
+            StringOrNil([value relationship]) : nil);
+        NSArray *clauses([value respondsToSelector:@selector(clauses)] ?
+            [value clauses] : nil);
+        if (relationship == nil || ![clauses isKindOfClass:[NSArray class]])
+            continue;
+        NSMutableArray *clauseValues([NSMutableArray array]);
+        for (id clause in clauses) {
+            NSDictionary *snapshot(ClauseSnapshot(clause));
+            if (snapshot != nil)
+                [clauseValues addObject:snapshot];
+        }
+        [result addObject:@{ @"relationship": relationship,
+                             @"clauses": [clauseValues copy] }];
+    }
+    return [result copy];
+}
+
+NSDictionary *SourceSnapshot(id source) {
+    if (source == nil)
+        return nil;
+    id<CydiaPackageDetailSourceSnapshotSource> value(
+        (id<CydiaPackageDetailSourceSnapshotSource>)source);
+    NSMutableDictionary *result([NSMutableDictionary dictionary]);
+    NSArray *names(@[ @"baseuri", @"distribution", @"host", @"key", @"iconuri",
+                      @"label", @"name", @"origin", @"rooturi", @"shortDescription",
+                      @"type", @"version" ]);
+    for (NSString *name in names) {
+        id candidate;
+        if ([name isEqualToString:@"baseuri"] && [value respondsToSelector:@selector(baseuri)]) candidate = [value baseuri];
+        else if ([name isEqualToString:@"distribution"] && [value respondsToSelector:@selector(distribution)]) candidate = [value distribution];
+        else if ([name isEqualToString:@"host"] && [value respondsToSelector:@selector(host)]) candidate = [value host];
+        else if ([name isEqualToString:@"key"] && [value respondsToSelector:@selector(key)]) candidate = [value key];
+        else if ([name isEqualToString:@"iconuri"] && [value respondsToSelector:@selector(iconuri)]) candidate = [value iconuri];
+        else if ([name isEqualToString:@"label"] && [value respondsToSelector:@selector(label)]) candidate = [value label];
+        else if ([name isEqualToString:@"name"] && [value respondsToSelector:@selector(name)]) candidate = [value name];
+        else if ([name isEqualToString:@"origin"] && [value respondsToSelector:@selector(origin)]) candidate = [value origin];
+        else if ([name isEqualToString:@"rooturi"] && [value respondsToSelector:@selector(rooturi)]) candidate = [value rooturi];
+        else if ([name isEqualToString:@"shortDescription"] && [value respondsToSelector:@selector(shortDescription)]) candidate = [value shortDescription];
+        else if ([name isEqualToString:@"type"] && [value respondsToSelector:@selector(type)]) candidate = [value type];
+        else if ([name isEqualToString:@"version"] && [value respondsToSelector:@selector(version)]) candidate = [value version];
+        else candidate = nil;
+        id converted(PropertyListValue(candidate, 0));
+        if (converted != nil)
+            [result setObject:converted forKey:name];
+    }
+    NSArray *sections([value respondsToSelector:@selector(sections)] ?
+        PropertyListValue([value sections], 0) : nil);
+    if (sections != nil)
+        [result setObject:sections forKey:@"sections"];
+    NSDictionary *record([value respondsToSelector:@selector(record)] ?
+        PropertyListValue([value record], 0) : nil);
+    if (record != nil)
+        [result setObject:record forKey:@"record"];
+    if ([value respondsToSelector:@selector(trusted)])
+        [result setObject:@([value trusted]) forKey:@"trusted"];
+    return [result copy];
 }
 
 } // namespace
@@ -195,10 +400,20 @@ NSArray<NSString *> *StringArray(id value) {
         _displayName = [(StringOrNil([sourcePackage name]) ?: identity) copy];
         _latestVersion = StringOrNil([sourcePackage latest]);
         _installedVersion = StringOrNil([sourcePackage installed]);
+        NSString *md5sum([sourcePackage respondsToSelector:@selector(md5sum)] ?
+            StringOrNil([sourcePackage md5sum]) : nil);
+        NSString *state([sourcePackage respondsToSelector:@selector(state)] ?
+            StringOrNil([sourcePackage state]) : nil);
+        NSString *selection([sourcePackage respondsToSelector:@selector(selection)] ?
+            StringOrNil([sourcePackage selection]) : nil);
+        time_t upgraded([sourcePackage respondsToSelector:@selector(upgraded)] ?
+            [sourcePackage upgraded] : 0);
         _architecture = StringOrNil([sourcePackage architecture]);
         _multiArch = StringOrNil([sourcePackage multiArch]);
         _rawSection = StringOrNil([sourcePackage section]);
+        NSString *simpleSection(StringOrNil([sourcePackage simpleSection]));
         _localizedSection = StringOrNil([sourcePackage longSection]);
+        NSString *shortSection(StringOrNil([sourcePackage shortSection]));
         _shortDescription = StringOrNil([sourcePackage shortDescription]);
         _longDescription = StringOrNil([sourcePackage longDescription]);
         _displayDescription = [_longDescription ?: _shortDescription copy];
@@ -213,10 +428,17 @@ NSArray<NSString *> *StringArray(id value) {
         _commercial = [sourcePackage isCommercial];
         _consolePackage = [sourcePackage hasTag:@"purpose::console"];
 
-        id<CydiaPackageDetailAddressSource> contact([sourcePackage author]);
+        id<CydiaPackageDetailAddressSource> authorSource([sourcePackage author]);
+        id<CydiaPackageDetailAddressSource> maintainerSource([sourcePackage maintainer]);
+        _authorName = StringOrNil([authorSource name]);
+        _authorAddress = StringOrNil([authorSource address]);
+        _maintainerName = StringOrNil([maintainerSource name]);
+        _maintainerAddress = StringOrNil([maintainerSource address]);
+
+        id<CydiaPackageDetailAddressSource> contact(authorSource);
         _contactKind = CydiaPackageDetailContactKindAuthor;
         if (contact == nil) {
-            contact = [sourcePackage maintainer];
+            contact = maintainerSource;
             _contactKind = contact == nil ? CydiaPackageDetailContactKindPackageSupport :
                                            CydiaPackageDetailContactKindMaintainer;
         }
@@ -226,9 +448,86 @@ NSArray<NSString *> *StringArray(id value) {
         _homepageURLString = URLStringOrNil([sourcePackage homepage]);
         _depictionURLString = URLStringOrNil([sourcePackage depiction]);
 
+        NSMutableDictionary *legacyPackage([NSMutableDictionary dictionary]);
+        NSDictionary *packageValues(@{
+            @"architecture": _architecture ?: [NSNull null],
+            @"aptId": _aptIdentity ?: [NSNull null],
+            @"baseId": _baseIdentity ?: [NSNull null],
+            @"depiction": _depictionURLString ?: [NSNull null],
+            @"dpkgId": _dpkgIdentity ?: [NSNull null],
+            @"essential": @(_essential),
+            @"homepage": _homepageURLString ?: [NSNull null],
+            @"icon": [NSString stringWithFormat:@"cydia://package-icon/%@", _identity],
+            @"id": _identity,
+            @"installed": _installedVersion ?: [NSNull null],
+            @"latest": _latestVersion ?: [NSNull null],
+            @"longDescription": _longDescription ?: [NSNull null],
+            @"longSection": _localizedSection ?: [NSNull null],
+            @"mode": _modeLocalizationKey ?: [NSNull null],
+            @"multiArch": _multiArch ?: [NSNull null],
+            @"name": _displayName,
+            @"section": _rawSection ?: [NSNull null],
+            @"md5sum": md5sum ?: [NSNull null],
+            @"selection": selection ?: [NSNull null],
+            @"simpleSection": simpleSection ?: [NSNull null],
+            @"shortDescription": _shortDescription ?: [NSNull null],
+            @"shortSection": shortSection ?: [NSNull null],
+            @"size": @(_installedSizeBytes),
+            @"state": state ?: [NSNull null],
+            @"support": _supportURLString ?: [NSNull null],
+            @"upgraded": @((long long) upgraded),
+            @"warnings": _warnings ?: @[],
+        });
+        [legacyPackage setObject:packageValues forKey:@"values"];
+        NSDictionary *author(AddressSnapshot([sourcePackage author]));
+        if (author != nil)
+            [legacyPackage setObject:author forKey:@"author"];
+        NSDictionary *maintainer(AddressSnapshot([sourcePackage maintainer]));
+        if (maintainer != nil)
+            [legacyPackage setObject:maintainer forKey:@"maintainer"];
+        NSArray *tags([sourcePackage respondsToSelector:@selector(tags)] ?
+            PropertyListValue([sourcePackage tags], 0) : nil);
+        if (tags != nil)
+            [legacyPackage setObject:tags forKey:@"tags"];
+        NSArray *purposes([sourcePackage respondsToSelector:@selector(purposes)] ?
+            PropertyListValue([sourcePackage purposes], 0) : nil);
+        if (purposes != nil)
+            [legacyPackage setObject:purposes forKey:@"purposes"];
+        NSArray *legacyApplicationsValue(PropertyListValue([sourcePackage applications], 0));
+        if (legacyApplicationsValue != nil)
+            [legacyPackage setObject:legacyApplicationsValue forKey:@"applications"];
+        NSArray *relations([sourcePackage respondsToSelector:@selector(relations)] ?
+            RelationsSnapshot([sourcePackage relations]) : @[]);
+        if (relations != nil)
+            [legacyPackage setObject:relations forKey:@"relations"];
+        NSString *record([sourcePackage respondsToSelector:@selector(getRecord)] ?
+            [sourcePackage getRecord] : nil);
+        if ([record isKindOfClass:[NSString class]])
+            [legacyPackage setObject:record forKey:@"record"];
+        NSMutableDictionary *fields([NSMutableDictionary dictionary]);
+        NSArray *fieldNames(@[ @"Package", @"Name", @"Version", @"Architecture",
+                              @"Description", @"Section", @"Maintainer", @"Depends",
+                              @"Pre-Depends", @"Recommends", @"Suggests", @"Conflicts",
+                              @"Replaces", @"Provides", @"Installed-Size", @"Filename",
+                              @"Size", @"MD5sum", @"SHA256", @"Tag", @"Homepage",
+                              @"Depiction", @"Support", @"Author" ]);
+        for (NSString *fieldName in fieldNames) {
+            id field([sourcePackage respondsToSelector:@selector(getField:)] ?
+                PropertyListValue([sourcePackage getField:fieldName], 0) : nil);
+            if (field != nil && field != [NSNull null])
+                [fields setObject:field forKey:fieldName];
+        }
+        [legacyPackage setObject:[fields copy] forKey:@"fields"];
+
         id<CydiaPackageDetailSourceSource> packageSource([sourcePackage source]);
         if (packageSource != nil)
             _source = [[CydiaPackageDetailSource alloc] initWithSource:packageSource];
+
+        NSDictionary *legacySource(SourceSnapshot(packageSource));
+        if (legacySource == nil)
+            legacySource = @{};
+        if ([legacySource count] != 0)
+            [legacyPackage setObject:[legacySource copy] forKey:@"source"];
 
         NSMutableArray<CydiaPackageDetailApplication *> *applications(
             [NSMutableArray array]);
@@ -285,6 +584,19 @@ NSArray<NSString *> *StringArray(id value) {
                 titleLocalizationKey] copy];
         else if ([actions count] > 1)
             _primaryModifyTitleLocalizationKey = @"MODIFY";
+
+        NSMutableDictionary *legacySnapshot([NSMutableDictionary dictionary]);
+        [legacySnapshot setObject:[legacyPackage copy] forKey:@"package"];
+        id legacySourceValue([legacySource count] == 0 ? (id) [NSNull null] :
+                             (id) [legacySource copy]);
+        [legacySnapshot setObject:legacySourceValue forKey:@"source"];
+        [legacySnapshot setObject:[NSLocale preferredLanguages] ?: @[]
+                            forKey:@"preferredLanguages"];
+        [legacySnapshot setObject:[[NSLocale currentLocale] localeIdentifier] ?: @"en_US"
+                            forKey:@"localeIdentifier"];
+        [legacySnapshot setObject:@[ @"depiction", @"window.cydia", @"ios12" ]
+                            forKey:@"supports"];
+        _legacyDepictionSnapshot = [legacySnapshot copy];
     }
     return self;
 }

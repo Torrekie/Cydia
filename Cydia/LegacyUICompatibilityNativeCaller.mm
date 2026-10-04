@@ -371,6 +371,8 @@ BOOL IsUnsupportedFamily(CydiaLegacyBridgeOperationFamily family) {
     id<CydiaLegacyUICompatibilityNativeRouting> router_;
     BOOL active_;
     CydiaLegacyUICompatibilityNativeDenialReason lastDenialReason_;
+    NSUInteger executorEntryCount_;
+    NSUInteger denialCount_;
     NSMutableSet *requestedInvocations_;
     NSMutableArray<CydiaLegacyUICompatibilityNativeSnapshot *> *snapshotTargets_;
     CydiaUIRouteDispatchResult *lastRouteResult_;
@@ -477,7 +479,17 @@ BOOL IsUnsupportedFamily(CydiaLegacyBridgeOperationFamily family) {
 - (void) setDenial:(CydiaLegacyUICompatibilityNativeDenialReason)reason {
     @synchronized (self) {
         lastDenialReason_ = reason;
+        if (reason != CydiaLegacyUICompatibilityNativeDenialReasonNone)
+            ++denialCount_;
     }
+}
+
+- (NSUInteger) executorEntryCount {
+    @synchronized (self) { return executorEntryCount_; }
+}
+
+- (NSUInteger) denialCount {
+    @synchronized (self) { return denialCount_; }
 }
 
 - (CydiaLegacyUICompatibilityNativeSnapshot *) currentSnapshotTarget {
@@ -633,6 +645,7 @@ BOOL IsUnsupportedFamily(CydiaLegacyBridgeOperationFamily family) {
 
 - (id) legacyUICompatibilityService:(CydiaLegacyUICompatibilityService *)service
         executeSynchronousInvocation:(CydiaLegacyUICompatibilityInvocation *)invocation {
+    @synchronized (self) { ++executorEntryCount_; }
     (void)service;
     if (![self isActive] || ![self invocationIsBound:invocation]) {
         [self setDenial:![self isActive] ?
@@ -751,6 +764,7 @@ BOOL IsUnsupportedFamily(CydiaLegacyBridgeOperationFamily family) {
 
 - (void) legacyUICompatibilityService:(CydiaLegacyUICompatibilityService *)service
              enqueueMainThreadInvocation:(CydiaLegacyUICompatibilityInvocation *)invocation {
+    @synchronized (self) { ++executorEntryCount_; }
     (void)service;
     if (![self isActive] || ![self invocationIsBound:invocation]) {
         [self setDenial:CydiaLegacyUICompatibilityNativeDenialReasonInvalidTarget];
@@ -763,6 +777,7 @@ BOOL IsUnsupportedFamily(CydiaLegacyBridgeOperationFamily family) {
 
 - (BOOL) legacyUICompatibilityService:(CydiaLegacyUICompatibilityService *)service
         requestNativeConfirmationForInvocation:(CydiaLegacyUICompatibilityInvocation *)invocation {
+    @synchronized (self) { ++executorEntryCount_; }
     (void)service;
     if (![self isActive] || ![self invocationIsBound:invocation]) {
         [self setDenial:![self isActive] ?

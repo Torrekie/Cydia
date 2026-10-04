@@ -177,6 +177,20 @@ extern NSData *(*$SBSCopyIconImagePNGDataForDisplayIdentifier)(NSString *);
 
 static CFStringRef (*$MGCopyAnswer)(CFStringRef);
 
+/* The production app owns the historical /var/mobile paths on a jailbroken
+ * device.  A simulator cannot write those roots, so the full-app simulator
+ * fixture redirects only these legacy state paths into its app data
+ * container.  Device builds retain the original paths byte-for-byte. */
+static NSString *CydiaSimulatorPath(NSString *path) {
+#if TARGET_OS_SIMULATOR
+    const char *root(getenv("CYDIA_SIMULATOR_ROOT"));
+    if (root != NULL && root[0] == '/' && root[1] != '\0' &&
+        path != nil && [path hasPrefix:@"/"])
+        return [NSString stringWithFormat:@"%s%@", root, path];
+#endif
+    return path;
+}
+
 void CydiaSetMenuButtonIntercepted(bool intercepted) {
     if ($SBSSetInterceptsMenuButtonForever != NULL)
         (*$SBSSetInterceptsMenuButtonForever)(intercepted);
@@ -617,8 +631,14 @@ _trace();
         [emulated_ dismissModalViewControllerAnimated:YES];
     [window_ setUserInteractionEnabled:NO];
 
+    /* The opt-in metadata mutation harness must not wait behind an automatic
+     * repository refresh: a failed/offline source update can otherwise keep
+     * `_loaded` from running and make the native confirmation untestable.
+     * Normal launches preserve the historical refresh ordering. */
+    BOOL mutationDiagnosticRequested([self legacyUICompatibilityMutationDiagnosticRequested]);
     [self reloadDataWithInvocation:nil];
-    [self refreshIfPossible];
+    if (!mutationDiagnosticRequested)
+        [self refreshIfPossible];
     [self disemulate];
 
     NSArray *standard = [self defaultStartPages];
@@ -685,6 +705,10 @@ _trace();
         starturl_ = nil;
     }
 
+    if (mutationDiagnosticRequested)
+        [self performSelector:@selector(consumeLegacyUICompatibilityMutationDiagnosticIfRequested)
+            withObject:nil afterDelay:0];
+
 }
 
 @end
@@ -739,6 +763,27 @@ static bool CydiaAppearanceProbeRequested(int argc, char *argv[]) {
             return true;
     return false;
 }
+
+/* Full-app simulator launches normally do not inherit the fixture wrapper's
+ * environment.  Keep the production /var/mobile paths untouched on devices,
+ * but derive simulator state and the method-driver bundle from the app's own
+ * sandbox when the explicit fixture variables are absent. */
+static void CydiaConfigureSimulatorEnvironment(void) {
+    if (getenv("CYDIA_SIMULATOR_ROOT") == NULL) {
+        NSString *home(NSHomeDirectory());
+        if ([home hasPrefix:@"/"])
+            setenv("CYDIA_SIMULATOR_ROOT", [home UTF8String], 0);
+    }
+
+    if (getenv("CYDIA_SIMULATOR_APPLICATION") == NULL) {
+        NSString *executable([[NSBundle mainBundle] executablePath]);
+        if ([executable hasPrefix:@"/"])
+            setenv("CYDIA_SIMULATOR_APPLICATION", [executable UTF8String], 0);
+    }
+
+    if (getenv("CYDIA_PACKAGE_LAYOUT") == NULL)
+        setenv("CYDIA_PACKAGE_LAYOUT", "rootful", 0);
+}
 #endif
 
 int main(int argc, char *argv[]) {
@@ -792,6 +837,10 @@ int main(int argc, char *argv[]) {
     }
 
     @autoreleasepool {
+
+#if TARGET_OS_SIMULATOR
+    CydiaConfigureSimulatorEnvironment();
+#endif
 
     _trace();
 
@@ -888,7 +937,7 @@ int main(int argc, char *argv[]) {
     App_ = [[NSBundle mainBundle] bundlePath];
     Advanced_ = YES;
 
-    Cache_ = [NSString stringWithFormat:@"%@/Library/Caches/com.saurik.Cydia", @"/var/mobile"];
+    Cache_ = CydiaSimulatorPath(@"/var/mobile/Library/Caches/com.saurik.Cydia");
     mkdir([Cache_ UTF8String], 0755);
 
     /*Method alloc = class_getClassMethod([NSObject class], @selector(alloc));
@@ -923,8 +972,10 @@ int main(int argc, char *argv[]) {
     SectionMap_ = [[NSDictionary alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Sections" ofType:@"plist"]];
 
     _trace();
-    mkdir("/var/mobile/Library/Cydia", 0755);
-    MetaFile_.Open("/var/mobile/Library/Cydia/metadata.cb0");
+    const std::string stateDirectory([CydiaSimulatorPath(@"/var/mobile/Library/Cydia") UTF8String]);
+    mkdir(stateDirectory.c_str(), 0755);
+    const std::string metadataFile([CydiaSimulatorPath(@"/var/mobile/Library/Cydia/metadata.cb0") UTF8String]);
+    MetaFile_.Open(metadataFile.c_str());
     _trace();
 
     Values_ = DeepMutableCopyOfDictionary(CFPreferencesCopyAppValue(CFSTR("CydiaValues"), CFSTR("com.saurik.Cydia")));
@@ -1034,6 +1085,7 @@ int main(int argc, char *argv[]) {
     size = sizeof(usermem);
     if (sysctlbyname("hw.usermem", &usermem, &size, NULL, 0) == -1)
         usermem = 0;
+    const std::string logs([CydiaSimulatorPath(@"/var/mobile/Library/Logs/Cydia") UTF8String]);
     CydiaAPT::InitializationOptions aptOptions;
     aptOptions.architecture = packagePaths.AptArchitecture();
     aptOptions.aptConfigDirectory = packagePaths.AptConfigDirectory();
@@ -1041,7 +1093,7 @@ int main(int argc, char *argv[]) {
     aptOptions.cacheDirectory = [Cache_ UTF8String];
     aptOptions.stateDirectory = [Cache_ UTF8String];
     aptOptions.listsDirectory = [Cache("lists") UTF8String];
-    aptOptions.logDirectory = "/var/mobile/Library/Logs/Cydia";
+    aptOptions.logDirectory = logs;
     aptOptions.dpkgStatusPath = packagePaths.DpkgStatusPath();
     aptOptions.dpkgPath = packagePaths.CydoPath();
     aptOptions.dpkgDataDirectory = packagePaths.DpkgDataDirectory();
@@ -1072,7 +1124,6 @@ int main(int argc, char *argv[]) {
     mkdir([Cache("lists/partial") UTF8String], 0755);
     mkdir([Cache("periodic") UTF8String], 0755);
 
-    std::string logs("/var/mobile/Library/Logs/Cydia");
     mkdir(logs.c_str(), 0755);
     /* }}} */
     /* UIKit Configuration {{{ */

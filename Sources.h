@@ -44,6 +44,9 @@ bool CydiaHasManagedSourceListPath();
  * record alone is not sufficient: old preferences can outlive the package or
  * source file that originally created them. */
 bool CydiaManagedSourceKeyIsOwned(NSString *key);
+/* Change a component only for a marker-owned source. Recover missing metadata
+ * from that owned line, never from an unowned preference or guessed URI. */
+bool CydiaUpdateSourceSection(NSString *key, NSString *section, bool add);
 /* Remove an app-owned source record and remember the deletion for the next
  * marker rewrite.  Callers must use this instead of mutating Sources_
  * directly so a relaunch cannot resurrect the removed line. */

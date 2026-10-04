@@ -45,6 +45,9 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDepictionViewState) {
 - (instancetype)initWithFrame:(CGRect)frame NS_UNAVAILABLE;
 - (nullable instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
 - (nullable instancetype)initWithURLString:(NSString *)URLString
+                                  delegate:(nullable id<PackageDepictionViewDelegate>)delegate;
+- (nullable instancetype)initWithURLString:(NSString *)URLString
+                  compatibilitySnapshot:(nullable NSDictionary *)snapshot
                                   delegate:(nullable id<PackageDepictionViewDelegate>)delegate
     NS_DESIGNATED_INITIALIZER;
 

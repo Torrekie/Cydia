@@ -7,6 +7,11 @@
 #include <cstdlib>
 #include <iostream>
 
+// Preserve the pre-guide values used by existing route diagnostics/receipts.
+static_assert(CydiaUIRouteKindFAQ == 1 && CydiaUIRouteKindSources == 2 &&
+    CydiaUIRouteKindPackage == 10 && CydiaUIRouteKindExternalOpen == 14,
+    "Adding the guide must not renumber existing route kinds");
+
 namespace {
 
 void Expect(BOOL condition, const char *message) {
@@ -32,6 +37,12 @@ void ExpectRejected(NSString *value) {
 CydiaUIRouteKind KindForName(NSString *name) {
     NSDictionary *kinds(@{
         @"home": @(CydiaUIRouteKindHome),
+        @"faq": @(CydiaUIRouteKindFAQ),
+        @"upgrading-guide": @(CydiaUIRouteKindUpgradingGuide),
+        @"application-extensions": @(CydiaUIRouteKindApplicationExtensions),
+        @"more-sources": @(CydiaUIRouteKindMoreSources),
+        @"copying-files": @(CydiaUIRouteKindCopyingFiles),
+        @"home-guide": @(CydiaUIRouteKindHomeGuide),
         @"sources": @(CydiaUIRouteKindSources),
         @"source-add": @(CydiaUIRouteKindSourceAdd),
         @"source": @(CydiaUIRouteKindSource),
@@ -43,6 +54,7 @@ CydiaUIRouteKind KindForName(NSString *name) {
         @"package": @(CydiaUIRouteKindPackage),
         @"package-settings": @(CydiaUIRouteKindPackageSettings),
         @"package-files": @(CydiaUIRouteKindPackageFiles),
+        @"package-support": @(CydiaUIRouteKindPackageSupport),
         @"launch": @(CydiaUIRouteKindLaunchApplication),
         @"external-open": @(CydiaUIRouteKindExternalOpen),
     });
@@ -114,7 +126,7 @@ void VerifyRouteFixture(NSString *path,
                       untrustedPopupWithoutGesture);
     }
 
-    Expect([seenKinds count] == 14, "route fixture covers every route kind");
+    Expect([seenKinds count] == CydiaUIRouteKindPackageSupport + 1, "route fixture covers every route kind");
 }
 
 } // namespace
@@ -123,6 +135,8 @@ int main(int argc, char *argv[]) {
     @autoreleasepool {
         Expect(argc == 2, "route fixture path is required");
         CydiaUIRouteContext *native([CydiaUIRouteContext trustedNativeContext]);
+        Expect([Parse(@"cydia://home/console") kind] == CydiaUIRouteKindHomeGuide,
+            "console package notice uses a native informational route");
         CydiaUIRouteContext *external([CydiaUIRouteContext externalURLContext]);
         CydiaUIRouteContext *legacy([CydiaUIRouteContext
             trustedLegacyPageContextWithOrigin:[NSURL URLWithString:@"https://cydia.saurik.com/ui/"]
@@ -192,8 +206,17 @@ int main(int argc, char *argv[]) {
         VerifyRouteFixture([NSString stringWithUTF8String:argv[1]], native,
             external, legacy, depiction, depictionWithoutGesture,
             untrustedPopup, untrustedPopupWithoutGesture);
+        Expect(CydiaUIEvaluateRoute(
+            Parse(@"cydia://package/other:iphoneos-arm64"), depiction).allowed,
+            "repository depiction may hand off another package identity after a user gesture");
+        Expect(CydiaUIEvaluateRoute(
+            Parse(@"cydia://package/other:iphoneos-arm64"), depictionWithoutGesture).allowed == NO,
+            "repository depiction cannot hand off another package identity automatically");
+        Expect(CydiaUIEvaluateRoute(
+            Parse(@"cydia://package/example:iphoneos-arm64"), depiction).allowed,
+            "repository depiction may hand off its current package identity");
         Expect(CydiaUIEvaluateRoute(Parse(@"cydia://home"), nil).allowed == NO,
-               "nil caller context fails closed");
+            "nil caller context fails closed");
 
         CydiaUIRouteContext *redirect([depiction
             contextForRedirectWithOrigin:[NSURL URLWithString:@"https://other.example/"]
@@ -221,6 +244,9 @@ int main(int argc, char *argv[]) {
                "depiction popup retains origin and package scope");
         Expect(![depictionPopup isMainFrame] && [depictionPopup hasUserGesture],
                "popup records its initiating frame metadata");
+        Expect(CydiaUIEvaluateRoute(
+            Parse(@"cydia://package/other:iphoneos-arm64"), depictionPopup).allowed == NO,
+            "repository depiction subframe cannot hand off another package identity");
 
         CydiaUIRouteContext *nested([untrustedPopup
             contextForRedirectWithOrigin:[NSURL URLWithString:@"https://cydia.saurik.com/ui/"]
@@ -300,6 +326,13 @@ int main(int argc, char *argv[]) {
                "saved source section preserves encoded separators");
 
         ExpectRejected(@"apptapp://package");
+        ExpectRejected(@"cydia://home/application-extensions/com.apple%2Fmobilesafari");
+        ExpectRejected(@"cydia://home/application-extensions/com.apple.mobilesafari/extra");
+        ExpectRejected(@"cydia://home/more-sources/extra");
+        ExpectRejected(@"cydia://home/copying-files/extra");
+        for (NSString *member in @[@"openssh", @"root-password", @"developer-resources", @"credits", @"privacy"]) {
+            ExpectRejected([NSString stringWithFormat:@"cydia://home/%@/extra", member]);
+        }
         ExpectRejected(@"apptapp://package/");
         ExpectRejected(@"cydia://package");
         ExpectRejected(@"cydia://package/example/unknown");

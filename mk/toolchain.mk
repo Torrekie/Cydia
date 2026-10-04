@@ -99,6 +99,7 @@ else
 flag += $(patsubst %,-Xarch_$(arch) %,$(iapt))
 endif
 flag += -I.
+flag += -I$(sdk)/usr/include/libxml2
 flag += -I$(GENERATED_DIR)
 flag += -isystem sysroot/usr/include
 
@@ -167,6 +168,7 @@ libs += -Xarch_$(arch) -Wl,-force_load,$(APT_LIBRARY)
 endif
 lapt += $(APT_LIBRARY)
 libs += -licucore
+libs += -lxml2
 
 uikit :=
 uikit += -framework UIKit

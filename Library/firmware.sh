@@ -155,7 +155,10 @@ function write_managed_manifest() {
 function write_firmware_version() {
     local version_tmp
     version_tmp=$(mktemp "${CYDIA_STATE}/.firmware.ver.XXXXXX")
+    # mktemp creates a root-only file. Cydia reads this marker as mobile;
+    # make it readable before publishing or every launch repeats maintenance.
     if ! printf '6\n' >"${version_tmp}" ||
+       ! "${CYDIA_BSD_BIN}/chmod" 0644 "${version_tmp}" ||
        ! "${CYDIA_BSD_BIN}/mv" -f "${version_tmp}" "${CYDIA_STATE}/firmware.ver"; then
         "${CYDIA_BSD_BIN}/rm" -f "${version_tmp}"
         return 1

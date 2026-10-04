@@ -47,10 +47,74 @@ static UIUserInterfaceStyle CydiaLegacyInterfaceStyleMode(void) {
     return UIUserInterfaceStyleUnspecified;
 }
 
+/* UIKit publishes the live system style through the screen before the
+ * persisted UIKit-services plist necessarily catches up.  Keep this read
+ * separate from the rootful compatibility fallback so a short cfprefsd lag
+ * cannot make an old helper-owned override win another refresh cycle. */
+static UIUserInterfaceStyle CydiaLiveSystemInterfaceStyle(void) {
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+    if (@available(iOS 13.0, *)) {
+        UITraitCollection *traits([UIScreen mainScreen].traitCollection);
+        UIUserInterfaceStyle style(traits.userInterfaceStyle);
+        if (style == UIUserInterfaceStyleLight ||
+            style == UIUserInterfaceStyleDark)
+            return style;
+    }
+#endif
+    return UIUserInterfaceStyleUnspecified;
+}
+
 static void CydiaClearManagedLegacyAppearance(void) {
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
     CydiaManagedLegacyAppearanceWindow = nil;
     CydiaManagedLegacyAppearanceStyle = UIUserInterfaceStyleUnspecified;
+#endif
+}
+
+void CydiaReleaseLegacyInterfaceStyleCompatibility(UIWindow *window) {
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+    if (window == nil)
+        return;
+    if (@available(iOS 13.0, *)) {
+        UIUserInterfaceStyle current(window.overrideUserInterfaceStyle);
+        BOOL managed(window == CydiaManagedLegacyAppearanceWindow &&
+            current == CydiaManagedLegacyAppearanceStyle &&
+            current != UIUserInterfaceStyleUnspecified);
+        if (managed) {
+            window.overrideUserInterfaceStyle = UIUserInterfaceStyleUnspecified;
+            CydiaClearManagedLegacyAppearance();
+        }
+    }
+#else
+    (void) window;
+#endif
+}
+
+void CydiaRefreshLegacyInterfaceStyleCompatibility(UIWindow *window) {
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+    if (window == nil)
+        return;
+    if (@available(iOS 13.0, *)) {
+        BOOL managed(window == CydiaManagedLegacyAppearanceWindow &&
+            window.overrideUserInterfaceStyle == CydiaManagedLegacyAppearanceStyle &&
+            CydiaManagedLegacyAppearanceStyle != UIUserInterfaceStyleUnspecified);
+        if (managed) {
+            UIUserInterfaceStyle live(CydiaLiveSystemInterfaceStyle());
+            if ((live == UIUserInterfaceStyleLight ||
+                 live == UIUserInterfaceStyleDark) &&
+                live != CydiaManagedLegacyAppearanceStyle) {
+                /* The system has already published the opposite style.  Do
+                 * not let a lagging plist re-pin the previous override. */
+                CydiaReleaseLegacyInterfaceStyleCompatibility(window);
+                return;
+            }
+            if (CydiaLegacyInterfaceStyleMode() == CydiaManagedLegacyAppearanceStyle)
+                return;
+        }
+    }
+    CydiaApplyLegacyInterfaceStyleCompatibility(window);
+#else
+    (void) window;
 #endif
 }
 
@@ -94,6 +158,10 @@ void CydiaApplyLegacyInterfaceStyleCompatibility(UIWindow *window) {
         }
 
         UIUserInterfaceStyle desired(CydiaLegacyInterfaceStyleMode());
+        UIUserInterfaceStyle live(CydiaLiveSystemInterfaceStyle());
+        if ((live == UIUserInterfaceStyleLight ||
+             live == UIUserInterfaceStyleDark) && live != desired)
+            return;
         UIUserInterfaceStyle inherited(window.traitCollection.userInterfaceStyle);
         if (desired == UIUserInterfaceStyleLight ||
             desired == UIUserInterfaceStyleDark) {

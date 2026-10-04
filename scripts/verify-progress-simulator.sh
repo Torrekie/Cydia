@@ -195,11 +195,11 @@ assert_real_form_sheet() {
         fail "the Confirmation placeholder lost its navigation title"
     assert_state "$form_state" actualModalPresentation true \
         "Progress probe did not use a real modal presentation controller"
-    assert_state "$form_state" presentationAttached true \
-        "Progress form sheet is not attached to the presenter window"
     form_size_class=$(read_state "$form_state" horizontalSizeClass)
     case "$form_size_class" in
         regular)
+            assert_state "$form_state" presentationAttached true \
+                "Progress form sheet is not attached to the presenter window"
             assert_state "$form_state" presenterUsesGroupedBackground true \
                 "regular-width form-sheet presenter did not use its grouped surface"
             assert_state "$form_state" formSheetFrameInset true \
@@ -213,6 +213,11 @@ assert_real_form_sheet() {
             # UIKit adapts a requested form sheet to full-screen on compact
             # width. The canvas remains elevated, but there is no inset sheet
             # or closing dimming surface to claim as evidence.
+            compact_adaptive=$(read_state "$form_state" adaptivePresentationStyle)
+            case "$compact_adaptive" in
+                none|fullScreen) ;;
+                *) fail "compact Progress reported an unknown UIKit adaptation ($compact_adaptive)" ;;
+            esac
             assert_state "$form_state" dimmingEvidenceEligible false \
                 "compact adapted presentation was misclassified as closing dimming evidence"
             assert_state "$form_state" formSheetFrameInset false \
@@ -551,13 +556,24 @@ assert_state "$state" cancellationState 0 \
     "completion did not clear the requested cancellation state"
 assert_state "$state" progressCancelled false \
     "completion still reported a pending cancellation"
-assert_equal "$state" finishTitle expectedFinishTitle "finish action title diverged from state"
+assert_state "$state" finishTitle "" "navigation terminal action was duplicated on completion"
 assert_equal "$state" finishButtonTitle expectedFinishTitle \
     "bottom finish action title diverged from legacy completion"
 [ "$(read_state "$state" finishButtonHidden)" = "false" ] ||
-    fail "bottom finish action remained hidden after completion"
-assert_equal "$state" progressAccessibilityLabel expectedCompleteAccessibilityLabel \
-    "completed progress accessibility still announces Running"
+    fail "bottom finish action was not restored on completion"
+finish_height=$(read_state "$state" finishButtonHeight)
+awk -v height="$finish_height" 'BEGIN { exit !(height >= 44) }' ||
+    fail "bottom finish action target is smaller than 44 points (height=$finish_height)"
+assert_state "$state" finishDispatchCount 0 \
+    "terminal footer dispatched before its visible activation"
+assert_state "$state" percentIsHistorical true \
+    "terminal backend estimate was not distinguished from live progress"
+assert_state "$state" statusHidden false \
+    "terminal footer omitted the visible last-reported-progress explanation"
+assert_equal "$state" status expectedStatus \
+    "terminal footer text does not describe the historical backend estimate"
+assert_equal "$state" progressAccessibilityLabel expectedHistoricalAccessibilityLabel \
+    "completed progress accessibility mislabels the last backend estimate"
 assert_equal "$state" progressAccessibilityValue expectedProgressAccessibilityValue \
     "completed progress accessibility value omits its finish action"
 [ "$(read_state "$state" rows)" = "5" ] ||
@@ -568,6 +584,19 @@ complete_error_required_height=$(read_state "$state" errorRequiredHeight)
     fail "completion redraw clipped the terminal diagnostic"
 assert_equal "$state" contentSizeCategory expectedDefaultContentSizeCategory \
     "completed parity screenshot did not return to the default content size"
+: >"$data_container/tmp/cydia-progress-probe-activate-finish"
+wait_for_value "$state" phase finish-activated ||
+    fail "visible terminal finish action did not activate"
+wait_for_value "$state" finishDispatchCount 1 ||
+    fail "terminal finish action did not dispatch exactly once"
+assert_state "$state" finishDispatchAction returnToCydia \
+    "terminal finish action dispatched the wrong Return route"
+sleep 1
+assert_state "$state" finishDispatchCount 1 \
+    "repeated terminal activation dispatched more than once"
+activated_finish_height=$(read_state "$state" finishButtonHeight)
+awk -v height="$activated_finish_height" 'BEGIN { exit !(height >= 44) }' ||
+    fail "terminal finish target shrank below 44 points after activation (height=$activated_finish_height)"
 cp "$state" "$artifact_dir/complete-dark-default-state.plist"
 sleep 1
 simctl 30 io "$simulator" screenshot "$artifact_dir/complete-dark-default.png" >/dev/null ||

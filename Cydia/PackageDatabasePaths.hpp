@@ -39,6 +39,9 @@ enum class BootstrapBSDCommand {
 
 class PackageDatabasePaths {
   public:
+    /* Returns the task-owned app-container root used by the simulator-only
+     * full-app fixture.  Device builds return an empty string. */
+    static std::string SimulatorDataRoot();
     static PackageDatabasePaths ForLayout(PackageDatabaseLayout layout);
     static PackageDatabasePaths Detect();
     static const PackageDatabasePaths &Current();

@@ -1,0 +1,1460 @@
+{
+  "schema": 1,
+  "attribution": "Cydia content: Jay Freeman (saurik) / Cydia. Native arrangement: Torrekie.",
+  "pages": {
+    "openssh": {
+      "title": "OpenSSH Access How-To",
+      "title_key": "HOME_OPENSSH_HELP",
+      "source_url": "https://cydia.saurik.com/openssh.html",
+      "source_sha256": "6ac00d71322c5fbe37b7d976936c064d618553b64a14793a908e414f2245c6ff",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "openssh-002",
+              "kind": "text",
+              "text": "Connecting to the iPhone remotely lets you use the full power of your device. It's really quite simple with the packages in Telesphoreo, so I've written up this guide. Good luck!",
+              "runs": [
+                {
+                  "text": "Connecting to the iPhone remotely lets you use the full power of your device. It's really quite simple with the packages in Telesphoreo, so I've written up this guide. Good luck!"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "openssh-003",
+              "kind": "text",
+              "text": "1: install the OpenSSH package\n\n(click, Install, Confirm, Close, Back)",
+              "runs": [
+                {
+                  "text": "1:",
+                  "bold": true
+                },
+                {
+                  "text": " install the "
+                },
+                {
+                  "text": "OpenSSH",
+                  "link": "cydia://package/openssh"
+                },
+                {
+                  "text": " package"
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(click, Install, Confirm, Close, Back)",
+                  "italic": true
+                }
+              ]
+            },
+            {
+              "id": "openssh-006",
+              "kind": "text",
+              "text": "2: open Wi-Fi from Settings",
+              "runs": [
+                {
+                  "text": "2:",
+                  "bold": true
+                },
+                {
+                  "text": " open Wi-Fi from Settings"
+                }
+              ]
+            },
+            {
+              "id": "openssh-007",
+              "kind": "text",
+              "text": "3: click your network's ￼",
+              "runs": [
+                {
+                  "text": "3:",
+                  "bold": true
+                },
+                {
+                  "text": " click your network's "
+                },
+                {
+                  "text": "￼",
+                  "image": "HomeGuideAssets/UITableNextButtonPressed.png"
+                }
+              ],
+              "image_description": "Network details button"
+            },
+            {
+              "id": "openssh-008",
+              "kind": "text",
+              "text": "4: read the \"IP Address\" field\n\n(example: 192.168.1.100)",
+              "runs": [
+                {
+                  "text": "4:",
+                  "bold": true
+                },
+                {
+                  "text": " read the \"IP Address\" field"
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(example: 192.168.1.100)",
+                  "italic": true
+                }
+              ]
+            },
+            {
+              "id": "openssh-010",
+              "kind": "text",
+              "text": "5: open Terminal on desktop\n\n(open Spotlight, search for \"Terminal\")\n\nOr if you're on Windows, you can use a desktop terminal application such as PuTTY(http://www.putty.org/).",
+              "runs": [
+                {
+                  "text": "5:",
+                  "bold": true
+                },
+                {
+                  "text": " open Terminal on desktop"
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(open Spotlight, search for \"Terminal\")",
+                  "italic": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Or if you're on Windows, you can use a desktop terminal application such as ",
+                  "scale": 0.9
+                },
+                {
+                  "text": "PuTTY",
+                  "link": "http://www.putty.org/",
+                  "scale": 0.9
+                },
+                {
+                  "text": "(http://www.putty.org/)",
+                  "italic": true,
+                  "scale": 0.9
+                },
+                {
+                  "text": ".",
+                  "scale": 0.9
+                }
+              ]
+            },
+            {
+              "id": "openssh-014",
+              "kind": "text",
+              "text": "6: run \"ssh root@[insert IP Address]\"\n\n(example: ssh root@192.168.1.100)",
+              "runs": [
+                {
+                  "text": "6:",
+                  "bold": true
+                },
+                {
+                  "text": " run \"ssh root@"
+                },
+                {
+                  "text": "[insert IP Address]",
+                  "bold": true
+                },
+                {
+                  "text": "\""
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(example: ssh root@192.168.1.100)",
+                  "italic": true
+                }
+              ]
+            },
+            {
+              "id": "openssh-016",
+              "kind": "text",
+              "text": "7: wait a few minutes (just once)\n\n(it's generating some crypto keys)",
+              "runs": [
+                {
+                  "text": "7:",
+                  "bold": true
+                },
+                {
+                  "text": " wait a few "
+                },
+                {
+                  "text": "minutes",
+                  "italic": true
+                },
+                {
+                  "text": " (just once)"
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(it's generating some crypto keys)",
+                  "italic": true
+                }
+              ]
+            },
+            {
+              "id": "openssh-018",
+              "kind": "text",
+              "text": "8: accept new computer host key\n\n(if it doesn't ask you, that's fine)",
+              "runs": [
+                {
+                  "text": "8:",
+                  "bold": true
+                },
+                {
+                  "text": " accept new computer host key"
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(if it doesn't ask you, that's fine)",
+                  "italic": true
+                }
+              ]
+            },
+            {
+              "id": "openssh-020",
+              "kind": "text",
+              "text": "9: log in with password \"alpine\"\n\n(you should change this now)",
+              "runs": [
+                {
+                  "text": "9:",
+                  "bold": true
+                },
+                {
+                  "text": " log in with password \"alpine\""
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(you should change this now)",
+                  "italic": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "openssh-022",
+              "kind": "link",
+              "text": "Change Default Password",
+              "destination": "cydia://home/root-password"
+            }
+          ]
+        }
+      ]
+    },
+    "root-password": {
+      "title": "Root Password How-To",
+      "title_key": "HOME_ROOT_PASSWORD_HELP",
+      "source_url": "https://cydia.saurik.com/password.html",
+      "source_sha256": "ad13a694734487376c5b94220326459e3b89957c5ea48b8f9a9b40838c0f27a7",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "root-password-002",
+              "kind": "text",
+              "text": "If you install OpenSSH, you need to change your device's root password to prevent the possibility of unsavory people remotely logging into your device using the default password.",
+              "runs": [
+                {
+                  "text": "If you install OpenSSH, you need to change your device's root password to prevent the possibility of unsavory people remotely logging into your device using the default password."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-003",
+              "kind": "text",
+              "text": "Open Terminal on your desktop and log in over wifi",
+              "runs": [
+                {
+                  "text": "Open Terminal on your desktop and log in over wifi",
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "id": "root-password-004",
+              "kind": "link",
+              "text": "Follow OpenSSH Guide",
+              "destination": "cydia://home/openssh",
+              "icon": "HomeGuideAssets/openssh.png"
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-005",
+              "kind": "text",
+              "text": "1: Obtain Administrator Access\n\nNote: this first step is only necessary if you are using MobileTerminal. If you logged in via SSH as root, you do not need to do this step, so skip to Step 2.\n\nRun \"su root\" and provide the root password. The default password as provided by Apple is \"alpine\".\n\nHere I also run \"cd\" only to shorten the otherwise very long prompt.",
+              "runs": [
+                {
+                  "text": "1: Obtain Administrator Access",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Note: this first step is only necessary if you are using MobileTerminal. If you logged in via SSH as root, you do not need to do this step, so skip to Step 2.",
+                  "italic": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Run \"su root\" and provide the root password. The default password as provided by Apple is \"alpine\"."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Here I also run \"cd\" only to shorten the otherwise very long prompt."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-009",
+              "kind": "terminal",
+              "text": "iPhone:~ mobile$ su root\nPassword:\niPhone:/var/mobile root# cd\niPhone:~ root#"
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-010",
+              "kind": "text",
+              "text": "2: Change the root Password\n\nRun \"passwd\" and type in your new password twice. Please note that your keypresses will not be displayed on the terminal screen (for security).",
+              "runs": [
+                {
+                  "text": "2: Change the root Password",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Run \"passwd\" and type in your new password twice. Please note that your keypresses will not be displayed on the terminal screen (for security)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-012",
+              "kind": "terminal",
+              "text": "iPhone:~ root# passwd\nChanging password for root.\nNew password:\nRetype new password:\niPhone:~ root#"
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-013",
+              "kind": "text",
+              "text": "3: Change the mobile Password\n\nThis is the regular user account on the device. Run \"passwd mobile\" and repeat as directed above.",
+              "runs": [
+                {
+                  "text": "3: Change the mobile Password",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "This is the regular user account on the device. Run \"passwd mobile\" and repeat as directed above."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-015",
+              "kind": "terminal",
+              "text": "iPhone:~ root# passwd mobile\nChanging password for mobile.\nNew password:\nRetype new password:\niPhone:~ root#"
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "root-password-016",
+              "kind": "text",
+              "text": "4: Close your terminal\n\nCongratulations! Your job is done!",
+              "runs": [
+                {
+                  "text": "4: Close your terminal",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Congratulations! Your job is done!"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "developer-resources": {
+      "title": "Developer Resources",
+      "title_key": "HOME_DEVELOPER_RESOURCES",
+      "source_url": "https://cydia.saurik.com/faq/developing.html",
+      "source_sha256": "bbea99e8e53dd988b74448db1af8d39ea8960698bf913abcb18b8c6582841cc2",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "developer-resources-001",
+              "kind": "text",
+              "text": "Developing for jailbroken iOS",
+              "runs": [
+                {
+                  "text": "Developing for jailbroken iOS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "developer-resources-002",
+              "kind": "link",
+              "text": "iPhoneDevWiki.net",
+              "destination": "http://iphonedevwiki.net/index.php/Main_Page",
+              "icon": "HomeGuideAssets/iphonedevwiki.png"
+            },
+            {
+              "id": "developer-resources-003",
+              "kind": "text",
+              "text": "This is a collection of knowledge about jailbroken iOS development, written by and for developers. It includes tips for getting started, a list of open source extensions, and documentation for many classes in private frameworks. Run by DHowett.",
+              "runs": [
+                {
+                  "text": "This is a collection of knowledge about jailbroken iOS development, written by and for developers. It includes tips for getting started, a list of open source extensions, and documentation for many classes in private frameworks. Run by DHowett."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "developer-resources-004",
+              "kind": "link",
+              "text": "CydiaSubstrate.com",
+              "destination": "http://www.cydiasubstrate.com/",
+              "icon": "HomeGuideAssets/com.saurik.substrate.png"
+            },
+            {
+              "id": "developer-resources-005",
+              "kind": "text",
+              "text": "This is saurik's documentation for Cydia Substrate (sometimes called Mobile Substrate on iOS), the code modification platform that is underneath most extensions in Cydia.",
+              "runs": [
+                {
+                  "text": "This is saurik's documentation for Cydia Substrate (sometimes called Mobile Substrate on iOS), the code modification platform that is underneath most extensions in Cydia."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "developer-resources-006",
+              "kind": "link",
+              "text": "TheiPhoneWiki.com",
+              "destination": "http://theiphonewiki.com/wiki/Main_Page",
+              "icon": "HomeGuideAssets/theiphonewiki.png"
+            },
+            {
+              "id": "developer-resources-007",
+              "kind": "text",
+              "text": "This wiki, started by geohot, does not have much detail about extension development, but it does have a lot of technical information about iOS itself, iOS devices, and jailbreaks.\n\nIf you're interested in learning about how jailbreaks work, this is a reasonable place to do some reading.",
+              "runs": [
+                {
+                  "text": "This wiki, started by geohot, does not have much detail about extension development, but it does have a lot of technical information about iOS itself, iOS devices, and jailbreaks."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "If you're interested in learning about how jailbreaks work, this is a reasonable place to do some reading."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "credits": {
+      "title": "Credits / Thank You",
+      "title_key": "HOME_CREDITS_THANK_YOU",
+      "source_url": "https://cydia.saurik.com/credits.html",
+      "source_sha256": "951996650c9ca7e0e90b50ed4045f2d2e9c8c215aab06fafe4697010fe0079ae",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "credits-001",
+              "kind": "link",
+              "text": "Contribute using PayPal™",
+              "destination": "https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=saurik%40saurik.com&item_name=Jay+Freeman+%28saurik%29+-+The+Realm+of+the+Avatar&no_shipping=0&logo_custom=http%3A%2F%2Fwww.saurik.com%2Fimages%2Fdonate.jpg&no_note=1&currency_code=USD&tax=0&lc=US&bn=PP-DonationsBF",
+              "icon": "HomeGuideAssets/paypal.png"
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "credits-002",
+              "kind": "text",
+              "text": "Special Thanks to:\n\nAlfarin, asap18, ashikase, badblody, BHSPitMonkey, BigBoss, Britta Gustafson, c1de0x, cash, chris, Chris Wade (cmw), Cobra, Colin \"Tempus\" Noga, core, Corona, CostaXtreme, crashx, cromas, Darken, DarkMirc, Douglas Thrift, DrTaru, drunknbass, dtzWill, Dylan, eggy, Erica Sadun, errrick, Fred_, Godores, Grant Paul (chpwn), gray, gregord, jerry, jjgod, Jonathan Zdziarski (NerveGas), KaR]V[aN, Kingstone, lounger, lovely2, maaz, Marc Yankelovitz, Max Radomsky (dotequals), mbranes, mxweas, MuscleNerd, netkas, Nik Denin, nvr, Optimo, pac^man, Pathompol Suebpradist (mmca), Patrick Walton, paul, planetbeing, Planet-iPhones.com, poetic_folly, pytey, pumpkin, Rémi Ferroul, rockabilly, Rupert Gee, Sakurina, Shaun T. Erickson (Ste), spicychicken, Steven Troughton-Smith, TheRain, tman, tnt, Wes Biggs (wbiggs), Will Strafach, wizdaz, Youssef Francis, Zf, ZodTTD",
+              "runs": [
+                {
+                  "text": "Special Thanks to:",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Alfarin"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "asap18"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "ashikase"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "badblody"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "BHSPitMonkey"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "BigBoss",
+                  "link": "http://thebigboss.org/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Britta Gustafson",
+                  "link": "https://twitter.com/brittagus"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "c1de0x"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "cash",
+                  "link": "http://www.modmyi.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "chris"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Chris Wade (cmw)",
+                  "link": "http://cmw.me/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Cobra"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Colin \"Tempus\" Noga",
+                  "link": "http://www.chronometry.ca/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "core",
+                  "link": "http://www.wickedpsyched.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Corona"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "CostaXtreme"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "crashx"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "cromas"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Darken"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "DarkMirc"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Douglas Thrift",
+                  "link": "http://douglasthrift.net/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "DrTaru"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "drunknbass"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "dtzWill"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Dylan"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "eggy",
+                  "link": "http://eggy.me/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Erica Sadun",
+                  "link": "http://ericasadun.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "errrick"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Fred_"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Godores"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Grant Paul (chpwn)",
+                  "link": "http://chpwn.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "gray"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "gregord"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "jerry"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "jjgod"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Jonathan Zdziarski (NerveGas)",
+                  "link": "http://www.zdziarski.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "KaR]V[aN",
+                  "link": "http://karman.cc/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Kingstone"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "lounger"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "lovely2"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "maaz"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Marc Yankelovitz"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Max Radomsky (dotequals)",
+                  "link": "http://microminutes.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "mbranes"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "mxweas",
+                  "link": "http://mxweas.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "MuscleNerd"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "netkas"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Nik Denin"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "nvr"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Optimo"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "pac^man"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Pathompol Suebpradist (mmca)",
+                  "link": "mailto:pathompol@gmail.com"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Patrick Walton"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "paul"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "planetbeing"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Planet-iPhones.com",
+                  "link": "http://planet-iphones.com"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "poetic_folly",
+                  "link": "http://www.modmyi.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "pytey"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "pumpkin"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Rémi Ferroul",
+                  "link": "https://sites.google.com/site/lepetitmapplelienaccueil/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "rockabilly"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Rupert Gee",
+                  "link": "http://rupertgee.wordpress.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Sakurina",
+                  "link": "http://r-ch.net/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Shaun T. Erickson (Ste)",
+                  "link": "http://blog.psmxy.org/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "spicychicken"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Steven Troughton-Smith"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "TheRain"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "tman"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "tnt",
+                  "link": "http://www.246tnt.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Wes Biggs (wbiggs)"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Will Strafach",
+                  "link": "http://twitter.com/willstraf"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "wizdaz"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Youssef Francis",
+                  "link": "http://yfrancis.com/"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "Zf"
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "ZodTTD",
+                  "link": "http://www.zodttd.com/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "title_key": "HOME_PRIVACY_POLICY",
+      "source_url": "https://cydia.saurik.com/policy/privacy/",
+      "source_sha256": "9084ce9fb9642953db2e01503c4bbc96a38b76b33a6c7938b7a59003383e4e1c",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "privacy-002",
+              "kind": "text",
+              "text": "Updated Date: May 24th, 2018",
+              "runs": [
+                {
+                  "text": "Updated Date: May 24th, 2018"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "General Information",
+          "title_id": "HOME_GUIDE_privacy-003",
+          "rows": [
+            {
+              "id": "privacy-004",
+              "kind": "text",
+              "text": "The goal of this privacy policy is to describe the current state of Cydia's usage of user information, including both first and third party disclosure.\n\nAs Cydia adds more features, the implications of those new features on user information will be added to this document, and the date updated.\n\n(This document was written on July 15th of 2012. Some of the information is \"obsolete\", due to services no longer offered, and has been struck.)",
+              "runs": [
+                {
+                  "text": "The goal of this privacy policy is to describe the current state of Cydia's usage of user information, including both first and third party disclosure."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "As Cydia adds more features, the implications of those new features on user information will be added to this document, and the date updated."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(This document was written on July 15th of 2012. Some of the information is \"obsolete\", due to services no longer offered, and has been struck.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Social Networking",
+          "title_id": "HOME_GUIDE_privacy-007",
+          "rows": [
+            {
+              "id": "privacy-008",
+              "kind": "text",
+              "text": "Cydia does not maintain its own user account system and instead uses external services such as Facebook and Google for user authentication.\n\nCydia accesses the name and profile picture of users who are logged in; this is used in a dialog reminding the user which account they are currently using.\n\nCydia does not disclose purchases made to other users; in particular, Cydia will not publish information on purchases to a user's social network.\n\nIf in the future Cydia allows users to share information in this fashion, it will require the user to take specific and obvious action to cause the share.\n\n(To be clear, no social information is \"stored\": information is merely \"accessed\" for the user interface. Future functionality is no longer being planned.)",
+              "runs": [
+                {
+                  "text": "Cydia does not maintain its own user account system and instead uses external services such as Facebook and Google for user authentication."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Cydia accesses the name and profile picture of users who are logged in; this is used in a dialog reminding the user which account they are currently using."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Cydia does not disclose purchases made to other users; in particular, Cydia will not publish information on purchases to a user's social network."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "If in the future Cydia allows users to share information in this fashion, it will require the user to take specific and obvious action to cause the share.",
+                  "obsolete": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(To be clear, no social information is \"stored\": information is merely \"accessed\" for the user interface. Future functionality is no longer being planned.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Device Identifiers",
+          "title_id": "HOME_GUIDE_privacy-013",
+          "rows": [
+            {
+              "id": "privacy-014",
+              "kind": "text",
+              "text": "Software licenses purchased from Cydia are associated with the user's authentication account (Facebook or Google), and not to the user's device.\n\nInstead, devices are then \"linked\" to user accounts by explicit user action; this association is made using the device's unique identifier (aka UDID).\n\nWhen vendors of products with DRM verify purchases with Cydia, they are done via UDID, which is looked up through to user account and checked.\n\nDevice identifiers are sent to all third-party repositories during the repository update stage, as well as during the downloads of specific packages.\n\nInformation on which parts of Cydia are \"new\" (have not been seen by a user) are stored purely by device identifier, and not by user authentication account.\n\n(Cydia is provided these UDIDs explicitly by the user, and then \"stores\" this information under a legal basis of fraud prevention as a payment processor.)\n\n(Information sent to third-party repositories is not sent through Cydia. Information sent to Cydia's repositories validates permissions and is not \"stored\".)",
+              "runs": [
+                {
+                  "text": "Software licenses purchased from Cydia are associated with the user's authentication account (Facebook or Google), and not to the user's device."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Instead, devices are then \"linked\" to user accounts by explicit user action; this association is made using the device's unique identifier (aka UDID)."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "When vendors of products with DRM verify purchases with Cydia, they are done via UDID, which is looked up through to user account and checked."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Device identifiers are sent to all third-party repositories during the repository update stage, as well as during the downloads of specific packages."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Information on which parts of Cydia are \"new\" (have not been seen by a user) are stored purely by device identifier, and not by user authentication account."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia is provided these UDIDs explicitly by the user, and then \"stores\" this information under a legal basis of fraud prevention as a payment processor.)",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Information sent to third-party repositories is not sent through Cydia. Information sent to Cydia's repositories validates permissions and is not \"stored\".)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "IP Addresses",
+          "title_id": "HOME_GUIDE_privacy-021",
+          "rows": [
+            {
+              "id": "privacy-022",
+              "kind": "text",
+              "text": "IP addresses are used and stored by Cydia during the purchasing process, including as an alternative to shipping addresses for some purchase types.\n\nStandard HTTP access logs are kept of requests to Cydia's servers, including the IP address of the user, timestamp, and the URL of the resource accessed.\n\nConnections to Cydia are through third-party content-delivery networks and third-party load balancers; each of these services may log user access.\n\nCydia is a web browser: most of the content and packages displayed in Cydia comes from third-party sites; any of these websites may log user access.\n\n(Cydia believes Amazon does not keep connection logs. CDNetworks keeps temporary logs that we do not access; Cydia is working on getting those disabled.)\n\n(Cydia used to collect IP addresses from purchasers for anti-fraud purposes. While useful, this information was seldom accessed, and is no longer collected.)",
+              "runs": [
+                {
+                  "text": "IP addresses are used and stored by Cydia during the purchasing process, including as an alternative to shipping addresses for some purchase types.",
+                  "obsolete": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Standard HTTP access logs are kept of requests to Cydia's servers, including "
+                },
+                {
+                  "text": "the IP address of the user,",
+                  "obsolete": true
+                },
+                {
+                  "text": " timestamp, and the URL of the resource accessed."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Connections to Cydia are through third-party content-delivery networks and third-party load balancers; each of these services may log user access.",
+                  "obsolete": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Cydia is a web browser: most of the content and packages displayed in Cydia comes from third-party sites; any of these websites may log user access."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia believes Amazon does not keep connection logs. CDNetworks keeps temporary logs that we do not access; Cydia is working on getting those disabled.)",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia used to collect IP addresses from purchasers for anti-fraud purposes. While useful, this information was seldom accessed, and is no longer collected.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Browser Cookies",
+          "title_id": "HOME_GUIDE_privacy-028",
+          "rows": [
+            {
+              "id": "privacy-029",
+              "kind": "text",
+              "text": "Cydia uses cookies to maintain login information over short periods of time. These cookies are required for Cydia's purchasing system to operate at all.\n\nSome third-party services are used for purchase processing and analytics; these services may store cookies that are not under Cydia's direct control.\n\nCydia is a web browser: most of the content and packages displayed in Cydia comes from third-party sites; any of these websites may store cookies.\n\n(The Cydia client doesn't \"store\" logins across invocations of the application, and these cookies are of course not \"stored\" on a server, only locally.)\n\n(Cydia has no control over third-party websites and any information provided by the client to these third party websites is not \"stored\" on Cydia's servers.)\n\n(Cydia used to use third-party analytics providers, however these were ineffective, were discarding most of the information anyway, and never accessed.)",
+              "runs": [
+                {
+                  "text": "Cydia uses cookies to maintain login information over short periods of time. These cookies are required for Cydia's purchasing system to operate at all."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Some third-party services are used for purchase processing "
+                },
+                {
+                  "text": "and analytics",
+                  "obsolete": true
+                },
+                {
+                  "text": "; these services may store cookies that are not under Cydia's direct control."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Cydia is a web browser: most of the content and packages displayed in Cydia comes from third-party sites; any of these websites may store cookies."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(The Cydia client doesn't \"store\" logins across invocations of the application, and these cookies are of course not \"stored\" on a server, only locally.)",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia has no control over third-party websites and any information provided by the client to these third party websites is not \"stored\" on Cydia's servers.)",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia used to use third-party analytics providers, however these were ineffective, were discarding most of the information anyway, and never accessed.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Customer Lists",
+          "title_id": "HOME_GUIDE_privacy-035",
+          "rows": [
+            {
+              "id": "privacy-036",
+              "kind": "text",
+              "text": "To comply with local sales tax laws in the United States and the European Union, Cydia must track the shipping address provided for all purchases.\n\nVendors selling products through Cydia have access to information from their customer list: name, e-mail address, country or state, and device identifier.\n\nFrom time to time, Cydia provides aggregate statistics on users to the public in the form of histograms, pie-charts, and color-shaded maps.\n\n(This information is \"stored\" under the legal basis that Cydia must maintain this information to comply with accounting and tax laws in the EU and US.)\n\n(Aggregate information does not include or rely on personally identifiable information, and is for purposes of being transparent with Cydia's accounting.)\n\n(Cydia is auditing the usage of customer lists provided to vendors, and is likely to discontinue this service given that Cydia is largely no longer used :/.)",
+              "runs": [
+                {
+                  "text": "To comply with local sales tax laws in the United States and the European Union, Cydia must track the shipping address provided for all purchases."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Vendors selling products through Cydia have access to information from their customer list: name, e-mail address, country or state, and device identifier."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "From time to time, Cydia provides aggregate statistics on users to the public in the form of histograms, pie-charts, and color-shaded maps."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(This information is \"stored\" under the legal basis that Cydia must maintain this information to comply with accounting and tax laws in the EU and US.)",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Aggregate information does not include or rely on personally identifiable information, and is for purposes of being transparent with Cydia's accounting.)",
+                  "bold": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia is auditing the usage of customer lists provided to vendors, and is likely to discontinue this service given that Cydia is largely no longer used :/.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Bank Account Details",
+          "title_id": "HOME_GUIDE_privacy-042",
+          "rows": [
+            {
+              "id": "privacy-043",
+              "kind": "text",
+              "text": "The external payment processors used by Cydia (PayPal and Amazon) do not and will not disclose information on users' bank/credit accounts to Cydia.\n\nThis means that Cydia does not at any time, even momentarily, have access to credit card or bank account numbers of users using PayPal or Amazon.\n\nIf a user opts to \"leave my payment information on file\", Cydia only stores a token provided by the chosen payment processor: not actual account details.\n\nUsers may cancel outstanding account access tokens at any time using the website of the payment provider (currently, this is Amazon Payments).\n\n(As Cydia never has access to payment information, none of this information is \"stored\"; only the token that the user explicitly requests to be left is \"stored\".)",
+              "runs": [
+                {
+                  "text": "The external payment processors used by Cydia (PayPal and Amazon) do not and will not disclose information on users' bank/credit accounts to Cydia."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "This means that Cydia does not at any time, even momentarily, have access to credit card or bank account numbers of users using PayPal or Amazon."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "If a user opts to \"leave my payment information on file\", Cydia only stores a token provided by the chosen payment processor: not actual account details."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "Users may cancel outstanding account access tokens at any time using the website of the payment provider (currently, this is Amazon Payments)."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(As Cydia never has access to payment information, none of this information is \"stored\"; only the token that the user explicitly requests to be left is \"stored\".)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Signature Hash Storage",
+          "title_id": "HOME_GUIDE_privacy-048",
+          "rows": [
+            {
+              "id": "privacy-049",
+              "kind": "text",
+              "text": "Cydia automatically requests signature hash (aka, \"SHSH\") for a user's device from Apple and stores it for a user's future usage to downgrade/restore.\n\nThe information sent to Apple as part of this process is not personal data and has very low entropy: it can not be used to single out a specific device.\n\nIn fact, some users (including Cydia) have on occasion submitted large numbers of \"guessed\" identifiers to Apple in order to help out other users.\n\nThere is no way for a user to prove that the information in the SHSH database actually belongs to them: again, there is no personal detail used as part of it.\n\n(Cydia no longer offers the service of requesting signature hashes and thereby no longer collects and \"stores\" this information from a user.)",
+              "runs": [
+                {
+                  "text": "Cydia automatically requests signature hash (aka, \"SHSH\") for a user's device from Apple and stores it for a user's future usage to downgrade/restore.",
+                  "obsolete": true
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "The information sent to Apple as part of this process is not personal data and has very low "
+                },
+                {
+                  "text": "entropy",
+                  "link": "http://en.wikipedia.org/wiki/Entropy_(information_theory)"
+                },
+                {
+                  "text": ": it can not be used to single out a specific device."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "In fact, some users (including Cydia) have on occasion submitted large numbers of \"guessed\" identifiers to Apple in order to help out other users."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "There is no way for a user to prove that the information in the SHSH database actually belongs to them: again, there is no personal detail used as part of it."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia no longer offers the service of requesting signature hashes and thereby no longer collects and \"stores\" this information from a user.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Third-Party Privacy",
+          "title_id": "HOME_GUIDE_privacy-055",
+          "rows": [
+            {
+              "id": "privacy-056",
+              "kind": "text",
+              "text": "Cydia is a tool that allows third-party repositories to distribute packages and products, each produced by third-party developers, to users and customers.\n\nThese third-party products or services may have their own privacy policies; Cydia's privacy policy does not and cannot cover for these third parties.\n\n(Cydia does not provide any service to \"store\" information on behalf of third-parties and is not involved in implementing any third-party software.)",
+              "runs": [
+                {
+                  "text": "Cydia is a tool that allows third-party repositories to distribute packages and products, each produced by third-party developers, to users and customers."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "These third-party products or services may have their own privacy policies; Cydia's privacy policy does not and cannot cover for these third parties."
+                },
+                {
+                  "text": "\n\n"
+                },
+                {
+                  "text": "(Cydia does not provide any service to \"store\" information on behalf of third-parties and is not involved in implementing any third-party software.)",
+                  "bold": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

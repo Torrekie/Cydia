@@ -1,5 +1,6 @@
 #include "CyteKit/UCPlatform.h"
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/FirmwareMarkerPermissions.hpp"
 #include "Cydia/LegacySourceHandoff.hpp"
 #include "Cydia/PackageDatabasePaths.hpp"
 
@@ -349,6 +350,14 @@ int main(int argc, const char *argv[]) {
     const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
 
     #define OldCache_ "/var/root/Library/Caches/com.saurik.Cydia"
+    // Older atomic firmware-marker writes used mktemp's mode 0600. Repair
+    // that upgrade state before the first mobile-user app launch; do not run
+    // firmware maintenance or manufacture a completion/version marker here.
+    if (!CydiaRuntime::RepairFirmwareMarkerPermissions(paths.CydiaFirmwareVersionPath().c_str())) {
+        perror("Cydia firmware marker permissions");
+        return 1;
+    }
+
     RemoveItem(OldCache_);
 
     NSDictionary<NSFileAttributeKey, id> *attributes = @{

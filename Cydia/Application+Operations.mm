@@ -29,6 +29,9 @@
 #include "iPhonePrivate.h"
 
 #include <cstdio>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define ForRelease 1
 #define AlwaysReload 0
@@ -42,6 +45,70 @@
 #define _end }
 #define PrintTimes() do {} while (false)
 #define lprintf(args...) fprintf(stderr, args)
+
+/* A run-scoped, opt-in trace for the ordinary package Confirmation delegate.
+ * The native compatibility journal cannot observe this legacy package path,
+ * while installed acceptance needs direct evidence that Cancel/Continue and
+ * Confirm crossed the delegate exactly once.  No file is opened and no log is
+ * emitted during normal launches.  The caller must provide a unique absolute
+ * O_EXCL path through the launch environment; failed or incomplete traces are
+ * never interpreted as zero callbacks. */
+static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL clear) {
+    NSDictionary *environment([[NSProcessInfo processInfo] environment]);
+    NSString *path([environment objectForKey:@"CYDIA_NATIVE_TRANSACTION_TRACE_PATH"]);
+    if (![path isKindOfClass:[NSString class]] || [path length] == 0 ||
+        [path length] > 1024 || ![path hasPrefix:@"/"] ||
+        [path rangeOfString:@".."].location != NSNotFound ||
+        [event isEqualToString:@"confirmWithNavigationController"] == NO &&
+        [event isEqualToString:@"cancelAndClear"] == NO)
+        return;
+
+    static int descriptor(-2);
+    static NSString *processInstance;
+    if (descriptor == -2) {
+        descriptor = open([path fileSystemRepresentation],
+            O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+        if (descriptor >= 0)
+            processInstance = [[NSUUID UUID] UUIDString];
+    }
+    if (descriptor < 0)
+        return;
+
+    NSMutableDictionary *record([@{
+        @"schema": @1,
+        @"event": event,
+        @"processID": @((unsigned int)getpid()),
+        @"processInstance": processInstance ?: @""
+    } mutableCopy]);
+    if (hasClear)
+        [record setObject:@(clear) forKey:@"clear"];
+    NSData *json([NSJSONSerialization dataWithJSONObject:record options:0 error:NULL]);
+    if (json == nil) {
+        close(descriptor);
+        descriptor = -1;
+        return;
+    }
+    NSMutableData *line([json mutableCopy]);
+    [line appendBytes:"\n" length:1];
+    const char *bytes((const char *)[line bytes]);
+    NSUInteger remaining([line length]);
+    while (remaining != 0) {
+        ssize_t written(write(descriptor, bytes, remaining));
+        if (written < 0 && errno == EINTR)
+            continue;
+        if (written <= 0) {
+            close(descriptor);
+            descriptor = -1;
+            return;
+        }
+        bytes += written;
+        remaining -= (NSUInteger)written;
+    }
+    if (fsync(descriptor) != 0) {
+        close(descriptor);
+        descriptor = -1;
+    }
+}
 
 @implementation Cydia (Operations)
 - (ProgressController *) invokeNewProgress:(NSInvocation *)invocation forController:(UINavigationController *)navigation withTitle:(NSString *)title {
@@ -180,6 +247,7 @@
 }
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
+    CydiaTransactionDelegateTrace(@"confirmWithNavigationController", NO, NO);
     Queuing_ = false;
     [self lockSuspend];
     [self detachNewProgressSelector:@selector(perform_) toTarget:self forController:navigation title:@"RUNNING"];
@@ -187,6 +255,7 @@
 }
 
 - (void) cancelAndClear:(bool)clear {
+    CydiaTransactionDelegateTrace(@"cancelAndClear", YES, clear);
     @synchronized (self) {
         if (clear) {
             [database_ clear];

@@ -6,6 +6,7 @@
 #include "Cydia/PackageDepictionView.h"
 
 #include "Cydia/PackageDepictionPolicy.h"
+#include "Cydia/PackageDepictionJavaScriptFacade.h"
 #include "Cydia/URLResourceResolver.h"
 #include "Cydia/URLProtocolPolicy.h"
 #include "CyteKit/extern.h"
@@ -56,17 +57,28 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
 
 
 @interface CydiaPackageDepictionURLSchemeHandler : NSObject <WKURLSchemeHandler>
+- (instancetype)initWithPackageIdentity:(nullable NSString *)packageIdentity
+                    userNavigationHandler:(nullable void (^)(NSURL *URL))handler;
 @end
 
 
 @implementation CydiaPackageDepictionURLSchemeHandler {
     NSMutableSet *_activeTasks;
+    NSString *_packageIdentity;
+    void (^_userNavigationHandler)(NSURL *);
+}
+
+- (instancetype)initWithPackageIdentity:(NSString *)packageIdentity
+                    userNavigationHandler:(void (^)(NSURL *URL))handler {
+    if ((self = [super init]) != nil)
+        _activeTasks = [[NSMutableSet alloc] init];
+    _packageIdentity = [packageIdentity copy];
+    _userNavigationHandler = [handler copy];
+    return self;
 }
 
 - (instancetype)init {
-    if ((self = [super init]) != nil)
-        _activeTasks = [[NSMutableSet alloc] init];
-    return self;
+    return [self initWithPackageIdentity:nil userNavigationHandler:nil];
 }
 
 - (void)webView:(WKWebView *)webView
@@ -92,6 +104,38 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
 
         NSURL *URL([[task request] URL]);
         NSString *path(CydiaURLResourcePathForURL(URL));
+
+        NSRange slash([path rangeOfString:@"/"]);
+        NSString *command(slash.location == NSNotFound ? path :
+            [path substringToIndex:slash.location]);
+        CydiaURLResourceKind kind(CydiaURLResourceKindForCommand(command));
+        if (kind == CydiaURLResourceKindUnknown) {
+            /* WKURLSchemeHandler registration is scheme-wide.  On iOS 14 the
+             * handler can receive a top-level cydia:// anchor without first
+             * delivering WKNavigationDelegate's action callback.  Preserve
+             * legacy resource URLs by handling only the unknown-route case;
+             * the view callback still requires its short-lived physical-touch
+             * token and re-runs the normal URL policy before handoff. */
+            if (_userNavigationHandler != nil)
+                _userNavigationHandler(URL);
+            [task didFailWithError:[NSError errorWithDomain:NSURLErrorDomain
+                                                       code:NSURLErrorUnsupportedURL
+                                                   userInfo:nil]];
+            [_activeTasks removeObject:task];
+            return;
+        }
+        NSString *rawIdentifier(slash.location == NSNotFound ? nil :
+            [path substringFromIndex:slash.location + 1]);
+        NSString *identifier(CydiaURLResourceDecodeIdentifier(rawIdentifier, kind));
+        if (kind == CydiaURLResourceKindPackageIcon &&
+            (_packageIdentity == nil || identifier == nil ||
+             ![identifier isEqualToString:_packageIdentity])) {
+            [task didFailWithError:[NSError errorWithDomain:NSURLErrorDomain
+                                                       code:NSURLErrorFileDoesNotExist
+                                                   userInfo:nil]];
+            [_activeTasks removeObject:task];
+            return;
+        }
 
         NSData *data(nil);
         CydiaURLResourceResolution resolution(
@@ -216,6 +260,7 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
 @interface PackageDepictionView () <WKNavigationDelegate, UIGestureRecognizerDelegate>
 @property(nonatomic, strong) WKWebView *depictionWebView;
 @property(nonatomic, strong) CydiaPackageDepictionPolicy *policy;
+@property(nonatomic, strong) CydiaPackageDepictionJavaScriptFacade *compatibilityFacade;
 @property(nonatomic, strong) CydiaPackageDepictionURLSchemeHandler *resourceSchemeHandler;
 @property(nonatomic, weak) id<PackageDepictionViewDelegate> delegate;
 @property(nonatomic, readwrite) CydiaPackageDepictionViewState state;
@@ -238,12 +283,19 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
 @property(nonatomic) BOOL lastNavigationUserActivated;
 @property(nonatomic) NSUInteger lastNavigationDisposition;
 @property(nonatomic, copy) NSString *lastNavigationURLString;
+- (void)handleSchemeNavigationURL:(NSURL *)URL;
 @end
 
 
 @implementation PackageDepictionView
 
 - (instancetype)initWithURLString:(NSString *)URLString
+                          delegate:(id<PackageDepictionViewDelegate>)delegate {
+    return [self initWithURLString:URLString compatibilitySnapshot:nil delegate:delegate];
+}
+
+- (instancetype)initWithURLString:(NSString *)URLString
+             compatibilitySnapshot:(NSDictionary *)snapshot
                           delegate:(id<PackageDepictionViewDelegate>)delegate {
     CydiaPackageDepictionPolicy *policy([[CydiaPackageDepictionPolicy alloc]
         initWithURLString:URLString]);
@@ -264,12 +316,25 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
         configuration.preferences.javaScriptEnabled = YES;
         configuration.allowsInlineMediaPlayback = YES;
         configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
-        _resourceSchemeHandler = [[CydiaPackageDepictionURLSchemeHandler alloc] init];
+        NSDictionary *packageSnapshot([snapshot objectForKey:@"package"]);
+        NSDictionary *packageValues([packageSnapshot objectForKey:@"values"]);
+        NSString *packageIdentity([packageValues objectForKey:@"id"]);
+        _compatibilityFacade = [[CydiaPackageDepictionJavaScriptFacade alloc]
+            initWithSnapshot:snapshot origin:[policy initialURL]
+            packageIdentity:packageIdentity];
+        [_compatibilityFacade installOnConfiguration:configuration];
+        __weak PackageDepictionView *weakSelf(self);
+        _resourceSchemeHandler = [[CydiaPackageDepictionURLSchemeHandler alloc]
+            initWithPackageIdentity:packageIdentity
+                userNavigationHandler:^(NSURL *URL) {
+                    [weakSelf handleSchemeNavigationURL:URL];
+                }];
         [configuration setURLSchemeHandler:_resourceSchemeHandler
                               forURLScheme:@"cydia"];
 
         _depictionWebView = [[WKWebView alloc] initWithFrame:CGRectZero
                                               configuration:configuration];
+        [_compatibilityFacade bindToWebView:_depictionWebView];
         _depictionWebView.translatesAutoresizingMaskIntoConstraints = NO;
         _depictionWebView.navigationDelegate = self;
         _depictionWebView.allowsBackForwardNavigationGestures = NO;
@@ -277,6 +342,8 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
         _depictionWebView.opaque = NO;
         _depictionWebView.backgroundColor = UIColor.clearColor;
         _depictionWebView.accessibilityIdentifier = @"cydia.package.depiction.document";
+        self.isAccessibilityElement = NO;
+        self.accessibilityElements = @[_depictionWebView];
         _depictionWebView.scrollView.scrollEnabled = NO;
         _depictionWebView.scrollView.bounces = NO;
         _depictionWebView.scrollView.showsHorizontalScrollIndicator = NO;
@@ -290,7 +357,6 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
             [_depictionWebView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
         ]];
 
-        __weak PackageDepictionView *weakSelf(self);
         CydiaPackageDepictionTouchRecognizer *touch(
             [[CydiaPackageDepictionTouchRecognizer alloc]
                 initWithActivationHandler:^{
@@ -316,6 +382,7 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
 }
 
 - (void)dealloc {
+    [_compatibilityFacade revokeFromConfiguration:[_depictionWebView configuration]];
     _depictionWebView.navigationDelegate = nil;
     if (_observingContentSize) {
         [_depictionWebView.scrollView removeObserver:self
@@ -345,6 +412,7 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
         [self startLoading];
         return;
     }
+    [_compatibilityFacade rotateForReloadOnConfiguration:[_depictionWebView configuration]];
     _initialNavigationPending = YES;
     [self resetPresentationForLoad];
     NSURLRequest *request([NSURLRequest requestWithURL:[_policy initialURL]
@@ -360,6 +428,7 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
         @"(function(){"
          "var good=document.getElementById('cydia-resource');"
          "var bad=document.getElementById('cydia-resource-rejected');"
+         "var facade=document.getElementById('cydia-facade-marker');"
          "return JSON.stringify({"
          "goodSource:good?good.getAttribute('src'):'',"
          "goodComplete:!!(good&&good.complete),"
@@ -367,7 +436,8 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
          "goodHeight:good?good.naturalHeight:0,"
          "badSource:bad?bad.getAttribute('src'):'',"
          "badComplete:!!(bad&&bad.complete),"
-         "badWidth:bad?bad.naturalWidth:0});"
+         "badWidth:bad?bad.naturalWidth:0,"
+         "facadeText:facade?facade.textContent:''});"
          "})()");
     [_depictionWebView evaluateJavaScript:script completionHandler:completion];
 }
@@ -408,6 +478,24 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
 - (void)invalidatedUserTouch {
     ++_invalidatedTouchSequence;
     _lastUserTouchTime = 0.0;
+}
+
+- (void)handleSchemeNavigationURL:(NSURL *)URL {
+    if (![URL isKindOfClass:[NSURL class]])
+        return;
+    BOOL userActivated([self consumeUserTouchForNavigationType:WKNavigationTypeLinkActivated]);
+    CydiaPackageDepictionNavigationDisposition disposition([_policy
+        decisionForURL:URL mainFrame:YES initialRequest:NO
+                intent:userActivated ? CydiaPackageDepictionNavigationIntentUserActivated :
+                                       CydiaPackageDepictionNavigationIntentAutomatic]);
+    _lastNavigationType = WKNavigationTypeLinkActivated;
+    _lastNavigationUserActivated = userActivated;
+    _lastNavigationDisposition = disposition;
+    _lastNavigationURLString = [URL.absoluteString copy] ?: @"";
+    if (userActivated &&
+        disposition == CydiaPackageDepictionNavigationDispositionHandOff) {
+        [[self delegate] packageDepictionView:self didRequestURLHandoff:URL];
+    }
 }
 
 - (BOOL)consumeUserTouchForNavigationType:(WKNavigationType)type {
@@ -552,7 +640,13 @@ void PerformOnMainThreadSynchronously(dispatch_block_t block) {
                         decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
     (void)webView;
     BOOL mainFrame(navigationResponse.isForMainFrame);
-    if (navigationResponse.canShowMIMEType &&
+    BOOL successfulHTTPResponse(YES);
+    if (mainFrame &&
+        [navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSInteger statusCode([(NSHTTPURLResponse *)navigationResponse.response statusCode]);
+        successfulHTTPResponse = statusCode >= 200 && statusCode < 300;
+    }
+    if (navigationResponse.canShowMIMEType && successfulHTTPResponse &&
         [_policy allowsResponseURL:navigationResponse.response.URL mainFrame:mainFrame]) {
         decisionHandler(WKNavigationResponsePolicyAllow);
         return;

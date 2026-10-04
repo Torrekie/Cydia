@@ -1,5 +1,21 @@
 # route	kind	trusted-native	external-url	trusted-legacy	repository-depiction	untrusted-web-popup
 cydia://home	home	allow	deny	temporary	deny	deny
+cydia://home/faq	faq	allow	deny	temporary	deny	deny
+cydia://home/faq/what-is-cydia	faq	allow	deny	temporary	deny	deny
+cydia://home/upgrading-jailbreaking/root	upgrading-guide	allow	deny	temporary	deny	deny
+cydia://home/application-extensions	application-extensions	allow	deny	temporary	deny	deny
+cydia://home/more-sources	more-sources	allow	deny	temporary	deny	deny
+cydia://home/copying-files	copying-files	allow	deny	temporary	deny	deny
+cydia://home/openssh	home-guide	allow	deny	temporary	deny	deny
+cydia://home/root-password	home-guide	allow	deny	temporary	deny	deny
+cydia://home/developer-resources	home-guide	allow	deny	temporary	deny	deny
+cydia://home/credits	home-guide	allow	deny	temporary	deny	deny
+cydia://home/privacy	home-guide	allow	deny	temporary	deny	deny
+cydia://home/storage	home-guide	allow	deny	temporary	deny	deny
+cydia://home/featured	home-guide	allow	deny	temporary	deny	deny
+cydia://home/themes	home-guide	allow	deny	temporary	deny	deny
+cydia://home/account	home-guide	allow	deny	temporary	deny	deny
+cydia://home/application-extensions/com.apple.mobilesafari	application-extensions	allow	deny	temporary	deny	deny
 cydia://sources	sources	allow	deny	temporary	deny	deny
 cydia://sources/add	source-add	allow	confirm	temporary	deny	deny
 cydia://sources/deb%3Ahttps%3A%2F%2Frepo.example%2F%3A.%2F	source	allow	allow	temporary	deny	deny
@@ -13,8 +29,10 @@ cydia://search/owner%2Frepository	search	allow	deny	temporary	deny	deny
 cydia://changes	changes	allow	deny	temporary	deny	deny
 cydia://installed	installed	allow	deny	temporary	deny	deny
 cydia://package/example:iphoneos-arm64	package	allow	allow	temporary	allow	allow
+cydia://package/other:iphoneos-arm64	package	allow	allow	temporary	gesture	allow
 apptapp://package/example:iphoneos-arm64	package	allow	allow	temporary	allow	allow
 cydia://package/example:iphoneos-arm64/settings	package-settings	allow	deny	temporary	deny	deny
 cydia://package/example:iphoneos-arm64/files	package-files	allow	deny	temporary	deny	deny
+cydia://package/example:iphoneos-arm64/support	package-support	allow	deny	temporary	deny	deny
 cydia://launch/com.example.app	launch	allow	deny	deny	deny	deny
 cydia://url/https%3A%2F%2Fexample.com%2Fguide	external-open	allow	allow	temporary	gesture	gesture

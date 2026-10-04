@@ -122,6 +122,11 @@ typedef NS_ENUM(NSUInteger, CydiaLegacyUICompatibilityNativeDenialReason) {
 @property (nonatomic, readonly, getter=isActive) BOOL active;
 @property (nonatomic, readonly) CydiaLegacyUICompatibilityNativeDenialReason
     lastDenialReason;
+/* Observation only: an undefined result does not say whether execution
+ * occurred. Deltas distinguish executor entry from boundary rejection without
+ * changing policy, authority, or the provider's return value. */
+@property (nonatomic, readonly) NSUInteger executorEntryCount;
+@property (nonatomic, readonly) NSUInteger denialCount;
 
 - (instancetype) init NS_UNAVAILABLE;
 + (instancetype) new NS_UNAVAILABLE;

@@ -91,6 +91,9 @@ typedef NSString * _Nonnull (^CydiaProgressLocalizer)(NSString *key);
 @property(nonatomic, readonly, getter=isRunning) BOOL running;
 @property(nonatomic, readonly) float rawPercent;
 @property(nonatomic, readonly) float displayPercent;
+/* Completion is not a successful-100% signal: retain the backend estimate
+ * and distinguish it from live progress once the invocation has ended. */
+@property(nonatomic, readonly) BOOL percentIsHistorical;
 @property(nonatomic, readonly, getter=isProgressDeterminate) BOOL progressDeterminate;
 @property(nonatomic, readonly) float current;
 @property(nonatomic, readonly) float total;

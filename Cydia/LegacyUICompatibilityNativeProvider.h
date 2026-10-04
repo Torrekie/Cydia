@@ -54,6 +54,11 @@
  * presenter.  This does not widen CydiaObject inheritance. */
 - (CydiaLegacyUICompatibilityNativeSession *) sessionForRenderingWithPresenter:(id)presenter;
 
+/* Installed-runtime authority-boundary probe.  Ignored unless called on the
+ * main thread with a target/presenter boundary that exactly matches the
+ * opt-in process environment.  It cannot replace any provider binding. */
+- (void) revokeAuthorityForDiagnosticBoundary:(NSString *)boundary;
+
 - (void) invalidate;
 
 @end

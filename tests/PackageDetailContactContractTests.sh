@@ -7,6 +7,8 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 source="$root/Cydia/PackageDetailController.mm"
+support="$root/Cydia/PackageSupportController.mm"
+package="$root/Cydia/PackageControllers.mm"
 
 fail() {
     echo "[verify-package-detail-contact][FAIL] $*" >&2
@@ -78,5 +80,20 @@ guard_line=$(printf '%s\n' "$dispatch" | grep -n -F 'if ([URLString length] == 0
 identifier_line=$(printf '%s\n' "$dispatch" | grep -n -F 'identifier = [_viewModel identity];' | cut -d: -f1)
 test "$guard_line" -lt "$identifier_line" ||
     fail "contact dispatch identifies a contact before validating its URL"
+
+# The native Support page remains the package-contact destination. Its web and
+# mail rows dispatch through the same trusted typed boundary while it is modal;
+# the full application must not reject that visible modal or push a status page.
+grep -Fq 'CydiaPackageDetailNavigationKindContact' "$package" &&
+    grep -Fq '[application presentModalViewController:page force:NO];' "$package" ||
+    fail "package contact lost its native Support modal navigation boundary"
+support_dispatch=$(sed -n '/- (void)tableView:.*didSelectRowAtIndexPath:/,/^- (void)traitCollectionDidChange:/p' "$support")
+printf '%s\n' "$support_dispatch" | grep -Fq 'CydiaExternalURLRouteURL(destination)' &&
+    printf '%s\n' "$support_dispatch" | grep -Fq '[CydiaUIRouteContext trustedNativeContext]' &&
+    printf '%s\n' "$support_dispatch" | grep -Fq '[application openCydiaURL:route context:context];' ||
+    fail "Support website/mail links bypass typed native route dispatch"
+grep -Fq 'MailtoURL([_viewModel authorAddress], @"A", _viewModel)' "$support" &&
+    grep -Fq 'MailtoURL([_viewModel maintainerAddress], @"M", _viewModel)' "$support" ||
+    fail "Support no longer distinguishes software author from package maintainer"
 
 echo "[verify-package-detail-contact][ ok ] contact row is localized and fail-closed"

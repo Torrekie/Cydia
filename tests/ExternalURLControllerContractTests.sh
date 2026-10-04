@@ -56,16 +56,44 @@ fi
 grep -Fq '[[ExternalURLController alloc]' "$application" &&
     grep -q 'initWithRouteDescriptor:descriptor' "$application" ||
     fail "typed external route does not construct the native coordinator"
-if grep -q 'CydiaWebViewController' "$application"; then
-    fail "application external routing still constructs the legacy browser"
+# Full Cydia presents the destination from its visible page. The isolated
+# coordinator probe can still exercise its legacy pushed/status-page path.
+external_entry=$(sed -n '/- (BOOL)_openExternalRoute:/,/^- (void) disemulate/p' "$application")
+printf '%s\n' "$external_entry" | grep -Fq '[route isAllowed]' &&
+    printf '%s\n' "$external_entry" | grep -Fq 'CydiaUIRouteKindExternalOpen' ||
+    fail "direct external handoff lacks its typed allowed-route guard"
+printf '%s\n' "$external_entry" | grep -Fq 'CydiaExternalPresentationHost([window_ rootViewController])' &&
+    printf '%s\n' "$external_entry" | grep -Fq 'openFromViewController:presenter completion:' ||
+    fail "external destination is not opened directly from its visible origin"
+visible_host=$(sed -n '/static UIViewController \*CydiaExternalPresentationHost(/,/^}/p' "$application")
+printf '%s\n' "$visible_host" | grep -Fq 'controller.presentedViewController' &&
+    printf '%s\n' "$visible_host" | grep -Fq 'visibleViewController' &&
+    printf '%s\n' "$visible_host" | grep -Fq 'UISplitViewController' ||
+    fail "visible Support modal or guide detail is excluded from external presentation"
+if printf '%s\n' "$external_entry" | grep -Eq 'pushViewController:|setUnselectedViewController:|loadView'; then
+    fail "direct external handoff still inserts a loading/navigation page"
 fi
-external_entry=$(sed -n '/if (\[\[route descriptor\] kind\] == CydiaUIRouteKindExternalOpen)/,/^        } else {/p' "$application")
-printf '%s\n' "$external_entry" | grep -q '\[tabbar_\ selectedViewController\]' &&
-    printf '%s\n' "$external_entry" | grep -q '\[navigation pushViewController:page animated:YES\]' ||
-    fail "external deep link does not preserve its originating navigation stack"
-if printf '%s\n' "$external_entry" | grep -q 'setUnselectedViewController'; then
-    fail "external deep link still discards its transient package root"
-fi
+factory_entry=$(sed -n '/- (CyteViewController \*) pageForURL:(NSURL \*)url$/,/^- (CyteViewController \*) pageForURL:.*forExternal:/p' "$application")
+command_entry=$(sed -n '/- (BOOL) openCydiaURL:.*context:/,/^- (BOOL) openCydiaURL:.*forExternal:/p' "$application")
+for entry in "$factory_entry" "$command_entry"; do
+    allowed_line=$(printf '%s\n' "$entry" | grep -n -F 'if (![route isAllowed])' | cut -d: -f1)
+    open_line=$(printf '%s\n' "$entry" | grep -n -F '[self _openExternalRoute:route]' | cut -d: -f1)
+    test -n "$allowed_line" && test -n "$open_line" &&
+        test "$allowed_line" -lt "$open_line" ||
+        fail "external presentation occurs before typed route authorization"
+done
+factory_external=$(printf '%s\n' "$factory_entry" | sed -n '/if (\[\[route descriptor\] kind\] == CydiaUIRouteKindExternalOpen)/,/^    }/p')
+printf '%s\n' "$factory_external" | grep -Fq '[self _openExternalRoute:route];' &&
+    printf '%s\n' "$factory_external" | grep -Fq 'return nil;' ||
+    fail "full-app page factory still returns an external loading controller"
+grep -Fq 'openFromViewController:' "$header" &&
+    grep -Fq '[[self handoffPresenter] presentViewController:controller' "$controller" &&
+    grep -Fq '[[self handoffPresenter] presentViewController:alert' "$controller" ||
+    fail "direct Safari/confirmation does not use the originating presenter"
+grep -Fq '_handoffCompletion = nil;' "$controller" &&
+    grep -Fq 'presentationControllerDidDismiss:' "$controller" &&
+    grep -Fq 'reportDirectHandoffFailure' "$controller" ||
+    fail "direct handoff lacks completion, dismissal or failure cleanup"
 printf '%s\n' "$external_entry" | grep -q '\[pending hasPendingOpenRequest\]' &&
     printf '%s\n' "$external_entry" | grep -q 'return \[pending coalescePendingDestinationURL:' ||
     fail "overlapping system handoffs can stack duplicate coordinators"
@@ -74,9 +102,14 @@ printf '%s\n' "$pending_state" | grep -q 'CydiaExternalURLControllerStateReady &
     printf '%s\n' "$pending_state" | grep -q 'CydiaExternalURLControllerStateOpening' &&
     printf '%s\n' "$pending_state" | grep -q 'CydiaExternalURLControllerStatePresented' ||
     fail "pending handoff omits the pre-appearance, opening or presented state"
-pending_match=$(sed -n '/- (BOOL)coalescePendingDestinationURL:/,/^- (void)beginOpening/p' "$controller")
-printf '%s\n' "$pending_match" | grep -Fq '[[_policy destinationURL] isEqual:URL]' ||
-    fail "pending handoff does not compare the canonical destination"
+pending_match=$(sed -n '/- (BOOL)coalescePendingDestinationURL:/,/^- (void)presentSafari/p' "$controller")
+printf '%s\n' "$pending_match" | grep -Fq '[[_policy destinationURL] isEqual:URL]' &&
+    printf '%s\n' "$pending_match" | grep -q 'duplicate-open-coalesced' &&
+    printf '%s\n' "$pending_match" | grep -q 'overlapping-open-rejected' ||
+    fail "pending handoff does not distinguish an identical delivery from a different destination"
+if grep -q 'CydiaWebViewController' "$application"; then
+    fail "application external routing still constructs the legacy browser"
+fi
 grep -q 'CydiaExternalURLRouteURL(url)' "$root/Cydia/HomeController.mm" ||
     fail "Home external links bypass the shared typed route"
 grep -q 'CydiaExternalURLRouteURL(destination)' "$root/Cydia/PackageControllers.mm" ||

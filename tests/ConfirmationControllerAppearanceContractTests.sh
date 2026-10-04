@@ -28,6 +28,20 @@ if grep -Eq 'CydiaWebViewController|UIWebView|WebScriptObject|WebFrame|WebCore|a
 fi
 
 for token in \
+        'CydiaConfirmationTargetButton' \
+        'intrinsicContentSize' \
+        'CGSizeMake(MAX(44.0, size.width), MAX(44.0, size.height))' \
+        'button.widthAnchor constraintGreaterThanOrEqualToConstant:44.0' \
+        'button.heightAnchor constraintGreaterThanOrEqualToConstant:44.0' \
+        'cydia.confirmation.cancel' \
+        'cydia.confirmation.confirm' \
+        'UIAccessibilityIsVoiceOverRunning' \
+        'UIAccessibilityScreenChangedNotification' \
+        'accessibilityViewIsModal = YES' \
+        'self.navigationController.view.accessibilityViewIsModal = YES' \
+        'dispatch_async(dispatch_get_main_queue()' \
+        'dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC)' \
+        'forControlEvents:UIControlEventTouchUpInside' \
         'UITableViewStyleGrouped' \
         'UITableViewAutomaticDimension' \
         'preferredFontForTextStyle' \
@@ -122,6 +136,8 @@ for token in \
         'sheetUsesCellBackground' \
         'presenterUsesGroupedBackground' \
         '@"actualModalPresentation"' \
+        '@"dismissalInFlight"' \
+        'navigation_.presentingViewController == nil' \
         '@"presentationAttached"' \
         '@"formSheetFrameInset"' \
         '@"backdropInterceptsOutsideSheet"' \
@@ -147,6 +163,14 @@ for token in \
         'rowsMeetTouchTarget'; do
     grep -Fq "$token" "$simulator" ||
         fail "Confirmation simulator verifier is missing form-sheet assertion: $token"
+done
+
+for token in \
+        'wait_for_value "$state" actualModalPresentation false' \
+        'wait_for_value "$state" dismissalInFlight false' \
+        'dismissed-$action-state.plist'; do
+    grep -Fq "$token" "$simulator" ||
+        fail "Confirmation verifier does not observe completed dismissal: $token"
 done
 
 echo "[verify-confirmation-appearance][ ok ] native opaque semantic chrome, Dynamic Type, and accessibility contract"

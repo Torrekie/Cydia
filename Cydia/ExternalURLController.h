@@ -32,6 +32,12 @@ typedef NS_ENUM(NSUInteger, CydiaExternalURLControllerState) {
 + (instancetype)new NS_UNAVAILABLE;
 - (nullable instancetype)initWithRouteDescriptor:(CydiaUIRouteDescriptor *)descriptor;
 
+/* Full Cydia keeps the originating page visible while this coordinator owns
+ * Safari/system handoff. The caller retains the coordinator until completion;
+ * no loading/status controller is inserted into its navigation stack. */
+- (BOOL)openFromViewController:(UIViewController *)presenter
+                   completion:(void (^)(void))completion;
+
 - (void)retryButtonClicked;
 /* A repeated delivery while the same system handoff is pending is already
  * handled. Different destinations must not stack over an in-flight request. */

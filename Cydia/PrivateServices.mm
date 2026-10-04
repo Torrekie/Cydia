@@ -65,6 +65,12 @@ NSString *CydiaCopyIconImagePath(NSString *identifier) {
     return function == nullptr ? nil : function(identifier);
 }
 
+NSData *CydiaCopyApplicationIconPNGData(NSString *identifier) {
+    using Function = NSData *(*)(NSString *);
+    static Function function(LookupSpringBoardService<Function>("SBSCopyIconImagePNGDataForDisplayIdentifier"));
+    return function == nullptr ? nil : function(identifier);
+}
+
 bool CydiaReboot(uint64_t flags) {
     using SpringBoardFunction = void (*)(mach_port_t);
     static SpringBoardFunction springboard(LookupSpringBoardService<SpringBoardFunction>("SBReboot"));

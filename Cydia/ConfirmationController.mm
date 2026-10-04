@@ -25,6 +25,7 @@
 
 #include "Cydia/AppState.h"
 #include "Cydia/Appearance.h"
+#include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/ConfirmationViewModel.h"
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
@@ -239,6 +240,38 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 @end
 
 
+/* A short localized system bar title can expose a 43pt AX/hit frame. Give
+ * both transaction actions a real minimum-sized control, not a wider AX-only
+ * rectangle. Keep navigation typography bounded like UIKit's bar chrome. */
+@interface CydiaConfirmationTargetButton : UIButton
+@property(nonatomic) BOOL emphasized;
+- (void) updateNavigationFont;
+@end
+
+@implementation CydiaConfirmationTargetButton
+
+- (CGSize) intrinsicContentSize {
+    CGSize size([super intrinsicContentSize]);
+    return CGSizeMake(MAX(44.0, size.width), MAX(44.0, size.height));
+}
+
+- (void) updateNavigationFont {
+    UIFont *base(self.emphasized ? [UIFont boldSystemFontOfSize:17.0] :
+                                  [UIFont systemFontOfSize:17.0]);
+    UIFontTextStyle style(self.emphasized ? UIFontTextStyleHeadline : UIFontTextStyleBody);
+    self.titleLabel.font = [[UIFontMetrics metricsForTextStyle:style]
+        scaledFontForFont:base maximumPointSize:22.0
+        compatibleWithTraitCollection:self.traitCollection];
+    [self invalidateIntrinsicContentSize];
+}
+
+- (void) traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    [self updateNavigationFont];
+}
+
+@end
+
 @interface ConfirmationController () <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) CydiaConfirmationViewModel *viewModel;
 @property (nonatomic, strong) CydiaConfirmationActionState *actionState;
@@ -319,6 +352,11 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 - (void) loadView {
     UIView *view([[UIView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame]]);
     [view setAutoresizingMask:CydiaAutoresizingFlexibleBoth];
+    /* Keep VoiceOver inside the presented transaction sheet while UIKit moves
+     * focus from the package presenter.  Without the modal boundary, iOS 14
+     * can retain the presenter's Modify element and skip the safe Cancel
+     * action on the newly presented navigation bar. */
+    view.accessibilityViewIsModal = YES;
     [self setView:view];
 
     UITableView *table([[UITableView alloc] initWithFrame:[view bounds]
@@ -339,28 +377,80 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     [self applyColorAppearance];
 }
 
+- (UIBarButtonItem *) navigationActionWithTitle:(NSString *)title
+                                      selector:(SEL)selector
+                                    identifier:(NSString *)identifier
+                                    emphasized:(BOOL)emphasized {
+    CydiaConfirmationTargetButton *button(
+        [CydiaConfirmationTargetButton buttonWithType:UIButtonTypeSystem]);
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    button.emphasized = emphasized;
+    [button setTitle:title forState:UIControlStateNormal];
+    button.titleLabel.adjustsFontForContentSizeCategory = YES;
+    [button updateNavigationFont];
+    button.accessibilityIdentifier = identifier;
+    [button addTarget:self action:selector forControlEvents:UIControlEventTouchUpInside];
+    [button.widthAnchor constraintGreaterThanOrEqualToConstant:44.0].active = YES;
+    [button.heightAnchor constraintGreaterThanOrEqualToConstant:44.0].active = YES;
+    UIBarButtonItem *item([[UIBarButtonItem alloc] initWithCustomView:button]);
+    /* Retain the original item metadata used by callers and probe fixtures;
+     * actual touch dispatch belongs to the single custom control above. */
+    item.title = title;
+    item.target = self;
+    item.action = selector;
+    item.style = emphasized ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain;
+    return item;
+}
+
 - (void) viewDidLoad {
     [super viewDidLoad];
     [[self navigationItem] setTitle:UCLocalizeEx([_viewModel hasBlockingIssues] ?
         @"CANNOT_COMPLY" : @"CONFIRM")];
     [[self navigationItem] setHidesBackButton:YES];
-    [[self navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("CANCEL")
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(cancelButtonClicked)]];
+    self.navigationItem.leftBarButtonItem = [self navigationActionWithTitle:UCLocalize("CANCEL")
+        selector:@selector(cancelButtonClicked) identifier:@"cydia.confirmation.cancel"
+        emphasized:NO];
 
     if ([_viewModel showsConfirmAction])
-        [[self navigationItem] setRightBarButtonItem:[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("CONFIRM")
-            style:UIBarButtonItemStyleDone
-            target:self
-            action:@selector(confirmButtonClicked)]];
+        self.navigationItem.rightBarButtonItem = [self navigationActionWithTitle:UCLocalize("CONFIRM")
+            selector:@selector(confirmButtonClicked) identifier:@"cydia.confirmation.confirm"
+            emphasized:YES];
 }
 
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self applyColorAppearance];
+}
+
+- (void) viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    CydiaCaptureNativeAccessibility(self, @"confirmation");
+    /* UIKit may retain the presenter's focused row when VoiceOver enters this
+     * controller.  That leaves the destructive-side Confirm action as the
+     * first reachable bar item and can skip the safe Cancel action entirely
+     * on iOS 14.  Re-seed focus to the first, non-mutating action after the
+     * navigation transition settles.  The notification is available on the
+     * iOS 12 deployment target and is only emitted while VoiceOver is active. */
+    self.navigationController.view.accessibilityViewIsModal = YES;
+    if (UIAccessibilityIsVoiceOverRunning()) {
+        void (^seedVoiceOverFocus)(void) = ^{
+            UIView *cancelButton(self.navigationItem.leftBarButtonItem.customView);
+            if (self.view.window != nil && cancelButton.window != nil &&
+                UIAccessibilityIsVoiceOverRunning()) {
+                UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification,
+                                                cancelButton);
+                UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
+                                                cancelButton);
+            }
+        };
+        dispatch_async(dispatch_get_main_queue(), seedVoiceOverFocus);
+        /* iOS 14 can finish attaching the presented navigation bar one run
+         * loop after viewDidAppear.  A bounded delayed seed prevents the
+         * presenter focus from winning that transition without repeatedly
+         * injecting HID input or affecting non-VoiceOver users. */
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC),
+                       dispatch_get_main_queue(), seedVoiceOverFocus);
+    }
 }
 
 - (void) reloadData {

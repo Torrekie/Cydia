@@ -177,6 +177,49 @@ void VerifyRenderingSessionLane(void) {
         @"rendering session evaluates policy without invoking a member");
 }
 
+void VerifyExplicitUnevaluatedGaps(void) {
+    EvidenceDecisionSession *session([[EvidenceDecisionSession alloc] init]);
+    NSDictionary *receipt(CydiaLegacyUICompatibilityRuntimeEvidenceBuildReceipt(
+        @"gap-run", @{}, @{
+            @"CydiaObject": session,
+            @"CyteObject": session,
+            @"Package": session,
+            @"Source": session,
+            @"NSDictionary": session,
+        }));
+    NSSet *nested([NSSet setWithObjects:
+        @"CydiaClause|attribute|package", @"CydiaClause|attribute|version",
+        @"CydiaOperation|attribute|operator", @"CydiaOperation|attribute|value",
+        @"CydiaRelation|attribute|clauses", @"CydiaRelation|attribute|relationship",
+        @"MIMEAddress|attribute|address", @"MIMEAddress|attribute|name", nil]);
+    NSUInteger nestedCount(0);
+    NSUInteger retiredOrChromeCount(0);
+    for (NSDictionary *row in [receipt objectForKey:@"members"]) {
+        NSString *identity([row objectForKey:@"identity"]);
+        if ([nested containsObject:identity]) {
+            ++nestedCount;
+            Expect([[[row objectForKey:@"policyDecision"] objectForKey:@"actual"]
+                isEqualToString:@"not_evaluated"],
+                @"nested rows remain unevaluated without canonical snapshots");
+            Expect([[[row objectForKey:@"target"] objectForKey:@"reason"]
+                isEqualToString:@"missing-canonical-package-snapshot"],
+                @"nested rows retain the canonical-snapshot gap");
+        } else if ([identity hasPrefix:@"CydiaProgressData|attribute|"] ||
+                   [identity hasPrefix:@"CydiaProgressEvent|attribute|"] ||
+                   [identity isEqualToString:@"Window|global|cydia"]) {
+            ++retiredOrChromeCount;
+            Expect([[[row objectForKey:@"policyDecision"] objectForKey:@"actual"]
+                isEqualToString:@"not_evaluated"],
+                @"retired and denied rows remain unevaluated");
+            Expect([[row objectForKey:@"dispatchStatus"]
+                hasPrefix:@"not_dispatched_"],
+                @"retired and denied rows remain non-dispatched");
+        }
+    }
+    Expect(nestedCount == 8 && retiredOrChromeCount == 15,
+        @"all 23 explicit unevaluated rows are classified");
+}
+
 void VerifyPathBoundsAndAtomicWrite(void) {
     char directoryTemplate[] = "/tmp/cydia-runtime-evidence-test.XXXXXX";
     char *directory(mkdtemp(directoryTemplate));
@@ -207,6 +250,7 @@ int main(void) {
     @autoreleasepool {
         VerifyDecisionOnlyNoInvocation();
         VerifyRenderingSessionLane();
+        VerifyExplicitUnevaluatedGaps();
         VerifyPathBoundsAndAtomicWrite();
         std::cout << "[verify-legacy-runtime-evidence][ ok ] bounded 152-row decision-only receipt"
                   << std::endl;

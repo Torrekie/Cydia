@@ -42,6 +42,12 @@ NSString *KindName(CydiaUIRouteDescriptor *descriptor) {
         return @"-";
     switch ([descriptor kind]) {
         case CydiaUIRouteKindHome: return @"home";
+        case CydiaUIRouteKindFAQ: return @"faq";
+        case CydiaUIRouteKindUpgradingGuide: return @"upgrading-guide";
+        case CydiaUIRouteKindApplicationExtensions: return @"application-extensions";
+        case CydiaUIRouteKindMoreSources: return @"more-sources";
+        case CydiaUIRouteKindCopyingFiles: return @"copying-files";
+        case CydiaUIRouteKindHomeGuide: return @"home-guide";
         case CydiaUIRouteKindSources: return @"sources";
         case CydiaUIRouteKindSourceAdd: return @"source-add";
         case CydiaUIRouteKindSource: return @"source";
@@ -53,6 +59,7 @@ NSString *KindName(CydiaUIRouteDescriptor *descriptor) {
         case CydiaUIRouteKindPackage: return @"package";
         case CydiaUIRouteKindPackageSettings: return @"package-settings";
         case CydiaUIRouteKindPackageFiles: return @"package-files";
+        case CydiaUIRouteKindPackageSupport: return @"package-support";
         case CydiaUIRouteKindLaunchApplication: return @"launch";
         case CydiaUIRouteKindExternalOpen: return @"external-open";
     }
@@ -167,6 +174,13 @@ void VerifyWebEnforcementBoundary(void) {
         [repositoryPackage isPolicyEnforced] &&
         ![repositoryPackage isShadowDenied],
         @"repository depiction retains its read-only package route");
+
+    CydiaUIRouteDispatchResult *repositoryForeign(CydiaUIDispatchRouteURL(
+        [NSURL URLWithString:@"cydia://package/other:iphoneos-arm64"],
+        ContextForName(@"repository-depiction"), ^BOOL(NSString *) { return YES; }));
+    Expect([repositoryForeign isAllowed] && [repositoryForeign isPolicyEnforced] &&
+        ![repositoryForeign isShadowDenied],
+        @"repository depiction permits a distinct package after a main-frame gesture");
 }
 
 NSArray *AbsoluteStrings(NSArray *urls) {

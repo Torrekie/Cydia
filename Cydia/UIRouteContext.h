@@ -31,6 +31,7 @@ typedef NS_ENUM(NSUInteger, CydiaUIRouteNavigationKind) {
 
 typedef NS_ENUM(NSUInteger, CydiaUIRouteKind) {
     CydiaUIRouteKindHome,
+    CydiaUIRouteKindFAQ,
     CydiaUIRouteKindSources,
     CydiaUIRouteKindSourceAdd,
     CydiaUIRouteKindSource,
@@ -44,6 +45,13 @@ typedef NS_ENUM(NSUInteger, CydiaUIRouteKind) {
     CydiaUIRouteKindPackageFiles,
     CydiaUIRouteKindLaunchApplication,
     CydiaUIRouteKindExternalOpen,
+    /* Append new kinds so existing route values remain stable. */
+    CydiaUIRouteKindUpgradingGuide,
+    CydiaUIRouteKindApplicationExtensions,
+    CydiaUIRouteKindMoreSources,
+    CydiaUIRouteKindCopyingFiles,
+    CydiaUIRouteKindHomeGuide,
+    CydiaUIRouteKindPackageSupport,
 };
 
 typedef NS_ENUM(NSUInteger, CydiaUIRouteDisposition) {

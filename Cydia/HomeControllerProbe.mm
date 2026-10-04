@@ -8,6 +8,13 @@
 #if TARGET_OS_SIMULATOR && defined(CYDIA_HOME_SIMULATOR_PROBE)
 
 #include "Cydia/HomeController.h"
+#include "Cydia/FAQController.h"
+#include "Cydia/UpgradingGuideController.h"
+#include "Cydia/MoreSourcesController.h"
+#include "Cydia/CopyingFilesGuideController.h"
+#include "Cydia/HomeGuideController.h"
+#include "Cydia/HomePlaceholderController.h"
+#include "Cydia/HomeStorageController.h"
 #include "Cydia/AppState.h"
 #include "Cydia/Appearance.h"
 #include "Cydia/UIRouteContext.h"
@@ -187,6 +194,51 @@ static NSDictionary *HomeProbeProtocolSnapshot(void) {
     ++self.routeCount;
     self.lastRoute = [URL absoluteString];
     self.lastReferrer = referrer;
+    if ([[URL scheme].lowercaseString isEqualToString:@"cydia"] &&
+        [[URL host].lowercaseString isEqualToString:@"home"] &&
+        [[URL path] isEqualToString:@"/faq"]) {
+        FAQController *faq([[FAQController alloc] init]);
+        if (faq != nil)
+            return faq;
+    }
+    if ([[URL scheme].lowercaseString isEqualToString:@"cydia"] &&
+        [[URL host].lowercaseString isEqualToString:@"home"] &&
+        [[URL path] hasPrefix:@"/upgrading-jailbreaking"]) {
+        NSArray *parts = [[URL path] componentsSeparatedByString:@"/"];
+        NSString *identifier = parts.count > 2 && [parts[2] length] != 0 ? parts[2] : @"root";
+        UpgradingGuideController *guide([[UpgradingGuideController alloc]
+            initWithPageIdentifier:identifier]);
+        if (guide != nil) {
+            [guide setDelegate:self];
+            return guide;
+        }
+    }
+    if ([CydiaUIParseRouteURL(URL, NULL) kind] == CydiaUIRouteKindMoreSources) {
+        MoreSourcesController *guide = [[MoreSourcesController alloc] initWithProvider:
+            [[CydiaMoreSourcesProvider alloc] initWithDatabase:nil]];
+        [guide setDelegate:self];
+        return guide;
+    }
+    if ([CydiaUIParseRouteURL(URL, NULL) kind] == CydiaUIRouteKindCopyingFiles) {
+        CopyingFilesGuideController *guide = [[CopyingFilesGuideController alloc] init];
+        [guide setDelegate:self];
+        return guide;
+    }
+    CydiaUIRouteDescriptor *guideRoute = CydiaUIParseRouteURL(URL, NULL);
+    if (guideRoute.kind == CydiaUIRouteKindHomeGuide) {
+        CyteViewController *guide;
+        if ([guideRoute.arguments[0] isEqualToString:@"storage"])
+            guide = [[HomeStorageController alloc] init];
+        else if ([[@[@"featured", @"themes", @"account"] copy]
+                  containsObject:guideRoute.arguments[0]])
+            guide = [[HomePlaceholderController alloc]
+                initWithPageIdentifier:guideRoute.arguments[0]];
+        else
+            guide = [[HomeGuideController alloc]
+                initWithPageIdentifier:guideRoute.arguments[0]];
+        [guide setDelegate:self];
+        return guide;
+    }
     CydiaHomeProbeDestinationController *destination(
         [[CydiaHomeProbeDestinationController alloc] init]);
     destination.URLString = [URL absoluteString];
@@ -227,6 +279,33 @@ static UIView *HomeProbeFindView(UIView *root, NSString *identifier) {
 static UITableView *HomeProbeFindTableWithIdentifier(UIView *root, NSString *identifier) {
     UIView *view(HomeProbeFindView(root, identifier));
     return [view isKindOfClass:[UITableView class]] ? (UITableView *)view : nil;
+}
+
+static UITableView *HomeProbeFindGuideTable(UIView *root) {
+    UITableView *table = HomeProbeFindTableWithIdentifier(root,
+        @"cydia.home.upgrading.rows");
+    return table != nil ? table : HomeProbeFindTableWithIdentifier(root,
+        @"cydia.home.upgrading.master.rows");
+}
+
+// Keep the command's flat link ordinal stable when the root inserts its
+// bulletin after primary links. Detail rows on the tools page are deliberately
+// not actions, so use the production accessibility identity instead of making
+// assumptions about section parity.
+static NSArray<NSIndexPath *> *HomeProbeGuideActionPaths(UITableView *table) {
+    NSMutableArray<NSIndexPath *> *paths = [NSMutableArray array];
+    NSInteger sections = [table.dataSource numberOfSectionsInTableView:table];
+    for (NSInteger section = 0; section < sections; ++section) {
+        NSInteger rows = [table.dataSource tableView:table numberOfRowsInSection:section];
+        for (NSInteger row = 0; row < rows; ++row) {
+            NSIndexPath *path = [NSIndexPath indexPathForRow:row inSection:section];
+            UITableViewCell *cell = [table.dataSource tableView:table
+                cellForRowAtIndexPath:path];
+            if ([cell.accessibilityIdentifier hasPrefix:@"cydia.home.upgrading.row."])
+                [paths addObject:path];
+        }
+    }
+    return paths;
 }
 
 static NSIndexPath *HomeProbeIndexPathForIdentifier(UITableView *table,
@@ -376,6 +455,7 @@ static CydiaHomeViewModel *HomeProbeModel(NSString *phase) {
     BOOL dark_;
     BOOL accessibilityLarge_;
     NSUInteger settleTicks_;
+    NSString *guideCommandToken_;
     NSURLSession *protocolSession_;
     NSURLSessionDataTask *protocolCanaryTask_;
     NSURLSessionDataTask *protocolHomeCanaryTask_;
@@ -538,6 +618,38 @@ static CydiaHomeViewModel *HomeProbeModel(NSString *phase) {
         [self applyTraits];
         settleTicks_ = 5;
     }
+    if ([self consumeMarker:@"cydia-home-probe-light-accessibility"]) {
+        dark_ = NO;
+        accessibilityLarge_ = YES;
+        [self applyTraits];
+        settleTicks_ = 5;
+    }
+    // Simulator-only finite guide control. It invokes the actual table delegate;
+    // it is not physical-input/VoiceOver execution evidence.
+    NSString *guideCommandPath = [self markerPath:@"cydia-home-probe-upgrading-command.plist"];
+    NSDictionary *guideCommand = [NSDictionary dictionaryWithContentsOfFile:guideCommandPath];
+    if (guideCommand != nil && [self consumeMarker:@"cydia-home-probe-upgrading-command.plist"]) {
+        guideCommandToken_ = [guideCommand[@"token"] copy];
+        UITableView *table = HomeProbeFindGuideTable(navigation_.topViewController.view);
+        NSString *action = guideCommand[@"action"];
+        NSInteger row = [guideCommand[@"row"] integerValue];
+        NSArray<NSIndexPath *> *actions = HomeProbeGuideActionPaths(table);
+        if ([action isEqualToString:@"back"]) {
+            UpgradingGuideController *guide = [navigation_.topViewController
+                isKindOfClass:[UpgradingGuideController class]] ?
+                (UpgradingGuideController *)navigation_.topViewController : nil;
+            if (guide == nil || ![guide popDisplayedSplitPage])
+                [navigation_ popViewControllerAnimated:NO];
+        }
+        else if (table != nil && row >= 0 && row < actions.count) {
+            NSIndexPath *path = actions[row];
+            if ([action isEqualToString:@"select"])
+                [table.delegate tableView:table didSelectRowAtIndexPath:path];
+            else if ([action isEqualToString:@"scroll"])
+                [table scrollToRowAtIndexPath:path atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
+        }
+        settleTicks_ = 8;
+    }
     if ([self consumeMarker:@"cydia-home-probe-empty"]) {
         dark_ = NO;
         accessibilityLarge_ = NO;
@@ -583,11 +695,48 @@ static CydiaHomeViewModel *HomeProbeModel(NSString *phase) {
         if (indexPath != nil)
             [table.delegate tableView:table didSelectRowAtIndexPath:indexPath];
     }
+    if ([self consumeMarker:@"cydia-home-probe-upgrading-guide"]) {
+        UITableView *table(HomeProbeFindTableWithIdentifier(controller_.view,
+            @"cydia.home.table"));
+        NSIndexPath *indexPath(HomeProbeIndexPathForIdentifier(table,
+            @"cydia.home.help.upgrading"));
+        if (indexPath != nil)
+            [table.delegate tableView:table didSelectRowAtIndexPath:indexPath];
+        settleTicks_ = 8;
+    }
+    if ([self consumeMarker:@"cydia-home-probe-upgrading-detail"]) {
+        UITableView *table(HomeProbeFindGuideTable(navigation_.topViewController.view));
+        NSArray<NSIndexPath *> *actions = HomeProbeGuideActionPaths(table);
+        if (actions.count != 0)
+            [table.delegate tableView:table
+                didSelectRowAtIndexPath:actions[0]];
+        settleTicks_ = 8;
+    }
+    if ([self consumeMarker:@"cydia-home-probe-faq-detail"]) {
+        UITableView *table(HomeProbeFindTableWithIdentifier(
+            navigation_.topViewController.view, @"cydia.home.faq.questions"));
+        if (table != nil && [table.dataSource tableView:table
+                numberOfRowsInSection:0] > 0)
+            [table.delegate tableView:table
+                didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
+        /* iOS 12's native navigation push can outlive the first three
+         * 200ms probe ticks under a loaded simulator. */
+        settleTicks_ = 8;
+    }
+    if ([self consumeMarker:@"cydia-home-probe-faq-pop"])
+        [navigation_ popViewControllerAnimated:NO];
     if ([self consumeMarker:@"cydia-home-probe-featured"]) {
         UIButton *button((UIButton *)HomeProbeFindView(controller_.view,
             @"cydia.home.featured"));
         if ([button isKindOfClass:[UIButton class]])
             [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+    }
+    for (NSString *social in @[@"facebook", @"twitter"]) {
+        if ([self consumeMarker:[@"cydia-home-probe-" stringByAppendingString:social]]) {
+            UIButton *button((UIButton *)HomeProbeFindView(controller_.view, [@"cydia.home.social." stringByAppendingString:social]));
+            if ([button isKindOfClass:[UIButton class]]) [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+            settleTicks_ = 5;
+        }
     }
     if ([self consumeMarker:@"cydia-home-probe-ipad-package"]) {
         UITableView *table(HomeProbeFindTableWithIdentifier(controller_.view,
@@ -695,6 +844,67 @@ static CydiaHomeViewModel *HomeProbeModel(NSString *phase) {
     UITableView *recommendations(HomeProbeFindTableWithIdentifier(controller_.view,
         @"cydia.home.ipad.recommendations"));
     UITableViewCell *recommendationSurfaceCell(nil);
+
+    UIView *faqTopView(navigation_.topViewController.view);
+    UITableView *faqTable(HomeProbeFindTableWithIdentifier(faqTopView,
+        @"cydia.home.faq.questions"));
+    UITextView *faqAnswer((UITextView *)HomeProbeFindView(faqTopView,
+        @"cydia.home.faq.answer.what-is-cydia"));
+    NSMutableArray<NSString *> *faqQuestionIdentifiers([NSMutableArray array]);
+    NSMutableArray<NSNumber *> *faqRowHeights([NSMutableArray array]);
+    BOOL faqRowsMeetTouchTarget(YES);
+    if (faqTable != nil) {
+        NSInteger faqSections([faqTable.dataSource numberOfSectionsInTableView:faqTable]);
+        for (NSInteger section(0); section != faqSections; ++section) {
+            NSInteger count([faqTable.dataSource tableView:faqTable
+                numberOfRowsInSection:section]);
+            for (NSInteger row(0); row != count; ++row) {
+                NSIndexPath *indexPath([NSIndexPath indexPathForRow:row inSection:section]);
+                UITableViewCell *cell([faqTable.dataSource tableView:faqTable
+                    cellForRowAtIndexPath:indexPath]);
+                [faqQuestionIdentifiers addObject:cell.accessibilityIdentifier ?: @""];
+                CGRect frame([faqTable rectForRowAtIndexPath:indexPath]);
+                [faqRowHeights addObject:@(CGRectGetHeight(frame))];
+                faqRowsMeetTouchTarget = faqRowsMeetTouchTarget &&
+                    CGRectGetHeight(frame) >= 44.0;
+            }
+        }
+    }
+    CGRect faqAnswerFrame(faqAnswer == nil ? CGRectZero :
+        [faqAnswer.superview convertRect:faqAnswer.frame toView:faqTopView]);
+    UIView *guideTopView(navigation_.topViewController.view);
+    UITableView *guideTable(HomeProbeFindGuideTable(guideTopView));
+    UIView *guideBody(HomeProbeFindView(guideTopView, @"cydia.home.upgrading.body.text"));
+    NSMutableArray *guideRows = [NSMutableArray array];
+    NSArray<NSIndexPath *> *guideActions = HomeProbeGuideActionPaths(guideTable);
+    for (UITableViewCell *cell in guideTable.visibleCells) {
+        NSIndexPath *path = [guideTable indexPathForCell:cell];
+        UILabel *label = (UILabel *)HomeProbeFindView(cell, @"cydia.home.upgrading.label");
+        UIImageView *icon = (UIImageView *)HomeProbeFindView(cell, @"cydia.home.upgrading.icon");
+        CGSize required = [label sizeThatFits:CGSizeMake(label.bounds.size.width, CGFLOAT_MAX)];
+        [guideRows addObject:@{
+            @"section": @(path.section), @"row": @(path.row),
+            @"linkIndex": @([guideActions containsObject:path] ? (NSInteger)[guideActions indexOfObject:path] : -1),
+            @"identifier": cell.accessibilityIdentifier ?: @"",
+            @"label": cell.accessibilityLabel ?: @"",
+            @"value": cell.accessibilityValue ?: @"",
+            @"traits": @(cell.accessibilityTraits),
+            @"isAccessibilityElement": @(cell.isAccessibilityElement),
+            @"frame": NSStringFromCGRect([cell convertRect:cell.bounds toView:nil]),
+            @"labelFrame": NSStringFromCGRect([label convertRect:label.bounds toView:nil]),
+            @"labelRequiredHeight": @(required.height),
+            @"labelUnclipped": @(label != nil && label.bounds.size.height + 0.5 >= required.height),
+            @"fontSize": @(label.font.pointSize),
+            @"hasImage": @(icon.image != nil),
+            }];
+    }
+
+    NSInteger visibleNavigationDepth = navigation_.viewControllers.count;
+    if ([navigation_.topViewController isKindOfClass:[UpgradingGuideController class]] &&
+            [(UpgradingGuideController *)navigation_.topViewController hasDisplayedSplitPage])
+        /* A selected split detail is a visible navigation level even though
+         * it lives in the secondary column rather than the outer stack. */
+        ++visibleNavigationDepth;
 
     NSArray<NSString *> *splitIDs(@[@"cydia.home.social.facebook",
         @"cydia.home.social.twitter", @"cydia.home.featured", @"cydia.home.themes"]);
@@ -869,7 +1079,27 @@ static CydiaHomeViewModel *HomeProbeModel(NSString *phase) {
         @"controllerToken": controllerToken_ ?: @"",
         @"modelToken": modelToken_ ?: @"",
         @"navigationURL": [[controller_ navigationURL] absoluteString] ?: @"",
-        @"navigationDepth": @(navigation_.viewControllers.count),
+        @"navigationDepth": @(visibleNavigationDepth),
+        @"topControllerClass": NSStringFromClass([navigation_.topViewController class]),
+        @"topNavigationURL": [[navigation_.topViewController navigationURL] absoluteString] ?: @"",
+        @"faqListVisible": @(faqTable != nil),
+        @"faqDetailVisible": @(faqAnswer != nil),
+        @"faqQuestionIdentifiers": faqQuestionIdentifiers,
+        @"faqQuestionCount": @(faqQuestionIdentifiers.count),
+        @"faqRowHeights": faqRowHeights,
+        @"faqRowsMeetTouchTarget": @(faqRowsMeetTouchTarget),
+        @"faqAnswerAccessibilityIdentifier": faqAnswer.accessibilityIdentifier ?: @"",
+        @"faqAnswerTextLength": @(faqAnswer.text.length),
+        @"faqAnswerFrameWidth": @(CGRectGetWidth(faqAnswerFrame)),
+        @"faqAnswerFrameHeight": @(CGRectGetHeight(faqAnswerFrame)),
+        @"faqAnswerScrollEnabled": @(faqAnswer.scrollEnabled),
+        @"upgradingGuideListVisible": @(guideTable != nil),
+        @"upgradingGuideRowCount": @(guideActions.count),
+        @"upgradingGuideBodyVisible": @(guideBody != nil),
+        @"upgradingGuideVisibleRows": guideRows,
+        @"upgradingGuideCommandToken": guideCommandToken_ ?: @"",
+        @"upgradingGuideContentSize": NSStringFromCGSize(guideTable.contentSize),
+        @"upgradingGuideContentOffset": NSStringFromCGPoint(guideTable.contentOffset),
         @"sectionCount": @(sections),
         @"rowCount": @(rows.count),
         @"rowIdentifiers": rows,

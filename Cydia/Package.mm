@@ -374,7 +374,17 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
                 for (std::vector<std::string>::const_iterator tag(aptTags.begin()); tag != aptTags.end(); ++tag) {
                     const char *name(tag->c_str());
-                    NSString *string(CFBridgingRelease(CYStringCreate(name)));
+                    /* CYStringCreate() deliberately borrows its input bytes;
+                     * the tag vector is temporary during package snapshot
+                     * construction.  Copy the value before retaining it so
+                     * Package.tags/purposes remain stable after init. */
+                    NSString *string([[NSString alloc] initWithBytes:tag->data()
+                                                                length:tag->size()
+                                                              encoding:NSUTF8StringEncoding]);
+                    if (string == nil)
+                        string = [[NSString alloc] initWithBytes:tag->data()
+                                                           length:tag->size()
+                                                         encoding:NSISOLatin1StringEncoding];
                     if (string == nil)
                         continue;
 

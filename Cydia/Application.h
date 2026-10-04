@@ -40,7 +40,13 @@
     __strong CydiaLegacyUICompatibilityNativeCaller *legacyCompatibilityCaller_;
     __strong CydiaLegacyUICompatibilityNativeProvider *legacyCompatibilityProvider_;
     __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilityApplicationSession_;
+    __strong NSTimer *legacyInterfaceStyleTimer_;
+    NSUInteger legacyCompatibilityApplicationDiagnosticAttempts_;
     BOOL legacyCompatibilityRuntimeEvidenceConsumed_;
+    BOOL legacyCompatibilityExecutionEvidenceConsumed_;
+    BOOL legacyCompatibilityMatrixEvidenceConsumed_;
+    NSUInteger legacyCompatibilityExecutionEvidenceAttempts_;
+    BOOL legacyCompatibilityMutationDiagnosticConsumed_;
 
     _H<NSURL> starturl_;
     unsigned locked_;
@@ -76,6 +82,7 @@
 - (void) removeStashController;
 - (void) addStashController;
 - (void) loadData;
+- (void) cydiaLegacyInterfaceStyleTimerTick:(NSTimer *)timer;
 
 /* App-owned, capability-bound compatibility entry points.  These factories
  * are intentionally the only production way to obtain a native legacy
@@ -87,9 +94,17 @@
 - (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForSource:(Source *)source
                                                                             presenter:(id)presenter;
 - (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForApplicationWithPresenter:(id)presenter;
+/* Opt-in mutation diagnostics run after the native tab bar is attached.  The
+ * query is deliberately mode-allowlisted in Application+Data so normal
+ * launches retain their ordinary source refresh ordering. */
+- (BOOL) legacyUICompatibilityMutationDiagnosticRequested;
+- (void) consumeLegacyUICompatibilityMutationDiagnosticIfRequested;
 - (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForRenderingWithPresenter:(id)presenter;
 - (void) consumeLegacyUICompatibilityApplicationSessionIfRequested;
 - (void) consumeLegacyUICompatibilityRuntimeEvidenceIfRequested;
+- (void) consumeLegacyUICompatibilityMatrixEvidenceIfRequested;
+- (void) consumeLegacyUICompatibilityExecutionEvidenceIfRequested;
+- (void) consumeLegacyUICompatibilityMutationDiagnosticIfRequested;
 - (void) invalidateLegacyUICompatibility;
 
 @end

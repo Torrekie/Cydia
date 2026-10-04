@@ -10,9 +10,18 @@
 #include "Cydia/Appearance.h"
 #include "Cydia/ChangeControllers.h"
 #include "Cydia/ExternalURLController.h"
+#include "Cydia/FAQController.h"
+#include "Cydia/UpgradingGuideController.h"
+#include "Cydia/ApplicationExtensionsController.h"
+#include "Cydia/MoreSourcesController.h"
+#include "Cydia/CopyingFilesGuideController.h"
+#include "Cydia/HomeGuideController.h"
+#include "Cydia/HomePlaceholderController.h"
+#include "Cydia/HomeStorageController.h"
 #include "Cydia/HomeController.h"
 #include "Cydia/PackageControllers.h"
 #include "Cydia/PackageFeatureControllers.h"
+#include "Cydia/PackageSupportController.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/SectionControllers.h"
 #include "Cydia/SourceControllers.h"
@@ -26,6 +35,8 @@
 #include "CyteKit/extern.h"
 #include "Menes/Menes.h"
 #include "iPhonePrivate.h"
+
+#import <objc/runtime.h>
 
 #define ForRelease 1
 #undef _trace
@@ -50,7 +61,64 @@ static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
     return CydiaPackageRouteMatchesController([tabbar selectedViewController], identity);
 }
 
+static char CydiaPendingExternalURLKey;
+
+static UIViewController *CydiaExternalPresentationHost(UIViewController *controller) {
+    /* Follow the visible hierarchy, including native Support's form-sheet
+     * navigation and the guide detail column, rather than the covered tab. */
+    while (controller != nil) {
+        UIViewController *next(controller.presentedViewController);
+        if (next == nil && [controller isKindOfClass:[UITabBarController class]])
+            next = [(UITabBarController *)controller selectedViewController];
+        if (next == nil && [controller isKindOfClass:[UINavigationController class]])
+            next = [(UINavigationController *)controller visibleViewController];
+        if (next == nil && [controller isKindOfClass:[UISplitViewController class]])
+            next = [[(UISplitViewController *)controller viewControllers] lastObject];
+        if (next == nil || next == controller)
+            return controller;
+        controller = next;
+    }
+    return nil;
+}
+
 @implementation Cydia (Navigation)
+- (BOOL)_openExternalRoute:(CydiaUIRouteDispatchResult *)route {
+    CydiaUIRouteDescriptor *descriptor([route descriptor]);
+    if (![route isAllowed] || [descriptor kind] != CydiaUIRouteKindExternalOpen)
+        return NO;
+    ExternalURLController *pending(objc_getAssociatedObject(self,
+        &CydiaPendingExternalURLKey));
+    if ([pending hasPendingOpenRequest])
+        return [pending coalescePendingDestinationURL:[descriptor externalURL]];
+
+    UIViewController *presenter(CydiaExternalPresentationHost([window_ rootViewController]));
+    /* An unrelated alert/presentation is not a new destination host. */
+    if (presenter == nil || [presenter isKindOfClass:[UIAlertController class]] ||
+        presenter.isBeingPresented || presenter.isBeingDismissed ||
+        presenter.presentedViewController != nil)
+        return NO;
+    ExternalURLController *coordinator([[ExternalURLController alloc]
+        initWithRouteDescriptor:descriptor]);
+    if (coordinator == nil)
+        return NO;
+    [coordinator setDelegate:self];
+    __weak Cydia *weakApplication(self);
+    __weak ExternalURLController *weakCoordinator(coordinator);
+    objc_setAssociatedObject(self, &CydiaPendingExternalURLKey, coordinator,
+        OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    BOOL opened([coordinator openFromViewController:presenter completion:^{
+        Cydia *application(weakApplication);
+        if (application != nil && objc_getAssociatedObject(application,
+                &CydiaPendingExternalURLKey) == weakCoordinator)
+            objc_setAssociatedObject(application, &CydiaPendingExternalURLKey, nil,
+                OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }]);
+    if (!opened)
+        objc_setAssociatedObject(self, &CydiaPendingExternalURLKey, nil,
+            OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return opened;
+}
+
 - (void) disemulate {
     if (emulated_ == nil)
         return;
@@ -94,6 +162,45 @@ static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
     switch ([descriptor kind]) {
         case CydiaUIRouteKindHome:
             controller = [[HomeController alloc] initWithDatabase:database_];
+            break;
+        case CydiaUIRouteKindFAQ:
+            controller = [arguments count] == 1 ?
+                [[FAQController alloc] init] :
+                [[FAQController alloc] initWithQuestionIdentifier:[arguments objectAtIndex:1]];
+            if (controller == nil)
+                return nil;
+            break;
+        case CydiaUIRouteKindUpgradingGuide:
+            controller = [arguments count] == 1 ?
+                [[UpgradingGuideController alloc] init] :
+                [[UpgradingGuideController alloc] initWithPageIdentifier:[arguments objectAtIndex:1]];
+            if (controller == nil)
+                return nil;
+            break;
+        case CydiaUIRouteKindApplicationExtensions:
+            controller = [arguments count] == 1 ?
+                [[ApplicationExtensionsController alloc] init] :
+                [[ApplicationExtensionsController alloc] initWithBundleIdentifier:[arguments objectAtIndex:1]];
+            if (controller == nil)
+                return nil;
+            break;
+        case CydiaUIRouteKindMoreSources:
+            controller = [[MoreSourcesController alloc] initWithProvider:
+                [[CydiaMoreSourcesProvider alloc] initWithDatabase:database_]];
+            break;
+        case CydiaUIRouteKindCopyingFiles:
+            controller = [[CopyingFilesGuideController alloc] init];
+            break;
+        case CydiaUIRouteKindHomeGuide:
+            if ([[arguments objectAtIndex:0] isEqualToString:@"storage"])
+                controller = [[HomeStorageController alloc] init];
+            else if ([[@[@"featured", @"themes", @"account"] copy]
+                      containsObject:[arguments objectAtIndex:0]])
+                controller = [[HomePlaceholderController alloc]
+                    initWithPageIdentifier:[arguments objectAtIndex:0]];
+            else
+                controller = [[HomeGuideController alloc]
+                    initWithPageIdentifier:[arguments objectAtIndex:0]];
             break;
         case CydiaUIRouteKindSources:
             controller = [[SourcesController alloc] initWithDatabase:database_];
@@ -163,6 +270,10 @@ static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
             controller = [[FileTable alloc] initWithDatabase:database_
                 forPackage:[arguments objectAtIndex:0]];
             break;
+        case CydiaUIRouteKindPackageSupport:
+            controller = [[PackageSupportController alloc] initWithDatabase:database_
+                package:[arguments objectAtIndex:0]];
+            break;
         case CydiaUIRouteKindLaunchApplication:
             [self launchApplicationWithIdentifier:[arguments objectAtIndex:0] suspended:NO];
             return nil;
@@ -192,9 +303,15 @@ static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
     if (![route isAllowed])
         return nil;
 
-    /* A depiction/native caller can deliver the same package URL while the
-     * transient package tab is settling. Returning no new page prevents a
-     * second PackageDetailController and its initial WK load. */
+    if ([[route descriptor] kind] == CydiaUIRouteKindExternalOpen) {
+        [self _openExternalRoute:route];
+        return nil;
+    }
+
+    /* Depiction/native callers can hand the same package URL to pageForURL:
+     * while the transient package tab is settling.  Returning no new page is
+     * the route-level no-op used by the caller, and prevents a second native
+     * PackageDetailController (and therefore a second initial WK load). */
     if ([[route descriptor] kind] == CydiaUIRouteKindPackage) {
         NSArray *arguments([[route descriptor] arguments]);
         NSString *identity([arguments count] == 0 ? nil : [arguments objectAtIndex:0]);
@@ -228,6 +345,15 @@ static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
     if (![route isAllowed])
         return NO;
 
+    if ([[route descriptor] kind] == CydiaUIRouteKindExternalOpen)
+        return [self _openExternalRoute:route];
+
+    /* A package URL can be delivered twice while an external/openURL caller
+     * and the transient-tab handoff settle on the main queue.  Recreating the
+     * same package controller starts a second WK depiction load before the
+     * first one settles, producing duplicate initial server requests.  Keep
+     * one transient controller per package identity; explicit retry remains
+     * owned by PackageDepictionView and still issues exactly one reload. */
     if ([[route descriptor] kind] == CydiaUIRouteKindPackage) {
         NSArray *arguments([[route descriptor] arguments]);
         NSString *identity([arguments count] == 0 ? nil : [arguments objectAtIndex:0]);
@@ -238,31 +364,8 @@ static BOOL CydiaPackageRouteIsAlreadyVisible(CydiaTabBarController *tabbar,
     CyteViewController *page([self _pageForRoute:route context:context
         withReferrer:nil]);
 
-    if (page != nil) {
-        if ([[route descriptor] kind] == CydiaUIRouteKindExternalOpen) {
-            /* An external coordinator is a temporary child of the current
-             * page, not a replacement for the transient tab's root. */
-            UIViewController *selected([tabbar_ selectedViewController]);
-            if (![selected isKindOfClass:[UINavigationController class]])
-                return NO;
-            UINavigationController *navigation((UINavigationController *) selected);
-            if ([[navigation topViewController] isKindOfClass:[ExternalURLController class]]) {
-                ExternalURLController *pending((ExternalURLController *)
-                    [navigation topViewController]);
-                if ([pending hasPendingOpenRequest])
-                    return [pending coalescePendingDestinationURL:
-                        [[route descriptor] externalURL]];
-            }
-            if ([navigation topViewController] == nil ||
-                [tabbar_ presentedViewController] != nil ||
-                [navigation presentedViewController] != nil ||
-                [[navigation topViewController] presentedViewController] != nil)
-                return NO;
-            [navigation pushViewController:page animated:YES];
-        } else {
-            [tabbar_ setUnselectedViewController:page];
-        }
-    }
+    if (page != nil)
+        [tabbar_ setUnselectedViewController:page];
 
     if (page != nil)
         return YES;

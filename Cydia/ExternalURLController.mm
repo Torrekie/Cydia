@@ -12,7 +12,8 @@
 
 #import <SafariServices/SafariServices.h>
 
-@interface ExternalURLController () <SFSafariViewControllerDelegate>
+@interface ExternalURLController () <SFSafariViewControllerDelegate,
+    UIAdaptivePresentationControllerDelegate>
 @property(nonatomic, strong) CydiaExternalURLPolicy *policy;
 @property(nonatomic, strong) CydiaUIRouteDescriptor *routeDescriptor;
 @property(nonatomic, strong) SFSafariViewController *safariController;
@@ -21,6 +22,8 @@
 @property(nonatomic, strong) UIButton *retryButton;
 @property(nonatomic) BOOL attempted;
 @property(nonatomic, readwrite) CydiaExternalURLControllerState state;
+@property(nonatomic, weak) UIViewController *presentationHost;
+@property(nonatomic, copy) void (^handoffCompletion)(void);
 @end
 
 
@@ -51,6 +54,44 @@
 
 - (NSURL *)navigationURL {
     return [_routeDescriptor originalURL];
+}
+
+- (BOOL)openFromViewController:(UIViewController *)presenter
+                   completion:(void (^)(void))completion {
+    if (presenter == nil || presenter.view.window == nil ||
+        presenter.presentedViewController != nil || presenter.isBeingDismissed ||
+        _attempted || _presentationHost != nil)
+        return NO;
+    _presentationHost = presenter;
+    _handoffCompletion = [completion copy];
+    [self beginOpening];
+    return YES;
+}
+
+- (UIViewController *)handoffPresenter {
+    return _presentationHost ?: self;
+}
+
+- (void)reportDirectHandoffFailure {
+    if (_handoffCompletion == nil)
+        return;
+    if (_presentationHost == nil) {
+        [self returnToPreviousController];
+        return;
+    }
+    UIAlertController *alert([UIAlertController
+        alertControllerWithTitle:UCLocalize("UNABLE_TO_LOAD")
+        message:[_policy displayName] preferredStyle:UIAlertControllerStyleAlert]);
+    __weak ExternalURLController *weakSelf(self);
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CLOSE")
+        style:UIAlertActionStyleCancel handler:^(UIAlertAction *) {
+            [weakSelf returnToPreviousController];
+        }]];
+    if (_presentationHost.view.window != nil &&
+        _presentationHost.presentedViewController == nil)
+        [_presentationHost presentViewController:alert animated:YES completion:nil];
+    else
+        [self returnToPreviousController];
 }
 
 - (void)loadView {
@@ -178,17 +219,16 @@
     [self beginOpening];
 }
 
-- (BOOL)hasPendingOpenRequest {
-    return (_state == CydiaExternalURLControllerStateReady && !_attempted) ||
-        _state == CydiaExternalURLControllerStateOpening ||
-        _state == CydiaExternalURLControllerStatePresented;
-}
-
-- (BOOL)coalescePendingDestinationURL:(NSURL *)URL {
-    if (![self hasPendingOpenRequest])
-        return NO;
-    return [URL isKindOfClass:[NSURL class]] &&
-        [[_policy destinationURL] isEqual:URL];
+- (void)recordDiagnosticEvent:(NSString *)event {
+    if (![[[[NSProcessInfo processInfo] environment]
+        objectForKey:@"CYDIA_NATIVE_EXTERNAL_URL_DIAGNOSTICS"] isEqualToString:@"1"])
+        return;
+    /* Opt-in lifecycle evidence only: never record the URL, recipient, query,
+     * or payload. This distinguishes a selected alert action from a reported
+     * automation tap and a system completion from a visible destination. */
+    NSLog(@"[CydiaExternalURL] event=%@ scheme=%@ state=%lu navigationDepth=%lu",
+        event, [[_policy destinationURL] scheme], (unsigned long)_state,
+        (unsigned long)[self.navigationController.viewControllers count]);
 }
 
 - (void)beginOpening {
@@ -196,6 +236,7 @@
         return;
     _attempted = YES;
     self.state = CydiaExternalURLControllerStateOpening;
+    [self recordDiagnosticEvent:@"begin"];
 
     if ([_policy requiresConfirmation]) {
         __weak ExternalURLController *weakSelf(self);
@@ -206,12 +247,16 @@
         [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL")
             style:UIAlertActionStyleCancel handler:^(UIAlertAction *) {
                 weakSelf.state = CydiaExternalURLControllerStateReady;
+                [weakSelf recordDiagnosticEvent:@"app-store-cancel"];
+                if (weakSelf.presentationHost != nil)
+                    [weakSelf returnToPreviousController];
             }]];
         [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("MORE_INFORMATION")
             style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+                [weakSelf recordDiagnosticEvent:@"app-store-confirm"];
                 [weakSelf openWithSystemHandler];
             }]];
-        [self presentViewController:alert animated:YES completion:nil];
+        [[self handoffPresenter] presentViewController:alert animated:YES completion:nil];
         return;
     }
 
@@ -221,24 +266,44 @@
         [self openWithSystemHandler];
 }
 
+- (BOOL)hasPendingOpenRequest {
+    return (_state == CydiaExternalURLControllerStateReady && !_attempted) ||
+        _state == CydiaExternalURLControllerStateOpening ||
+        _state == CydiaExternalURLControllerStatePresented;
+}
+
+- (BOOL)coalescePendingDestinationURL:(NSURL *)URL {
+    if (![self hasPendingOpenRequest])
+        return NO;
+    BOOL same([URL isKindOfClass:[NSURL class]] &&
+        [[_policy destinationURL] isEqual:URL]);
+    [self recordDiagnosticEvent:same ? @"duplicate-open-coalesced" :
+        @"overlapping-open-rejected"];
+    return same;
+}
+
 - (void)presentSafari {
     SFSafariViewController *controller([[SFSafariViewController alloc]
         initWithURL:[_policy destinationURL] entersReaderIfAvailable:NO]);
     if (controller == nil) {
         self.state = CydiaExternalURLControllerStateFailed;
+        [self reportDirectHandoffFailure];
         return;
     }
     controller.delegate = self;
     if ([controller respondsToSelector:@selector(setPreferredControlTintColor:)])
         controller.preferredControlTintColor = [UIColor
-            cydiaColorForRole:CydiaColorRoleAccent traitCollection:self.traitCollection];
+            cydiaColorForRole:CydiaColorRoleAccent
+            traitCollection:[self handoffPresenter].traitCollection];
     _safariController = controller;
-    [self presentViewController:controller animated:YES completion:^{
+    controller.presentationController.delegate = self;
+    [[self handoffPresenter] presentViewController:controller animated:YES completion:^{
         self.state = CydiaExternalURLControllerStatePresented;
     }];
 }
 
 - (void)openWithSystemHandler {
+    [self recordDiagnosticEvent:@"system-open-request"];
     UIApplication *application([UIApplication sharedApplication]);
     NSURL *URL([_policy destinationURL]);
     __weak ExternalURLController *weakSelf(self);
@@ -246,8 +311,11 @@
         dispatch_async(dispatch_get_main_queue(), ^{
             weakSelf.state = success ? CydiaExternalURLControllerStateComplete :
                                        CydiaExternalURLControllerStateFailed;
+            [weakSelf recordDiagnosticEvent:success ? @"system-open-success" : @"system-open-failure"];
             if (success)
                 [weakSelf returnToPreviousController];
+            else
+                [weakSelf reportDirectHandoffFailure];
         });
     };
     if ([application respondsToSelector:@selector(openURL:options:completionHandler:)])
@@ -261,12 +329,27 @@
         return;
     _safariController = nil;
     self.state = CydiaExternalURLControllerStateComplete;
-    [self dismissViewControllerAnimated:YES completion:^{
+    [controller dismissViewControllerAnimated:YES completion:^{
         [self returnToPreviousController];
     }];
 }
 
+- (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController {
+    if (presentationController.presentedViewController != _safariController)
+        return;
+    _safariController = nil;
+    self.state = CydiaExternalURLControllerStateComplete;
+    [self returnToPreviousController];
+}
+
 - (void)returnToPreviousController {
+    if (_handoffCompletion != nil) {
+        void (^completion)(void) = [_handoffCompletion copy];
+        _handoffCompletion = nil;
+        _presentationHost = nil;
+        completion();
+        return;
+    }
     UINavigationController *navigation(self.navigationController);
     if (navigation.topViewController == self && [navigation.viewControllers count] > 1)
         [navigation popViewControllerAnimated:YES];
@@ -275,6 +358,15 @@
 }
 
 - (void)close {
+    if (_presentationHost != nil) {
+        if (_presentationHost.presentedViewController != nil)
+            [_presentationHost dismissViewControllerAnimated:YES completion:^{
+                [self returnToPreviousController];
+            }];
+        else
+            [self returnToPreviousController];
+        return;
+    }
     UINavigationController *navigation(self.navigationController);
     if (navigation.presentingViewController != nil)
         [navigation.presentingViewController dismissViewControllerAnimated:YES completion:nil];

@@ -1,0 +1,10 @@
+Package: @PACKAGE@
+Name: @NAME@
+Version: 1.0
+Architecture: @PACKAGE_ARCH@
+Section: Tweaks
+Priority: optional
+Maintainer: Cydia UI Fixture <fixture@example.invalid>
+Description: Cydia native package depiction fixture (@CASE@).
+ This package exists only for the bounded installed depiction acceptance run.
+Depiction: @DEPICTION_URL@

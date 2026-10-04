@@ -171,18 +171,10 @@ assert_files_equal() {
 
 assert_real_form_sheet() {
     form_state=$1
-    assert_state "$form_state" formSheetPresentation true \
-        "Confirmation did not retain its requested form-sheet style"
-    assert_state "$form_state" requestedPresentationStyle formSheet \
-        "UIKit did not create the requested Confirmation form-sheet presentation"
     assert_state "$form_state" navigationDepth 1 \
         "Confirmation form-sheet navigation depth changed"
     assert_state "$form_state" confirmationIsTopController true \
         "Confirmation is not the top form-sheet controller"
-    assert_state "$form_state" actualModalPresentation true \
-        "Confirmation probe did not use a real modal presentation controller"
-    assert_state "$form_state" presentationAttached true \
-        "Confirmation form sheet is not attached to the presenter window"
     assert_state "$form_state" sheetUsesCellBackground true \
         "Confirmation form sheet did not use its elevated cell surface"
     assert_state "$form_state" navigationBarUsesPresentedSurface true \
@@ -197,6 +189,14 @@ assert_real_form_sheet() {
     form_size_class=$(read_state "$form_state" horizontalSizeClass)
     case "$form_size_class" in
         regular)
+            assert_state "$form_state" formSheetPresentation true \
+                "Confirmation did not retain its requested form-sheet style"
+            assert_state "$form_state" requestedPresentationStyle formSheet \
+                "UIKit did not create the requested Confirmation form-sheet presentation"
+            assert_state "$form_state" actualModalPresentation true \
+                "Confirmation probe did not use a real modal presentation controller"
+            assert_state "$form_state" presentationAttached true \
+                "Confirmation form sheet is not attached to the presenter window"
             assert_state "$form_state" presenterUsesGroupedBackground true \
                 "regular-width Confirmation presenter did not use its grouped surface"
             assert_state "$form_state" formSheetFrameInset true \
@@ -208,7 +208,15 @@ assert_real_form_sheet() {
             ;;
         compact)
             # UIKit adapts a requested form sheet to full-screen/page-sheet on
-            # compact width. It must not be reported as inset/dimmed evidence.
+            # compact width. It must not be reported as an attached, inset, or
+            # dimmed form-sheet evidence; UIKit may still report a full-screen
+            # modal presentation for that adaptation.
+            assert_state "$form_state" formSheetPresentation false \
+                "compact Confirmation unexpectedly retained form-sheet style"
+            assert_state "$form_state" requestedPresentationStyle fullScreen \
+                "compact Confirmation did not report UIKit's adapted style"
+            assert_state "$form_state" presentationAttached false \
+                "compact Confirmation unexpectedly claimed a sheet attachment"
             assert_state "$form_state" formSheetFrameInset false \
                 "compact adapted Confirmation unexpectedly reported an inset sheet"
             assert_state "$form_state" backdropInterceptsOutsideSheet false \
@@ -292,6 +300,10 @@ assert_state "$state" visibleWebViews 0 "native confirmation contains a WebView"
 assert_state "$state" visibleRowsFit true "normal confirmation rows clip their labels"
 assert_state "$state" rowsMeetTouchTarget true \
     "normal confirmation rows fell below the 44-point touch target"
+assert_state "$state" cancelTargetMeetsMinimum true \
+    "normal Cancel has an undersized physical control"
+assert_state "$state" confirmTargetMeetsMinimum true \
+    "normal Confirm has an undersized physical control"
 assert_state "$state" navigationBarHidden false "normal confirmation navigation bar is hidden"
 assert_state "$state" navigationBarUsesPresentedSurface true \
     "normal confirmation navigation bar lost its semantic surface"
@@ -504,10 +516,18 @@ simctl 30 io "$simulator" screenshot "$artifact_dir/normal-dark.png" >/dev/null 
     fail "could not capture normal dark screenshot"
 
 : >"$data_container/tmp/cydia-confirmation-probe-form-sheet"
-wait_for_value "$state" formSheetPresentation true ||
-    fail "Confirmation did not enter the real form-sheet presentation"
+wait_for_value "$state" formSheetRequested true ||
+    fail "Confirmation did not consume the form-sheet marker"
 wait_for_state "$state" normal dark ||
     fail "form-sheet Confirmation did not settle"
+form_size_class=$(read_state "$state" horizontalSizeClass)
+if [ "$form_size_class" = regular ]; then
+    wait_for_value "$state" formSheetPresentation true ||
+        fail "Confirmation did not enter the real form-sheet presentation"
+else
+    assert_state "$state" formSheetPresentation false \
+        "compact Confirmation unexpectedly reported a form-sheet presentation"
+fi
 assert_real_form_sheet "$state"
 form_sheet_luminance=$(read_state "$state" backgroundLuminance)
 form_sheet_table_luminance=$(read_state "$state" tableBackgroundLuminance)
@@ -561,6 +581,10 @@ assert_equal "$state" contentSizeCategory expectedAccessibilityContentSizeCatego
 assert_state "$state" visibleRowsFit true "Accessibility Large clips confirmation labels"
 assert_state "$state" rowsMeetTouchTarget true \
     "Accessibility Large confirmation rows fell below the 44-point touch target"
+assert_state "$state" cancelTargetMeetsMinimum true \
+    "Accessibility Large Cancel has an undersized physical control"
+assert_state "$state" confirmTargetMeetsMinimum true \
+    "Accessibility Large Confirm has an undersized physical control"
 assert_state "$state" navigationBarHidden false \
     "Accessibility Large hides the confirmation navigation bar"
 cp "$state" "$artifact_dir/normal-dark-accessibility-state.plist"
@@ -588,6 +612,13 @@ for action in confirm continue cancel; do
     if [ "$action" = continue ]; then
         assert_state "$state" lastInteraction queue-selection \
             "Continue Queuing bypassed the installed table-row interaction path"
+    fi
+    if [ "$action" != confirm ]; then
+        wait_for_value "$state" actualModalPresentation false ||
+            fail "$action did not dismiss the Confirmation sheet"
+        wait_for_value "$state" dismissalInFlight false ||
+            fail "$action dismissal did not finish"
+        cp "$state" "$artifact_dir/dismissed-$action-state.plist"
     fi
 done
 

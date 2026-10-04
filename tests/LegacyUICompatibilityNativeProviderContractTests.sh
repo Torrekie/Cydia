@@ -6,6 +6,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 provider=$root/Cydia/LegacyUICompatibilityNativeProvider.mm
+confirmation=$root/Cydia/NativeMutationConfirmation.mm
 rendering_provider=$root/Cydia/LegacyUICompatibilityNativeRenderingProvider.mm
 header=$root/Cydia/LegacyUICompatibilityNativeProvider.h
 provider_application=$root/Cydia/LegacyUICompatibilityNativeProvider+Application.mm
@@ -21,7 +22,7 @@ fail() {
 }
 
 command -v rg >/dev/null 2>&1 || fail "rg is required"
-for file in "$provider" "$rendering_provider" "$header" \
+for file in "$provider" "$confirmation" "$rendering_provider" "$header" \
         "$provider_application" "$external_policy_header" "$external_policy_source" \
         "$application" "$mobile" "$lifecycle"; do
     test -f "$file" || fail "missing provider/wiring source: $file"
@@ -91,7 +92,7 @@ for token in \
         'legacyCompatibilityCaller_' \
         'issueCapabilityForApplication:' \
         'invalidateLegacyUICompatibility'; do
-    rg -Fq "$token" "$provider" "$rendering_provider" "$header" \
+    rg -Fq "$token" "$provider" "$confirmation" "$rendering_provider" "$header" \
         "$provider_application" "$application" "$mobile" "$lifecycle" ||
         fail "missing app-owned provider contract: $token"
 done
@@ -167,6 +168,12 @@ if rg -n '\[application\] installPackages:\[arguments objectAtIndex:0\]' \
 fi
 rg -Fq 'CydiaManagedSourceKeyIsOwned(key)' "$provider" ||
     fail "source mutation lacks managed-source ownership gate"
+for token in '[strongSelf->application_ addTrivialSource:href];' \
+        '[strongSelf->application_ addSource:source];' \
+        '[strongSelf->application_ syncData];'; do
+    rg -Fq "$token" "$provider" ||
+        fail "source mutation persistence wiring is missing: $token"
+done
 rg -Fq 'ExactClass(session, [CydiaLegacyUICompatibilityNativeSession class])' "$provider" ||
     fail "provider session membership is not exact-class bound"
 rg -Fq 'ExactClass(candidate, [Package class])' "$provider" ||

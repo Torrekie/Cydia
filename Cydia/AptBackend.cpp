@@ -90,6 +90,14 @@ class ParserView {
 namespace CydiaAPT {
 namespace Internal {
 
+pkgCache::VerFileIterator PreferredVersionFile(pkgCache::VerIterator version) {
+    pkgCache::VerFileIterator first(version.FileList());
+    for (pkgCache::VerFileIterator file(first); !file.end(); ++file)
+        if (!file.File().Flagged(pkgCache::Flag::NotSource))
+            return file;
+    return first;
+}
+
 class PackageRegistry {
   public:
     struct Entry {
@@ -100,7 +108,7 @@ class PackageRegistry {
         Entry(pkgCache::PkgIterator package, pkgCache::VerIterator version) :
             package(package),
             version(version),
-            file(version.FileList())
+            file(PreferredVersionFile(version))
         {
         }
     };
@@ -386,8 +394,16 @@ CydiaAPT::PackageRecordData AptBackend::recordData(PackageHandle handle) {
     ParserView record(parser);
 
     static const char * const fieldNames[] = {
-        "Architecture", "Icon", "Depiction", "Homepage", "Website", "Bugs",
-        "Support", "Author", "MD5sum", "Multi-Arch", "Name", "Maemo-Display-Name", "Tag",
+        /* Keep the complete read-only package-record subset that the native
+         * depiction compatibility snapshot advertises.  The previous list
+         * omitted core Debian fields such as Version and Description, making
+         * an installed package's legacy getField() return undefined even
+         * though the same record was rendered by native UI. */
+        "Package", "Name", "Version", "Architecture", "Description", "Section",
+        "Maintainer", "Depends", "Pre-Depends", "Recommends", "Suggests",
+        "Conflicts", "Replaces", "Provides", "Installed-Size", "Filename",
+        "Size", "MD5sum", "SHA256", "Icon", "Depiction", "Homepage", "Website",
+        "Bugs", "Support", "Author", "Multi-Arch", "Maemo-Display-Name", "Tag",
     };
     for (size_t index(0); index != sizeof(fieldNames) / sizeof(fieldNames[0]); ++index)
         data.fields[fieldNames[index]] = record.field(fieldNames[index]);

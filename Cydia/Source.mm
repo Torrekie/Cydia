@@ -90,35 +90,30 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
     return record_ == nil ? (id) [NSNull null] : [record_ objectForKey:@"Sections"] ?: [NSArray array];
 }
 
-- (void) _addSection:(NSString *)section {
-    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
-        return;
-    else if (NSMutableArray *sections = [record_ objectForKey:@"Sections"]) {
-        if (![sections containsObject:section])
-            [sections addObject:section];
-    } else
-        [record_ setObject:[NSMutableArray arrayWithObject:section] forKey:@"Sections"];
+- (bool) _addSection:(NSString *)section {
+    if (!CydiaUpdateSourceSection([self key], section, true))
+        return false;
+    record_ = [Sources_ objectForKey:[self key]];
+    return true;
 }
 
 - (bool) addSection:(NSString *)section {
-    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
+    if (!CydiaManagedSourceKeyIsOwned([self key]))
         return false;
 
     [self performSelectorOnMainThread:@selector(_addSection:) withObject:section waitUntilDone:NO];
     return true;
 }
 
-- (void) _removeSection:(NSString *)section {
-    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
-        return;
-
-    if (NSMutableArray *sections = [record_ objectForKey:@"Sections"])
-        if ([sections containsObject:section])
-            [sections removeObject:section];
+- (bool) _removeSection:(NSString *)section {
+    if (!CydiaUpdateSourceSection([self key], section, false))
+        return false;
+    record_ = [Sources_ objectForKey:[self key]];
+    return true;
 }
 
 - (bool) removeSection:(NSString *)section {
-    if (record_ == nil || !CydiaManagedSourceKeyIsOwned([self key]))
+    if (!CydiaManagedSourceKeyIsOwned([self key]))
         return false;
 
     [self performSelectorOnMainThread:@selector(_removeSection:) withObject:section waitUntilDone:NO];

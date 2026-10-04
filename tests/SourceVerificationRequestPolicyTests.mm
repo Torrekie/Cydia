@@ -227,20 +227,26 @@ void VerifyControllerTrackingContract(NSString *sourcePath) {
     NSRange deferred([source rangeOfString:@"startImmediately:NO"]);
     NSRange tracked([source rangeOfString:
         @"[source_verification_trackers_ setObject:tracker forKey:connection]"]);
-    NSRange assigned([source rangeOfString:
-        @"trivial_bz2_ = [self _requestHRef"]);
-    NSRange started([source rangeOfString:@"[trivial_bz2_ start]"]);
     Expect(deferred.location != NSNotFound &&
            tracked.location != NSNotFound &&
-           assigned.location != NSNotFound &&
-           started.location != NSNotFound &&
-           deferred.location < tracked.location &&
-           tracked.location < assigned.location &&
-           assigned.location < started.location,
-        @"controller records, assigns, then starts each deferred connection");
-    Expect([source rangeOfString:@"[trivial_gz_ start]"].location != NSNotFound &&
-           [source rangeOfString:@"[trivial_xz_ start]"].location != NSNotFound,
-        @"controller starts every tracked source verification request");
+           deferred.location < tracked.location,
+        @"request helper defers connections and records trackers before returning");
+    // Method definition order is not execution order. Check both callers,
+    // including the new distribution-repository flow, independently.
+    for (NSString *method in @[@"- (void) verifyDefaultSourceRestoration {",
+                              @"- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:"]) {
+        NSRange start = [source rangeOfString:method];
+        Expect(start.location != NSNotFound, @"verification caller exists");
+        NSString *body = [source substringFromIndex:start.location];
+        NSRange end = [body rangeOfString:@"\n- ("];
+        if (end.location != NSNotFound) body = [body substringToIndex:end.location];
+        for (NSString *compression in @[@"bz2", @"gz", @"xz"]) {
+            NSRange assigned = [body rangeOfString:[NSString stringWithFormat:@"trivial_%@_ = [self _requestHRef", compression]];
+            NSRange started = [body rangeOfString:[NSString stringWithFormat:@"[trivial_%@_ start]", compression]];
+            Expect(assigned.location != NSNotFound && started.location != NSNotFound &&
+                assigned.location < started.location, @"both flows assign every tracked request before starting it");
+        }
+    }
 
     Expect([source rangeOfString:
                @"[source_verification_trackers_ objectForKey:connection]"].location !=

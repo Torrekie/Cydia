@@ -2,19 +2,18 @@
  * Copyright (C) 2026 Torrekie
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-
 #include "Cydia/PackageDetailController.h"
 
 #include "Cydia/Appearance.h"
+#include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/PackageDepictionPolicy.h"
 #include "Cydia/PackageDepictionView.h"
+#include "Cydia/PackageDescriptionFormatting.h"
 #include "CyteKit/Localize.h"
 
 #include <algorithm>
 #include <cmath>
-
 namespace {
-
 typedef NS_ENUM(NSUInteger, CydiaPackageDetailSectionKind) {
     CydiaPackageDetailSectionKindQueue,
     CydiaPackageDetailSectionKindActions,
@@ -25,7 +24,6 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailSectionKind) {
     CydiaPackageDetailSectionKindInstalled,
     CydiaPackageDetailSectionKindSource,
 };
-
 NSString *PackageSizeDescription(uint64_t bytes) {
     if (bytes == 0)
         return nil;
@@ -34,7 +32,6 @@ NSString *PackageSizeDescription(uint64_t bytes) {
         return [NSString stringWithFormat:@"%.0f kB", kilobytes];
     return [NSString stringWithFormat:@"%.1f kB", kilobytes];
 }
-
 NSString *ContactTitle(CydiaPackageDetailViewModel *viewModel) {
     switch ([viewModel contactKind]) {
         case CydiaPackageDetailContactKindAuthor:
@@ -44,15 +41,17 @@ NSString *ContactTitle(CydiaPackageDetailViewModel *viewModel) {
             return UCLocalizeEx(@"PACKAGE_SUPPORT", @"Package Support");
     }
 }
-
 UIImage *PackageRowImage(UIImage *image) {
     if (image == nil)
         return nil;
     if (image.size.width <= 0.0 || image.size.height <= 0.0)
         return image;
     CGSize box(CGSizeMake(29.0, 29.0));
-    CGFloat scale(std::min(box.width / image.size.width,
-                           box.height / image.size.height));
+    /* Keep the small pre-iOS-7 glyphs at their authored scale. Upscaling
+     * their premultiplied bitmap makes the gear/envelope look washed out;
+     * newer 64px assets are still reduced to the same 29pt cell box. */
+    CGFloat scale(std::min<CGFloat>(1.0,
+        std::min(box.width / image.size.width, box.height / image.size.height)));
     CGSize size(CGSizeMake(std::max<CGFloat>(1.0, std::floor(image.size.width * scale)),
                            std::max<CGFloat>(1.0, std::floor(image.size.height * scale))));
     UIGraphicsBeginImageContextWithOptions(box, NO, 0.0);
@@ -63,11 +62,9 @@ UIImage *PackageRowImage(UIImage *image) {
     UIGraphicsEndImageContext();
     return result;
 }
-
 UIImage *LocalPackageImage(NSString *name) {
     return PackageRowImage([UIImage imageNamed:name]);
 }
-
 /* The retained package page uses a distinct 32-point glyph for each queued
  * operation.  Keep the input closed over the historical operation names so a
  * malformed or future mode can never turn into an arbitrary resource path. */
@@ -89,12 +86,11 @@ NSString *PackageModeAsset(NSString *mode) {
     NSString *asset([NSString stringWithFormat:@"Modes/%@.png", normalized]);
     return [UIImage imageNamed:asset] == nil ? @"installing.png" : asset;
 }
-
 void SetLegacyPackageRowImage(UITableViewCell *cell, NSString *name) {
-    cell.imageView.image = LocalPackageImage(name);
+    UIImage *image(LocalPackageImage(name));
+    cell.imageView.image = image;
     cell.imageView.accessibilityIdentifier = name;
 }
-
 UIImage *LocalPackageImageForURLString(NSString *URLString, NSString *fallback) {
     NSURL *URL([NSURL URLWithString:URLString]);
     if ([URL isFileURL]) {
@@ -104,7 +100,6 @@ UIImage *LocalPackageImageForURLString(NSString *URLString, NSString *fallback) 
     }
     return LocalPackageImage(fallback);
 }
-
 NSString *FooterDetail(CydiaPackageDetailViewModel *viewModel) {
     NSString *source([[viewModel source] name]);
     NSString *section([viewModel localizedSection]);
@@ -114,16 +109,31 @@ NSString *FooterDetail(CydiaPackageDetailViewModel *viewModel) {
 }
 
 NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
-    NSString *address([viewModel contactAddress]);
-    if ([address length] != 0 &&
-        [viewModel contactKind] != CydiaPackageDetailContactKindPackageSupport)
-        return [@"mailto:" stringByAppendingString:address];
-    return [viewModel supportURLString];
+    /* The legacy package page always opened its support popup.  The popup
+     * then selected the author/maintainer mail address (or package support
+     * URL), preserving the old page boundary instead of handing a raw
+     * mailto to the external URL controller. */
+    if ([[viewModel identity] length] == 0)
+        return nil;
+    if ([viewModel contactKind] == CydiaPackageDetailContactKindPackageSupport &&
+        [[viewModel supportURLString] length] == 0)
+        return nil;
+    return [NSString stringWithFormat:@"cydia://package/%@/support", [viewModel identity]];
 }
 
 } // namespace
+@interface CydiaMinimumTargetButton : UIButton
+@end
 
+@implementation CydiaMinimumTargetButton
 
+- (CGSize)intrinsicContentSize {
+    CGSize size([super intrinsicContentSize]);
+    return CGSizeMake(std::max<CGFloat>(44.0, size.width),
+                      std::max<CGFloat>(44.0, size.height));
+}
+
+@end
 @interface CydiaPackageDetailHeaderView : UIView
 @property(nonatomic, strong, readonly) UIImageView *iconView;
 @property(nonatomic, strong, readonly) UILabel *nameLabel;
@@ -225,7 +235,9 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 
 - (void)applyColorAppearance {
     UITraitCollection *traits(self.traitCollection);
-    self.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground
+    /* The package topper is part of the page canvas, not another metadata
+     * card. The legacy page painted this region with the grouped surface. */
+    self.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground
                                        traitCollection:traits];
     _nameLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
                                        traitCollection:traits];
@@ -236,8 +248,6 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 }
 
 @end
-
-
 @interface CydiaPackageDetailBodyCell : UITableViewCell
 @property(nonatomic, strong, readonly) UILabel *bodyLabel;
 @end
@@ -266,8 +276,6 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 }
 
 @end
-
-
 @interface CydiaPackageDepictionCell : UITableViewCell
 @property(nonatomic, strong, readonly) UIView *contentHost;
 @property(nonatomic, strong, readonly) UIActivityIndicatorView *activityIndicator;
@@ -283,6 +291,8 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (instancetype)initWithReuseIdentifier:(NSString *)reuseIdentifier;
 - (void)applyDepictionPresentation;
 - (void)applyColorAppearance:(UITraitCollection *)traits;
+- (void)updateAccessibilityElementsForDepictionState:
+        (CydiaPackageDepictionViewState)state;
 @end
 
 @implementation CydiaPackageDepictionCell
@@ -434,6 +444,22 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
             UILayoutFittingCompressedSize].height + 16.0);
         _contentHeightConstraint.constant = std::max<CGFloat>(52.0, std::ceil(fitting));
     }
+    [self updateAccessibilityElementsForDepictionState:state];
+}
+
+- (void)updateAccessibilityElementsForDepictionState:
+        (CydiaPackageDepictionViewState)state {
+    /* Do not let UITableView synthesize one blank UITableTextAccessibilityElement
+     * for the whole loaded depiction. Expose the native depiction container and
+     * its web-content accessibility descendants; expose only the concrete
+     * loading/error controls for the other states. */
+    if (state == CydiaPackageDepictionViewStateLoaded)
+        self.accessibilityElements = @[_depictionView];
+    else if (state == CydiaPackageDepictionViewStateFailed ||
+             state == CydiaPackageDepictionViewStatePathologicalContent)
+        self.accessibilityElements = @[_errorLabel, _retryButton, _externalButton];
+    else
+        self.accessibilityElements = @[_loadingLabel];
 }
 
 - (void)applyColorAppearance:(UITraitCollection *)traits {
@@ -467,6 +493,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 @property(nonatomic, strong) PackageDepictionView *depictionView;
 @property(nonatomic, strong) CydiaPackageDepictionCell *depictionCell;
 @property(nonatomic) BOOL depictionTableUpdateScheduled;
+@property(nonatomic) BOOL depictionAccessibilityFocusSeeded;
 /* CyteViewController.delegate remains the application coordinator.  Keep the
  * package-shell callbacks on a distinct weak channel so production routing can
  * install both delegates without one silently replacing the other. */
@@ -502,13 +529,22 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         self.navigationItem.rightBarButtonItem = nil;
         return;
     }
+    /* A title-only UIBarButtonItem can expose a sub-44pt AX frame for short
+     * localized titles.  Keep the same bar-item anchor while giving VoiceOver
+     * and UIKit a concrete 44x44 minimum target. */
+    CydiaMinimumTargetButton *modifyButton(
+        [CydiaMinimumTargetButton buttonWithType:UIButtonTypeSystem]);
+    modifyButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [modifyButton setTitle:UCLocalizeEx(key) forState:UIControlStateNormal];
+    modifyButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    modifyButton.titleLabel.adjustsFontForContentSizeCategory = YES;
+    modifyButton.accessibilityIdentifier = @"cydia.package.modify";
+    [modifyButton addTarget:self action:@selector(modifyButtonClicked)
+           forControlEvents:UIControlEventTouchUpInside];
+    [modifyButton.widthAnchor constraintGreaterThanOrEqualToConstant:44.0].active = YES;
+    [modifyButton.heightAnchor constraintGreaterThanOrEqualToConstant:44.0].active = YES;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalizeEx(key)
-        style:UIBarButtonItemStylePlain
-        target:self
-        action:@selector(modifyButtonClicked)];
-    self.navigationItem.rightBarButtonItem.accessibilityIdentifier =
-        @"cydia.package.modify";
+        initWithCustomView:modifyButton];
 }
 
 - (void)updateFooterLabel {
@@ -523,12 +559,21 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                  headerIcon:(UIImage *)headerIcon
                  reloadTable:(BOOL)reloadTable {
     NSParameterAssert(viewModel != nil);
+    NSString *previousDepictionURL([_viewModel depictionURLString]);
+    NSString *nextDepictionURL([viewModel depictionURLString]);
+    BOOL nextDepictionEligible([[CydiaPackageDepictionPolicy alloc]
+        initWithURLString:nextDepictionURL] != nil);
+    BOOL preserveDepictionView(_depictionView != nil && _depictionCell != nil &&
+        _depictionEligible && nextDepictionEligible &&
+        [previousDepictionURL length] != 0 &&
+        [previousDepictionURL isEqualToString:nextDepictionURL]);
     _viewModel = viewModel;
     _headerIcon = headerIcon ?: [UIImage imageNamed:@"unknown.png"] ?: [[UIImage alloc] init];
-    _depictionEligible = [[CydiaPackageDepictionPolicy alloc]
-        initWithURLString:[viewModel depictionURLString]] != nil;
-    _depictionView = nil;
-    _depictionCell = nil;
+    _depictionEligible = nextDepictionEligible;
+    if (!preserveDepictionView) {
+        _depictionView = nil;
+        _depictionCell = nil;
+    }
     [self rebuildSections];
     if (![self isViewLoaded])
         return;
@@ -646,11 +691,41 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     [self configureNavigationItem];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(packageVoiceOverStatusDidChange:)
+                                                 name:UIAccessibilityVoiceOverStatusDidChangeNotification
+                                               object:nil];
+}
+
+- (void)seedPackageDepictionAccessibilityFocus {
+    CydiaPackageDepictionViewState state([_depictionView state]);
+    BOOL failed(state == CydiaPackageDepictionViewStateFailed || state == CydiaPackageDepictionViewStatePathologicalContent);
+    if (!failed) return;
+    if (_depictionAccessibilityFocusSeeded || !UIAccessibilityIsVoiceOverRunning() || _depictionCell == nil || _depictionCell.retryButton == nil)
+        return;
+    void (^seed)(void) = ^{
+        CydiaPackageDepictionViewState current(self.depictionView.state);
+        if (self.depictionAccessibilityFocusSeeded || self.view.window == nil || self.depictionCell.window == nil || self.navigationController.topViewController != self || self.navigationController.presentedViewController != nil || self.tabBarController.presentedViewController != nil || self.presentedViewController != nil ||
+            (current != CydiaPackageDepictionViewStateFailed && current != CydiaPackageDepictionViewStatePathologicalContent) ||
+            !UIAccessibilityIsVoiceOverRunning())
+            return;
+        self.depictionAccessibilityFocusSeeded = YES;
+        UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, self.depictionCell.retryButton);
+        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, self.depictionCell.retryButton);
+    };
+    for (NSUInteger delay = 0; delay <= 1500; delay += 250)
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_MSEC), dispatch_get_main_queue(), seed);
+}
+- (void)packageVoiceOverStatusDidChange:(NSNotification *)notification {
+    (void)notification;
+    self.depictionAccessibilityFocusSeeded = NO;
+    if (UIAccessibilityIsVoiceOverRunning())
+        [self seedPackageDepictionAccessibilityFocus];
 }
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
-    [self resizeTableSupplementaryView:_packageHeaderView minimumHeight:88.0 header:YES];
+    [self resizeTableSupplementaryView:_packageHeaderView minimumHeight:80.0 header:YES];
     [self resizeTableSupplementaryView:_packageFooterView minimumHeight:66.0 header:NO];
 }
 
@@ -719,6 +794,12 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self applyColorAppearance];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    CydiaCaptureNativeAccessibility(self, @"package");
+    [self seedPackageDepictionAccessibilityFocus];
 }
 
 - (void)reloadData {
@@ -793,6 +874,24 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     return 0.01;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView
+ heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void)tableView;
+    CydiaPackageDetailSectionKind kind([self sectionKind:indexPath.section]);
+    /* Keep shipped one-line metadata rows at the legacy 44-point touch
+     * target. Description, warning, source-description, and depiction rows
+     * remain automatic so long content and Dynamic Type can expand safely. */
+    BOOL fixed(kind == CydiaPackageDetailSectionKindQueue ||
+               kind == CydiaPackageDetailSectionKindActions ||
+               kind == CydiaPackageDetailSectionKindHomepage ||
+               kind == CydiaPackageDetailSectionKindInstalled ||
+               (kind == CydiaPackageDetailSectionKindSource && indexPath.row == 0));
+    if (!fixed || UIContentSizeCategoryIsAccessibilityCategory(
+            self.traitCollection.preferredContentSizeCategory))
+        return UITableViewAutomaticDimension;
+    return 44.0;
+}
+
 - (UITableViewCell *)standardCellForTable:(UITableView *)tableView {
     static NSString *identifier = @"CydiaPackageDetailValue";
     UITableViewCell *cell([tableView dequeueReusableCellWithIdentifier:identifier]);
@@ -801,10 +900,10 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                                       reuseIdentifier:identifier];
     cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     cell.textLabel.adjustsFontForContentSizeCategory = YES;
-    cell.textLabel.numberOfLines = 0;
+    cell.textLabel.numberOfLines = 1;
     cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
-    cell.detailTextLabel.numberOfLines = 0;
+    cell.detailTextLabel.numberOfLines = 1;
     cell.textLabel.text = nil;
     cell.detailTextLabel.text = nil;
     cell.imageView.image = nil;
@@ -850,7 +949,9 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                                           action:@selector(openDepictionExternally)
                                 forControlEvents:UIControlEventTouchUpInside];
         _depictionView = [[PackageDepictionView alloc]
-            initWithURLString:[_viewModel depictionURLString] delegate:self];
+            initWithURLString:[_viewModel depictionURLString]
+            compatibilitySnapshot:[_viewModel legacyDepictionSnapshot]
+            delegate:self];
         _depictionCell.depictionView = _depictionView;
         [_depictionCell applyColorAppearance:self.traitCollection];
         [_depictionView startLoading];
@@ -904,7 +1005,15 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     if (kind == CydiaPackageDetailSectionKindDescription) {
         CydiaPackageDetailBodyCell *cell((CydiaPackageDetailBodyCell *)
             [self bodyCellForTable:tableView]);
-        cell.bodyLabel.text = [_viewModel displayDescription];
+        NSString *raw([_viewModel legacyDepictionSnapshot][@"package"][@"fields"][@"Description"]);
+        cell.bodyLabel.text = [raw isKindOfClass:[NSString class]] ?
+            CydiaPackageDescriptionForDisplay(raw, [_viewModel shortDescription]) :
+            [_viewModel displayDescription];
+        // Menlo/UIFontMetrics are available on iOS 12. Keep raw metadata and
+        // depiction APIs unchanged; only the native reading surface reflows.
+        UIFont *fixed([UIFont fontWithName:@"Menlo" size:13.0] ?: [UIFont systemFontOfSize:13.0]);
+        cell.bodyLabel.font = [[UIFontMetrics metricsForTextStyle:UIFontTextStyleFootnote]
+            scaledFontForFont:fixed compatibleWithTraitCollection:self.traitCollection];
         cell.accessibilityIdentifier = @"cydia.package.description";
         cell.accessibilityLabel = cell.bodyLabel.text;
         return cell;
@@ -926,6 +1035,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
             break;
         case CydiaPackageDetailSectionKindWarnings:
             cell.textLabel.text = [[_viewModel warnings] objectAtIndex:indexPath.row];
+            cell.textLabel.numberOfLines = 0;
             SetLegacyPackageRowImage(cell, @"warning.png");
             cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleRemovingBackground
                                               traitCollection:self.traitCollection];
@@ -966,6 +1076,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                 cell.accessibilityIdentifier = @"cydia.package.source.name";
             } else {
                 cell.textLabel.text = [[_viewModel source] sourceDescription];
+                cell.textLabel.numberOfLines = 0;
                 cell.accessibilityIdentifier = @"cydia.package.source.description";
             }
             break;
@@ -973,6 +1084,8 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
             break;
     }
     cell.isAccessibilityElement = YES;
+    if (cell.selectionStyle != UITableViewCellSelectionStyleNone)
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     if (cell.accessibilityLabel == nil)
         cell.accessibilityLabel = cell.textLabel.text;
     if ([cell.detailTextLabel.text length] != 0)
@@ -997,12 +1110,15 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
             [strongSelf.tableView beginUpdates];
             [strongSelf.tableView endUpdates];
         }];
+        [strongSelf seedPackageDepictionAccessibilityFocus];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ [strongSelf seedPackageDepictionAccessibilityFocus]; });
     });
 }
 
 - (void)packageDepictionViewDidChangePresentation:(PackageDepictionView *)view {
-    if (view == _depictionView)
+    if (view == _depictionView) {
         [self scheduleDepictionTableUpdate];
+    }
 }
 
 - (void)packageDepictionView:(PackageDepictionView *)view
@@ -1016,6 +1132,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 }
 
 - (void)retryDepiction {
+    _depictionAccessibilityFocusSeeded = NO;
     [_depictionView retryLoading];
 }
 
@@ -1049,7 +1166,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
             if ([_viewModel isConsolePackage]) {
                 if (offset == 0) {
                     navigationKind = CydiaPackageDetailNavigationKindConsole;
-                    URLString = @"http://cydia.saurik.com/purpose/console/";
+                    URLString = @"cydia://home/console";
                     goto dispatch;
                 }
                 --offset;

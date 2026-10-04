@@ -5,12 +5,30 @@
 
 #include "Cydia/PackageDatabasePaths.hpp"
 
+#include <TargetConditionals.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <strings.h>
 #include <unistd.h>
 
 namespace {
+
+std::string SimulatorDataRootValue() {
+#if TARGET_OS_SIMULATOR
+    const char *root(getenv("CYDIA_SIMULATOR_ROOT"));
+    if (root != NULL && root[0] == '/' && root[1] != '\0')
+        return std::string(root);
+#endif
+    return std::string();
+}
+
+#if TARGET_OS_SIMULATOR
+void PrefixSimulatorPath(std::string *path, const std::string &root) {
+    if (path != NULL && !path->empty() && (*path)[0] == '/' && !root.empty())
+        *path = root + *path;
+}
+#endif
 
 struct PackageDatabaseLayoutValues {
     const char *aptArchitecture;
@@ -145,12 +163,41 @@ PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
 
 PackageDatabasePaths PackageDatabasePaths::ForLayout(PackageDatabaseLayout layout) {
     const PackageDatabaseLayoutValues &values(ValuesForLayout(layout));
-    return PackageDatabasePaths(layout, values.aptArchitecture, values.dpkgStatus, values.dpkgInfoDirectory,
+    PackageDatabasePaths paths(layout, values.aptArchitecture, values.dpkgStatus, values.dpkgInfoDirectory,
                                 values.dpkgDataDirectory, values.dpkgExecutableSearchPath, values.aptExtendedStates,
                                 values.aptListsDirectory,
                                 values.aptConfigDirectory, values.cydiaStateDirectory,
                                 values.packageLibraryDirectory, values.cydiaLibexecDirectory,
                                 values.cydiaApplication, values.cydo, values.dpkgBinary);
+
+#if TARGET_OS_SIMULATOR
+    const std::string root(SimulatorDataRootValue());
+    if (!root.empty()) {
+        PrefixSimulatorPath(&paths.dpkgStatusPath_, root);
+        PrefixSimulatorPath(&paths.dpkgInfoDirectory_, root);
+        PrefixSimulatorPath(&paths.dpkgDataDirectory_, root);
+        PrefixSimulatorPath(&paths.aptExtendedStatesPath_, root);
+        PrefixSimulatorPath(&paths.aptListsDirectory_, root);
+        PrefixSimulatorPath(&paths.aptConfigDirectory_, root);
+        PrefixSimulatorPath(&paths.cydiaStateDirectory_, root);
+        PrefixSimulatorPath(&paths.packageLibraryDirectory_, root);
+        PrefixSimulatorPath(&paths.cydiaLibexecDirectory_, root);
+        PrefixSimulatorPath(&paths.cydoPath_, root);
+        PrefixSimulatorPath(&paths.dpkgBinaryPath_, root);
+
+        const char *application(getenv("CYDIA_SIMULATOR_APPLICATION"));
+        if (application != NULL && application[0] == '/')
+            paths.cydiaApplicationPath_ = application;
+        else
+            PrefixSimulatorPath(&paths.cydiaApplicationPath_, root);
+    }
+#endif
+
+    return paths;
+}
+
+std::string PackageDatabasePaths::SimulatorDataRoot() {
+    return SimulatorDataRootValue();
 }
 
 PackageDatabasePaths PackageDatabasePaths::Detect() {
@@ -269,6 +316,10 @@ std::string PackageDatabasePaths::CydiaLegacySourceMarkerPath() const {
 }
 
 bool PackageDatabasePaths::RequiresLegacyUserMigration(bool userDirectoryExists) const {
+#if TARGET_OS_SIMULATOR
+    if (!SimulatorDataRootValue().empty())
+        return false;
+#endif
     return layout_ == PackageDatabaseLayout::Rootful && !userDirectoryExists;
 }
 
@@ -303,6 +354,10 @@ std::string PackageDatabasePaths::BootstrapBSDCommandPath(BootstrapBSDCommand co
     if (leaf == NULL)
         return std::string();
 
+#if TARGET_OS_SIMULATOR
+    if (!SimulatorDataRootValue().empty())
+        return JoinPath("/bin", leaf);
+#endif
     return JoinPath(layout_ == PackageDatabaseLayout::Rootless ? "/var/jb/bin" : "/bin", leaf);
 }
 

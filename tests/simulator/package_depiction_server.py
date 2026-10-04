@@ -6,6 +6,7 @@ import argparse
 import base64
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 
 PIXEL = base64.b64decode(
@@ -64,7 +65,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.record()
-        path = self.path.split("?", 1)[0]
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
+        package = query.get("package", [None])[0]
+        package_route = query.get("linkPackage", [None])[0]
+        if not package_route:
+            package_route = getattr(self.server, "linked_package", None)
+        package_route = package_route or package or "linked:iphoneos-arm64"
         if path == "/ready":
             self.send_bytes(200, "text/plain", b"ready\n")
             return
@@ -82,16 +90,37 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/short":
             body = """
-<a class="link" id="package-link" href="cydia://package/linked:iphoneos-arm64">
+<a class="link" id="package-link" href="cydia://package/__PACKAGE_ROUTE__">
 Open Linked Package</a>
+<a class="link" id="external-link" href="cydia://url/https%3A%2F%2Fexample.com%2Fdepiction-external">
+Open External Destination</a>
 <div class="card" id="bridge-marker">Repository depiction content has no native package chrome.</div>
+<div class="card" id="cydia-facade-marker">Facade contract pending</div>
+<script>(function(){var marker=document.getElementById('cydia-facade-marker');var c=window.cydia;
+var p=c&&c.getPackageById('runtime:iphoneos-arm64');var foreign=c&&c.getPackageById('other:iphoneos-arm64');
+var missing=c&&c.getPackageById();var nullArg=c&&c.getPackageById(null);
+var malformed=c&&c.getPackageById({});var callbackCalled=false;
+var callbackResult=c&&c.getPackageById('runtime:iphoneos-arm64',function(){callbackCalled=true;});
+var source=p&&p.source;var values={facade:!!c,package:!!p,foreign:foreign===null,
+missing:missing===null,nullArg:nullArg===null,malformed:malformed===null,
+callbackIgnored:callbackCalled===false&&callbackResult===p,
+field:p&&p.getField('Version')==='2:1.1',tag:p&&p.hasTag('purpose::console')===true,
+source:!!source,locale:!!(c&&c.getLocaleIdentifier()),format:c&&c.format('%@',['ok'])==='ok',
+reach:c&&c.isReachable(window.location.origin+'/pixel.png')===true,
+denied:c&&typeof c.getInstalledPackages==='undefined',
+deniedMutation:c&&typeof c.installPackages==='undefined'&&typeof c.setMetadataValue==='undefined',
+deniedDevice:c&&typeof c.device==='undefined'&&typeof c.getApplicationInfoValue==='undefined',
+deniedFilesystem:c&&typeof c.du==='undefined'&&typeof c.statfs==='undefined',
+deniedClipboard:c&&typeof c.setPasteboardString==='undefined',
+deniedChrome:c&&typeof c.setButtonTitle==='undefined'&&typeof c.popViewController==='undefined',
+deniedPrivileged:c&&typeof c.addBridgedHost==='undefined'&&typeof c.serial==='undefined'};marker.textContent=JSON.stringify(values);})();</script>
 <img class="resource-icon" id="cydia-resource"
  src="cydia://section-icon/System" alt="Cydia System section resource">
 <img class="resource-icon" id="cydia-resource-rejected"
  src="cydia://section-icon/%2Fetc" alt="Rejected Cydia resource">
 <img src="/pixel.png" alt="Depiction image fixture">
 <iframe src="/frame" title="Depiction iframe fixture"></iframe>
-"""
+""".replace("__PACKAGE_ROUTE__", package_route)
             self.send_bytes(200, "text/html; charset=utf-8", document("Short depiction", body))
             return
         if path == "/long":
@@ -100,11 +129,11 @@ Open Linked Package</a>
                 for index in range(1, 25)
             )
             body = f"""
-<a class="link" id="package-link" href="cydia://package/linked:iphoneos-arm64">
+<a class="link" id="package-link" href="cydia://package/__PACKAGE_ROUTE__">
 Open Linked Package</a>
 <img src="/pixel.png" alt="Long depiction image fixture">
 <iframe src="/frame" title="Long depiction iframe fixture"></iframe>{cards}
-"""
+""".replace("__PACKAGE_ROUTE__", package_route)
             self.send_bytes(200, "text/html; charset=utf-8", document("Long depiction", body))
             return
         if path == "/hostile":
@@ -120,16 +149,26 @@ document.body.appendChild(beacon);document.getElementById('automatic-custom').cl
             destination = f"http://localhost:{self.server.server_port}/short"
             self.send_bytes(302, "text/plain", b"redirect\n", {"Location": destination})
             return
+        if path == "/missing.png":
+            self.send_bytes(404, "text/plain", b"missing image\n")
+            return
+        if path == "/missing-depiction":
+            self.send_bytes(404, "text/plain", b"missing depiction\n")
+            return
         self.send_bytes(404, "text/plain", b"not found\n")
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--bind", default="127.0.0.1")
     parser.add_argument("--port", required=True, type=int)
     parser.add_argument("--log", required=True)
+    parser.add_argument("--linked-package", default=None,
+                        help="package identity used by depiction package links")
     args = parser.parse_args()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    server = ThreadingHTTPServer((args.bind, args.port), Handler)
     server.log_path = args.log
+    server.linked_package = args.linked_package
     server.serve_forever()
 
 

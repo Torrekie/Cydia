@@ -42,10 +42,19 @@ for token in \
         'cydia.progress.finish' \
         'contentInset = UIEdgeInsetsMake(20.0' \
         'cydia.progress.percent' \
+        'state.percentIsHistorical' \
+        'historicalProgressTextForState:' \
+        'LAST_REPORTED_PROGRESS' \
+        'statusLabel_.hidden = !state.running && !state.percentIsHistorical' \
+        'finishButton_.hidden = !finished' \
+        'self.navigationItem.rightBarButtonItem = nil' \
         'state.running ?' \
         'UCLocalize("COMPLETE")' \
         'CydiaProgressEffectiveFinishAction' \
         'CydiaProgressFinishPlanForAction' \
+        'finishDispatchInFlight_' \
+        'if (finishDispatchInFlight_)' \
+        'finishDispatchInFlight_ = YES' \
         'redrawCompletedHierarchy' \
         'invokeWhenVisible:' \
         'schedulePendingInvocationIfVisible' \
@@ -57,6 +66,16 @@ for token in \
         'setProgressDelegate:progressModel_'; do
     grep -Fq "$token" "$source" || fail "missing native controller contract: $token"
 done
+
+terminal_action_assignments=$(grep -F -c \
+    'self.navigationItem.rightBarButtonItem = nil' \
+    "$source")
+[ "$terminal_action_assignments" -eq 1 ] ||
+    fail "Progress does not expose exactly one navigation terminal action assignment"
+footer_hidden_assignments=$(sed -n '/^- (void) renderState:/,/^- (void) updateNavigationActionsForState:/p' "$source" |
+    grep -F -c 'finishButton_.hidden = !finished')
+[ "$footer_hidden_assignments" -eq 1 ] ||
+    fail "Progress footer terminal action visibility policy is not unique"
 
 sed -n '/^- (void) applyColorAppearance {/,/^- (void) applyTypography {/p' \
     "$source" >"$temporary/appearance.mm"
@@ -102,6 +121,15 @@ for token in \
         '@"progressCancelled"' \
         '@"actualModalPresentation"' \
         '@"presentationAttached"' \
+        '@"formSheetPresentation": @(formSheet_)' \
+        'formSheet_ ? UIModalPresentationFormSheet :' \
+        'horizontalSizeClass == UIUserInterfaceSizeClassCompact ? actualModal' \
+        'allVisibleRowsHaveTerminalSurface' \
+        '@"finishButtonHeight"' \
+        '@"finishDispatchCount"' \
+        '@"finishDispatchAction"' \
+        'cydia-progress-probe-activate-finish' \
+        'sendActionsForControlEvents:UIControlEventTouchUpInside' \
         '@"formSheetFrameInset"' \
         '@"backdropInterceptsOutsideSheet"' \
         '@"dimmingEvidenceEligible"' \
@@ -126,6 +154,15 @@ for token in \
         'progressCancelled false'; do
     grep -Fq "$token" "$simulator" ||
         fail "Progress simulator verifier is missing cancellation transition assertion: $token"
+done
+
+for token in \
+        'height >= 44' \
+        'finishDispatchCount 1' \
+        'finishDispatchAction returnToCydia' \
+        'repeated terminal activation dispatched more than once'; do
+    grep -Fq "$token" "$simulator" ||
+        fail "Progress simulator verifier is missing terminal activation assertion: $token"
 done
 
 view_did_appear=$(sed -n '/^- (void) viewDidAppear:/,/^}/p' "$source")

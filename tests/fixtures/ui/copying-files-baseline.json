@@ -1,0 +1,103 @@
+{
+  "original_html_sha256": "ab5076a2c0043637300e6c69225fe9976d5166c44c1934343475acc5430bd6bf",
+  "original_paragraphs": [
+    "Getting Files to/from Your Device",
+    "One of the advantages of having a jailbroken device is being able to access the filesystem on your device and modify its files or transfer any of them to another computer.",
+    "To get to the filesystem you might use any of the following tools:",
+    "Cydia Packages",
+    "Secure Copy Protocol: Install OpenSSH to let you connect to your device with a standard SCP or SFTP client. You can use a terminal to connect (and you should use one to change the default password) or a graphical desktop application such as:\n\nCyberduck (Mac): http://cyberduck.ch/\n\nWinSCP (Windows): http://winscp.net/",
+    "Apple Filing Protocol: Install Netatalk to make your device show up in Finder under Shared. (You may need to reboot your device after installation for this to work.)",
+    "On Device: Install iFile to access the filesystem from an app on the device.",
+    "Desktop Applications",
+    "If you jailbroke your device with Pangu or evasi0n7, you will first need to install Apple File Conduit \"2\" to get full filesystem access over USB. (Most earlier jailbreaks include this service by default.)",
+    "DiskAid for Mac & Windows\n\n(free, $30 for extra features):\nhttp://www.digidna.net/diskaid/",
+    "iExplorer for Mac & Windows\n\n(free trial, $35 for full features):\nhttp://www.macroplant.com/iexplorer/",
+    "iPhoneBrowser for Windows (free):\nhttp://code.google.com/p/iphonebrowser/",
+    "Phone Disk for Mac & Windows (free)\nhttp://www.macroplant.com/phonedisk/",
+    "PhoneView for Mac\n\n(free trial, $30 for unlimited use):\nhttp://www.ecamm.com/mac/phoneview/"
+  ],
+  "original_links": [
+    {
+      "url": "http://cydia.saurik.com/package/openssh",
+      "kind": "package",
+      "package": "openssh"
+    },
+    {
+      "url": "https://cydia.saurik.com/password.html",
+      "kind": "neighbor-home-root"
+    },
+    {
+      "url": "http://cyberduck.ch/",
+      "kind": "external-browser"
+    },
+    {
+      "url": "http://winscp.net/",
+      "kind": "external-browser"
+    },
+    {
+      "url": "http://cydia.saurik.com/package/netatalk",
+      "kind": "package",
+      "package": "netatalk"
+    },
+    {
+      "url": "http://cydia.saurik.com/package/eu.heinelt.ifile",
+      "kind": "package",
+      "package": "eu.heinelt.ifile"
+    },
+    {
+      "url": "http://cydia.saurik.com/package/com.saurik.afc2d",
+      "kind": "package",
+      "package": "com.saurik.afc2d"
+    },
+    {
+      "url": "http://www.digidna.net/diskaid/",
+      "kind": "external-browser"
+    },
+    {
+      "url": "http://www.macroplant.com/iexplorer/",
+      "kind": "external-browser"
+    },
+    {
+      "url": "http://code.google.com/p/iphonebrowser/",
+      "kind": "external-browser"
+    },
+    {
+      "url": "http://www.macroplant.com/phonedisk/",
+      "kind": "external-browser"
+    },
+    {
+      "url": "http://www.ecamm.com/mac/phoneview/",
+      "kind": "external-browser"
+    }
+  ],
+  "textAndHeadingRows": [
+    ["heading", "Getting Files to/from Your Device"],
+    ["text", "A jailbroken device can provide access to its filesystem, letting you modify files or transfer them to another computer."],
+    ["text", "The original guide listed the following ways to reach that filesystem."],
+    ["heading", "Cydia Packages"],
+    ["text", "Secure Copy Protocol: Installing OpenSSH lets you connect with a standard SCP or SFTP client. You can use a terminal, and should change any default password, or a graphical desktop application such as Cyberduck on Mac or WinSCP on Windows."],
+    ["text", "Apple Filing Protocol: The original guide said Netatalk would make the device appear in Finder under Shared, and that a reboot after installation might be needed."],
+    ["text", "On Device: The original guide listed iFile for accessing the filesystem from an app on the device."],
+    ["heading", "Desktop Applications"],
+    ["text", "For devices jailbroken with Pangu or evasi0n7, the original guide said Apple File Conduit 2 was needed for full filesystem access over USB; it said most earlier jailbreaks included that service by default."],
+    ["text", "DiskAid for Mac & Windows: the original guide described it as free, with $30 for extra features."],
+    ["text", "iExplorer for Mac & Windows: the original guide described a free trial and $35 for full features."],
+    ["text", "iPhoneBrowser for Windows: the original guide described it as free."],
+    ["text", "Phone Disk for Mac & Windows: the original guide described it as free."],
+    ["text", "PhoneView for Mac: the original guide described a free trial and $30 for unlimited use."]
+  ],
+  "links": [
+    ["openssh", "cydia://package/openssh"],
+    ["change-default-password", "cydia://home/root-password"],
+    ["cyberduck", "http://cyberduck.ch/"],
+    ["winscp", "http://winscp.net/"],
+    ["netatalk", "cydia://package/netatalk"],
+    ["ifile", "cydia://package/eu.heinelt.ifile"],
+    ["apple-file-conduit-2", "cydia://package/com.saurik.afc2d"],
+    ["diskaid", "http://www.digidna.net/diskaid/"],
+    ["iexplorer", "http://www.macroplant.com/iexplorer/"],
+    ["iphonebrowser", "http://code.google.com/p/iphonebrowser/"],
+    ["phone-disk", "http://www.macroplant.com/phonedisk/"],
+    ["phoneview", "http://www.ecamm.com/mac/phoneview/"]
+  ]
+}

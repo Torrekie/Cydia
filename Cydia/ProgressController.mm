@@ -25,6 +25,7 @@
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Appearance.h"
+#include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
 #include "Cydia/ProgressEventCell.h"
@@ -107,6 +108,7 @@ static std::string FileFingerprint(const char *path) {
     BOOL invocationStarted_;
     BOOL invocationStartQueued_;
     BOOL visible_;
+    BOOL finishDispatchInFlight_;
 }
 
 - (UIStatusBarStyle) preferredStatusBarStyle {
@@ -389,6 +391,7 @@ static std::string FileFingerprint(const char *path) {
 - (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     visible_ = YES;
+    CydiaCaptureNativeAccessibility(self, @"progress");
     [self schedulePendingInvocationIfVisible];
 }
 
@@ -428,6 +431,12 @@ static std::string FileFingerprint(const char *path) {
         return percent;
     return [NSString stringWithFormat:UCLocalize("COMMA_DELIMITED"),
         percent, finishTitle];
+}
+
+- (NSString *) historicalProgressTextForState:(CydiaProgressViewState *)state {
+    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
+        UCLocalizeEx(@"LAST_REPORTED_PROGRESS", @"Last reported progress"),
+        [self accessibilityPercentForState:state]];
 }
 
 - (BOOL) eventsWereAppendedFrom:(NSArray *)previous to:(NSArray *)events {
@@ -496,17 +505,29 @@ static std::string FileFingerprint(const char *path) {
         return;
     NSString *title(state.localizedTitle ?: state.rawTitle ?: @"");
     self.navigationItem.title = title;
-    statusLabel_.text = state.statusText ?: @"";
+    statusLabel_.text = state.percentIsHistorical ?
+        [self historicalProgressTextForState:state] : (state.statusText ?: @"");
     statusLabel_.accessibilityLabel = statusLabel_.text;
+    /* The historical caption explains the retained bar visually; the bar
+     * itself exposes the same label/value once to VoiceOver. */
+    statusLabel_.isAccessibilityElement = !state.percentIsHistorical;
     NSString *finishTitle([self effectiveFinishTitleForState:state]);
     [finishButton_ setTitle:[finishTitle length] == 0 ? UCLocalize("CLOSE") : finishTitle
                    forState:UIControlStateNormal];
-    BOOL finished(!state.running && [finishTitle length] != 0);
-    statusLabel_.hidden = !state.running;
-    progressView_.hidden = !state.running;
+    CydiaProgressFinishAction action([self effectiveFinishActionForState:state]);
+    BOOL finished(!state.running && action != CydiaProgressFinishActionNone);
+    statusLabel_.hidden = !state.running && !state.percentIsHistorical;
+    /* Keep the terminal progress meter in the lower footer. Completion is a
+     * real state, not a reason to remove the progress surface while the
+     * maintainer output is still visible. */
+    progressView_.hidden = !(state.running || finished);
+    /* The footer is the single terminal action surface. The navigation item
+     * is suppressed on completion below so regular and Accessibility Large
+     * layouts cannot expose two return controls. */
     finishButton_.hidden = !finished;
-    progressView_.accessibilityLabel = state.running ?
-        UCLocalize("RUNNING") : UCLocalize("COMPLETE");
+    progressView_.accessibilityLabel = state.percentIsHistorical ?
+        UCLocalizeEx(@"LAST_REPORTED_PROGRESS", @"Last reported progress") :
+        (state.running ? UCLocalize("RUNNING") : UCLocalize("COMPLETE"));
     progressView_.accessibilityValue = [self accessibilityValueForState:state];
     [progressView_ setProgress:state.displayPercent
                       animated:previous != nil &&
@@ -526,11 +547,9 @@ static std::string FileFingerprint(const char *path) {
     BOOL cancellable(state.cancellationState == CydiaProgressCancellationAvailable);
     self.navigationItem.leftBarButtonItem = cancellable ? cancelItem_ : nil;
 
-    CydiaProgressFinishAction action([self effectiveFinishActionForState:state]);
-    BOOL finished(!state.running && action != CydiaProgressFinishActionNone);
     NSString *finishTitle([self effectiveFinishTitleForState:state]);
     finishItem_.title = [finishTitle length] == 0 ? UCLocalize("CLOSE") : finishTitle;
-    self.navigationItem.rightBarButtonItem = finished ? finishItem_ : nil;
+    self.navigationItem.rightBarButtonItem = nil;
     [finishButton_ setTitle:finishItem_.title forState:UIControlStateNormal];
 }
 
@@ -555,6 +574,13 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (void) close {
+    /* A terminal footer can be activated by both touch and an accessibility
+     * or keyboard event in the same run-loop turn.  Consume the action before
+     * invoking any delegate side effect so the native Return/finish route is
+     * exactly once. */
+    if (finishDispatchInFlight_)
+        return;
+    finishDispatchInFlight_ = YES;
     UpdateExternalStatus(0);
 
     id<ProgressControllerDelegate> delegate(self.delegate);
@@ -668,6 +694,8 @@ static std::string FileFingerprint(const char *path) {
     CydiaProgressViewState *previous(renderedState_);
     renderedState_ = state;
     [self renderState:state previous:previous change:change];
+    if (visible_ && previous != nil && state.running != previous.running)
+        CydiaCaptureNativeAccessibility(self, @"progress");
 }
 
 @end

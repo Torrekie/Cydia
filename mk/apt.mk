@@ -73,6 +73,7 @@ apt_api_sources := \
     Cydia/ProgressEvent.mm \
     Cydia/Relations.mm \
     Cydia/Source.mm \
+    Cydia/SourceControllers.mm \
     Sources.mm \
     MobileCydia.mm
 

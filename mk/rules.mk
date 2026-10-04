@@ -199,7 +199,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings
 	@$(LDID) -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
 	@$(LDID) -T0 -Sgenent.xml $@

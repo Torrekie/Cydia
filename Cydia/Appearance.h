@@ -29,4 +29,16 @@ extern _H<UIFont> Font22Bold_;
  * under UIKit or caller ownership. */
 FOUNDATION_EXPORT void CydiaApplyLegacyInterfaceStyleCompatibility(UIWindow *window);
 
+/* A helper-owned root override must not pin the inherited trait while UIKit
+ * is handing the app to Settings, Control Center, or another foreground
+ * surface.  Releasing only our own override lets the next activation read
+ * the settled system preference without touching caller-owned styles. */
+FOUNDATION_EXPORT void CydiaReleaseLegacyInterfaceStyleCompatibility(UIWindow *window);
+
+/* Recheck the system preference only when a helper-owned override may have
+ * become stale.  This is used by the short-lived foreground refresh lane on
+ * rootful iOS 13+ where UIKit may not propagate the Control Center change to
+ * an already-running legacy window. */
+FOUNDATION_EXPORT void CydiaRefreshLegacyInterfaceStyleCompatibility(UIWindow *window);
+
 #endif//Cydia_Appearance_H

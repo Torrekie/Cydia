@@ -41,6 +41,7 @@ static NSString * const kCydiaProgressEventTypeWarning = @"Warning";
 @property(nonatomic, getter=isRunning) BOOL running;
 @property(nonatomic) float rawPercent;
 @property(nonatomic) float displayPercent;
+@property(nonatomic) BOOL percentIsHistorical;
 @property(nonatomic, getter=isProgressDeterminate) BOOL progressDeterminate;
 @property(nonatomic) float current;
 @property(nonatomic) float total;
@@ -246,6 +247,8 @@ static NSString *CydiaProgressLogMessage(NSString *message) {
     state.cancellationState = [self currentCancellationState];
     state.finishAction = CydiaProgressEffectiveFinishAction(
         finishAction_, liveFinishAction_);
+    state.percentIsHistorical = !state.running &&
+        finishAction_ != CydiaProgressFinishActionNone;
     state.finishTitle = CydiaProgressString([self.legacyDataStorage finish]);
     if (state.finishAction != CydiaProgressFinishActionNone &&
         state.finishAction != finishAction_) {

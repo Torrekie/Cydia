@@ -139,6 +139,24 @@ BOOL CallerAllowsKind(CydiaUIRouteCaller caller, CydiaUIRouteKind kind) {
     return NO;
 }
 
+BOOL RepositoryPackageMatchesContext(CydiaUIRouteDescriptor *descriptor,
+                                     CydiaUIRouteContext *context) {
+    if ([context caller] != CydiaUIRouteCallerRepositoryDepiction ||
+        [descriptor kind] != CydiaUIRouteKindPackage)
+        return YES;
+    NSArray *arguments([descriptor arguments]);
+    NSString *identity([context depictionPackageIdentity]);
+    if ([arguments count] != 1 || ![identity isKindOfClass:[NSString class]])
+        return NO;
+    /* Depictions may expose an ordinary, user-activated package link to a
+     * different package.  Keep automatic navigation and frame-generated
+     * routes scoped to the current package so a depiction cannot enumerate
+     * package identities without an explicit physical gesture in its main
+     * frame. */
+    return [identity isEqualToString:[arguments objectAtIndex:0]] ||
+        ([context isMainFrame] && [context hasUserGesture]);
+}
+
 } // namespace
 
 
@@ -448,6 +466,29 @@ CydiaUIRouteDescriptor *CydiaUIParseRouteURL(NSURL *url, NSError **error) {
     const NSUInteger count([rawComponents count]);
     if (count == 1 && [base isEqualToString:@"home"])
         kind = CydiaUIRouteKindHome;
+    else if ((count == 2 || count == 3) && [base isEqualToString:@"home"] &&
+             [[arguments objectAtIndex:0] isEqualToString:@"faq"])
+        kind = CydiaUIRouteKindFAQ;
+    else if ((count == 2 || count == 3) && [base isEqualToString:@"home"] &&
+             [[arguments objectAtIndex:0] isEqualToString:@"upgrading-jailbreaking"])
+        kind = CydiaUIRouteKindUpgradingGuide;
+    else if ((count == 2 || count == 3) && [base isEqualToString:@"home"] &&
+             [[arguments objectAtIndex:0] isEqualToString:@"application-extensions"])
+        kind = CydiaUIRouteKindApplicationExtensions;
+    else if (count == 2 && [base isEqualToString:@"home"] &&
+             [[arguments objectAtIndex:0] isEqualToString:@"more-sources"])
+        kind = CydiaUIRouteKindMoreSources;
+    else if (count == 2 && [base isEqualToString:@"home"] &&
+             [[arguments objectAtIndex:0] isEqualToString:@"copying-files"])
+        kind = CydiaUIRouteKindCopyingFiles;
+    else if (count == 2 && [base isEqualToString:@"home"] &&
+             [@[@"openssh", @"root-password", @"developer-resources", @"credits", @"privacy", @"console"]
+                 containsObject:[arguments objectAtIndex:0]])
+        kind = CydiaUIRouteKindHomeGuide;
+    else if (count == 2 && [base isEqualToString:@"home"] &&
+             [@[@"storage", @"featured", @"themes", @"account"]
+                 containsObject:[arguments objectAtIndex:0]])
+        kind = CydiaUIRouteKindHomeGuide;
     else if (count == 1 && [base isEqualToString:@"sources"])
         kind = CydiaUIRouteKindSources;
     else if (count == 2 && [base isEqualToString:@"sources"] &&
@@ -473,6 +514,9 @@ CydiaUIRouteDescriptor *CydiaUIParseRouteURL(NSURL *url, NSError **error) {
     else if (count == 3 && [base isEqualToString:@"package"] &&
              [[arguments objectAtIndex:1] isEqualToString:@"files"])
         kind = CydiaUIRouteKindPackageFiles;
+    else if (count == 3 && [base isEqualToString:@"package"] &&
+             [[arguments objectAtIndex:1] isEqualToString:@"support"])
+        kind = CydiaUIRouteKindPackageSupport;
     else if (count == 2 && [base isEqualToString:@"launch"])
         kind = CydiaUIRouteKindLaunchApplication;
     else {
@@ -484,10 +528,32 @@ CydiaUIRouteDescriptor *CydiaUIParseRouteURL(NSURL *url, NSError **error) {
     if ((kind == CydiaUIRouteKindPackage ||
          kind == CydiaUIRouteKindPackageSettings ||
          kind == CydiaUIRouteKindPackageFiles ||
+         kind == CydiaUIRouteKindPackageSupport ||
          kind == CydiaUIRouteKindLaunchApplication) &&
         !IsRestrictedIdentifier([arguments objectAtIndex:0])) {
         if (error != NULL)
             *error = RouteError(CydiaUIRouteErrorMalformed, @"Invalid route identifier");
+        return nil;
+    }
+
+    if (kind == CydiaUIRouteKindFAQ && [arguments count] == 2 &&
+        !IsRestrictedIdentifier([arguments objectAtIndex:1])) {
+        if (error != NULL)
+            *error = RouteError(CydiaUIRouteErrorMalformed, @"Invalid FAQ identifier");
+        return nil;
+    }
+
+    if (kind == CydiaUIRouteKindUpgradingGuide && [arguments count] == 2 &&
+        !IsRestrictedIdentifier([arguments objectAtIndex:1])) {
+        if (error != NULL)
+            *error = RouteError(CydiaUIRouteErrorMalformed, @"Invalid upgrading guide identifier");
+        return nil;
+    }
+
+    if (kind == CydiaUIRouteKindApplicationExtensions && [arguments count] == 2 &&
+        !IsRestrictedIdentifier([arguments objectAtIndex:1])) {
+        if (error != NULL)
+            *error = RouteError(CydiaUIRouteErrorMalformed, @"Invalid application identifier");
         return nil;
     }
 
@@ -530,6 +596,23 @@ CydiaUIRouteDecision *CydiaUIEvaluateRoute(CydiaUIRouteDescriptor *descriptor,
             disposition:CydiaUIRouteDispositionRejected
             denialReason:CydiaUIRouteDenialReasonCaller
             requiresConfirmation:NO];
+
+    /* A repository depiction may hand off its own package automatically, or
+     * a distinct package only after a main-frame physical gesture.  The old
+     * package-only allowlist otherwise let a depiction enumerate arbitrary
+     * package identities through public cydia:// routes. */
+    if (!RepositoryPackageMatchesContext(descriptor, context)) {
+        CydiaUIRouteDenialReason denialReason(CydiaUIRouteDenialReasonCaller);
+        if ([context caller] == CydiaUIRouteCallerRepositoryDepiction &&
+            [descriptor kind] == CydiaUIRouteKindPackage &&
+            [context isMainFrame] && ![context hasUserGesture])
+            denialReason = CydiaUIRouteDenialReasonUserGesture;
+        return [[CydiaUIRouteDecision alloc]
+            initWithDescriptor:descriptor
+            disposition:CydiaUIRouteDispositionRejected
+            denialReason:denialReason
+            requiresConfirmation:NO];
+    }
 
     if ([descriptor kind] == CydiaUIRouteKindExternalOpen) {
         if (!IsExternalSchemeAllowed([descriptor externalURL]))

@@ -22,6 +22,7 @@ int CydiaBundlePathForDisplayIdentifier(mach_port_t port, const char *identifier
 NSArray *CydiaCopyApplicationDisplayIdentifiers(bool active, bool debuggable);
 NSString *CydiaCopyLocalizedApplicationName(NSString *identifier);
 NSString *CydiaCopyIconImagePath(NSString *identifier);
+NSData *CydiaCopyApplicationIconPNGData(NSString *identifier);
 bool CydiaReboot(uint64_t flags);
 
 #endif//Cydia_PrivateServices_H

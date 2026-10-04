@@ -578,11 +578,20 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     table_.accessibilityIdentifier = @"cydia.home.table";
     table_.estimatedRowHeight = 44;
     table_.rowHeight = UITableViewAutomaticDimension;
+    table_.sectionHeaderHeight = 0.01;
+    table_.sectionFooterHeight = 0.01;
     HomeApplyTableSurface(table_, view.backgroundColor, [self homeAppearanceTraits]);
     table_.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator
                                         traitCollection:[self homeAppearanceTraits]];
     if ([table_ respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)])
         table_.cellLayoutMarginsFollowReadableWidth = NO;
+    /* iOS 15 added 22pt of grouped-table section-header top padding.  The
+     * legacy Home lanes already own their spacing through the delegate's
+     * explicit section footer, so retaining that implicit inset makes the
+     * social and discovery rows look disconnected.  Keep the guard for the
+     * iOS 12 deployment target, where this selector is unavailable. */
+    if ([table_ respondsToSelector:@selector(setSectionHeaderTopPadding:)])
+        table_.sectionHeaderTopPadding = 0;
     [view addSubview:table_];
 
     recommendationsTable_ = [[UITableView alloc] initWithFrame:CGRectZero
@@ -591,6 +600,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     recommendationsTable_.delegate = self;
     recommendationsTable_.estimatedRowHeight = 60;
     recommendationsTable_.rowHeight = UITableViewAutomaticDimension;
+    recommendationsTable_.sectionHeaderHeight = 0.01;
+    recommendationsTable_.sectionFooterHeight = 0.01;
+    if ([recommendationsTable_ respondsToSelector:@selector(setSectionHeaderTopPadding:)])
+        recommendationsTable_.sectionHeaderTopPadding = 0;
     HomeApplyTableSurface(recommendationsTable_, view.backgroundColor,
         [self homeAppearanceTraits]);
     recommendationsTable_.separatorColor = table_.separatorColor;
@@ -610,7 +623,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     title_ = [[UILabel alloc] init];
     title_.text = UCLocalize("WELCOME_TO_CYDIA");
     title_.accessibilityIdentifier = @"cydia.home.header.title";
-    title_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleTitle2];
+    /* The legacy banner uses a compact headline beside the logo.  Title2
+     * makes the native replacement visually heavier than the source page on
+     * iPad while offering no additional hierarchy. */
+    title_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     title_.adjustsFontForContentSizeCategory = YES;
     title_.numberOfLines = 0;
     title_.textAlignment = NSTextAlignmentCenter;
@@ -642,7 +658,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     footer_.accessibilityIdentifier = @"cydia.home.footer";
     footerLabel_ = [[UILabel alloc] init];
     footerLabel_.accessibilityIdentifier = @"cydia.home.footer.label";
-    footerLabel_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    /* This is diagnostic metadata rather than primary content.  Keep the
+     * footer compact enough for the fixed-width device identifier to remain
+     * one readable line on the iPad's narrow Home column. */
+    footerLabel_.font = [UIFont systemFontOfSize:10.0];
     footerLabel_.adjustsFontForContentSizeCategory = YES;
     footerLabel_.numberOfLines = 0;
     footerLabel_.textAlignment = NSTextAlignmentCenter;
@@ -689,7 +708,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     CGFloat contentLeft(floor((width - contentWidth) / 2));
     CGFloat textLeft(contentLeft + 70);
     CGFloat textWidth(MAX(1, contentWidth - 70));
-    CGFloat y(9);
+    CGFloat y(6);
     CGSize logoSize(CGSizeMake(60, 60));
     logo_.frame = CGRectMake(contentLeft, y, logoSize.width, logoSize.height);
 
@@ -702,9 +721,9 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     y += authorHeight;
 
     CGFloat topperBottom(MAX(y, 9 + logoSize.height));
-    CGFloat height(topperBottom + 9);
+    CGFloat height(topperBottom + 5);
     if (!status_.hidden) {
-        CGFloat statusTop(topperBottom + 6);
+        CGFloat statusTop(topperBottom + 4);
         CGSize statusSize([status_ sizeThatFits:CGSizeMake(width - 32, CGFLOAT_MAX)]);
         status_.frame = CGRectMake(16, statusTop, width - 32, statusSize.height);
         height = statusTop + statusSize.height + 9;
@@ -935,45 +954,50 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
         case HomeActionTwitter:
             return [NSURL URLWithString:@"https://twitter.com/saurik"];
         case HomeActionFeatured:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/featured/"];
+            return [NSURL URLWithString:@"cydia://home/featured"];
         case HomeActionThemes:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/themes/"];
+            return [NSURL URLWithString:@"cydia://home/themes"];
         case HomeActionAccount:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/account/"];
+            return [NSURL URLWithString:@"cydia://home/account"];
         case HomeActionUpgrading:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/upgrading/"];
-        case HomeActionApplications: {
-            NSString *idiom(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad ?
-                @"ipad" : @"iphone");
-            return [NSURL URLWithString:[NSString stringWithFormat:
-                @"https://cydia.saurik.com/ui/ios~%@/1.1/application/", idiom]];
-        }
+            return [NSURL URLWithString:@"cydia://home/upgrading-jailbreaking/root"];
+        case HomeActionApplications:
+            return [NSURL URLWithString:@"cydia://home/application-extensions"];
         case HomeActionSourcesGuide:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/sources.html"];
+            return [NSURL URLWithString:@"cydia://home/more-sources"];
         case HomeActionFAQ:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/questions.html"];
+            return [NSURL URLWithString:@"cydia://home/faq"];
         case HomeActionCopying:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/copying.html"];
+            return [NSURL URLWithString:@"cydia://home/copying-files"];
         case HomeActionOpenSSH:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/openssh.html"];
+            return [NSURL URLWithString:@"cydia://home/openssh"];
         case HomeActionRootPassword:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/password.html"];
+            return [NSURL URLWithString:@"cydia://home/root-password"];
         case HomeActionStorage:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/storage.html"];
+            return [NSURL URLWithString:@"cydia://home/storage"];
         case HomeActionDeveloperResources:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/faq/developing.html"];
+            return [NSURL URLWithString:@"cydia://home/developer-resources"];
         case HomeActionCredits:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/credits.html"];
+            return [NSURL URLWithString:@"cydia://home/credits"];
         case HomeActionPrivacy:
-            return [NSURL URLWithString:@"https://cydia.saurik.com/policy/privacy/"];
+            return [NSURL URLWithString:@"cydia://home/privacy"];
     }
     return nil;
 }
 
 - (void) performHomeAction:(HomeAction)action {
     NSURL *url([self URLForHomeAction:action]);
-    if (url != nil)
+    if (url != nil && (action == HomeActionFeatured || action == HomeActionThemes ||
+                      action == HomeActionAccount || action == HomeActionFAQ || action == HomeActionUpgrading ||
+                      action == HomeActionApplications || action == HomeActionSourcesGuide ||
+                      action == HomeActionCopying || action == HomeActionOpenSSH ||
+                      action == HomeActionRootPassword || action == HomeActionStorage ||
+                      action == HomeActionDeveloperResources ||
+                      action == HomeActionCredits || action == HomeActionPrivacy)) {
+        [self openNativeRoute:[url absoluteString]];
+    } else if (url != nil) {
         [self openExternalURL:url];
+    }
 }
 
 - (void) splitButtonClicked:(UIButton *)button {
@@ -1156,9 +1180,27 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    (void) tableView;
-    (void) indexPath;
+    if (tableView != recommendationsTable_ && indexPath.section == HomeSectionAccount &&
+        !HomeIsAccessibilityCategory([self homeAppearanceTraits]))
+        return 44.0;
     return UITableViewAutomaticDimension;
+}
+
+- (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    NSString *title([self tableView:tableView titleForHeaderInSection:section]);
+    if ([title length] != 0)
+        return 24.0;
+    /* UIKit's grouped style otherwise supplies a large implicit header even
+     * for untitled sections, separating the social and discovery lanes more
+     * than the historical Home page did. */
+    return 0.01;
+}
+
+- (CGFloat) tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    if (tableView != recommendationsTable_ && section == HomeSectionSocial)
+        return 0.01;
+    NSInteger sectionCount([self numberOfSectionsInTableView:tableView]);
+    return section + 1 < sectionCount ? 12.0 : 0.01;
 }
 
 @end

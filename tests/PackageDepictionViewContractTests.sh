@@ -7,6 +7,8 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 header=$root/Cydia/PackageDepictionView.h
 source=$root/Cydia/PackageDepictionView.mm
+facade_header=$root/Cydia/PackageDepictionJavaScriptFacade.h
+facade_source=$root/Cydia/PackageDepictionJavaScriptFacade.mm
 policy=$root/Cydia/PackageDepictionPolicy.mm
 cyte_header=$root/CyteKit/extern.h
 cyte_source=$root/CyteKit/extern.mm
@@ -31,6 +33,7 @@ for token in \
         'nonPersistentDataStore' \
         'configuration.applicationNameForUserAgent' \
         'CyteApplicationNameForUserAgent()' \
+        'self.accessibilityElements = @[_depictionWebView]' \
         'mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll' \
         'scrollView.scrollEnabled = NO' \
         'scrollView addObserver:self' \
@@ -48,11 +51,35 @@ for token in \
         'CydiaPackageDepictionGestureLifetime' \
         'decisionForURL:navigationAction.request.URL' \
         'allowsResponseURL:navigationResponse.response.URL' \
+        'NSHTTPURLResponse' \
+        'statusCode >= 200' \
+        'statusCode < 300' \
         'didRequestURLHandoff' \
         'CydiaPackageDepictionViewStatePathologicalContent'; do
     grep -Fq "$token" "$header" "$source" ||
         fail "missing depiction adapter contract: $token"
 done
+
+for token in \
+        'CydiaPackageDepictionJavaScriptFacade : NSObject' \
+        'WKUserScriptInjectionTimeAtDocumentStart' \
+        'forMainFrameOnly:YES' \
+        'addScriptMessageHandler:self name:@"cydiaDepictionBridge"' \
+        'removeScriptMessageHandlerForName:@"cydiaDepictionBridge"' \
+        'removeAllUserScripts' \
+        'securityOrigin' \
+        '[frame isMainFrame]' \
+        'generation' \
+        'binding' \
+        'allowlistedReachabilityURL'; do
+    grep -Fq "$token" "$facade_header" "$facade_source" ||
+        fail "missing bounded facade contract: $token"
+done
+
+if grep -Eq 'WebScriptObject|UIApplication|openURL:|X-Unique-ID|serial|ecid|installPackages|setMetadataValue' \
+        "$facade_header" "$facade_source"; then
+    fail "depiction facade exposes a privileged or identity-bearing surface"
+fi
 
 probe_method=$(sed -n '/#if TARGET_OS_SIMULATOR/,/^#endif/p' "$source")
 printf '%s\n' "$probe_method" | grep -Fq '#if TARGET_OS_SIMULATOR' ||

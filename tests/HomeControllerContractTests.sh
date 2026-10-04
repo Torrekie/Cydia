@@ -76,6 +76,8 @@ for suffix in DisclosureCount DisclosuresDecorative \
     grep -Fq "split${suffix}" "$probe" ||
         fail "Home probe does not verify split-row ${suffix}"
 done
+grep -Fq 'cydia.home.upgrading.row.' "$probe" ||
+    fail "Home probe does not distinguish guide actions from detail rows"
 grep -q 'UITableViewCellStyleSubtitle' "$controller" ||
     fail "iPad package recommendations lost their native detail text"
 grep -q 'CydiaColorRoleCellBackground' "$controller" ||
@@ -159,21 +161,24 @@ done
 
 for URL in \
     https://www.saurik.com/ https://www.facebook.com/Cydia \
-    https://twitter.com/saurik https://cydia.saurik.com/featured/ \
-    https://cydia.saurik.com/themes/ https://cydia.saurik.com/account/ \
-    https://cydia.saurik.com/upgrading/ \
-    https://cydia.saurik.com/sources.html \
-    https://cydia.saurik.com/questions.html \
-    https://cydia.saurik.com/copying.html \
-    https://cydia.saurik.com/openssh.html \
-    https://cydia.saurik.com/password.html \
-    https://cydia.saurik.com/storage.html \
-    https://cydia.saurik.com/faq/developing.html \
-    https://cydia.saurik.com/credits.html \
-    https://cydia.saurik.com/policy/privacy/; do
+    https://twitter.com/saurik cydia://home/featured \
+    cydia://home/themes cydia://home/account \
+    cydia://home/more-sources \
+    cydia://home/copying-files \
+    cydia://home/openssh \
+    cydia://home/root-password \
+    cydia://home/storage \
+    cydia://home/developer-resources \
+    cydia://home/credits \
+    cydia://home/privacy; do
     grep -Fq "$URL" "$controller" ||
         fail "Home historical destination is missing: $URL"
 done
+
+grep -Fq 'cydia://home/faq' "$controller" ||
+    fail "Home FAQ action does not use its native route"
+grep -Fq 'cydia://home/upgrading-jailbreaking/root' "$controller" ||
+    fail "Home upgrading action does not use its native guide route"
 
 grep -Fq 'HomeIPadExtensions' "$controller" ||
     fail "Home lost the native iPad recommendation column"

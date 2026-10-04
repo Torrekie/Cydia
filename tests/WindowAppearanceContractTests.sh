@@ -38,12 +38,22 @@ sed -n "${style_value_line}p" "$info" |
 
 grep -Fq 'CydiaApplyLegacyInterfaceStyleCompatibility(UIWindow *window)' "$header" ||
     fail "legacy appearance compatibility helper is not declared"
+grep -Fq 'CydiaReleaseLegacyInterfaceStyleCompatibility(UIWindow *window)' "$header" ||
+    fail "legacy appearance release helper is not declared"
+grep -Fq 'CydiaRefreshLegacyInterfaceStyleCompatibility(UIWindow *window)' "$header" ||
+    fail "legacy appearance refresh helper is not declared"
 grep -Fq 'CydiaApplyLegacyInterfaceStyleCompatibility(window_);' "$application" ||
     fail "Cydia startup does not apply the legacy appearance compatibility"
 grep -Fq 'applicationDidBecomeActive:' "$lifecycle" ||
     fail "Cydia does not refresh the legacy appearance at activation"
-grep -Fq 'CydiaApplyLegacyInterfaceStyleCompatibility(window_);' "$lifecycle" ||
+grep -Eq 'Cydia(Apply|Refresh)LegacyInterfaceStyleCompatibility\(window_\);' "$lifecycle" ||
     fail "Cydia activation bypasses the legacy appearance compatibility"
+grep -Fq 'CydiaReleaseLegacyInterfaceStyleCompatibility(window_);' "$lifecycle" ||
+    fail "Cydia resignation does not release the helper-owned appearance"
+grep -Fq 'CydiaRefreshLegacyInterfaceStyleCompatibility(window_);' "$lifecycle" ||
+    fail "Cydia activation does not use the stale-preference refresh helper"
+grep -Fq 'legacyInterfaceStyleTimer_ = [NSTimer scheduledTimerWithTimeInterval:0.5' "$lifecycle" ||
+    fail "Cydia activation does not start the bounded appearance refresh lane"
 
 init_line=$(grep -n -F 'window_ = [[CyteWindow alloc]' "$application" | head -1 | cut -d: -f1)
 apply_line=$(grep -n -F 'CydiaApplyLegacyInterfaceStyleCompatibility(window_);' "$application" |
@@ -57,6 +67,17 @@ test -n "$init_line" && test -n "$apply_line" && test -n "$root_line" &&
 mode_lookup=$(sed -n \
     '/^static UIUserInterfaceStyle CydiaLegacyInterfaceStyleMode(void) {/,/^}/p' \
     "$source")
+live_lookup=$(sed -n \
+    '/^static UIUserInterfaceStyle CydiaLiveSystemInterfaceStyle(void) {/,/^}/p' \
+    "$source")
+printf '%s\n' "$live_lookup" | grep -Fq 'UIScreen mainScreen].traitCollection' ||
+    fail "live system appearance does not use UIKit's screen trait"
+printf '%s\n' "$live_lookup" | grep -Fq 'traits.userInterfaceStyle' ||
+    fail "live system appearance does not inspect the screen style"
+printf '%s\n' "$live_lookup" | grep -Fq '@available(iOS 13.0, *)' ||
+    fail "live system appearance is not guarded to iOS 13+"
+printf '%s\n' "$live_lookup" | grep -Fq 'return UIUserInterfaceStyleUnspecified' ||
+    fail "iOS 12/unavailable live appearance does not fall back to unspecified"
 printf '%s\n' "$mode_lookup" | grep -Fq 'NSSearchPathForDirectoriesInDomains' ||
     fail "style mode lookup is not rooted in the current mobile user Library"
 printf '%s\n' "$mode_lookup" |
@@ -185,8 +206,8 @@ printf '%s\n' "$managed_dispatch" |
     grep -Fq 'CydiaApplyLegacyInterfaceStyleCompatibility(window);' ||
     fail "fallback reevaluation is not inside the deferred main-queue block"
 reapply_count=$(grep -Fc 'CydiaApplyLegacyInterfaceStyleCompatibility(window);' "$source")
-test "$reapply_count" -eq 1 ||
-    fail "fallback reevaluation is not bounded to one deferred call"
+test "$reapply_count" -eq 2 ||
+    fail "fallback reevaluation or stale-preference refresh is not bounded"
 managed_release_line=$(printf '%s\n' "$managed_refresh" |
     grep -n -F 'window.overrideUserInterfaceStyle = UIUserInterfaceStyleUnspecified' |
     head -1 | cut -d: -f1)
@@ -217,6 +238,10 @@ printf '%s\n' "$apply_body" | grep -Fq 'desired == UIUserInterfaceStyleDark' ||
 printf '%s\n' "$apply_body" |
     grep -Fq 'inherited(window.traitCollection.userInterfaceStyle)' ||
     fail "compatibility does not inspect the attached inherited window trait"
+printf '%s\n' "$apply_body" | grep -Fq 'CydiaLiveSystemInterfaceStyle()' ||
+    fail "compatibility does not consult UIKit's live system style"
+printf '%s\n' "$apply_body" | grep -Fq 'live != desired' ||
+    fail "a lagging plist can still re-pin the previous appearance"
 valid_mode=$(printf '%s\n' "$apply_body" | sed -n \
     '/if (desired == UIUserInterfaceStyleLight ||/,/^[[:space:]]*}/p')
 inherited_match=$(printf '%s\n' "$valid_mode" | sed -n \
@@ -239,18 +264,29 @@ printf '%s\n' "$valid_mode" | grep -Fq 'window.overrideUserInterfaceStyle = desi
 test "$(printf '%s\n' "$valid_mode" | compact)" = \
     'if(desired==UIUserInterfaceStyleLight||desired==UIUserInterfaceStyleDark){if(inherited==desired)return;window.overrideUserInterfaceStyle=desired;CydiaManagedLegacyAppearanceWindow=window;CydiaManagedLegacyAppearanceStyle=desired;}' ||
     fail "valid mismatch does not exclusively apply and track the fallback"
+refresh_body=$(sed -n \
+    '/^void CydiaRefreshLegacyInterfaceStyleCompatibility(UIWindow \*window) {/,/^}/p' \
+    "$source")
+printf '%s\n' "$refresh_body" | grep -Fq 'CydiaLiveSystemInterfaceStyle()' ||
+    fail "active refresh does not consult the live system style"
+printf '%s\n' "$refresh_body" |
+    grep -Fq 'CydiaReleaseLegacyInterfaceStyleCompatibility(window);' ||
+    fail "active refresh does not release a stale helper-owned override"
+printf '%s\n' "$refresh_body" |
+    grep -Fq 'live != CydiaManagedLegacyAppearanceStyle' ||
+    fail "active refresh does not detect a live style change"
 grep -Fq 'CydiaManagedLegacyAppearanceWindow' "$source" ||
     fail "helper-owned root-window appearance is not tracked"
 grep -Fq 'CydiaManagedLegacyAppearanceStyle' "$source" ||
     fail "helper-owned root-window style is not tracked"
 grep -Fq '(void) window;' "$source" ||
     fail "iOS 12 compile path is not an explicit no-op"
-override_write_count=$(grep -Fc 'window.overrideUserInterfaceStyle =' "$source")
+override_write_count=$(grep -Ec 'window\.overrideUserInterfaceStyle = [^=]' "$source")
 managed_window_write_count=$(grep -Ec \
     'CydiaManagedLegacyAppearanceWindow = (nil|window);' "$source")
 managed_style_write_count=$(grep -Ec \
     'CydiaManagedLegacyAppearanceStyle = (UIUserInterfaceStyleUnspecified|desired);' "$source")
-test "$override_write_count" -eq 2 ||
+test "$override_write_count" -eq 3 ||
     fail "unexpected root-window override write escaped the gated state machine"
 test "$managed_window_write_count" -eq 2 && test "$managed_style_write_count" -eq 2 ||
     fail "unexpected or missing managed-ownership write escaped the state machine"

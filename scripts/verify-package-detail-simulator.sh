@@ -27,6 +27,14 @@ case "$case_name" in
         exit 2
         ;;
 esac
+
+# Cleanup uses both names so a one-case run remains safe under `set -u`.
+ios12_udid=
+ios15_udid=
+case "$case_name" in
+    ios12) ios12_udid=$simulator_udid ;;
+    ios15) ios15_udid=$simulator_udid ;;
+esac
 [ -n "$simulator_udid" ] || {
     echo "[verify-package-detail-simulator][FAIL] simulator UDID is required" >&2
     exit 2
@@ -695,6 +703,25 @@ verify_depiction_loaded_state() {
             "rejected depiction resource did not settle"
         assert_state "$state" depictionResourceRejectedNaturalWidth 0 \
             "path-like depiction resource unexpectedly rendered"
+        facade_text=$(read_state "$state" depictionFacadeText || true)
+        printf '%s\n' "$facade_text" | grep -F '"facade":true' >/dev/null ||
+            fail "repository depiction did not receive the bounded window.cydia facade"
+        printf '%s\n' "$facade_text" | grep -F '"package":true' >/dev/null ||
+            fail "facade could not resolve the current package"
+        printf '%s\n' "$facade_text" | grep -F '"foreign":true' >/dev/null ||
+            fail "facade leaked a foreign package identity"
+        printf '%s\n' "$facade_text" | grep -F '"field":true' >/dev/null ||
+            fail "facade package field reader failed"
+        printf '%s\n' "$facade_text" | grep -F '"tag":true' >/dev/null ||
+            fail "facade package tag reader failed"
+        printf '%s\n' "$facade_text" | grep -F '"source":true' >/dev/null ||
+            fail "facade source reader failed"
+        printf '%s\n' "$facade_text" | grep -F '"format":true' >/dev/null ||
+            fail "facade format helper failed"
+        printf '%s\n' "$facade_text" | grep -F '"reach":true' >/dev/null ||
+            fail "facade allowlisted reachability helper failed"
+        printf '%s\n' "$facade_text" | grep -F '"denied":true' >/dev/null ||
+            fail "facade exposed a denied global inventory helper"
     fi
 }
 
@@ -864,8 +891,10 @@ run_probe() {
     hid_height=$2
     modify_x=$(awk -v app="$width" -v hid="$hid_width" \
         'BEGIN { printf "%d", (app - 35.0) * hid / app }')
+    # iPhone 6s navigation-bar content occupies y=20..64 points.  Tapping
+    # at 66 lands below the Modify button on iOS 12, so use its center.
     modify_y=$(awk -v app="$height" -v hid="$hid_height" \
-        'BEGIN { printf "%d", 66.0 * hid / app }')
+        'BEGIN { printf "%d", 42.0 * hid / app }')
     run_with_timeout 15 idb ui tap --udid "$simulator" "$modify_x" "$modify_y" \
         >"$destination/hid-interactions.log" 2>&1 || fail "$label Modify HID tap failed"
     printf 'tap modify x=%s y=%s app=%sx%s hid=%sx%s\n' "$modify_x" "$modify_y" \

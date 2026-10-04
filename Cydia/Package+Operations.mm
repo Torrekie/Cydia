@@ -135,7 +135,10 @@
 
     NSMutableArray *applications([NSMutableArray arrayWithCapacity:2]);
 
-    static RegEx application_r("/Applications/(.*)\\.app/Info.plist");
+    /* Rootless dpkg records retain the /var/jb prefix.  Match the same
+     * application path after either a rooted or rootless prefix while
+     * keeping the captured application bundle name unchanged. */
+    static RegEx application_r(".*/Applications/(.*)\\.app/Info.plist");
     if (NSArray *files = [self files])
         for (NSString *file in files)
             if (application_r(file)) {

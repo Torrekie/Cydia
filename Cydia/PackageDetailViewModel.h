@@ -108,9 +108,22 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 @property(nonatomic, readonly) CydiaPackageDetailContactKind contactKind;
 @property(nonatomic, copy, readonly, nullable) NSString *contactName;
 @property(nonatomic, copy, readonly, nullable) NSString *contactAddress;
+/* The legacy Support page renders author and maintainer independently.  Keep
+ * these snapshots separate even though the package-detail action row retains
+ * its historical author-first fallback semantics above. */
+@property(nonatomic, copy, readonly, nullable) NSString *authorName;
+@property(nonatomic, copy, readonly, nullable) NSString *authorAddress;
+@property(nonatomic, copy, readonly, nullable) NSString *maintainerName;
+@property(nonatomic, copy, readonly, nullable) NSString *maintainerAddress;
 @property(nonatomic, copy, readonly, nullable) NSString *supportURLString;
 @property(nonatomic, copy, readonly, nullable) NSString *homepageURLString;
 @property(nonatomic, copy, readonly, nullable) NSString *depictionURLString;
+
+/* Immutable, property-list-shaped data used to seed the bounded repository
+ * depiction facade.  It contains only the current package/source snapshot;
+ * no Package, Database, APT handle, presenter, or filesystem authority is
+ * retained. */
+@property(nonatomic, copy, readonly) NSDictionary *legacyDepictionSnapshot;
 
 @property(nonatomic, strong, readonly, nullable) CydiaPackageDetailSource *source;
 @property(nonatomic, copy, readonly) NSArray<CydiaPackageDetailApplication *> *applications;

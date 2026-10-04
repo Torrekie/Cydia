@@ -289,6 +289,43 @@ void TestCancellationStateMachine(void) {
     }
 }
 
+void TestHistoricalTerminalPercent(void) {
+    for (NSString *scenario in @[@"ordinary", @"error", @"cancelled", @"unknown"]) {
+        CydiaProgressViewModel *model(NewModel(nil));
+        Expect(!model.state.percentIsHistorical, @"unused model has no historical metric");
+        [model beginWithTitle:@"RUNNING"];
+        float raw([scenario isEqualToString:@"unknown"] ? NAN : 0.8f);
+        [model setProgressPercent:@(raw)];
+        if ([scenario isEqualToString:@"error"])
+            [model addProgressEvent:(CydiaProgressEvent *)Event(@"Error", @"dpkg failed")];
+        if ([scenario isEqualToString:@"cancelled"]) {
+            [model setCancellable:true];
+            [model requestCancellation];
+            [model setCancellable:false];
+        }
+        CydiaProgressViewState *running(model.state);
+        [model completeWithFinishAction:CydiaProgressFinishActionReturnToCydia];
+        Expect(model.state.percentIsHistorical && !running.percentIsHistorical,
+               @"terminal metric is historical without mutating the running snapshot");
+        if (std::isfinite(raw)) {
+            Expect(model.state.rawPercent == raw && model.state.displayPercent == raw,
+                   @"finish must not manufacture successful 100 percent");
+            Expect([[[model legacyData] percent] floatValue] == raw,
+                   @"raw legacy percent is not rewritten by presentation");
+        } else {
+            Expect(!model.state.progressDeterminate && std::isnan(model.state.rawPercent),
+                   @"unknown terminal progress remains unknown");
+        }
+        Expect(model.state.containsError == [scenario isEqualToString:@"error"],
+               @"terminal presentation preserves error evidence");
+        [model progressFinishActionDidChange:@(CydiaProgressFinishActionReloadSpringBoard)];
+        Expect(model.state.percentIsHistorical, @"late finish escalation retains historical metric");
+        [model setProgressPercent:@0.9f];
+        Expect(model.state.percentIsHistorical && model.state.displayPercent == 0.9f,
+               @"late backend update does not become live or fake complete progress");
+    }
+}
+
 void TestFinishActions(void) {
     NSArray<NSString *> *keys = @[
         @"RETURN_TO_CYDIA", @"CLOSE_CYDIA", @"RESTART_SPRINGBOARD",
@@ -367,6 +404,7 @@ int main() {
         TestSafePercentAndStop();
         TestTerminalMessageControlCharacters();
         TestCancellationStateMachine();
+        TestHistoricalTerminalPercent();
         TestFinishActions();
         std::cout << "[verify-progress-view-model][ ok ] immutable legacy/native progress state"
                   << std::endl;

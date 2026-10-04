@@ -52,14 +52,36 @@ for token in \
         'cydia.package.header' \
         'cydia.package.table' \
         'cydia.package.description' \
+        'CydiaPackageDescriptionForDisplay' \
+        'fontWithName:@"Menlo" size:13.0' \
+        'UITableViewCellAccessoryDisclosureIndicator' \
+        'cydia://home/console' \
         'cydia.package.footer' \
         'cydia.package.modify' \
+        'initWithCustomView:modifyButton' \
+        'CydiaMinimumTargetButton' \
+        'intrinsicContentSize' \
+        'modifyButton.widthAnchor constraintGreaterThanOrEqualToConstant:44.0' \
+        'modifyButton.heightAnchor constraintGreaterThanOrEqualToConstant:44.0' \
         'CydiaPackageDetailSectionKindDepiction' \
         '_depictionEligible' \
         '[[PackageDepictionView alloc]' \
+        'preserveDepictionView' \
+        'previousDepictionURL' \
+        'nextDepictionEligible' \
         'cydia.package.depiction.cell' \
         'cydia.package.depiction.retry' \
         'cydia.package.depiction.external' \
+        'updateAccessibilityElementsForDepictionState' \
+        'UIAccessibilityIsVoiceOverRunning' \
+        'UIAccessibilityVoiceOverStatusDidChangeNotification' \
+        'packageVoiceOverStatusDidChange' \
+        'self.depictionAccessibilityFocusSeeded = NO' \
+        'UIAccessibilityScreenChangedNotification' \
+        'seedPackageDepictionAccessibilityFocus' \
+        'depictionAccessibilityFocusSeeded' \
+        'self.depictionAccessibilityFocusSeeded = YES' \
+        'dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC)' \
         'CydiaPackageDetailNavigationKindDepictionLink' \
         'didRequestURLHandoff' \
         'scheduleDepictionTableUpdate' \
@@ -77,6 +99,20 @@ for token in \
         fail "missing native package-shell contract: $token"
 done
 
+focus_seed_body=$(sed -n '/- (void)seedPackageDepictionAccessibilityFocus/,/^}/p' "$source")
+seed_latch_line=$(printf '%s\n' "$focus_seed_body" | grep -nF 'self.depictionAccessibilityFocusSeeded = YES' | head -1 | cut -d: -f1 || true)
+screen_post_line=$(printf '%s\n' "$focus_seed_body" | grep -nF 'UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification' | head -1 | cut -d: -f1 || true)
+layout_post_line=$(printf '%s\n' "$focus_seed_body" | grep -nF 'UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification' | head -1 | cut -d: -f1 || true)
+test -n "$seed_latch_line" && test -n "$screen_post_line" && test -n "$layout_post_line" ||
+    fail "package accessibility focus one-shot latch or notifications missing"
+test "$seed_latch_line" -lt "$screen_post_line" && test "$seed_latch_line" -lt "$layout_post_line" ||
+    fail "package accessibility focus latch must precede both notifications"
+
+presentation_body=$(sed -n '/- (void)packageDepictionViewDidChangePresentation:/,/^}/p' "$source")
+if printf '%s\n' "$presentation_body" | grep -Fq '[self seedPackageDepictionAccessibilityFocus]'; then
+    fail "package focus must wait for deferred failed-state layout before latching"
+fi
+
 if grep -Fq '[self setDelegate:delegate]' "$source"; then
     fail "package callback delegate still overwrites the application coordinator"
 fi
@@ -89,13 +125,13 @@ grep -Fq 'if ([[_viewModel homepageURLString] length] != 0)' "$source" ||
     fail "depiction-less native homepage fallback disappeared"
 
 for specification in \
-        'settings.png:ac8f20d57e915c30fd3fad87d9ed960e09d0456237d0f83147dbf5b7417bbcb7' \
-        'email.png:8f743163c06185177b7b66adaac6c75748413946696735023c77cefc6c24bfee' \
+        'settings.png:155abaf5717499f4434da0366c21192276958d99f43c521d34fd1e81054c77a0' \
+        'email.png:8da9a601c47edb73d3e4a14b615f8bc11daffa759f7ddbbd2989182f80bcfe9e' \
         'console.png:554e5d52c41aa0a929b052e6d5cac4ac1ef86b25d62cd1669c7ab7b1cab6c945' \
-        'warning.png:144eb369b0bc645861e9c54ddbff2fdfde5c7b00cdc60fe05843951687737334' \
-        'web.png:a3570bc334607c3ab5ad367e22636ebb14cdcbbf0d88153423e0e54b6e6ef4c0' \
-        'version.png:692cae56121c4f20b70ea0a7471635b59f6b9ef9e04bd38fa35e556d298baa6e' \
-        'filesystem.png:5aed3ee1be240579fbc694c41f7ded52c26ad245fca3f3fd076908514fed6298'; do
+        'warning.png:757239cf2325f0531fc313062604ed9303dee63022b409145aff91e317ddbdb3' \
+        'web.png:253a72515a8e7ddd9b74ea6ecc7e17e776102ec63e98f9131d53ac5d70395530' \
+        'version.png:42dfc63d317f3355129ac562af018c9923ab95eedc7649b1c5d6252f17e8b57a' \
+        'filesystem.png:5be2a9d9be68da47d01d81e7a8422e61918a10ec7ab154165cef021e037c8668'; do
     asset=${specification%%:*}
     expected=${specification#*:}
     test -s "$assets/$asset" || fail "historical package icon is absent: $asset"
@@ -152,6 +188,7 @@ for token in \
         'depictionResourceProbeAttempts' \
         'depictionResourcePositiveNaturalWidth' \
         'depictionResourceRejectedNaturalWidth' \
+        'depictionFacadeText' \
         'scrollViewCount' \
         'cydia-package-detail-probe-depiction-short' \
         'cydia-package-detail-probe-depiction-long' \
@@ -168,7 +205,23 @@ for token in \
         'id="cydia-resource"' \
         'src="cydia://section-icon/System"' \
         'id="cydia-resource-rejected"' \
-        'src="cydia://section-icon/%2Fetc"'; do
+        'src="cydia://section-icon/%2Fetc"' \
+        'id="external-link"' \
+        'cydia://url/https%3A%2F%2Fexample.com%2Fdepiction-external' \
+        'id="cydia-facade-marker"' \
+        'getPackageById' \
+        'getPackageById()' \
+        'getPackageById(null)' \
+        'callbackIgnored' \
+        'getField' \
+        'hasTag' \
+        'getInstalledPackages' \
+        'deniedMutation' \
+        'deniedDevice' \
+        'deniedFilesystem' \
+        'deniedClipboard' \
+        'deniedChrome' \
+        'deniedPrivileged'; do
     grep -Fq "$token" "$depiction_fixture" ||
         fail "missing installed depiction resource fixture: $token"
 done
@@ -269,10 +322,13 @@ for token in \
         'initWithViewModel:viewModel' \
         'updateWithViewModel:viewModel' \
         'reloadTable:NO' \
+        'unselectedViewController' \
         'CydiaPackageRouteIsAlreadyVisible' \
         'selectedViewController' \
-        'unselectedViewController' \
-        'second PackageDetailController' \
+        'while the transient package tab is settling' \
+        'CydiaUIRouteKindPackage' \
+        'one transient controller per package identity' \
+        'second WK depiction load' \
         'didSelectModifyAction' \
         'didSelectNavigationKind' \
         '_allowJavaScriptPanel' \

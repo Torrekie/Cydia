@@ -58,7 +58,26 @@ typedef enum {
 
 - (void) applicationDidBecomeActive:(UIApplication *)application {
     (void) application;
-    CydiaApplyLegacyInterfaceStyleCompatibility(window_);
+    CydiaRefreshLegacyInterfaceStyleCompatibility(window_);
+    if (legacyInterfaceStyleTimer_ == nil)
+        legacyInterfaceStyleTimer_ = [NSTimer scheduledTimerWithTimeInterval:0.5
+            target:self selector:@selector(cydiaLegacyInterfaceStyleTimerTick:)
+            userInfo:nil repeats:YES];
+    /* A diagnostic launch may become active before the first database
+     * reload's `_loaded` callback.  Give the bounded execution lane one
+     * post-activation opportunity; it self-limits and still requires a
+     * canonical package session. */
+    [self consumeLegacyUICompatibilityExecutionEvidenceIfRequested];
+    /* The application/session lane is likewise safe to enter before the
+     * first model load: it defers to the main thread and retries while the
+     * canonical provider graph is still being attached. */
+    [self consumeLegacyUICompatibilityApplicationSessionIfRequested];
+}
+
+- (void) cydiaLegacyInterfaceStyleTimerTick:(NSTimer *)timer {
+    if (timer != legacyInterfaceStyleTimer_)
+        return;
+    CydiaRefreshLegacyInterfaceStyleCompatibility(window_);
 }
 
 - (void) lockSuspend {
@@ -208,6 +227,11 @@ typedef enum {
 }
 
 - (void) applicationWillResignActive:(UIApplication *)application {
+    /* Do not let the rootful compatibility fallback pin the old style while
+     * Control Center or Settings changes the system appearance.  Activation
+     * reapplies the settled preference through the normal helper. */
+    CydiaReleaseLegacyInterfaceStyleCompatibility(window_);
+
     // Stop refreshing if you get a phone call or lock the device.
     if ([tabbar_ updating])
         [tabbar_ cancelUpdate];
@@ -227,6 +251,8 @@ typedef enum {
 }
 
 - (void) applicationWillTerminate:(UIApplication *)application {
+    [legacyInterfaceStyleTimer_ invalidate];
+    legacyInterfaceStyleTimer_ = nil;
     [self invalidateLegacyUICompatibility];
     [self saveState];
 }

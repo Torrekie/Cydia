@@ -12,6 +12,7 @@
 #include "Cydia/Source.h"
 #include "Cydia/ExternalURLPolicy.h"
 #include "Cydia/LegacyUICompatibilityNativeSnapshot.h"
+#include "Cydia/NativeMutationConfirmation.h"
 #include "Cydia/UIRouteDispatch.h"
 #include "CyteKit/Localize.h"
 #include "Sources.h"
@@ -55,31 +56,6 @@ BOOL OnMain(BOOL (^operation)(void)) {
         result = operation();
     });
     return result;
-}
-
-BOOL PresentNativeConfirmation(id presenter, NSString *message,
-                               NSString *actionTitle, void (^action)(void)) {
-    if (![presenter isKindOfClass:[UIViewController class]] || action == nil)
-        return NO;
-    return OnMain(^BOOL {
-        UIViewController *controller((UIViewController *)presenter);
-        if (controller == nil || controller.presentedViewController != nil ||
-            controller.viewIfLoaded.window == nil)
-            return NO;
-
-        UIAlertController *alert([UIAlertController
-            alertControllerWithTitle:UCLocalize("CONFIRM")
-            message:message preferredStyle:UIAlertControllerStyleAlert]);
-        [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL")
-            style:UIAlertActionStyleCancel handler:nil]];
-        [alert addAction:[UIAlertAction actionWithTitle:actionTitle
-            style:UIAlertActionStyleDefault handler:^(UIAlertAction *selected) {
-                (void)selected;
-                action();
-            }]];
-        [controller presentViewController:alert animated:YES completion:nil];
-        return YES;
-    });
 }
 
 BOOL ExactClass(id object, Class expected) {
@@ -465,8 +441,8 @@ id CopyMetadataReadValue(id value) {
  * the native confirmation, so use the existing main-thread primitives here.
  */
 @interface Source (CydiaLegacyUICompatibilityNativeConfirmation)
-- (void) _addSection:(NSString *)section;
-- (void) _removeSection:(NSString *)section;
+- (bool) _addSection:(NSString *)section;
+- (bool) _removeSection:(NSString *)section;
 - (void) _remove;
 @end
 
@@ -538,17 +514,23 @@ id CopyMetadataReadValue(id value) {
 }
 
 - (BOOL) sessionIsOwnedAndActive:(CydiaLegacyUICompatibilityNativeSession *)session {
+    __strong Cydia *application(nil);
+    __strong Database *database(nil);
     __strong CydiaLegacyUICompatibilityNativeCaller *caller(nil);
     __strong id presenter(nil);
     BOOL active(NO);
     BOOL member(NO);
     @synchronized (self) {
         active = active_;
+        application = application_;
+        database = database_;
         caller = caller_;
         presenter = presenter_;
         member = session != nil && [sessions_ containsObject:session];
     }
-    return active && member && presenter != nil && caller != nil && [caller isActive] &&
+    return active && member && application != nil && database != nil &&
+        presenter != nil && caller != nil && [caller isActive] &&
+        [[caller capability] _isIssuedForApplication:application] &&
         ExactClass(session, [CydiaLegacyUICompatibilityNativeSession class]) &&
         [session isActive] &&
         [session presenter] != nil && [session presenter] == presenter &&
@@ -566,6 +548,25 @@ id CopyMetadataReadValue(id value) {
         }
     }
     return session;
+}
+
+- (void) revokeAuthorityForDiagnosticBoundary:(NSString *)boundary {
+    NSString *requested([[[NSProcessInfo processInfo] environment]
+        objectForKey:@"CYDIA_NATIVE_COMPATIBILITY_MUTATION_REVOKE_BOUNDARY"]);
+    if (![NSThread isMainThread] || ![boundary isKindOfClass:[NSString class]] ||
+        ![boundary isEqualToString:requested] ||
+        !([boundary isEqualToString:@"target"] || [boundary isEqualToString:@"presenter"]))
+        return;
+    @synchronized (self) {
+        /* Clearing the weak provider binding models the two independent
+         * authority lifetimes while leaving the session object alive.  The
+         * confirmation action must then fail its existing target/presenter
+         * rechecks without running an effect. */
+        if ([boundary isEqualToString:@"target"])
+            database_ = nil;
+        else if ([boundary isEqualToString:@"presenter"])
+            presenter_ = nil;
+    }
 }
 
 - (CydiaLegacyUICompatibilityNativeSession *) sessionForPackage:(Package *)package
@@ -915,7 +916,8 @@ id CopyMetadataReadValue(id value) {
             UCLocalize("ADD") : UCLocalize("REMOVE"));
         __weak CydiaLegacyUICompatibilityNativeProvider *weakSelf(self);
         __weak CydiaLegacyUICompatibilityNativeSession *weakSession(session);
-        return PresentNativeConfirmation(presenter, message, actionTitle, ^{
+        return PresentNativeConfirmation(presenter, message, actionTitle,
+            session, source, [@"Source." stringByAppendingString:memberName], ^BOOL {
             CydiaLegacyUICompatibilityNativeProvider *strongSelf(weakSelf);
             CydiaLegacyUICompatibilityNativeSession *strongSession(weakSession);
             NSString *currentKey(nil);
@@ -925,18 +927,20 @@ id CopyMetadataReadValue(id value) {
                 ![currentKey isEqualToString:sourceKey] ||
                 !CydiaManagedSourceKeyIsOwned(currentKey) ||
                 !CydiaCanEditManagedSources() ||
-                strongSelf->application_ == nil || strongSelf->presenter_ == nil)
-                return;
-            if ([memberName isEqualToString:@"addSection"])
-                [source _addSection:section];
-            else
-                [source _removeSection:section];
+                strongSelf->application_ == nil || strongSelf->presenter_ != presenter ||
+                [strongSession presenter] != presenter)
+                return NO;
+            const bool updated([memberName isEqualToString:@"addSection"]
+                ? [source _addSection:section] : [source _removeSection:section]);
+            if (!updated)
+                return NO;
             [strongSelf->application_ _saveConfig];
+            return YES;
         });
     }
     if ([memberName isEqualToString:@"remove"] && [arguments count] == 0)
         return PresentNativeConfirmation(presenter, [source name] ?: key,
-            UCLocalize("REMOVE"), ^{
+            UCLocalize("REMOVE"), session, source, @"Source.remove", ^BOOL {
             CydiaLegacyUICompatibilityNativeProvider *strongSelf(self);
             NSString *currentKey(nil);
             if (![strongSelf sessionIsOwnedAndActive:session] ||
@@ -944,10 +948,12 @@ id CopyMetadataReadValue(id value) {
                 ![currentKey isEqualToString:sourceKey] ||
                 !CydiaManagedSourceKeyIsOwned(currentKey) ||
                 !CydiaCanEditManagedSources() ||
-                strongSelf->application_ == nil || strongSelf->presenter_ == nil)
-                return;
+                strongSelf->application_ == nil || strongSelf->presenter_ != presenter ||
+                [session presenter] != presenter)
+                return NO;
             [source _remove];
             [strongSelf->application_ syncData];
+            return YES;
         });
     return NO;
 }
@@ -980,20 +986,26 @@ id CopyMetadataReadValue(id value) {
         });
     }
     if ([memberName isEqualToString:@"refreshSources"] && [arguments count] == 0)
-        return PresentNativeConfirmation(presenter, nil, UCLocalize("CONFIRM"), ^{
+        return PresentNativeConfirmation(presenter, nil, UCLocalize("CONFIRM"),
+            session, application, @"CydiaObject.refreshSources", ^BOOL {
             CydiaLegacyUICompatibilityNativeProvider *strongSelf(self);
             if (![strongSelf sessionIsOwnedAndActive:session] ||
-                strongSelf->application_ == nil || strongSelf->presenter_ == nil)
-                return;
+                strongSelf->application_ != application || strongSelf->presenter_ != presenter ||
+                [session presenter] != presenter)
+                return NO;
             [strongSelf->application_ syncData];
+            return YES;
         });
     if ([memberName isEqualToString:@"saveConfig"] && [arguments count] == 0)
-        return PresentNativeConfirmation(presenter, nil, UCLocalize("CONFIRM"), ^{
+        return PresentNativeConfirmation(presenter, nil, UCLocalize("CONFIRM"),
+            session, application, @"CydiaObject.saveConfig", ^BOOL {
             CydiaLegacyUICompatibilityNativeProvider *strongSelf(self);
             if (![strongSelf sessionIsOwnedAndActive:session] ||
-                strongSelf->application_ == nil || strongSelf->presenter_ == nil)
-                return;
+                strongSelf->application_ != application || strongSelf->presenter_ != presenter ||
+                [session presenter] != presenter)
+                return NO;
             [strongSelf->application_ _saveConfig];
+            return YES;
         });
     if ([memberName isEqualToString:@"addTrivialSource"] && [arguments count] == 1 &&
         SafeSourceURL([arguments objectAtIndex:0]) && CydiaCanEditManagedSources()) {
@@ -1008,15 +1020,19 @@ id CopyMetadataReadValue(id value) {
             NSString *message([href copy]);
             __weak CydiaLegacyUICompatibilityNativeProvider *weakSelf(self);
             __weak CydiaLegacyUICompatibilityNativeSession *weakSession(session);
-            return PresentNativeConfirmation(presenter, message, UCLocalize("ADD"), ^{
+            return PresentNativeConfirmation(presenter, message, UCLocalize("ADD"),
+                session, application, @"CydiaObject.addTrivialSource", ^BOOL {
                 CydiaLegacyUICompatibilityNativeProvider *strongSelf(weakSelf);
                 CydiaLegacyUICompatibilityNativeSession *strongSession(weakSession);
                 if (strongSelf == nil || strongSession == nil ||
                     ![strongSelf sessionIsOwnedAndActive:strongSession] ||
-                    strongSelf->application_ == nil || strongSelf->presenter_ == nil ||
+                    strongSelf->application_ != application || strongSelf->presenter_ != presenter ||
+                    [strongSession presenter] != presenter ||
                     !CydiaCanEditManagedSources())
-                    return;
+                    return NO;
                 [strongSelf->application_ addTrivialSource:href];
+                [strongSelf->application_ syncData];
+                return YES;
             });
         });
     }
@@ -1029,13 +1045,16 @@ id CopyMetadataReadValue(id value) {
         if (source == nil)
             return NO;
         return PresentNativeConfirmation(presenter, [source objectForKey:@"URI"],
-            UCLocalize("ADD"), ^{
+            UCLocalize("ADD"), session, application, @"CydiaObject.addSource", ^BOOL {
             CydiaLegacyUICompatibilityNativeProvider *strongSelf(self);
             if (![strongSelf sessionIsOwnedAndActive:session] ||
-                strongSelf->application_ == nil || strongSelf->presenter_ == nil ||
+                strongSelf->application_ != application || strongSelf->presenter_ != presenter ||
+                [session presenter] != presenter ||
                 !CydiaCanEditManagedSources())
-                return;
+                return NO;
             [strongSelf->application_ addSource:source];
+            [strongSelf->application_ syncData];
+            return YES;
         });
     }
     return NO;
@@ -1075,12 +1094,12 @@ id CopyMetadataReadValue(id value) {
             ![Values_ isKindOfClass:[NSMutableDictionary class]])
             return NO;
         return PresentNativeConfirmation(presenter, canonicalKey,
-            UCLocalize("CONFIRM"), ^{
+            UCLocalize("CONFIRM"), session, application, @"CydiaObject.setMetadataValue", ^BOOL {
         if (![NSThread isMainThread])
-            return;
+            return NO;
         @synchronized (commitGate) {
             if (committed)
-                return;
+                return NO;
             committed = YES;
         }
         CydiaLegacyUICompatibilityNativeProvider *strongSelf(weakSelf);
@@ -1096,7 +1115,7 @@ id CopyMetadataReadValue(id value) {
             strongSelf->presenter_ == nil || strongSelf->presenter_ != presenter ||
             [strongSession presenter] != presenter || values == nil ||
             ![values isKindOfClass:[NSMutableDictionary class]])
-            return;
+            return NO;
         @synchronized (values) {
             if (canonicalRemoving)
                 [values removeObjectForKey:canonicalKey];
@@ -1104,7 +1123,8 @@ id CopyMetadataReadValue(id value) {
                 [values setObject:canonicalValue forKey:canonicalKey];
         }
         [strongApplication _saveConfig];
-        });
+        return YES;
+        }, canonicalRemoving ? @"metadata-remove" : @"metadata-set");
     });
 }
 

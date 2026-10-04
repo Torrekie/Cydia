@@ -1,0 +1,1033 @@
+{
+  "schema": 1,
+  "pages": {
+    "root": {
+      "title": "Frequently Asked Questions",
+      "title_key": "FAQ_TITLE",
+      "sections": [
+        {
+          "title": "Getting Started",
+          "rows": [
+            {
+              "id": "faq-question-software-whatiscydia",
+              "kind": "link",
+              "text": "What is Cydia?",
+              "runs": [
+                {
+                  "text": "What is Cydia?"
+                }
+              ],
+              "destination": "cydia://home/faq/software-whatiscydia"
+            },
+            {
+              "id": "faq-question-software-noappicon",
+              "kind": "link",
+              "text": "I installed something, but there is no app icon for it. Where is it?",
+              "runs": [
+                {
+                  "text": "I installed something, but there is no app icon for it. Where is it?"
+                }
+              ],
+              "destination": "cydia://home/faq/software-noappicon"
+            },
+            {
+              "id": "faq-question-software-howtouninstall",
+              "kind": "link",
+              "text": "How do I uninstall Cydia packages?",
+              "runs": [
+                {
+                  "text": "How do I uninstall Cydia packages?"
+                }
+              ],
+              "destination": "cydia://home/faq/software-howtouninstall"
+            },
+            {
+              "id": "faq-question-software-filterchanges",
+              "kind": "link",
+              "text": "Can I filter Changes to only show my favorite types of packages?",
+              "runs": [
+                {
+                  "text": "Can I filter "
+                },
+                {
+                  "text": "Changes",
+                  "italic": true
+                },
+                {
+                  "text": " to only show my favorite types of packages?"
+                }
+              ],
+              "destination": "cydia://home/faq/software-filterchanges"
+            },
+            {
+              "id": "faq-question-software-reinstallproducts",
+              "kind": "link",
+              "text": "If I get a new device, can I reinstall products I have purchased?",
+              "runs": [
+                {
+                  "text": "If I get a new device, can I reinstall products I have purchased?"
+                }
+              ],
+              "destination": "cydia://home/faq/software-reinstallproducts"
+            },
+            {
+              "id": "faq-question-software-alternative",
+              "kind": "link",
+              "text": "Can I buy products without having a credit or debit card?",
+              "runs": [
+                {
+                  "text": "Can I buy products without having a credit or debit card?"
+                }
+              ],
+              "destination": "cydia://home/faq/software-alternative"
+            }
+          ]
+        },
+        {
+          "title": "Fixing Problems",
+          "rows": [
+            {
+              "id": "faq-question-fixing-safemode",
+              "kind": "link",
+              "text": "I keep getting stuck in Safe Mode!",
+              "runs": [
+                {
+                  "text": "I keep getting stuck in Safe Mode!"
+                }
+              ],
+              "destination": "cydia://home/faq/fixing-safemode"
+            },
+            {
+              "id": "faq-question-fixing-safestable",
+              "kind": "link",
+              "text": "How do I keep my device safe and using minimal battery?",
+              "runs": [
+                {
+                  "text": "How do I keep my device safe and using minimal battery?"
+                }
+              ],
+              "destination": "cydia://home/faq/fixing-safestable"
+            },
+            {
+              "id": "faq-question-fixing-errors",
+              "kind": "link",
+              "text": "How do I fix these annoying errors that pop up while using Cydia?",
+              "runs": [
+                {
+                  "text": "How do I fix these annoying errors that pop up while using Cydia?"
+                }
+              ],
+              "destination": "cydia://home/faq/fixing-errors"
+            },
+            {
+              "id": "faq-question-fixing-resetsettings",
+              "kind": "link",
+              "text": "If I use Apple's Reset All Settings, why does my device not boot?",
+              "runs": [
+                {
+                  "text": "If I use Apple's "
+                },
+                {
+                  "text": "Reset All Settings",
+                  "italic": true
+                },
+                {
+                  "text": ", why does my device not boot?"
+                }
+              ],
+              "destination": "cydia://home/faq/fixing-resetsettings"
+            }
+          ]
+        },
+        {
+          "title": "Using Repositories (Sources)",
+          "rows": [
+            {
+              "id": "faq-question-repositories-whatarethey",
+              "kind": "link",
+              "text": "What are repositories?",
+              "runs": [
+                {
+                  "text": "What are repositories?"
+                }
+              ],
+              "destination": "cydia://home/faq/repositories-whatarethey"
+            },
+            {
+              "id": "faq-question-repositories-ads",
+              "kind": "link",
+              "text": "Why are there ads in Cydia?",
+              "runs": [
+                {
+                  "text": "Why are there ads in Cydia?"
+                }
+              ],
+              "destination": "cydia://home/faq/repositories-ads"
+            },
+            {
+              "id": "faq-question-repositories-apt",
+              "kind": "link",
+              "text": "How do I make a repository to host and share packages I made?",
+              "runs": [
+                {
+                  "text": "How do I make a repository to host and share packages I made?"
+                }
+              ],
+              "destination": "cydia://home/faq/repositories-apt"
+            },
+            {
+              "id": "faq-question-repositories-hosting",
+              "kind": "link",
+              "text": "How do I ask one of the default repositories to host my package?",
+              "runs": [
+                {
+                  "text": "How do I ask one of the default repositories to host my package?"
+                }
+              ],
+              "destination": "cydia://home/faq/repositories-hosting"
+            },
+            {
+              "id": "faq-question-repositories-reinstall",
+              "kind": "link",
+              "text": "I uninstalled a default repository. How I do reinstall it?",
+              "runs": [
+                {
+                  "text": "I uninstalled a default repository. How I do reinstall it?"
+                }
+              ],
+              "destination": "cydia://home/faq/repositories-reinstall"
+            }
+          ]
+        },
+        {
+          "title": "Developing for Jailbroken iOS",
+          "rows": [
+            {
+              "id": "faq-question-developing",
+              "kind": "link",
+              "text": "Where can I learn about developing for jailbroken iOS?",
+              "runs": [
+                {
+                  "text": "Where can I learn about developing for jailbroken iOS?"
+                }
+              ],
+              "destination": "cydia://home/developer-resources"
+            }
+          ]
+        },
+        {
+          "title": "Learning More",
+          "rows": [
+            {
+              "id": "faq-question-learning-0",
+              "kind": "link",
+              "text": "Cydia (Wikipedia)",
+              "runs": [
+                {
+                  "text": "Cydia (Wikipedia)"
+                }
+              ],
+              "destination": "http://en.wikipedia.org/wiki/Cydia",
+              "icon": "FAQGuideAssets/wikipedia.png"
+            },
+            {
+              "id": "faq-question-learning-1",
+              "kind": "link",
+              "text": "iOS Jailbreaking (Wikipedia)",
+              "runs": [
+                {
+                  "text": "iOS Jailbreaking (Wikipedia)"
+                }
+              ],
+              "destination": "http://en.wikipedia.org/wiki/IOS_jailbreaking",
+              "icon": "FAQGuideAssets/wikipedia.png"
+            }
+          ]
+        }
+      ]
+    },
+    "software": {
+      "title": "Software",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "faq-software-whatiscydia",
+              "kind": "text",
+              "text": "What is Cydia?\n\nCydia is a software installer that helps you exercise the freedom of your jailbroken device — letting you install any kind of software you want, and helping you make your device even more useful and fun by customizing it to look and work the way you like it.\n\nMost of the packages available through Cydia are not exactly \"apps\". Instead, they are a more flexible kind of software: tweaks (extensions and modifications) and themes for your existing apps, or for the whole experience of using your device.\n\nCydia includes access to lots of free and paid software and themes by developers and designers from the jailbroken iOS community, and Cydia's decentralized structure means that anyone can also use it to distribute their own packages.",
+              "runs": [
+                {
+                  "text": "What is Cydia?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nCydia is a software installer that helps you exercise the freedom of your jailbroken device — letting you install any kind of software you want, and helping you make your device even more useful and fun by customizing it to look and work the way you like it.\n\nMost of the packages available through Cydia are not exactly \"apps\". Instead, they are a more flexible kind of software: tweaks (extensions and modifications) and themes for your existing apps, or for the whole experience of using your device.\n\nCydia includes access to lots of free and paid software and themes by developers and designers from the jailbroken iOS community, and Cydia's decentralized structure means that anyone can also use it to distribute their own packages."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-software-noappicon",
+              "kind": "text",
+              "text": "I installed something, but there is no app icon for it. Where is it?\n\nMost packages available through Cydia do not have app icons. Instead, they are customizations and extensions for other apps, or for parts of the interface of your device.\n\nCheck the package's description page to find out how to use that package. Many packages also let you configure them in your device's Settings app.",
+              "runs": [
+                {
+                  "text": "I installed something, but there is no app icon for it. Where is it?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nMost packages available through Cydia do not have app icons. Instead, they are customizations and extensions for other apps, or for parts of the interface of your device.\n\nCheck the package's description page to find out how to use that package. Many packages also let you configure them in your device's Settings app."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-software-howtouninstall",
+              "kind": "text",
+              "text": "How do I uninstall Cydia packages?\n\nTap Installed, scroll to the package name, tap it, tap the Modify button in the upper right corner, tap Remove, tap Confirm.",
+              "runs": [
+                {
+                  "text": "How do I uninstall Cydia packages?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nTap "
+                },
+                {
+                  "text": "Installed",
+                  "bold": true
+                },
+                {
+                  "text": ", scroll to the package name, tap it, tap the "
+                },
+                {
+                  "text": "Modify",
+                  "bold": true
+                },
+                {
+                  "text": " button in the upper right corner, tap "
+                },
+                {
+                  "text": "Remove",
+                  "bold": true
+                },
+                {
+                  "text": ", tap "
+                },
+                {
+                  "text": "Confirm",
+                  "bold": true
+                },
+                {
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-software-filterchanges",
+              "kind": "text",
+              "text": "Can I filter Changes to only show my favorite types of packages?\n\nYes! Tap Sources, tap All Sources, tap Edit (in the upper right corner), and turn off any types of packages you are not interested in seeing in Changes.\n\nAll types of packages will still show up when searching for package names.\n\nTo find out the section (category) of any package, visit its description page and scroll to the bottom.",
+              "runs": [
+                {
+                  "text": "Can I filter ",
+                  "bold": true
+                },
+                {
+                  "text": "Changes",
+                  "bold": true,
+                  "italic": true
+                },
+                {
+                  "text": " to only show my favorite types of packages?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nYes! Tap "
+                },
+                {
+                  "text": "Sources",
+                  "bold": true
+                },
+                {
+                  "text": ", tap "
+                },
+                {
+                  "text": "All Sources",
+                  "bold": true
+                },
+                {
+                  "text": ", tap "
+                },
+                {
+                  "text": "Edit",
+                  "bold": true
+                },
+                {
+                  "text": " (in the upper right corner), and turn off any types of packages you are not interested in seeing in Changes.\n\nAll types of packages will still show up when searching for package names.\n\nTo find out the section (category) of any package, visit its description page and scroll to the bottom."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-software-reinstallproducts",
+              "kind": "text",
+              "text": "If I get a new device, can I reinstall products I have purchased?\n\nYes, you can reinstall your purchased products on new or restored devices (if they are jailbroken). On Cydia's homepage, go to Manage Account and log in with the account you used when previously purchasing those products (a Google or Facebook account), and then tap on Installable Purchases to install them.\n\nMake sure to use the same account you used before. If your purchases do not show up, try logging in with another Google or Facebook account. Try all possible accounts.\n\n(If you have updated your Facebook or Google account email address, make sure to use your account's current email address and password to log into your Facebook or Google account, not any old ones.)",
+              "runs": [
+                {
+                  "text": "If I get a new device, can I reinstall products I have purchased?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nYes, you can reinstall your purchased products on new or restored devices (if they are jailbroken). On Cydia's homepage, go to "
+                },
+                {
+                  "text": "Manage Account",
+                  "bold": true
+                },
+                {
+                  "text": " and log in with the account you used when previously purchasing those products (a Google or Facebook account), and then tap on "
+                },
+                {
+                  "text": "Installable Purchases",
+                  "bold": true
+                },
+                {
+                  "text": " to install them.\n\nMake sure to use the same account you used before. If your purchases do not show up, try logging in with another Google or Facebook account. Try all possible accounts.\n\n(If you have updated your Facebook or Google account email address, make sure to use your account's current email address and password to log into your Facebook or Google account, not any old ones.)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-software-alternative",
+              "kind": "text",
+              "text": "Can I buy products without having a credit or debit card?\n\nIf you have some cash but no credit or debit card, you can buy a prepaid general-purpose gift card and link it to your PayPal or Amazon Payments account. Then use your PayPal or Amazon Payments account to purchase products in Cydia.\n\nYou can often buy this kind of prepaid card at convenience stores, such as at 7-11 stores in the US. For example, Vanilla Visa is a popular brand of prepaid gift card in the US.\n\nPayPal details: PayPal options for prepaid cards also include MoneyPak cards. Alternatively you can add funds by linking your bank account to your PayPal account.\n\nAmazon Payments details: Similarly, you can add funds to your Amazon Payments account using a prepaid card or by linking your bank account to your Amazon Payments account.\n\nNote that Amazon.com gift cards do not work for buying Cydia Store products — those gift cards are only good for buying products on Amazon.com itself, not for buying products on other websites that use the Amazon Payments service.",
+              "runs": [
+                {
+                  "text": "Can I buy products without having a credit or debit card?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf you have some cash but no credit or debit card, you can buy a prepaid general-purpose gift card and link it to your PayPal or Amazon Payments account. Then use your PayPal or Amazon Payments account to purchase products in Cydia.\n\nYou can often buy this kind of prepaid card at convenience stores, such as at 7-11 stores in the US. For example, "
+                },
+                {
+                  "text": "Vanilla Visa",
+                  "link": "https://www.vanillavisa.com/home.html?product=giftcard"
+                },
+                {
+                  "text": " is a popular brand of prepaid gift card in the US.\n\n"
+                },
+                {
+                  "text": "PayPal details:",
+                  "bold": true
+                },
+                {
+                  "text": " PayPal options for prepaid cards also include "
+                },
+                {
+                  "text": "MoneyPak cards",
+                  "link": "https://www.paypal.com/webapps/mpp/greendot-moneypak"
+                },
+                {
+                  "text": ". Alternatively you can add funds by "
+                },
+                {
+                  "text": "linking your bank account to your PayPal account",
+                  "link": "https://www.paypal.com/us/webapps/helpcenter/helphub/article/?solutionId=FAQ1218&topicID=&m=ARA"
+                },
+                {
+                  "text": ".\n\n"
+                },
+                {
+                  "text": "Amazon Payments details:",
+                  "bold": true
+                },
+                {
+                  "text": " Similarly, you can add funds to your Amazon Payments account using a prepaid card or by "
+                },
+                {
+                  "text": "linking your bank account to your Amazon Payments account",
+                  "link": "https://payments.amazon.com/sdui/sdui/helpTab/Personal-Accounts/Managing-Your-Account/Adding-a-Bank-Account"
+                },
+                {
+                  "text": ".\n\nNote that Amazon.com gift cards do not work for buying Cydia Store products — those gift cards are only good for buying products on Amazon.com itself, not for buying products on other websites that use the Amazon Payments service."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "fixing": {
+      "title": "Problems",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "faq-fixing-safemode",
+              "kind": "text",
+              "text": "I keep getting stuck in Safe Mode!\n\nThis usually means that one of your installed packages is broken or misbehaving in some way. Follow the instructions on the Safe Mode help page to solve the issue (including uninstalling recently-installed extensions, checking for iOS version compatibility, and making sure your packages are from trusted sources).\n\nIf you paid for a package that consistently is not working, you may want to email the author using the contact link provided on top of the package's description page in Cydia.",
+              "runs": [
+                {
+                  "text": "I keep getting stuck in Safe Mode!",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nThis usually means that one of your installed packages is broken or misbehaving in some way. Follow the instructions on the "
+                },
+                {
+                  "text": "Safe Mode help page",
+                  "link": "cydia://home/faq/safemode-help"
+                },
+                {
+                  "text": " to solve the issue (including uninstalling recently-installed extensions, checking for iOS version compatibility, and making sure your packages are from trusted sources).\n\nIf you paid for a package that consistently is not working, you may want to email the author using the contact link provided on top of the package's description page in Cydia."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-fixing-safestable",
+              "kind": "text",
+              "text": "How do I keep my device safe and using minimal battery?\n\nUse the same caution when installing packages from Cydia that you'd use when installing software on your desktop computer, including researching first and choosing software from reputable developers. The community repositories (BigBoss, ModMyi, and ZodTTD/MacCiti) keep an eye on the packages they distribute, but ultimately it is up to you to decide what to put on your device.\n\nMost extensions by experienced developers add little or no battery usage. Often the best way to save battery on your device is to turn off WiFi and 3G when you do not need them for a while. Other than that, you may see a bit of increased battery usage from extensions and tweaks that use the internet frequently (such as ones that check for mail, check the weather, or activate a personal WiFi hotspot) or change the screen frequently (such as video wallpapers and animated lockscreens).",
+              "runs": [
+                {
+                  "text": "How do I keep my device safe and using minimal battery?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nUse the same caution when installing packages from Cydia that you'd use when installing software on your desktop computer, including researching first and choosing software from reputable developers. The community repositories (BigBoss, ModMyi, and ZodTTD/MacCiti) keep an eye on the packages they distribute, but ultimately it is up to you to decide what to put on your device.\n\nMost extensions by experienced developers add little or no battery usage. Often the best way to save battery on your device is to turn off WiFi and 3G when you do not need them for a while. Other than that, you may see a bit of increased battery usage from extensions and tweaks that use the internet frequently (such as ones that check for mail, check the weather, or activate a personal WiFi hotspot) or change the screen frequently (such as video wallpapers and animated lockscreens)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-fixing-errors",
+              "kind": "text",
+              "text": "How do I fix these annoying errors that pop up while using Cydia?\n\nIf you've just installed Cydia on your device and you see \"cannot locate package\" errors, close Cydia and open it again, and then wait for it to finish downloading and loading data.\n\nIf you see \"untrusted server certificate\" or \"an SSL error has occurred\" preventing you from using Cydia, check to make sure your device's date is set correctly (using your device's Settings app).\n\nIf your device finishes reloading data and then pops up a black screen including red and yellow errors, they usually indicate a problem with one of the repositories you have installed (or sometimes one of the packages). Cydia is still working fine, but you may want to try refreshing data again or removing the broken repository. Keep in mind that Cydia has no control over third-party repositories. Common repository (source) errors include:\n\n\"Failed to fetch\": This usually happens when a source does not exist. You may have typed in the wrong URL, the source may have shut down, or the source may be broken. This is often a temporary problem, so wait a few hours and try reloading data again. If it keeps happening, look carefully at the error message to find the URL of the broken repository, and then you can choose to remove that repository by going to Sources and tapping Edit. If the source can't be removed that way, it may have been installed as a package, which means you need to uninstall that repository package.\n\n\"POSIX error: Operation Timed Out\": Make sure your device has access to the internet and try again. If this error keeps happening, it is likely caused by a repository server being temporarily offline. Try again later. You can also choose to remove the repository (see the method above).\n\n\"GPG error\": This means that a repository is configured incorrectly. You can usually safely ignore this.",
+              "runs": [
+                {
+                  "text": "How do I fix these annoying errors that pop up while using Cydia?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf you've just installed Cydia on your device and you see "
+                },
+                {
+                  "text": "\"cannot locate package\"",
+                  "bold": true
+                },
+                {
+                  "text": " errors, close Cydia and open it again, and then wait for it to finish downloading and loading data.\n\nIf you see "
+                },
+                {
+                  "text": "\"untrusted server certificate\"",
+                  "bold": true
+                },
+                {
+                  "text": " or "
+                },
+                {
+                  "text": "\"an SSL error has occurred\"",
+                  "bold": true
+                },
+                {
+                  "text": " preventing you from using Cydia, check to make sure your device's date is set correctly (using your device's Settings app).\n\nIf your device finishes reloading data and then pops up a black screen including red and yellow errors, they usually indicate a problem with one of the repositories you have installed (or sometimes one of the packages). Cydia is still working fine, but you may want to try refreshing data again or removing the broken repository. Keep in mind that Cydia has no control over third-party repositories. Common repository (source) errors include:\n\n"
+                },
+                {
+                  "text": "\"Failed to fetch\"",
+                  "bold": true
+                },
+                {
+                  "text": ": This usually happens when a source does not exist. You may have typed in the wrong URL, the source may have shut down, or the source may be broken. "
+                },
+                {
+                  "text": "This is often a temporary problem, so wait a few hours and try reloading data again.",
+                  "italic": true
+                },
+                {
+                  "text": " If it keeps happening, look carefully at the error message to find the URL of the broken repository, and then you can choose to remove that repository by going to "
+                },
+                {
+                  "text": "Sources",
+                  "bold": true
+                },
+                {
+                  "text": " and tapping "
+                },
+                {
+                  "text": "Edit",
+                  "bold": true
+                },
+                {
+                  "text": ". If the source can't be removed that way, it may have been installed as a package, which means you need to uninstall that repository package.\n\n"
+                },
+                {
+                  "text": "\"POSIX error: Operation Timed Out\"",
+                  "bold": true
+                },
+                {
+                  "text": ": Make sure your device has access to the internet and try again. If this error keeps happening, it is likely caused by a repository server being temporarily offline. Try again later. You can also choose to remove the repository (see the method above).\n\n"
+                },
+                {
+                  "text": "\"GPG error\"",
+                  "bold": true
+                },
+                {
+                  "text": ": This means that a repository is configured incorrectly. You can usually safely ignore this."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-fixing-resetsettings",
+              "kind": "text",
+              "text": "If I use Apple's Erase All Content and Settings option, why does my device not boot?\n\nOn jailbroken devices, using the \"Erase All Content and Settings\" option in your device's Settings app will cause your device to require a full restore. :(\n\nThis happens because during the process of jailbreaking, your jailbreaking tool reorganizes some of the files on your device in order to make room for Cydia and other jailbreak-only files, so the \"Erase All Content and Settings\" option ends up erasing important files instead of just settings.",
+              "runs": [
+                {
+                  "text": "If I use Apple's ",
+                  "bold": true
+                },
+                {
+                  "text": "Erase All Content and Settings",
+                  "bold": true,
+                  "italic": true
+                },
+                {
+                  "text": " option, why does my device not boot?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nOn jailbroken devices, using the \"Erase All Content and Settings\" option in your device's Settings app will cause your device to require a full restore. :(\n\nThis happens because during the process of jailbreaking, your jailbreaking tool reorganizes some of the files on your device in order to make room for Cydia and other jailbreak-only files, so the \"Erase All Content and Settings\" option ends up erasing important files instead of just settings."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "repositories": {
+      "title": "Repositories",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "faq-repositories-whatarethey",
+              "kind": "text",
+              "text": "What are repositories?\n\nRepositories (also called sources) host packages. You can think of Cydia a bit like a web browser: consider that Safari doesn't contain or own Google or Amazon, but instead is a way to view Google, Amazon, and any other website. Cydia is a way to browse and view software hosted by independent repositories, and the Cydia Store is a purchasing system that lets you buy software hosted by them.\n\nCydia automatically includes a few sources, but only Cydia/Telesphoreo is run by the people who make Cydia. The sources BigBoss, ModMyi, and ZodTTD/MacCiti are independently-owned and work closely with Cydia.\n\nCydia is an open platform built to help you have control over your device; you can choose to add extra repositories run by other people and install any package you want, from good to bad.",
+              "runs": [
+                {
+                  "text": "What are repositories?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nRepositories (also called sources) host packages. You can think of Cydia a bit like a web browser: consider that Safari doesn't contain or own Google or Amazon, but instead is a way to view Google, Amazon, and any other website. Cydia is a way to browse and view software hosted by independent repositories, and the Cydia Store is a purchasing system that lets you buy software hosted by them.\n\nCydia automatically includes a few sources, but only "
+                },
+                {
+                  "text": "Cydia/Telesphoreo",
+                  "bold": true
+                },
+                {
+                  "text": " is run by the people who make Cydia. The sources "
+                },
+                {
+                  "text": "BigBoss",
+                  "bold": true
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "ModMyi",
+                  "bold": true
+                },
+                {
+                  "text": ", and "
+                },
+                {
+                  "text": "ZodTTD/MacCiti",
+                  "bold": true
+                },
+                {
+                  "text": " are independently-owned and work closely with Cydia.\n\nCydia is an open platform built to help you have control over your device; you can choose to add extra repositories run by other people and install any package you want, from good to bad."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-repositories-ads",
+              "kind": "text",
+              "text": "Why are there ads in Cydia?\n\nRepositories choose to cover their costs (including the costs of hosting packages and having staff check package submissions) by displaying ads on their pages within Cydia. These ads are not controlled by Cydia itself; they are the responsibility of the repositories, and none of the money from the ads goes to Cydia.",
+              "runs": [
+                {
+                  "text": "Why are there ads in Cydia?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nRepositories choose to cover their costs (including the costs of hosting packages and having staff check package submissions) by displaying ads on their pages within Cydia. These ads are not controlled by Cydia itself; they are the responsibility of the repositories, and none of the money from the ads goes to Cydia."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-repositories-apt",
+              "kind": "text",
+              "text": "How do I make a repository to host and share packages I made?\n\nHere is the official guide to making your own Cydia repository: http://www.saurik.com/id/7",
+              "runs": [
+                {
+                  "text": "How do I make a repository to host and share packages I made?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nHere is the official guide to making your own Cydia repository: "
+                },
+                {
+                  "text": "http://www.saurik.com/id/7",
+                  "link": "http://www.saurik.com/id/7"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-repositories-hosting",
+              "kind": "text",
+              "text": "How do I ask one of the default repositories to host my package?\n\nYou can submit packages you have made to one of the default repositories (the sources pre-installed in Cydia) if you would like to make your packages available to nearly everyone who uses Cydia. Each default repository offers hosting of packages and provides services like realtime download statistics.\n\nWe at SaurikIT have a long relationship with BigBoss, and help support its costs (statement current as of 2020).\n\nFor BigBoss:\n visit http://thebigboss.org/hosting-repository-cydia/submission\n or email bigboss@thebigboss.org",
+              "runs": [
+                {
+                  "text": "How do I ask one of the default repositories to host my package?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nYou can submit packages you have made to one of the default repositories (the sources pre-installed in Cydia) if you would like to make your packages available to nearly everyone who uses Cydia. Each default repository offers hosting of packages and provides services like realtime download statistics.\n\nWe at SaurikIT have a long relationship with BigBoss, and help support its costs (statement current as of 2020).\n\n"
+                },
+                {
+                  "text": "For BigBoss:",
+                  "bold": true
+                },
+                {
+                  "text": "\n visit "
+                },
+                {
+                  "text": "http://thebigboss.org/hosting-repository-cydia/submission",
+                  "link": "http://thebigboss.org/hosting-repository-cydia/submission"
+                },
+                {
+                  "text": "\n or email "
+                },
+                {
+                  "text": "bigboss@thebigboss.org",
+                  "link": "mailto:bigboss@thebigboss.org"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-repositories-reinstall",
+              "kind": "text",
+              "text": "I uninstalled a default repository. How do I reinstall it?\n\nGo to the Cydia homepage and tap More Package Sources. If you've uninstalled any of the default sources, they'll show up on that page so that you can reinstall them.",
+              "runs": [
+                {
+                  "text": "I uninstalled a default repository. How do I reinstall it?",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nGo to the Cydia homepage and tap "
+                },
+                {
+                  "text": "More Package Sources",
+                  "bold": true
+                },
+                {
+                  "text": ". If you've uninstalled any of the default sources, they'll show up on that page so that you can reinstall them."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "safemode": {
+      "title": "Safe Mode",
+      "sections": [
+        {
+          "rows": [
+            {
+              "id": "faq-safemode-0",
+              "warning": true,
+              "kind": "text",
+              "text": "Safe Mode\n\nSafe mode is a feature of Cydia Substrate that prevents your device from entering a permanent crash cycle by giving you a chance to uninstall malfunctioning extensions without a complete device restore.\n\nBelow are instructions for help on how to get your device back in working order. Only continue on to the next step if the previous one was not able to solve your problem.",
+              "runs": [
+                {
+                  "text": "Safe Mode",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nSafe mode is a feature of "
+                },
+                {
+                  "text": "Cydia Substrate",
+                  "bold": true,
+                  "link": "cydia://package/mobilesubstrate"
+                },
+                {
+                  "text": " that prevents your device from entering a permanent crash cycle by giving you a chance to uninstall malfunctioning extensions without a complete device restore.\n\nBelow are instructions for help on how to get your device back in working order. Only continue on to the next step if the previous one was not able to solve your problem."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-safemode-1",
+              "kind": "text",
+              "text": "1: Just Restart\n\nIf this is the first time you have entered safe mode, just tap the status bar at the top of the screen and click Restart to restart your SpringBoard. If this was an isolated issue, this should be enough to get you going again.\n\nIf you've already tried the above, and you're back in Safe Mode, read on.",
+              "runs": [
+                {
+                  "text": "1: Just Restart",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf this is the first time you have entered safe mode, just tap the status bar at the top of the screen and click Restart to restart your SpringBoard. If this was an isolated issue, this should be enough to get you going again.\n\nIf you've already tried the above, and you're back in Safe Mode, read on."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-safemode-2",
+              "kind": "text",
+              "text": "2: Remove Recently Installed Extensions\n\nIf you recently installed a new tweak or extension in Cydia, try uninstalling that tweak. Open up Cydia, go to Installed, tap Recent, find the tweak and tap it, tap Modify in the top-right corner, and tap Remove to uninstall it.\n\nEspecially try uninstalling any extensions that may not be compatible with your device's iOS version (often the description page for an extension mentions which iOS versions it is compatible with). Also make sure you're using extensions from trusted repositories such as BigBoss, ModMyi, and ZodTTD & MacCiti.\n\nIf you haven't recently installed an extension, or uninstalling it didn't help, read on.",
+              "runs": [
+                {
+                  "text": "2: Remove Recently Installed Extensions",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf you recently installed a new tweak or extension in Cydia, try uninstalling that tweak. Open up Cydia, go to Installed, tap Recent, find the tweak and tap it, tap Modify in the top-right corner, and tap Remove to uninstall it.\n\nEspecially try uninstalling any extensions that may not be compatible with your device's iOS version (often the description page for an extension mentions which iOS versions it is compatible with). Also make sure you're using extensions from trusted repositories such as BigBoss, ModMyi, and ZodTTD & MacCiti.\n\nIf you haven't recently installed an extension, or uninstalling it didn't help, read on."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-safemode-3",
+              "kind": "text",
+              "text": "3: Determine Cause\n\nIf you are still stuck in Safe Mode, you can try to diagnose the problem using an app called Crash Reporter. Open that up, select SpringBoard, and choose the top crash. Crash Reporter will try to provide an automated guess as to what extension caused the crash. If it finds something, try removing that package in Cydia. (Be careful about uninstalling packages you don't recognize, in case they're packages that Cydia needs.)\n\nYou should also send the developer of the extension the crash log found by Crash Reporter, so they can fix the issue in an update to their package.\n\nIf Crash Reporter can't find what causes the crash, or removing the tweak it finds doesn't help, read on.",
+              "runs": [
+                {
+                  "text": "3: Determine Cause",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf you are still stuck in Safe Mode, you can try to diagnose the problem using an app called "
+                },
+                {
+                  "text": "Crash Reporter",
+                  "bold": true,
+                  "link": "cydia://package/crash-reporter"
+                },
+                {
+                  "text": ". Open that up, select "
+                },
+                {
+                  "text": "SpringBoard",
+                  "bold": true
+                },
+                {
+                  "text": ", and choose the top crash. Crash Reporter will try to provide an automated guess as to what extension caused the crash. If it finds something, try removing that package in Cydia. (Be careful about uninstalling packages you don't recognize, in case they're packages that Cydia needs.)\n\nYou should also send the developer of the extension the crash log found by Crash Reporter, so they can fix the issue in an update to their package.\n\nIf Crash Reporter can't find what causes the crash, or removing the tweak it finds doesn't help, read on."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-safemode-4",
+              "kind": "text",
+              "text": "4: Ask for Help\n\nIf you still can't get your device back in working order, your next best bet is to ask for help. You can ask a forum such as JailbreakQA or /r/jailbreak; make sure to include a list of your installed tweaks so that other people can help make guesses about the problem.\n\nIf nobody is able to provide help to get your device working again, read on.",
+              "runs": [
+                {
+                  "text": "4: Ask for Help",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf you still can't get your device back in working order, your next best bet is to ask for help. You can ask a forum such as "
+                },
+                {
+                  "text": "JailbreakQA",
+                  "link": "http://jailbreakqa.com/"
+                },
+                {
+                  "text": " or "
+                },
+                {
+                  "text": "/r/jailbreak",
+                  "link": "http://www.reddit.com/r/jailbreak/"
+                },
+                {
+                  "text": "; make sure to include a list of your installed tweaks so that other people can help make guesses about the problem.\n\nIf nobody is able to provide help to get your device working again, read on."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "rows": [
+            {
+              "id": "faq-safemode-5",
+              "kind": "text",
+              "text": "5: Restore\n\nIf all else fails, you can always restore with iTunes, which will also automatically update your device to the latest iOS version. Before you try this, you should check Cydia's help pages to find out whether the latest iOS version can be jailbroken. Don't upgrade to an iOS version past what is able to be jailbroken: you likely cannot come back.",
+              "runs": [
+                {
+                  "text": "5: Restore",
+                  "bold": true
+                },
+                {
+                  "text": "\n\nIf all else fails, you can always restore with iTunes, which will also automatically update your device to the latest iOS version. Before you try this, you should check "
+                },
+                {
+                  "text": "Cydia's help pages",
+                  "link": "cydia://home/upgrading-jailbreaking/root"
+                },
+                {
+                  "text": " to find out whether the latest iOS version can be jailbroken. Don't upgrade to an iOS version past what is able to be jailbroken: you likely cannot come back."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "aliases": {
+    "software-whatiscydia": {
+      "page": "software",
+      "anchor": "faq-software-whatiscydia"
+    },
+    "software-noappicon": {
+      "page": "software",
+      "anchor": "faq-software-noappicon"
+    },
+    "software-howtouninstall": {
+      "page": "software",
+      "anchor": "faq-software-howtouninstall"
+    },
+    "software-filterchanges": {
+      "page": "software",
+      "anchor": "faq-software-filterchanges"
+    },
+    "software-reinstallproducts": {
+      "page": "software",
+      "anchor": "faq-software-reinstallproducts"
+    },
+    "software-alternative": {
+      "page": "software",
+      "anchor": "faq-software-alternative"
+    },
+    "fixing-safemode": {
+      "page": "fixing",
+      "anchor": "faq-fixing-safemode"
+    },
+    "fixing-safestable": {
+      "page": "fixing",
+      "anchor": "faq-fixing-safestable"
+    },
+    "fixing-errors": {
+      "page": "fixing",
+      "anchor": "faq-fixing-errors"
+    },
+    "fixing-resetsettings": {
+      "page": "fixing",
+      "anchor": "faq-fixing-resetsettings"
+    },
+    "repositories-whatarethey": {
+      "page": "repositories",
+      "anchor": "faq-repositories-whatarethey"
+    },
+    "repositories-ads": {
+      "page": "repositories",
+      "anchor": "faq-repositories-ads"
+    },
+    "repositories-apt": {
+      "page": "repositories",
+      "anchor": "faq-repositories-apt"
+    },
+    "repositories-hosting": {
+      "page": "repositories",
+      "anchor": "faq-repositories-hosting"
+    },
+    "repositories-reinstall": {
+      "page": "repositories",
+      "anchor": "faq-repositories-reinstall"
+    },
+    "safemode-help": {
+      "page": "safemode",
+      "anchor": "faq-safemode-0"
+    },
+    "what-is-cydia": {
+      "page": "software",
+      "anchor": "faq-software-whatiscydia"
+    },
+    "refresh-sources": {
+      "page": "fixing",
+      "anchor": "faq-fixing-errors"
+    },
+    "install-remove": {
+      "page": "software",
+      "anchor": "faq-software-howtouninstall"
+    },
+    "package-unavailable": {
+      "page": "fixing",
+      "anchor": "faq-fixing-errors"
+    },
+    "other-frontends": {
+      "page": "repositories",
+      "anchor": "faq-repositories-whatarethey"
+    },
+    "recover-safely": {
+      "page": "fixing",
+      "anchor": "faq-fixing-safemode"
+    }
+  }
+}

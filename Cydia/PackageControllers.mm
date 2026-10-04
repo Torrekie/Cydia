@@ -53,6 +53,7 @@
                            context:(NSObject<CyteWebNavigationContext> *)context
                       withReferrer:(NSString *)referrer;
 - (BOOL)openCydiaURL:(NSURL *)URL context:(CydiaUIRouteContext *)context;
+- (void)presentModalViewController:(UIViewController *)controller force:(BOOL)force;
 - (void)launchApplicationWithIdentifier:(NSString *)identifier suspended:(BOOL)suspended;
 @end
 
@@ -154,15 +155,33 @@ NSURL *PackageRouteURL(NSString *URLString) {
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", (id) name_]];
 }
 
+- (Package *) packageForAction {
+    /* A source refresh advances Database.era and invalidates Package handles
+     * retained by an already-visible detail controller.  Re-resolve by the
+     * immutable route identity immediately before every mutating action so a
+     * visible button cannot silently become a no-op after that refresh. */
+    Package *current([database_ packageWithName:name_]);
+    if (current == nil)
+        return nil;
+    if (package_ != current) {
+        package_ = current;
+        [self bindLegacyCompatibilitySessionForPackage:current];
+    }
+    return current;
+}
+
 - (void) _clickButtonWithPackage:(Package *)package {
     [self.delegate installPackage:package];
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
+    Package *package([self packageForAction]);
+    if (package == nil)
+        return;
     if ([name isEqualToString:@"CLEAR"])
-        return [self.delegate clearPackage:package_];
+        return [self.delegate clearPackage:package];
     else if ([name isEqualToString:@"REMOVE"])
-        return [self.delegate removePackage:package_];
+        return [self.delegate removePackage:package];
     else if ([name isEqualToString:@"DOWNGRADE"])
         for (CydiaPackageDetailModifyAction *action in [[self viewModel] modifyActions])
             if ([action kind] == CydiaPackageDetailModifyActionKindDowngrade)
@@ -274,7 +293,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
     if (viewModel != nil) {
         [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
         /* PackageDetailController reloadData performs the one table reload
-         * after the model is rebound. Avoid the old update-then-super double
+         * after the model is rebound.  Avoid the old update-then-super double
          * reload: UITableView may create two depiction cells before the first
          * WK load settles, yielding duplicate initial GETs. */
         [self updateWithViewModel:viewModel
@@ -304,15 +323,18 @@ NSURL *PackageRouteURL(NSString *URLString) {
                    versionChoice:(CydiaPackageDetailVersionChoice *)versionChoice {
     if (controller != self)
         return;
+    Package *package([self packageForAction]);
+    if (package == nil)
+        return;
     switch ([action kind]) {
         case CydiaPackageDetailModifyActionKindClear:
-            return [self.delegate clearPackage:package_];
+            return [self.delegate clearPackage:package];
         case CydiaPackageDetailModifyActionKindRemove:
-            return [self.delegate removePackage:package_];
+            return [self.delegate removePackage:package];
         case CydiaPackageDetailModifyActionKindInstall:
         case CydiaPackageDetailModifyActionKindReinstall:
         case CydiaPackageDetailModifyActionKindUpgrade:
-            return [self.delegate installPackage:package_];
+            return [self.delegate installPackage:package];
         case CydiaPackageDetailModifyActionKindDowngrade:
             break;
     }
@@ -354,16 +376,21 @@ NSURL *PackageRouteURL(NSString *URLString) {
                 mainFrame:YES userGesture:YES];
 
         /* External depiction handoffs must go through the application
-         * coordinator. The package controller is a transient child and its
+         * coordinator.  The package controller is a transient child and its
          * navigationController can be absent or no longer be the selected
-         * stack while the tab transition settles. Keep pageForURL as a
-         * compatibility fallback for older coordinators. */
+         * stack while the tab transition settles.  The shared coordinator
+         * owns that selected-stack check, pending external coalescing, and
+         * the same typed route policy used by direct cydia://url/ callers.
+         * Keep the pageForURL path below as a compatibility fallback for
+         * coordinators predating openCydiaURL:context:. */
         NSError *routeError(nil);
         CydiaUIRouteDescriptor *descriptor(CydiaUIParseRouteURL(route, &routeError));
         if ([descriptor kind] == CydiaUIRouteKindExternalOpen &&
             [application respondsToSelector:@selector(openCydiaURL:context:)]) {
-            if ([application openCydiaURL:route context:context])
-                return;
+            [application openCydiaURL:route context:context];
+            /* A rejected/pending handoff is terminal too: do not route a
+             * second time through a controller fallback after that decision. */
+            return;
         }
     } else {
         context = [CydiaUIRouteContext trustedNativeContext];
@@ -374,6 +401,14 @@ NSURL *PackageRouteURL(NSString *URLString) {
     if (page == nil)
         return;
     [page setDelegate:application];
+    if (kind == CydiaPackageDetailNavigationKindContact &&
+        [application respondsToSelector:@selector(presentModalViewController:force:)]) {
+        /* Legacy package support used a modal web shell with Close and
+         * Reload controls.  Keep that navigation boundary while replacing
+         * its body with the native Support controller. */
+        [application presentModalViewController:page force:NO];
+        return;
+    }
     [self.navigationController pushViewController:page animated:YES];
 }
 

@@ -288,6 +288,11 @@ static CydiaConfirmationViewModel *ConfirmationProbeModel(NSString *phase) {
 - (void) installPhase:(NSString *)phase {
     if (controller_.presentedViewController != nil)
         [controller_ dismissViewControllerAnimated:NO completion:nil];
+    // Cancel and Continue Queuing dismiss the real sheet. A later fixture
+    // needs a new presentation, not a stack update on the detached navigator.
+    if (formSheet_ && navigation_ != nil &&
+        navigation_.presentingViewController == nil)
+        [self detachNavigation];
     phase_ = [phase copy];
     accessibilityLarge_ = [phase isEqualToString:@"normal-accessibility"];
     lastInteraction_ = @"";
@@ -611,8 +616,24 @@ static CydiaConfirmationViewModel *ConfirmationProbeModel(NSString *phase) {
         formSheetFrameInset && backdropInterceptsOutsideSheet);
     BOOL presentationAttached(formSheet_ && actualModal && presentedView != nil &&
         presentedView.window == window && presentationContainer.window == window);
-    BOOL presentationReady(!formSheet_ || (formSheetPresentationComplete_ &&
-        confirmationIsTopController && presentationAttached));
+    // On compact iOS 12 UIKit adapts a requested form sheet to the host
+    // controller instead of creating a presentation controller. That is a
+    // settled, valid probe state, but it cannot satisfy the regular-width
+    // attachment predicate above.
+    BOOL compactFormSheetAdapted(formSheet_ &&
+        requestedPresentationStyle == UIModalPresentationFullScreen &&
+        !presentationAttached && !formSheetFrameInset);
+    BOOL presentationReady(!formSheet_ || compactFormSheetAdapted ||
+        (formSheetPresentationComplete_ && confirmationIsTopController &&
+         presentationAttached));
+    UIView *cancelTarget(controller_.navigationItem.leftBarButtonItem.customView);
+    UIView *confirmTarget(controller_.navigationItem.rightBarButtonItem.customView);
+    BOOL cancelTargetMeetsMinimum(cancelTarget != nil &&
+        CGRectGetWidth(cancelTarget.bounds) >= 44.0 &&
+        CGRectGetHeight(cancelTarget.bounds) >= 44.0);
+    BOOL confirmTargetMeetsMinimum(![viewModel_ showsConfirmAction] ||
+        (confirmTarget != nil && CGRectGetWidth(confirmTarget.bounds) >= 44.0 &&
+         CGRectGetHeight(confirmTarget.bounds) >= 44.0));
     NSDictionary *state = @{
         @"ready": @(settleTicks_ == 0 && table != nil && sections != 0 &&
             presentationReady),
@@ -630,6 +651,10 @@ static CydiaConfirmationViewModel *ConfirmationProbeModel(NSString *phase) {
         @"hasChanges": @([viewModel_ hasChanges]),
         @"hasBlockingIssues": @([viewModel_ hasBlockingIssues]),
         @"showsConfirmAction": @([viewModel_ showsConfirmAction]),
+        @"cancelTargetMeetsMinimum": @(cancelTargetMeetsMinimum),
+        @"confirmTargetMeetsMinimum": @(confirmTargetMeetsMinimum),
+        @"cancelTargetBounds": NSStringFromCGRect(cancelTarget.bounds),
+        @"confirmTargetBounds": NSStringFromCGRect(confirmTarget.bounds),
         @"issueHeaderAccessibilityIdentity": issueHeaderAccessibilityIdentity,
         @"visibleRowsFit": @(visibleRowsFit),
         @"rowsMeetTouchTarget": @(rowsMeetTouchTarget),
@@ -677,7 +702,10 @@ static CydiaConfirmationViewModel *ConfirmationProbeModel(NSString *phase) {
         @"confirmationIsTopController": @(confirmationIsTopController),
         @"formSheetPresentation": @(requestedPresentationStyle == UIModalPresentationFormSheet),
         @"actualModalPresentation": @(actualModal),
+        @"dismissalInFlight": @(navigation_.isBeingDismissed || controller_.isBeingDismissed),
         @"formSheetPresentationComplete": @(formSheetPresentationComplete_),
+        @"formSheetRequested": @(formSheet_),
+        @"settleTicks": @(settleTicks_),
         @"presentationAttached": @(presentationAttached),
         @"presentationFrame": NSStringFromCGRect(sheetFrame),
         @"requestedPresentationStyle": ConfirmationProbePresentationStyleName(

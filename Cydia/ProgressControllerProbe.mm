@@ -111,6 +111,17 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         percent, state.finishTitle];
 }
 
+static NSString *ProgressProbeStatusText(CydiaProgressViewState *state) {
+    if (!state.percentIsHistorical)
+        return state.statusText ?: @"";
+    NSString *percent(state.progressDeterminate ?
+        [NSNumberFormatter localizedStringFromNumber:@(state.displayPercent)
+                                         numberStyle:NSNumberFormatterPercentStyle] :
+        UCLocalize("UNKNOWN"));
+    return [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
+        UCLocalizeEx(@"LAST_REPORTED_PROGRESS", @"Last reported progress"), percent];
+}
+
 @interface CydiaProgressProbeHostController : UIViewController
 @end
 
@@ -131,6 +142,8 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
     NSString *modelToken_;
     BOOL lifecycleArmed_;
     BOOL lifecycleComplete_;
+    NSUInteger finishDispatchCount_;
+    NSString *finishDispatchAction_;
 }
 
 - (UIStatusBarStyle) preferredStatusBarStyle {
@@ -356,9 +369,23 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         ![phase_ isEqualToString:@"complete"]) {
         [model_ setCancellable:false];
         [model_ setTitle:@"COMPLETE"];
-        [model_ completeWithFinishAction:CydiaProgressFinishActionReloadSpringBoard];
+        [model_ completeWithFinishAction:CydiaProgressFinishActionReturnToCydia];
         phase_ = @"complete";
         settleTicks_ = 5;
+    }
+    if ([self consumeMarker:@"cydia-progress-probe-activate-finish"] &&
+        [phase_ isEqualToString:@"complete"]) {
+        UIButton *finishButton((UIButton *) ProgressProbeView(
+            controller_.view, @"cydia.progress.finish"));
+        if (finishButton != nil && !finishButton.hidden) {
+            /* Send two equivalent activations to exercise the controller's
+             * one-shot terminal guard without causing any device side effect.
+             */
+            [finishButton sendActionsForControlEvents:UIControlEventTouchUpInside];
+            [finishButton sendActionsForControlEvents:UIControlEventTouchUpInside];
+            phase_ = @"finish-activated";
+            settleTicks_ = 5;
+        }
     }
     if (settleTicks_ != 0)
         --settleTicks_;
@@ -389,6 +416,20 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
     UITableViewCell *last(cellAtRow(rows - 1));
     CydiaProgressEventCell *firstEventCell((CydiaProgressEventCell *) first);
     CydiaProgressEventCell *lastEventCell((CydiaProgressEventCell *) last);
+    /* Accessibility Large rows can exceed the compact table viewport. The
+     * first row may therefore be off-screen even though UIKit has completed
+     * its layout. Use one visible native event cell for font/line metrics in
+     * that profile; the terminal/error row remains the authoritative sizing
+     * sample below. */
+    CydiaProgressEventCell *metricEventCell(firstEventCell);
+    if (metricEventCell == nil && accessibilityLarge_) {
+        for (UITableViewCell *visibleCell in table.visibleCells) {
+            if ([visibleCell isKindOfClass:[CydiaProgressEventCell class]]) {
+                metricEventCell = (CydiaProgressEventCell *) visibleCell;
+                break;
+            }
+        }
+    }
     NSArray<CydiaProgressPresentationEvent *> *events(model_.state.events);
     CydiaProgressPresentationEvent *firstEvent([events firstObject]);
     CydiaProgressPresentationEvent *carriageReturnEvent([events count] <= 1 ? nil :
@@ -415,23 +456,19 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
     CGFloat errorRequiredHeight([errorMessage sizeThatFits:CGSizeMake(
         CGRectGetWidth(errorMessage.bounds), CGFLOAT_MAX)].height);
     NSMutableArray<NSNumber *> *rowHeights([NSMutableArray arrayWithCapacity:(NSUInteger) rows]);
-    BOOL allRowsHaveTerminalSurface(YES);
     for (NSInteger row(0); row != rows; ++row) {
         NSIndexPath *path([NSIndexPath indexPathForRow:row inSection:0]);
         [rowHeights addObject:@((NSInteger) lround(CGRectGetHeight(
             [table rectForRowAtIndexPath:path])))];
-        UITableViewCell *eventCell(cellAtRow(row));
-        if (eventCell == nil)
-            allRowsHaveTerminalSurface = NO;
     }
-    CGFloat firstMessageLineHeight(firstEventCell == nil ? 0.0 :
-        firstEventCell.messageLineHeight);
-    CGFloat firstMessageLineSpacing(firstEventCell == nil ? 0.0 :
-        firstEventCell.messageLineSpacing);
-    CGFloat firstMessageMinimumLineHeight(firstEventCell == nil ? 0.0 :
-        firstEventCell.messageMinimumLineHeight);
-    CGFloat firstMessageMaximumLineHeight(firstEventCell == nil ? 0.0 :
-        firstEventCell.messageMaximumLineHeight);
+    CGFloat firstMessageLineHeight(metricEventCell == nil ? 0.0 :
+        metricEventCell.messageLineHeight);
+    CGFloat firstMessageLineSpacing(metricEventCell == nil ? 0.0 :
+        metricEventCell.messageLineSpacing);
+    CGFloat firstMessageMinimumLineHeight(metricEventCell == nil ? 0.0 :
+        metricEventCell.messageMinimumLineHeight);
+    CGFloat firstMessageMaximumLineHeight(metricEventCell == nil ? 0.0 :
+        metricEventCell.messageMaximumLineHeight);
     CGFloat errorLineHeight(lastEventCell == nil ? 0.0 : lastEventCell.messageLineHeight);
     CGFloat errorLineSpacing(lastEventCell == nil ? 0.0 : lastEventCell.messageLineSpacing);
     CGFloat errorMinimumLineHeight(lastEventCell == nil ? 0.0 :
@@ -449,12 +486,15 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         ([navigation_.viewControllers firstObject] == confirmationPlaceholder_ &&
          [confirmationPlaceholder_.view.accessibilityIdentifier
             isEqualToString:@"cydia.progress.confirmation-placeholder"]));
-    BOOL contentReady(settleTicks_ == 0 && rows == (NSInteger) [events count] &&
-                      firstMessage != nil && carriageReturnMessage != nil &&
+    BOOL visibleEventContent(firstMessage != nil && carriageReturnMessage != nil &&
                       warningMessage != nil && unknownMessage != nil &&
-                      errorMessage != nil && footer != nil && finishButton != nil &&
+                      errorMessage != nil);
+    BOOL accessibilityEventContent(metricEventCell != nil && errorMessage != nil);
+    BOOL contentReady(settleTicks_ == 0 && rows == (NSInteger) [events count] &&
+                      (accessibilityLarge_ ? accessibilityEventContent : visibleEventContent) &&
+                      footer != nil && finishButton != nil &&
                       [[controller_.navigationItem title] length] != 0 &&
-                      [status.text isEqualToString:model_.state.statusText]);
+                      [status.text isEqualToString:ProgressProbeStatusText(model_.state)]);
     /* UIKit may temporarily report an unspecified/adapted trait on a compact
      * form-sheet controller. Resolve expected roles against the probe's
      * explicit appearance so the contract compares actual surfaces with the
@@ -489,13 +529,18 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
     BOOL confirmationPlaceholderUsesCellBackground(!formSheet_ ||
         ProgressProbeColorsEqual(confirmationPlaceholder_.view.backgroundColor,
             expectedCellBackground));
-    BOOL eventCellsUseTerminalSurface(allRowsHaveTerminalSurface);
+    /* AXL long rows legitimately leave off-screen cells uninstantiated. Check
+     * every visible native event row instead of treating cellForRowAtIndexPath:
+     * nil for an off-screen row as a palette failure. */
+    BOOL allVisibleRowsHaveTerminalSurface(YES);
     for (UITableViewCell *eventCell in table.visibleCells) {
-        eventCellsUseTerminalSurface = eventCellsUseTerminalSurface &&
+        allVisibleRowsHaveTerminalSurface = allVisibleRowsHaveTerminalSurface &&
+            [eventCell isKindOfClass:[CydiaProgressEventCell class]] &&
             ProgressProbeColorsEqual(eventCell.backgroundColor, expectedTerminalBackground) &&
             ProgressProbeColorsEqual(eventCell.contentView.backgroundColor,
                 expectedTerminalBackground);
     }
+    BOOL eventCellsUseTerminalSurface(allVisibleRowsHaveTerminalSurface);
     BOOL terminalCanvasUsesFixedPalette(
         ProgressProbeColorsEqual(root.backgroundColor, expectedTerminalBackground) &&
         ProgressProbeColorsEqual(table.backgroundColor, expectedTerminalBackground) &&
@@ -541,8 +586,14 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         formSheetFrameInset && backdropInterceptsOutsideSheet);
     BOOL presentationAttached(formSheet_ && actualModal && presentedView != nil &&
         presentedView.window == window && presentationContainer.window == window);
+    /* Compact iOS 12 adapts a requested form sheet to full screen. The
+     * adapted presentation may not expose a separate presentation container
+     * window, so attachment is required only for the regular-width inset
+     * sheet. A real presented controller is still required in both cases. */
     BOOL presentationReady(!formSheet_ || (formSheetPushComplete_ &&
-        confirmationPlaceholderIsRoot && presentationAttached));
+        confirmationPlaceholderIsRoot &&
+        (horizontalSizeClass == UIUserInterfaceSizeClassCompact ? actualModal :
+            presentationAttached)));
     BOOL ready(contentReady && presentationReady);
     NSString *expectedUnknown([NSString stringWithFormat:UCLocalize("COLON_DELIMITED"),
         unknownEvent.rawType, unknownEvent.displayMessage]);
@@ -559,7 +610,8 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"title": controller_.navigationItem.title ?: @"",
         @"expectedTitle": model_.state.localizedTitle ?: @"",
         @"status": status.text ?: @"",
-        @"expectedStatus": model_.state.statusText ?: @"",
+        @"expectedStatus": ProgressProbeStatusText(model_.state),
+        @"percentIsHistorical": @(model_.state.percentIsHistorical),
         @"firstEvent": firstEvent.displayMessage ?: @"",
         @"firstVisibleText": firstMessage.text ?: @"",
         @"carriageReturnVisibleText": carriageReturnMessage.text ?: @"",
@@ -623,11 +675,16 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
         @"progressAccessibilityValue": progress.accessibilityValue ?: @"",
         @"expectedProgressAccessibilityValue": ProgressProbeAccessibilityValue(model_.state),
         @"expectedRunningAccessibilityLabel": UCLocalize("RUNNING"),
-        @"expectedCompleteAccessibilityLabel": UCLocalize("COMPLETE"),
+        @"expectedHistoricalAccessibilityLabel": UCLocalizeEx(
+            @"LAST_REPORTED_PROGRESS", @"Last reported progress"),
         @"cancelTitle": controller_.navigationItem.leftBarButtonItem.title ?: @"",
         @"finishTitle": controller_.navigationItem.rightBarButtonItem.title ?: @"",
         @"finishButtonTitle": [finishButton titleForState:UIControlStateNormal] ?: @"",
         @"finishButtonHidden": @(finishButton.hidden),
+        @"finishButtonWidth": @(CGRectGetWidth(finishButton.bounds)),
+        @"finishButtonHeight": @(CGRectGetHeight(finishButton.bounds)),
+        @"finishDispatchCount": @(finishDispatchCount_),
+        @"finishDispatchAction": finishDispatchAction_ ?: @"",
         @"expectedFinishTitle": model_.state.finishTitle ?: @"",
         @"statusAdjustsFont": @(status.adjustsFontForContentSizeCategory),
         @"finishAdjustsFont": @(finishButton.titleLabel.adjustsFontForContentSizeCategory),
@@ -678,8 +735,11 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
             expectedCellBackground) && ProgressProbeColorsEqual(table.backgroundColor,
             expectedCellBackground) && ProgressProbeColorsEqual(footer.backgroundColor,
             expectedCellBackground)),
-        @"formSheetPresentation": @(navigation_.modalPresentationStyle ==
-            UIModalPresentationFormSheet),
+        /* Keep requested presentation intent separate from UIKit's effective
+         * compact-width adaptation. On iOS 12 a requested form sheet may be
+         * presented full-screen, but the compact assertions still need to
+         * know that the native caller requested a form sheet. */
+        @"formSheetPresentation": @(formSheet_),
         @"actualModalPresentation": @(formSheet_ && actualModal),
         @"presentationAttached": @(presentationAttached),
         @"navigationDepth": @([navigation_.viewControllers count]),
@@ -699,8 +759,8 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
             @"pad" : @"phone",
         @"horizontalSizeClass": ProgressProbeSizeClassName(horizontalSizeClass),
         @"requestedPresentationStyle": ProgressProbePresentationStyleName(
-            presentationController == nil ? UIModalPresentationFullScreen :
-                presentationController.presentationStyle),
+            formSheet_ ? UIModalPresentationFormSheet :
+                         UIModalPresentationFullScreen),
         @"adaptivePresentationStyle": ProgressProbePresentationStyleName(
             adaptivePresentationStyle),
         @"formSheetFrameInset": @(formSheetFrameInset),
@@ -722,13 +782,22 @@ static NSString *ProgressProbeAccessibilityValue(CydiaProgressViewState *state) 
     [state writeToFile:[self markerPath:@"cydia-progress-probe.plist"] atomically:YES];
 }
 
-/* These are deliberately inert. The probe verifies action selection and
- * chrome without performing application termination or device side effects. */
+/* These callbacks record the selected terminal route while remaining free of
+ * application termination or device side effects. */
 - (void) saveState {}
-- (void) returnToCydia {}
-- (void) terminateWithSuccess {}
+- (void) returnToCydia {
+    ++finishDispatchCount_;
+    finishDispatchAction_ = @"returnToCydia";
+}
+- (void) terminateWithSuccess {
+    ++finishDispatchCount_;
+    finishDispatchAction_ = @"terminateWithSuccess";
+}
 - (id) addProgressHUD { return nil; }
-- (void) reloadSpringBoard {}
+- (void) reloadSpringBoard {
+    ++finishDispatchCount_;
+    finishDispatchAction_ = @"reloadSpringBoard";
+}
 
 @end
 
