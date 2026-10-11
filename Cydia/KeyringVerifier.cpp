@@ -14,8 +14,12 @@ bool Fail(Privileged::Error *error, const char *code, const char *message) {
 }
 bool Write(int fd, const std::string &bytes) {
     std::size_t offset(0);
-    while (offset < bytes.size()) { const ssize_t count(write(fd, bytes.data() + offset, bytes.size() - offset));
-        if (count < 0 && errno == EINTR) continue; if (count <= 0) return false; offset += count; }
+    while (offset < bytes.size()) {
+        const ssize_t count(write(fd, bytes.data() + offset, bytes.size() - offset));
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) return false;
+        offset += count;
+    }
     return fsync(fd) == 0;
 }
 /* Only the fresh private temporary directory is recursively cleaned. Symlink
@@ -49,7 +53,10 @@ class TemporaryHome {
     const std::string &path() const { return path_; }
     bool Input(const std::string &leaf, const std::string &bytes) {
         const int fd(open((path_ + '/' + leaf).c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
-        if (fd < 0) return false; const bool success(Write(fd, bytes)); close(fd); return success;
+        if (fd < 0) return false;
+        const bool success(Write(fd, bytes));
+        close(fd);
+        return success;
     }
 };
 } // namespace

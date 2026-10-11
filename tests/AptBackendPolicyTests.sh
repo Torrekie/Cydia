@@ -7,6 +7,7 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ACTION_DRIVER="$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-actions"
 python3 "$PROJECT_DIR/tests/BuildAptBackendPolicyTest.py"
 TESTDIR="$PROJECT_DIR/apt64/test/integration"
+TESTDIRECTORY="$TESTDIR"
 . "$TESTDIR/framework"
 setupenvironment
 configarchitecture 'amd64' 'i386'
