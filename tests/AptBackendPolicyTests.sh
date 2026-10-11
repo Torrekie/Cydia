@@ -40,7 +40,6 @@ Pin: version 1
 Pin-Priority: 1001
 EOF
 setupaptarchive
-testsuccess runapt "$ACTION_DRIVER"
-if [ "$EXIT_CODE" -ne 0 ] && command -v gdb >/dev/null 2>&1; then
-    runapt command gdb --batch -ex run -ex 'bt 12' --args "$ACTION_DRIVER" || true
-fi
+# APT retains process-wide configuration allocations. Check invalid accesses in
+# the frontend fixture without treating those library globals as fixture leaks.
+ASAN_OPTIONS=detect_leaks=0 testsuccess runapt "$ACTION_DRIVER"
