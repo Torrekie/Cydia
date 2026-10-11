@@ -122,6 +122,8 @@ cydia_shared_read_record() {
         { cydia_shared_error 'unsafe handoff record'; return 1; }
     CYDIA_SHARED_RECORD_PATH= CYDIA_SHARED_RECORD_DIVERT=
     CYDIA_SHARED_RECORD_VERSION= CYDIA_SHARED_RECORD_KIND=
+    CYDIA_SHARED_RECORD_OWNER= CYDIA_SHARED_RECORD_TYPE=
+    CYDIA_SHARED_RECORD_UID= CYDIA_SHARED_RECORD_GID= CYDIA_SHARED_RECORD_MODE=
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ "$line" == *=* ]] || return 1
         key="${line%%=*}"; value="${line#*=}"
@@ -133,19 +135,119 @@ cydia_shared_read_record() {
             path) CYDIA_SHARED_RECORD_PATH="$value" ;;
             divert) CYDIA_SHARED_RECORD_DIVERT="$value" ;;
             kind) CYDIA_SHARED_RECORD_KIND="$value" ;;
+            owner) CYDIA_SHARED_RECORD_OWNER="$value" ;;
+            file_type) CYDIA_SHARED_RECORD_TYPE="$value" ;;
+            uid) CYDIA_SHARED_RECORD_UID="$value" ;;
+            gid) CYDIA_SHARED_RECORD_GID="$value" ;;
+            mode) CYDIA_SHARED_RECORD_MODE="$value" ;;
             *) return 1 ;;
         esac
     done < "$record"
-    [[ "$version" == 1 && "$package" == cydia &&
+    [[ "$package" == cydia &&
         -n "$CYDIA_SHARED_RECORD_VERSION" ]] || return 1
-    case "$CYDIA_SHARED_RECORD_KIND" in ordinary|conffile) ;; *) return 1 ;; esac
     cydia_shared_absolute "$CYDIA_SHARED_RECORD_PATH" &&
         cydia_shared_candidate "$CYDIA_SHARED_RECORD_PATH" &&
         cydia_shared_absolute "$CYDIA_SHARED_RECORD_DIVERT" || return 1
+    if [[ "$version" == 2 && "$CYDIA_SHARED_RECORD_KIND" == foreign ]]; then
+        [[ "$CYDIA_SHARED_RECORD_OWNER" == LOCAL ||
+           "$CYDIA_SHARED_RECORD_OWNER" =~ ^[a-z0-9][a-z0-9+.-]+$ ]] || return 1
+        [[ "$CYDIA_SHARED_RECORD_OWNER" != cydia &&
+           "$CYDIA_SHARED_RECORD_DIVERT" != "$CYDIA_SHARED_RECORD_PATH" &&
+           "$CYDIA_SHARED_RECORD_UID" =~ ^[0-9]+$ &&
+           "$CYDIA_SHARED_RECORD_GID" =~ ^[0-9]+$ &&
+           "$CYDIA_SHARED_RECORD_MODE" =~ ^[0-7]{1,4}$ ]] || return 1
+        case "$CYDIA_SHARED_RECORD_TYPE" in file|symlink|absent) return 0 ;; *) return 1 ;; esac
+    fi
+    [[ "$version" == 1 ]] || return 1
+    case "$CYDIA_SHARED_RECORD_KIND" in ordinary|conffile) ;; *) return 1 ;; esac
     case "$CYDIA_SHARED_RECORD_DIVERT" in
         "$CYDIA_SHARED_RECORD_PATH".cydia-handoff.*.distrib) ;;
         *) return 1 ;;
     esac
+}
+
+# dpkg cannot stack a local diversion on another package's diverted filename.
+# Keep that package's active file and diversion untouched, and retain Cydia's
+# inactive, ordinary payload in a private journal until ownership is retired.
+cydia_shared_prepare_foreign() {
+    local path="$1" old_version="$2" owner="$3" target="$4"
+    local temporary record backup physical type=absent uid=0 gid=0 mode=0 attributes kind
+    [[ "$owner" != cydia ]] || { cydia_shared_error "unsupported Cydia-owned diversion for $path"; return 1; }
+    cydia_shared_absolute "$target" && [[ "$target" != "$path" ]] || return 1
+    kind=$(cydia_shared_kind "$path") || return 1
+    [[ "$kind" == ordinary ]] ||
+        { cydia_shared_error "cannot safely retire a diverted conffile $path"; return 1; }
+    physical="${CYDIA_SHARED_ROOT%/}$target"
+    if [[ -L "$physical" ]]; then type=symlink
+    elif [[ -f "$physical" ]]; then type=file
+    elif [[ -e "$physical" ]]; then cydia_shared_error "unsupported diverted payload for $path"; return 1
+    fi
+    if [[ "$type" != absent ]]; then
+        attributes=$(stat -c '%u %g %a' "$physical" 2>/dev/null) ||
+            attributes=$(stat -f '%u %g %Lp' "$physical" 2>/dev/null) || return 1
+        read -r uid gid mode <<< "$attributes"
+    fi
+    cydia_shared_journal_ready || return 1
+    temporary=$(umask 077; mktemp "$CYDIA_SHARED_JOURNAL/record.XXXXXXXX") || return 1
+    record="$temporary.record"; backup="$record.payload"
+    if [[ "$type" != absent ]]; then
+        cp -pP "$physical" "$backup" || { rm -f "$temporary"; return 1; }
+        if [[ "$type" == file ]]; then
+            [[ -f "$backup" && ! -L "$backup" ]] || return 1
+            chown "$CYDIA_SHARED_UID" "$backup" && chmod 0600 "$backup" || return 1
+        else
+            [[ -L "$backup" ]] || return 1
+        fi
+    fi
+    printf 'version=2\npackage=cydia\nold_version=%s\npath=%s\ndivert=%s\nkind=foreign\nowner=%s\nfile_type=%s\nuid=%s\ngid=%s\nmode=%s\n' \
+        "$old_version" "$path" "$target" "$owner" "$type" "$uid" "$gid" "$mode" > "$temporary" || return 1
+    ln "$temporary" "$record" && rm "$temporary" && sync || return 1
+    cydia_shared_read_record "$record"
+}
+
+cydia_shared_release_foreign() {
+    local record="$1" owner target physical backup="$1.payload" temporary parent
+    owner=$(cydia_shared_diversion --listpackage "$CYDIA_SHARED_RECORD_PATH") || return 1
+    target=$(cydia_shared_diversion --truename "$CYDIA_SHARED_RECORD_PATH") || return 1
+    [[ "$owner" == "$CYDIA_SHARED_RECORD_OWNER" && "$target" == "$CYDIA_SHARED_RECORD_DIVERT" ]] ||
+        { cydia_shared_error "diversion changed for $CYDIA_SHARED_RECORD_PATH"; return 1; }
+    physical="${CYDIA_SHARED_ROOT%/}$target"
+    if [[ "$CYDIA_SHARED_RECORD_TYPE" != absent ]]; then
+        if [[ "$CYDIA_SHARED_RECORD_TYPE" == file ]]; then
+            cydia_shared_safe_owned "$backup" file || return 1
+        else
+            [[ -L "$backup" ]] || return 1
+        fi
+        if [[ -e "$physical" || -L "$physical" ]]; then
+            if [[ "$CYDIA_SHARED_RECORD_TYPE" == file && -f "$physical" && ! -L "$physical" ]]; then
+                cmp -s "$backup" "$physical" ||
+                    { cydia_shared_error "diverted payload changed for $CYDIA_SHARED_RECORD_PATH"; return 1; }
+            elif [[ "$CYDIA_SHARED_RECORD_TYPE" == symlink && -L "$physical" ]]; then
+                [[ "$(readlink "$backup")" == "$(readlink "$physical")" ]] ||
+                    { cydia_shared_error "diverted payload changed for $CYDIA_SHARED_RECORD_PATH"; return 1; }
+            else
+                cydia_shared_error "diverted payload changed for $CYDIA_SHARED_RECORD_PATH"; return 1
+            fi
+        else
+            parent=$(CDPATH= cd -P -- "${physical%/*}" && pwd -P) || return 1
+            cydia_shared_safe_owned "$parent" directory || return 1
+            temporary=$(umask 077; mktemp "$parent/.cydia-shared-restore.XXXXXXXX") || return 1
+            cp -pP "$backup" "$temporary" || { rm -f "$temporary"; return 1; }
+            if [[ "$CYDIA_SHARED_RECORD_TYPE" == file ]]; then
+                chown "$CYDIA_SHARED_RECORD_UID:$CYDIA_SHARED_RECORD_GID" "$temporary" &&
+                    chmod "$CYDIA_SHARED_RECORD_MODE" "$temporary" || { rm -f "$temporary"; return 1; }
+            else
+                chown -h "$CYDIA_SHARED_RECORD_UID:$CYDIA_SHARED_RECORD_GID" "$temporary" || { rm -f "$temporary"; return 1; }
+            fi
+            # Both names share a filesystem. Publish without replacing a file
+            # another actor created, including a dangling symbolic link.
+            ln -P "$temporary" "$physical" || { rm -f "$temporary"; return 1; }
+            rm "$temporary" && sync || return 1
+        fi
+        rm "$record" "$backup" || return 1
+    else
+        rm "$record" || return 1
+    fi
 }
 
 cydia_shared_existing_record() {
@@ -179,24 +281,31 @@ cydia_shared_kind() {
 cydia_shared_prepare_path() {
     local path="$1" old_version="$2" record result owner target temporary token kind physical
     physical="${CYDIA_SHARED_ROOT%/}$path"
-    [[ -f "$physical" || -L "$physical" ]] || return 0
     record=$(cydia_shared_existing_record "$path"); result=$?
     (( result < 2 )) || { cydia_shared_error 'ambiguous or unsafe handoff records'; return 1; }
     owner=$(cydia_shared_diversion --listpackage "$path") || return 1
     target=$(cydia_shared_diversion --truename "$path") || return 1
+    [[ -f "$physical" || -L "$physical" || "$target" != "$path" ]] || return 0
     if [[ -n "$record" ]]; then
         cydia_shared_read_record "$record" || return 1
         [[ "$CYDIA_SHARED_RECORD_VERSION" == "$old_version" ||
            "$CYDIA_SHARED_RECORD_KIND" == conffile ]] ||
             { cydia_shared_error "ownership version changed for $path"; return 1; }
         if [[ -n "$owner" ]]; then
+            if [[ "$CYDIA_SHARED_RECORD_KIND" == foreign ]]; then
+                [[ "$owner" == "$CYDIA_SHARED_RECORD_OWNER" && "$target" == "$CYDIA_SHARED_RECORD_DIVERT" ]] || return 1
+                return 0
+            fi
             [[ "$owner" == LOCAL && "$target" == "$CYDIA_SHARED_RECORD_DIVERT" ]] ||
                 { cydia_shared_error "foreign diversion for $path"; return 1; }
             return 0
         fi
     else
-        [[ -z "$owner" && "$target" == "$path" ]] ||
-            { cydia_shared_error "foreign diversion for $path"; return 1; }
+        if [[ -n "$owner" ]]; then
+            cydia_shared_prepare_foreign "$path" "$old_version" "$owner" "$target"
+            return $?
+        fi
+        [[ "$target" == "$path" ]] || return 1
         cydia_shared_journal_ready || return 1
         temporary=$(umask 077; mktemp "$CYDIA_SHARED_JOURNAL/record.XXXXXXXX") || return 1
         token="${temporary##*/}"
@@ -224,6 +333,10 @@ cydia_shared_prepare_path() {
 cydia_shared_release_record() {
     local record="$1" owner target
     cydia_shared_read_record "$record" || return 1
+    if [[ "$CYDIA_SHARED_RECORD_KIND" == foreign ]]; then
+        cydia_shared_release_foreign "$record"
+        return $?
+    fi
     owner=$(cydia_shared_diversion --listpackage "$CYDIA_SHARED_RECORD_PATH") || return 1
     target=$(cydia_shared_diversion --truename "$CYDIA_SHARED_RECORD_PATH") || return 1
     if [[ -n "$owner" ]]; then
@@ -250,7 +363,7 @@ cydia_shared_finish() {
         cydia_shared_read_record "$record" || return 1
         if [[ "$phase" != abort && "$phase" != purge ]] &&
                 cydia_shared_listed "$list" "$CYDIA_SHARED_RECORD_PATH"; then
-            if [[ "$phase" == configure && "$CYDIA_SHARED_RECORD_KIND" == ordinary ]]; then
+            if [[ "$phase" == configure && "$CYDIA_SHARED_RECORD_KIND" != conffile ]]; then
                 cydia_shared_error "the new package still owns shared configuration $CYDIA_SHARED_RECORD_PATH"
                 return 1
             fi

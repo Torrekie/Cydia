@@ -16,7 +16,8 @@ LIBRARY = (ROOT / "Library/shared-config-lifecycle.sh").read_bytes()
 DPKG = shutil.which("dpkg")
 DIVERT = shutil.which("dpkg-divert")
 QUERY = shutil.which("dpkg-query")
-assert DPKG and DIVERT and QUERY, "dpkg, dpkg-divert, and dpkg-query are required"
+CHOWN = shutil.which("chown")
+assert DPKG and DIVERT and QUERY and CHOWN, "dpkg, dpkg-divert, dpkg-query, and chown are required"
 
 
 def tar_bytes(entries):
@@ -79,7 +80,7 @@ class Fixture:
         self.environment = dict(os.environ)
         # Explicit tools precede the ordinary system search path. No test
         # changes the host dpkg database or requires privilege escalation.
-        tools = dict.fromkeys(str(Path(tool).parent) for tool in (DPKG, DIVERT, QUERY))
+        tools = dict.fromkeys(str(Path(tool).parent) for tool in (DPKG, DIVERT, QUERY, CHOWN))
         self.environment["PATH"] = ":".join(tools) + os.pathsep + os.defpath
         self.environment["DPKG_ROOT"] = str(self.root)
         self.environment["DPKG_ADMINDIR"] = str(self.admin)
@@ -217,16 +218,65 @@ def fresh_install(directory):
     fixture.assert_clean()
 
 
-def foreign_diversion(directory):
+def foreign_diversion(directory, prefix="", rename=False, symlink=False):
+    fixture = Fixture(directory, prefix)
+    fixture.install_old(symlink=symlink)
+    destination = fixture.source + ".bootstrap-owned"
+    original = fixture.saved[fixture.source]
+    fixture.diversion("--package", "bootstrap-fixture", "--rename" if rename else "--no-rename", "--divert",
+                      destination, "--add", fixture.source)
+    if rename:
+        fixture.saved[destination] = original
+        fixture.physical(fixture.source).write_bytes(b"bootstrap active source\n")
+        fixture.saved[fixture.source] = ("file", b"bootstrap active source\n")
+    fixture.package("2")
+    fixture.dpkg("--unpack", fixture.new)
+    # The other frontend's active configuration never has a missing-file gap.
+    assert fixture.physical(fixture.source).exists()
+    fixture.dpkg("--configure", "cydia")
+    fixture.assert_preserved()
+    assert fixture.diversion("--listpackage", fixture.source) == "bootstrap-fixture"
+    assert fixture.diversion("--truename", fixture.source) == destination
+    assert not fixture.records()
+    assert not list((fixture.admin / "cydia-shared-config-handoff").glob("*.payload"))
+    fixture.dpkg("--remove", "cydia")
+    fixture.dpkg("--purge", "cydia")
+    fixture.assert_preserved()
+    assert fixture.diversion("--listpackage", fixture.source) == "bootstrap-fixture"
+
+
+def foreign_interrupted_restore(directory, collision=False):
     fixture = Fixture(directory)
     fixture.install_old()
+    destination = fixture.key + ".bootstrap-owned"
+    original = fixture.saved[fixture.key]
+    fixture.diversion("--package", "bootstrap-fixture", "--rename", "--divert", destination, "--add", fixture.key)
+    fixture.saved[destination] = original
+    fixture.physical(fixture.key).write_bytes(b"bootstrap active key\n")
+    fixture.saved[fixture.key] = ("file", b"bootstrap active key\n")
+    fixture.lifecycle("preinst", "upgrade")
+    fixture.physical(destination).unlink()
+    if collision:
+        fixture.physical(destination).write_bytes(b"newer administrator backing file\n")
+    fixture.lifecycle("postrm", "abort-upgrade", expected=1 if collision else 0)
+    assert fixture.physical(fixture.key).read_bytes() == b"bootstrap active key\n"
+    assert fixture.diversion("--listpackage", fixture.key) == "bootstrap-fixture"
+    if collision:
+        assert fixture.physical(destination).read_bytes() == b"newer administrator backing file\n"
+        assert fixture.records(), "conflict discarded the original private copy"
+    else:
+        fixture.assert_preserved()
+        assert not fixture.records()
+
+
+def foreign_conffile_refusal(directory):
+    fixture = Fixture(directory)
+    fixture.install_old(conffiles=True)
     destination = fixture.source + ".bootstrap-owned"
-    fixture.diversion("--package", "bootstrap-fixture", "--no-rename", "--divert",
-                      destination, "--add", fixture.source)
+    fixture.diversion("--package", "bootstrap-fixture", "--no-rename", "--divert", destination, "--add", fixture.source)
     fixture.package("2")
     fixture.dpkg("--unpack", fixture.new, expected=1)
     fixture.assert_preserved()
-    assert fixture.diversion("--listpackage", fixture.source) == "bootstrap-fixture"
     assert fixture.diversion("--truename", fixture.source) == destination
     assert not fixture.records()
 
@@ -318,11 +368,17 @@ def main():
     cases = [fresh_install, ordinary_upgrade, conffile_upgrade, foreign_diversion,
              pending_record_retry, unexpected_payload, unsafe_journal, symlink_upgrade,
              deleted_configuration, unexpected_new_ownership,
-             lambda directory: ordinary_upgrade(directory, "/var/jb")]
+             lambda directory: ordinary_upgrade(directory, "/var/jb"),
+             lambda directory: foreign_diversion(directory, rename=True),
+             lambda directory: foreign_diversion(directory, "/var/jb", rename=True),
+             lambda directory: foreign_diversion(directory, rename=True, symlink=True),
+             foreign_interrupted_restore,
+             lambda directory: foreign_interrupted_restore(directory, collision=True),
+             foreign_conffile_refusal]
     for case in cases:
         with tempfile.TemporaryDirectory(prefix="cydia-lifecycle-") as directory:
             case(directory)
-    print("[shared-config-lifecycle] PASS (11 isolated dpkg fixtures)")
+    print(f"[shared-config-lifecycle] PASS ({len(cases)} isolated dpkg fixtures)")
 
 
 if __name__ == "__main__":
