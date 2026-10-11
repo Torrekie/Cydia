@@ -33,6 +33,7 @@ def main():
     command = shlex.split(os.environ.get("CXX", "c++")) + [
         "-std=c++17", "-Wall", "-Wextra", "-I" + str(project),
         "-I" + str(build / "include"),
+        "-I" + str(project / "apt64"),
     ] + [str(project / source) for source in sources] + inputs + [
         "-pthread", "-o", str(build / "cydia-package-actions")
     ]
