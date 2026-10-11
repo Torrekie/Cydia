@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/RuntimeState.hpp"
+#include "Cydia/ApplicationIdentity.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -55,6 +56,21 @@ struct Fixture {
 int main() {
     // fakeroot supplies root ownership semantics without modifying host state.
     Require(geteuid() == 0, "run this isolated privileged-boundary fixture through fakeroot");
+    {
+        Fixture f;
+        const std::string shared(f.root + "/Applications"), bundle(shared + "/Cydia.app"), app(bundle + "/Cydia");
+        Require(std::filesystem::create_directory(shared) && std::filesystem::create_directory(bundle), "create shared app fixture");
+        Require(chmod(shared.c_str(), 0775) == 0 && chmod(bundle.c_str(), 0755) == 0, "bootstrap application permissions");
+        Write(app, "signed application fixture", 0755);
+        struct stat identity; Error error;
+        Require(InspectApplicationExecutable(app, &identity), "protected app leaf permits shared administrator-writable Applications");
+        Require(!ValidateRootOwnedPath(app, false, true, &error), "generic privileged tool checks retain strict parent permissions");
+        Require(chmod(bundle.c_str(), 0775) == 0 && !InspectApplicationExecutable(app, &identity), "writable app bundle is rejected");
+        Require(chmod(bundle.c_str(), 0755) == 0 && chmod(app.c_str(), 0775) == 0 &&
+            !InspectApplicationExecutable(app, &identity), "writable app executable is rejected");
+        Require(chmod(app.c_str(), 0755) == 0 && chown(app.c_str(), 501, 501) == 0 &&
+            !InspectApplicationExecutable(app, &identity), "non-root app executable is rejected");
+    }
     {
         Fixture f; Error error; std::string bytes;
         Require(ReadExtendedState(f.environment, &bytes, &error) && bytes == f.original, "protected state read");

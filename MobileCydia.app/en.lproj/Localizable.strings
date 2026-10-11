@@ -251,3 +251,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Unable to persist APT extended state (kind=%d, code=%d, error=%d)";
 "ERROR_DESTINATION" = "destination";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Refurbished work Copyright (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Failed";
+"TRANSACTION_CANCELLED" = "Cancelled";

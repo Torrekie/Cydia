@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "De uitgebreide APT-status kan niet permanent worden opgeslagen (type=%d, code=%d, fout=%d)";
 "ERROR_DESTINATION" = "bestemming";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Vernieuwde versie — Copyright (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Mislukt";
+"TRANSACTION_CANCELLED" = "Geannuleerd";

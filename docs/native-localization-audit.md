@@ -131,6 +131,12 @@ navigation and action labels continue to use `Localizable.strings`, including
 Settings, About, Cancel, Confirm, Remove, Reinstall and Forcibly Clear. Historical
 About attributions and English-only guide bodies retain their previous scope.
 
+Progress also adds two native outcome titles to `Localizable.strings`:
+`TRANSACTION_FAILED_TITLE` (Failed) and `TRANSACTION_CANCELLED` (Cancelled), with
+42 entries across all 21 locales. These titles describe the transaction result;
+the existing Complete title remains unchanged. They are new native states,
+independent of the historical webpage labels and the 18 migration repairs.
+
 Format arguments preserve their types across translations: `%@` carries names,
 paths, versions or source definitions; `%lu` carries the capability
 count; `%ld` carries package priority. Capability-count prose uses a label and
@@ -160,7 +166,8 @@ word is correct in both languages.
 require the 21-locale baseline and matching keys, compare format arguments where
 used, and check the source/recovery controller key inventories. The Settings
 check also covers `RuntimeAccess.strings` and the file-type label keys in
-`InfoPlist.strings`. These are structural coverage checks; translation meaning
-and native layout remain review concerns.
+`InfoPlist.strings`, and requires translated failure/cancellation titles in every
+`Localizable.strings` table. These are structural coverage checks; translation
+meaning and native layout remain review concerns.
 
 Localization resources are shipped by the separate `cydia-lproj` package.

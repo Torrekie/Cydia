@@ -217,3 +217,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "ไม่สามารถบันทึกสถานะเพิ่มเติมของ APT ได้ (ชนิด=%d, รหัส=%d, ข้อผิดพลาด=%d)";
 "ERROR_DESTINATION" = "ปลายทาง";
 "ABOUT_REFURBISHED_COPYRIGHT" = "ผลงานปรับปรุง ลิขสิทธิ์ (C) %@";
+"TRANSACTION_FAILED_TITLE" = "ล้มเหลว";
+"TRANSACTION_CANCELLED" = "ยกเลิกแล้ว";

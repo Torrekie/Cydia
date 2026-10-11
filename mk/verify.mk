@@ -356,6 +356,28 @@ verify-extended-state: $(EXTENDED_STATE_TEST)
 	@$<
 verify-privileged-runtime: $(PRIVILEGED_RUNTIME_TEST)
 	@$<
+
+APPLICATION_IDENTITY_TEST := $(BUILD_DIR)/tests/ApplicationIdentityTests
+$(APPLICATION_IDENTITY_TEST): tests/ApplicationIdentityTests.cpp Cydia/ApplicationIdentity.hpp Cydia/ApplicationSession.hpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/ApplicationIdentityTests.cpp Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp -o $@
+.PHONY: verify-application-identity
+verify: verify-application-identity
+verify-application-identity: $(APPLICATION_IDENTITY_TEST)
+	@$<
+
+TRANSACTION_OUTCOME_POLICY_TEST := $(BUILD_DIR)/tests/TransactionOutcomePolicyTests
+$(TRANSACTION_OUTCOME_POLICY_TEST): tests/TransactionOutcomePolicyTests.cpp Cydia/TransactionOutcomePolicy.hpp \
+		Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp Cydia/TransactionResult.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/TransactionOutcomePolicyTests.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp -o $@
+.PHONY: verify-transaction-outcome-policy
+verify: verify-transaction-outcome-policy
+verify-transaction-outcome-policy: $(TRANSACTION_OUTCOME_POLICY_TEST)
+	@$<
 verify-privileged-client: $(PRIVILEGED_CLIENT_TEST)
 	@$<
 verify-capabilities: $(CAPABILITY_PREVIEW_TEST)

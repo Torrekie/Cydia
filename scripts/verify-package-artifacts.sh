@@ -118,6 +118,7 @@ require_path() {
 }
 
 require_path "$cydia_paths" "${prefix:+$prefix/}Applications/Cydia.app/Cydia"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/application.cdhashes"
 for asset in cydia7.png facebook.png twitter.png featured.png themes.png account.png; do
     require_path "$cydia_paths" \
         "${prefix:+$prefix/}Applications/Cydia.app/Home/$asset"
@@ -169,6 +170,13 @@ data_directory=$temporary/data
 mkdir -p "$control_directory" "$data_directory"
 dpkg-deb -e "$cydia" "$control_directory"
 dpkg-deb -x "$cydia" "$data_directory"
+
+python3 - "$data_directory/${prefix:+$prefix/}usr/libexec/cydia/application.cdhashes" <<'PY'
+import pathlib, re, sys
+data = pathlib.Path(sys.argv[1]).read_bytes()
+if not data or len(data) > 4096 or not re.fullmatch(rb'(?:[0-9a-f]{40}\n)+', data):
+    sys.exit('[verify-package][FAIL] invalid application code identity')
+PY
 
 bigboss_source_icon=$data_directory/${prefix:+$prefix/}Applications/Cydia.app/Sources/apt.bigboss.us.com.png
 planetiphones_section_icon=$data_directory/${prefix:+$prefix/}Applications/Cydia.app/Sections/Planet-iPhones\ Mods.png

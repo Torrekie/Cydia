@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "تعذر حفظ الحالة الموسعة لـ APT (النوع=%d، الرمز=%d، الخطأ=%d)";
 "ERROR_DESTINATION" = "الوجهة";
 "ABOUT_REFURBISHED_COPYRIGHT" = "حقوق النشر للعمل المجدد (C) %@";
+"TRANSACTION_FAILED_TITLE" = "فشلت العملية";
+"TRANSACTION_CANCELLED" = "أُلغيت العملية";

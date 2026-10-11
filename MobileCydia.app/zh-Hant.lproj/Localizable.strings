@@ -252,3 +252,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "無法儲存 APT 延伸狀態（類型=%d，代碼=%d，錯誤=%d）";
 "ERROR_DESTINATION" = "存取目標";
 "ABOUT_REFURBISHED_COPYRIGHT" = "重製部分 著作權所有 (C) %@";
+"TRANSACTION_FAILED_TITLE" = "操作失敗";
+"TRANSACTION_CANCELLED" = "已取消";

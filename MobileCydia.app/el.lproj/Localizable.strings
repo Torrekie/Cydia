@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Δεν ήταν δυνατή η μόνιμη αποθήκευση της εκτεταμένης κατάστασης του APT (είδος=%d, κωδικός=%d, σφάλμα=%d)";
 "ERROR_DESTINATION" = "προορισμός";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Ανανεωμένη έκδοση — Πνευματικά δικαιώματα (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Απέτυχε";
+"TRANSACTION_CANCELLED" = "Ακυρώθηκε";

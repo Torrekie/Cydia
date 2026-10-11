@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Der erweiterte APT-Status konnte nicht dauerhaft gespeichert werden (Typ=%d, Code=%d, Fehler=%d)";
 "ERROR_DESTINATION" = "Ziel";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Überarbeitete Fassung — Copyright (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Fehlgeschlagen";
+"TRANSACTION_CANCELLED" = "Abgebrochen";

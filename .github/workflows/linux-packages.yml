@@ -150,6 +150,7 @@ jobs:
             verify-source-commits verify-settings-localization verify-repository-hygiene \
             verify-extended-state verify-privileged-runtime verify-privileged-client \
             verify-runtime-snapshot verify-repository-trust-proof verify-runtime-access \
+            verify-application-identity verify-transaction-outcome-policy \
             verify-capabilities verify-shared-config-lifecycle verify-private-state \
             verify-keyring-import verify-recovery-plan
 

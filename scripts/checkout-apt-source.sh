@@ -49,8 +49,8 @@ test "$(git -C "$source_dir" rev-parse FETCH_HEAD)" = "$base" ||
     fail "fetched APT revision differs from the recorded upstream base"
 git -C "$source_dir" checkout --detach "$base"
 
-# Both reviewed local commits have identical author/committer identities and
-# dates. Replaying their recorded mail patches regenerates the exact gitlink,
+# The reviewed mail patches record each commit's identities and dates.
+# Replaying those records regenerates the exact gitlink,
 # without requiring a private fork or fetching a floating upstream branch.
 git -C "$source_dir" -c user.name=Torrekie \
     -c user.email=31795847+Torrekie@users.noreply.github.com \

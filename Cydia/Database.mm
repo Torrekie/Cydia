@@ -18,6 +18,7 @@
 #include "Cydia/ProgressEvent.h"
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/Source.h"
+#include "Cydia/TransactionOutcomePolicy.hpp"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
 #include "Menes/Menes.h"
@@ -901,15 +902,12 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     arguments.push_back("--configure"); arguments.push_back("-a");
     transactionResult_.packageManagerStarted = true;
     const CydiaRuntime::Dpkg::Result result(runner.Run(arguments, statusfd_));
-    transactionResult_.launchError = result.error;
-    if (result.kind == CydiaRuntime::Dpkg::ResultKind::Exited) transactionResult_.exitCode = result.code;
-    if (result.kind == CydiaRuntime::Dpkg::ResultKind::Signaled) transactionResult_.signal = result.code;
-    if (!result.succeeded()) {
+    transactionResult_ = CydiaRuntime::ConfigureTransactionResult(result);
+    if (!transactionResult_.succeeded()) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
             ofType:kCydiaProgressEventTypeError] forTask:title];
         return false;
     }
-    transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Succeeded;
     return true;
 }
 
@@ -990,7 +988,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     transactionResult_.packageManagerStarted = true;
     const CydiaAPT::PackageManagerResult result(apt_->runPackageManager(statusfd_));
     const bool errors([self popErrorWithTitle:title]);
-    if (result != CydiaAPT::PackageManagerResult::Completed || errors) {
+    const CydiaRuntime::TransactionResult executed(CydiaRuntime::PackageManagerTransactionResult(result, errors));
+    if (!executed.succeeded()) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
             ofType:kCydiaProgressEventTypeError] forTask:title];
         return false;
@@ -1011,7 +1010,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     const CydiaAPT::SourceListData after(apt_->sourceList());
     if ([self popErrorWithTitle:title forOperation:after.success]) return false;
     if (before.uris != after.uris && Finish_ == 0) [self update];
-    transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Succeeded;
+    transactionResult_ = executed;
     return true;
 }
 

@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Impossible d’enregistrer durablement l’état étendu d’APT (type=%d, code=%d, erreur=%d)";
 "ERROR_DESTINATION" = "destination";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Version remaniée — Copyright (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Échec";
+"TRANSACTION_CANCELLED" = "Annulé";

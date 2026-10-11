@@ -218,3 +218,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "לא ניתן לשמור את המצב המורחב של APT (סוג=%d, קוד=%d, שגיאה=%d)";
 "ERROR_DESTINATION" = "יעד";
 "ABOUT_REFURBISHED_COPYRIGHT" = "זכויות יוצרים על העבודה המחודשת (C) %@";
+"TRANSACTION_FAILED_TITLE" = "הפעולה נכשלה";
+"TRANSACTION_CANCELLED" = "הפעולה בוטלה";

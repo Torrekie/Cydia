@@ -218,3 +218,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Не удалось сохранить расширенное состояние APT (тип=%d, код=%d, ошибка=%d)";
 "ERROR_DESTINATION" = "адрес назначения";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Обновлённая версия — авторские права (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Ошибка";
+"TRANSACTION_CANCELLED" = "Отменено";

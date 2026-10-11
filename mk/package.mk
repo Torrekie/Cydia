@@ -1,4 +1,4 @@
-$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT
+$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT scripts/write-application-identity.py
 	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia
@@ -35,6 +35,8 @@ $(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_
 	cd $(IMAGE_DIR)/MobileCydia.app && find . -name '*.png' -exec cp -af {} $(abspath $(CYDIA_STAGE_ROOT))/Applications/Cydia.app/{} ';'
 	@echo "[sign] Cydia.app"
 	@$(LDID) -T0 -Sentitlements.xml $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
+	@python3 scripts/write-application-identity.py "$(LDID)" \
+		"$(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Cydia" "$(CYDIA_STAGE_ROOT)/usr/libexec/cydia/application.cdhashes"
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sources
 

@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "No se pudo guardar de forma persistente el estado extendido de APT (tipo=%d, código=%d, error=%d)";
 "ERROR_DESTINATION" = "destino";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Versión renovada — Copyright (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Operación fallida";
+"TRANSACTION_CANCELLED" = "Operación cancelada";

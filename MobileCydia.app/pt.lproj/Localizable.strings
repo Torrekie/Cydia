@@ -218,3 +218,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Não foi possível salvar o estado estendido do APT (tipo=%d, código=%d, erro=%d)";
 "ERROR_DESTINATION" = "destino";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Trabalho renovado — direitos autorais (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Falha";
+"TRANSACTION_CANCELLED" = "Cancelado";

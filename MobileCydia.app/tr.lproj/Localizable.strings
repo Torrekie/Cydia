@@ -218,3 +218,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "APT'nin genişletilmiş durumu kaydedilemedi (tür=%d, kod=%d, hata=%d)";
 "ERROR_DESTINATION" = "hedef";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Yenilenen çalışmanın telif hakkı (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Başarısız";
+"TRANSACTION_CANCELLED" = "İptal edildi";

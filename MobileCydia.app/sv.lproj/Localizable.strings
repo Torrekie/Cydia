@@ -253,3 +253,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Det gick inte att spara APT:s utökade tillstånd permanent (typ=%d, kod=%d, fel=%d)";
 "ERROR_DESTINATION" = "mål";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Omarbetad version — Copyright (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Misslyckades";
+"TRANSACTION_CANCELLED" = "Avbruten";

@@ -217,3 +217,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "APT の拡張状態を保存できません（種類=%d、コード=%d、エラー=%d）";
 "ERROR_DESTINATION" = "アクセス先";
 "ABOUT_REFURBISHED_COPYRIGHT" = "改修部分の著作権 (C) %@";
+"TRANSACTION_FAILED_TITLE" = "失敗";
+"TRANSACTION_CANCELLED" = "キャンセル済み";

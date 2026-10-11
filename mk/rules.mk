@@ -199,7 +199,7 @@ $(SETNSFPN_BINARY): setnsfpn.cpp
 	@$(LDID) -T0 -Sgenent.xml $@
 
 $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
-		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/PrivilegedRuntime.hpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/PrivilegedRuntime.hpp Cydia/ApplicationIdentity.hpp Cydia/ApplicationSession.hpp \
 		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
 		Cydia/SourceDocument.hpp Cydia/SourceDocumentStore.hpp Cydia/SourceDocumentCommit.hpp \
 		Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp Cydia/RuntimeState.cpp Cydia/RuntimeState.hpp \

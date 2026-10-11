@@ -30,6 +30,7 @@
 #include "Cydia/Package.h"
 #include "Cydia/ProgressEventCell.h"
 #include "Cydia/RebootCompat.h"
+#include "Cydia/TransactionOutcomePolicy.hpp"
 #include "CyteKit/Localize.h"
 #include "Menes/yieldToSelector.h"
 #include "iPhonePrivate.h"
@@ -644,7 +645,8 @@ static std::string FileFingerprint(const char *path) {
 
     if (invocation != nil) {
         [invocation yieldToSelector:@selector(invoke)];
-        bool succeeded(![[progressModel_ state] containsError]);
+        const bool containsErrors([[progressModel_ state] containsError]);
+        bool succeeded(true);
         const char *returnType([[invocation methodSignature] methodReturnType]);
         if ([[invocation methodSignature] methodReturnLength] == sizeof(bool) &&
             (strcmp(returnType, @encode(bool)) == 0 || strcmp(returnType, @encode(BOOL)) == 0)) {
@@ -655,9 +657,9 @@ static std::string FileFingerprint(const char *path) {
         const CydiaRuntime::TransactionResult result([database_ lastTransactionResult]);
         const SEL selector([invocation selector]);
         const bool transaction(selector == @selector(perform_) || selector == @selector(configure));
-        [self setTitle:succeeded ? @"COMPLETE" :
-            transaction && result.outcome == CydiaRuntime::TransactionOutcome::Cancelled ?
-                @"TRANSACTION_CANCELLED" : @"TRANSACTION_FAILED_TITLE"];
+        const char *key(transaction ? CydiaRuntime::PlanTransactionCompletion(result, succeeded, containsErrors, false).titleKey :
+            succeeded && !containsErrors ? "COMPLETE" : "TRANSACTION_FAILED_TITLE");
+        [self setTitle:[NSString stringWithUTF8String:key]];
     }
 
     if (Finish_ < 4 && notifyconf != FileFingerprint(NotifyConfig_))

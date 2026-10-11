@@ -217,3 +217,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "APT 확장 상태를 저장할 수 없습니다 (종류=%d, 코드=%d, 오류=%d)";
 "ERROR_DESTINATION" = "접속 대상";
 "ABOUT_REFURBISHED_COPYRIGHT" = "개편 작업 저작권 (C) %@";
+"TRANSACTION_FAILED_TITLE" = "실패";
+"TRANSACTION_CANCELLED" = "취소됨";

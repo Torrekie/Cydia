@@ -7,12 +7,12 @@ linking against dpkg's private C library.
 
 ## Reproducible baseline
 
-The current baseline is recorded in mk/apt.mk:
+The current baseline is recorded in [`mk/apt.mk`](../mk/apt.mk):
 
 | Input | Recorded value |
 | --- | --- |
 | Source directory | apt64 gitlink |
-| Commit | 9c189c40b78b765a341dcf3288117b0aeb93df72 |
+| Commit | 97a85dca54ccd6e31e402330cc2c47500f042803 |
 | Upstream base | ed053de346d92c1a4218a7b80a20158f3535fe2a |
 | Source URL | https://salsa.debian.org/apt-team/apt.git |
 | Embedded version | 2.7.9 |
@@ -21,14 +21,21 @@ The current baseline is recorded in mk/apt.mk:
 | ABI/SOVERSION | 6.0 / 6 |
 | Provenance trust | legacy-unverified |
 
-The upstream base is the APT 2.7.9 release commit. Two local commits add Deb822
-source-file mtime coverage and its regression test. Their mail patches are
-tracked in `apt-extra/apt-2.7.9-cydia.patch`; `scripts/checkout-apt-source.sh`
-fetches the exact public base and replays the recorded identities and dates to
-regenerate the exact committed gitlink. It checks the resulting commit, clean
-checkout and Git object integrity. If Salsa's transport is unavailable, it
-fetches the same base from Debian's HTTPS GitHub mirror. It never substitutes
-a floating branch or the inherited APT 1.8.2 fork.
+The upstream base is the APT 2.7.9 release commit. Nine local commits are
+tracked as mail patches in
+[`apt-extra/apt-2.7.9-cydia.patch`](../apt-extra/apt-2.7.9-cydia.patch). They add
+Deb822 source-file mtime coverage, typed repository authentication and cached
+metadata validation, a protected lock-file opener, deferred shared automatic
+package state, and current frontend proof for cached repository trust. The
+series also tests changed metadata and clears stale cached signatures after an
+allowed unsigned refresh. An absent frontend policy retains upstream behavior.
+
+[`scripts/checkout-apt-source.sh`](../scripts/checkout-apt-source.sh) fetches the
+exact public base and replays the recorded identities and dates to regenerate
+the exact committed gitlink. It checks the resulting commit, clean checkout
+and Git object integrity. If Salsa's transport is unavailable, it fetches the
+same base from Debian's HTTPS GitHub mirror. It never substitutes a floating
+branch or the inherited APT 1.8.2 fork.
 
 For a fresh clone without initialized submodules, run:
 
@@ -82,15 +89,37 @@ runner and a device `dpkg` executable. That runner and its filesystem policy
 are centralized so an APT update does not require changing UI code or assuming
 one bootstrap layout.
 
-`CydiaRuntime::PackageDatabasePaths` now selects a complete package-database layout
-before the first database access. Rootful paths remain under `/var/lib`; a
-rootless bootstrap uses `/var/jb/var/lib` and its matching `cydo`/`dpkg`
-helpers. APT configuration and source-list paths follow `/etc/apt` or
-`/var/jb/etc/apt` from the same selection. Set
-`CYDIA_PACKAGE_LAYOUT=rootful` or `rootless` in a launcher when a device
-intentionally keeps both databases; automatic detection only selects rootless
-when its database and helper are present. `make verify-package-paths` exercises
-both deterministic layouts and rejects package/helper path traversal.
+`CydiaRuntime::PackageDatabasePaths` supplies installation defaults for rooted
+and rootless packages. A running installed app or helper selects its layout by
+matching its canonical executable path to the package's installed paths.
+Neither `CYDIA_PACKAGE_LAYOUT` nor the presence of another package database can
+override that match. For an executable outside those installed locations, the
+general path policy retains an explicit environment override and then a
+bootstrap-presence fallback for fixtures and legacy callers. The privileged
+`cydo` entry point separately requires its own canonical installed helper path;
+it does not authorize a layout from the caller's environment.
+
+These defaults locate Cydia's app, helper and private state; they do not freeze
+the bootstrap's effective APT environment. APT initialization preserves
+`APT_CONFIG`, `apt.conf`, `RootDir`, source-list and source-parts settings,
+configured lists and shared `extended_states`, and trusted-keyring locations.
+Paths are resolved through APT rather than mechanically prefixed with
+`/var/jb`. A contradictory `RootDir` with paths already rooted beneath it is
+rejected instead of applying the root twice.
+
+The configured dpkg executable, status-derived administration directory, root
+and `DPkg::Options` remain part of the runtime descriptor. Native and foreign
+architectures are queried from the selected dpkg; an explicit
+`APT::Architectures` list retains the bootstrap's acquisition policy. A
+contradictory dpkg administration directory or an unsupported dpkg chroot
+disables mutations with an actionable error. Advanced Settings can override
+the supported external tools (`dpkg`, `dpkg-query`, `dpkg-deb`, `uicache`,
+`apt-key`, `gpgv` and `gpg`) through a protected Cydia-owned configuration file.
+Override targets must pass executable and ownership checks.
+
+`make verify-package-paths`, `verify-apt-runtime` and
+`verify-apt-source-isolation` cover installation defaults and runtime
+configuration independently.
 
 `make verify-apt-api` syntax-checks Cydia's private adapter against the pinned
 tree. A pre-fetched clean stable or main checkout can be tested without changing
@@ -111,7 +140,9 @@ An APT source update is split into reviewable commits:
 2. refresh the explicit source manifest;
 3. refresh the minimal guarded Darwin/iPhoneOS patch set;
 4. adapt only the private APT backend; and
-5. run the complete device, simulator, and package-manager fixtures.
+5. run the affected package-manager fixtures and compile checks, then any
+   targeted simulator or physical-device checks needed to prove behavior that
+   those checks cannot establish.
 
 Changing the APT ABI requires rebuilding every Cydia reverse dependency. A
 source import and an application behavior change must not be hidden in the same
@@ -139,12 +170,30 @@ packages), so epochs, Debian revisions, and tilde pre-releases agree with
 `dpkg --compare-versions`. Equal or older candidates are not upgrade badges;
 an explicit downgrade remains a separate transaction decision.
 
-All APT, dpkg, cache, state, lock, helper, and package-database paths are
-provided by one environment policy. Rooted and rootless layouts are selected
-explicitly; paths are not converted by blindly prefixing /var/jb. Native Cydia
-operations and bootstrap helpers now use that policy; remaining path literals
-are limited to the policy implementation and documented legacy user-data
-locations.
+The privileged helper independently reloads the protected APT configuration,
+validates its configuration and executable graph, and compares the resolved
+environment with the app's request. Caller-provided paths do not grant access
+to a different database. Typed requests carry runtime evidence that is
+rechecked before protected operations. Ordinary dpkg argument vectors are
+validated against that environment, including configured hooks, before the
+helper runs the selected external dpkg with a sanitized environment.
+
+The mobile app owns APT's `fcntl` locks. When APT needs the protected dpkg
+`lock` or `lock-frontend` file, `cydo` opens the validated file and transfers
+its descriptor over a Unix socket with `SCM_RIGHTS`; the app then acquires the
+lock itself. A short-lived helper is not used as a substitute lock owner.
+Protected shared-state requests require the calling app to own the selected
+frontend lock. Other helper-managed mutations acquire that frontend lock and
+reject a competing package manager rather than deleting its lock file.
+
+APT's automatic-state write is deferred until a package transaction completes.
+The helper merges only the requested package/architecture flag changes into
+the configured shared `extended_states`, preserving unrelated records and
+fields. It checks the original state bytes and dpkg status again, then replaces
+the state file atomically against its captured identity. A stale or concurrent
+change fails without overwriting another frontend's work. Marking a package
+automatic requires it to be fully installed; clearing an existing automatic
+flag is also supported for removals.
 
 ## Acceptance
 
@@ -155,7 +204,7 @@ Every compatibility change retains:
 - arm64 and an iOS 12.0 minimum deployment target;
 - the existing simulator build;
 - the app-owned source-size gate; and
-- small commits and pull requests with one semantic migration each.
+- reviewable commits with a coherent compatibility change.
 
 The baseline verification sequence is:
 
@@ -163,9 +212,20 @@ The baseline verification sequence is:
 make verify-apt
 make verify-apt-compile
 make verify-dpkg-runner
+make verify-apt-runtime verify-apt-source-isolation
+make verify-privileged-runtime verify-privileged-client
+make verify-extended-state verify-runtime-snapshot verify-runtime-access
 make verify
 make build/bin/MobileCydia
 make --no-print-directory -B -j6 doIA=yes \
   BUILD_DIR=/tmp/cydia-simulator-build \
   /tmp/cydia-simulator-build/bin/MobileCydia
 ~~~
+
+Use the fixtures and targets relevant to the change. Simulator compile
+coverage does not establish jailbroken process authentication or protected
+filesystem access. Physical-device checks are needed only where that runtime
+behavior cannot be established by the host fixtures; select the rooted or
+rootless installation and form factor required by the change. Record actual
+observations separately from source-level conclusions, without treating a
+full device matrix as a prerequisite for every compatibility edit.

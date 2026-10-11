@@ -20,6 +20,7 @@
 #include "Cydia/RecoveryController.h"
 #include "Cydia/Source.h"
 #include "Cydia/TabBarController.h"
+#include "Cydia/TransactionOutcomePolicy.hpp"
 #include "CyteKit/CyteKit.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/extern.h"
@@ -260,7 +261,9 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 
 - (bool) perform_ {
     const bool succeeded([database_ perform]);
-    if (Finish_ == 0 && !RestartSubstrate_) {
+    const CydiaRuntime::TransactionCompletionPlan completion(CydiaRuntime::PlanTransactionCompletion(
+        [database_ lastTransactionResult], succeeded, false, Finish_ != 0 || RestartSubstrate_));
+    if (completion.reloadNow) {
         [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:YES];
     } else {
         // Reload data when we open up again
@@ -273,7 +276,7 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
         UICache_ = false;
         [self performSelectorOnMainThread:@selector(uicache) withObject:nil waitUntilDone:YES];
     }
-    return succeeded;
+    return completion.succeeded;
 }
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {

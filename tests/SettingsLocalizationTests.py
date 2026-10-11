@@ -49,8 +49,20 @@ def main():
         for key, value in table.items():
             assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(access[key].replace("%%", ""))), \
                 f"Access check arguments differ: {bundle.name}/{key}"
+    outcomes = {"TRANSACTION_FAILED_TITLE", "TRANSACTION_CANCELLED"}
+    outcome_english = read_table(ROOT / "MobileCydia.app/en.lproj/Localizable.strings", allow_equal=True)
+    assert outcomes <= outcome_english.keys(), "Progress outcome titles missing in English"
+    for bundle in bundles:
+        table = read_table(bundle / "Localizable.strings", allow_equal=True)
+        for key in outcomes:
+            value = table.get(key)
+            assert value and value != key, f"Progress outcome title missing: {bundle.name}/{key}"
+            assert not FORMAT.findall(value.replace("%%", "")), f"Unexpected progress title argument: {bundle.name}/{key}"
+            assert bundle.name == "en.lproj" or value != outcome_english[key], \
+                f"English progress outcome fallback: {bundle.name}/{key}"
     print(f"[settings-localization] PASS: {len(english)} keys in {len(bundles)} locales")
     print(f"[runtime-access-localization] PASS: {len(access)} keys in {len(bundles)} locales")
+    print(f"[transaction-outcome-localization] PASS: {len(outcomes)} keys in {len(bundles)} locales")
 
 
 if __name__ == "__main__":

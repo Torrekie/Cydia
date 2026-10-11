@@ -217,3 +217,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Không thể lưu trạng thái mở rộng của APT (loại=%d, mã=%d, lỗi=%d)";
 "ERROR_DESTINATION" = "đích truy cập";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Bản quyền phần cải tiến (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Thất bại";
+"TRANSACTION_CANCELLED" = "Đã hủy";

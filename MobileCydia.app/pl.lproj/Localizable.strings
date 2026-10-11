@@ -218,3 +218,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "Nie można zapisać rozszerzonego stanu APT (typ=%d, kod=%d, błąd=%d)";
 "ERROR_DESTINATION" = "miejsce docelowe";
 "ABOUT_REFURBISHED_COPYRIGHT" = "Odnowiona wersja — prawa autorskie (C) %@";
+"TRANSACTION_FAILED_TITLE" = "Niepowodzenie";
+"TRANSACTION_CANCELLED" = "Anulowano";

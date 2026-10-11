@@ -22,6 +22,8 @@
 #include "CyteKit/UCPlatform.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivilegedRuntime.hpp"
+#include "Cydia/ApplicationIdentity.hpp"
+#include "Cydia/ApplicationSession.hpp"
 #include "Cydia/SourceDocumentCommit.hpp"
 #include "Cydia/RuntimeState.hpp"
 #include "Cydia/KeyringImport.hpp"
@@ -45,6 +47,8 @@
 #include <cstring>
 #include <climits>
 #include <csignal>
+#include <chrono>
+#include <sys/sysctl.h>
 
 #include "Cydia/LaunchServices.h"
 
@@ -57,6 +61,36 @@
 struct timeval _ltv;
 bool _itv;
 extern char **environ;
+// Darwin's kernel returns the running executable's CodeDirectory hash, rather
+// than re-opening its launchd pathname (which a shared parent can rename).
+extern "C" int csops(pid_t, unsigned int, void *, size_t);
+
+static bool CurrentApplicationAuthorized_ = false;
+static CydiaRuntime::Privileged::ApplicationProcessIdentity ApplicationProcess_;
+
+static uint64_t ApplicationSessionClock() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+static bool ReadApplicationProcess(pid_t parent, CydiaRuntime::Privileged::ApplicationProcessIdentity *identity,
+                                   CydiaRuntime::Privileged::ApplicationCodeHash *hash) {
+    if (parent <= 1 || getppid() != parent) return false;
+    if (csops(parent, 5 /* CS_OPS_CDHASH */, hash->data(), hash->size()) != 0) {
+        fprintf(stderr, "Cydia kernel code-identity query failed: %s\n", strerror(errno)); return false;
+    }
+    struct kinfo_proc info = {}; size_t size = sizeof(info);
+    int processMib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, parent};
+    struct timeval boot = {}; size_t bootSize = sizeof(boot); int bootMib[] = {CTL_KERN, KERN_BOOTTIME};
+    if (sysctl(processMib, 4, &info, &size, NULL, 0) != 0 || size != sizeof(info) || info.kp_proc.p_pid != parent ||
+        sysctl(bootMib, 2, &boot, &bootSize, NULL, 0) != 0 || bootSize != sizeof(boot)) {
+        fprintf(stderr, "Cydia kernel process-identity query failed: %s\n", strerror(errno)); return false;
+    }
+    std::string hex; const char digits[] = "0123456789abcdef";
+    for (unsigned char byte : *hash) { hex += digits[byte >> 4]; hex += digits[byte & 15]; }
+    *identity = {std::to_string(parent), std::to_string(boot.tv_sec) + "." + std::to_string(boot.tv_usec),
+        std::to_string(info.kp_proc.p_starttime.tv_sec) + "." + std::to_string(info.kp_proc.p_starttime.tv_usec), hex};
+    return getppid() == parent;
+}
 
 static bool CopyExecutable(const std::string &source, const std::string &destination) {
     int input(open(source.c_str(), O_RDONLY | O_NOFOLLOW));
@@ -183,6 +217,48 @@ void launch_data_dict_iterate(launch_data_t data, LaunchDataIterator code) {
 
 namespace {
 namespace Privileged = CydiaRuntime::Privileged;
+
+std::string ApplicationSessionPath(const CydiaRuntime::PackageDatabasePaths &paths) {
+    return paths.CydiaStateDirectory() + "/application-session";
+}
+
+bool SaveApplicationSession(const CydiaRuntime::PackageDatabasePaths &paths, const std::string &admin, Privileged::Error *error) {
+    CydiaSources::ProtectedFileSnapshot before;
+    const std::string path(ApplicationSessionPath(paths));
+    if (!CydiaSources::ReadProtectedFile(path, &before)) {
+        if (error != NULL) { error->code = "application_session_failed"; error->message = "Cannot read the protected application upgrade session."; }
+        return false;
+    }
+    Privileged::ApplicationSession session;
+    session.process = ApplicationProcess_; session.admin = admin;
+    const auto result(CydiaSources::ReplaceProtectedFile(path, before, Privileged::SerializeApplicationSession(session)));
+    if (!result.succeeded() && error != NULL) {
+        error->code = "application_session_failed"; error->message = "Could not preserve this application's upgrade session.";
+    }
+    return result.succeeded();
+}
+
+bool ContinueApplicationSession(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent,
+                                const Privileged::ApplicationProcessIdentity &process) {
+    const std::string path(ApplicationSessionPath(paths));
+    CydiaSources::ProtectedFileSnapshot before; Privileged::ApplicationSession session; Privileged::Error error;
+    if (!Privileged::ValidateRootOwnedPath(path, false, false, &error) ||
+        !CydiaSources::ReadProtectedFile(path, &before) || !before.identity.exists ||
+        !Privileged::ParseApplicationSession(before.bytes, &session) || !(session.process == process)) return false;
+    const uint64_t now(ApplicationSessionClock());
+    pid_t owner = 0;
+    if (session.graceDeadline == 0) {
+        if (!Privileged::FrontendLockOwner(session.admin, &owner, &error)) return false;
+        if (owner != parent) {
+            // Observing release ends the transaction phase permanently. A
+            // diagnostic is read-only and cannot create the finalization grace.
+            if (DiagnosticDeadlineMilliseconds_ != 0 || now == 0 || now > UINT64_MAX - 300000) return false;
+            session.graceDeadline = now + 300000;
+            if (!CydiaSources::ReplaceProtectedFile(path, before, Privileged::SerializeApplicationSession(session)).succeeded()) return false;
+        }
+    }
+    return Privileged::ApplicationSessionAllows(session, process, now, owner == parent);
+}
 
 int Denied(const Privileged::Error &error) {
     fprintf(stderr, "cydo: %s: %s\n", error.code.c_str(), error.message.c_str());
@@ -349,6 +425,10 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             !Privileged::RecheckEvidence(environment.evidence, &error)) return EX_NOPERM;
         int fd = Privileged::OpenFrontendLock(environment.dpkgAdmin, request.payload, &error);
         if (fd < 0) return Denied(error);
+        // Capture only a current-package-authorized app, before its own package
+        // can replace the helper/manifest. Continued sessions never renew it.
+        if (CurrentApplicationAuthorized_ && DiagnosticDeadlineMilliseconds_ == 0 && request.payload == "lock-frontend" &&
+            !SaveApplicationSession(paths, environment.dpkgAdmin, &error)) { close(fd); return Denied(error); }
         const int result = SendLock(static_cast<int>(socket), fd); close(fd); return result;
     }
     Privileged::FrontendLock lock;
@@ -532,10 +612,20 @@ int main(int argc, char *argv[]) {
 
     auto cydia(false);
 
+    Privileged::Evidence applicationIdentity;
+    std::set<Privileged::ApplicationCodeHash> codeHashes;
+    Privileged::ApplicationCodeHash runningHash;
     struct stat correct;
-    if (!Privileged::ValidateRootOwnedPath(paths.CydiaApplicationPath(), false, true, &error) ||
-        lstat(paths.CydiaApplicationPath().c_str(), &correct) == -1) {
-        fprintf(stderr, "you have no arms left");
+    if (!Privileged::CaptureEvidence(paths.CydiaHelperPath("application.cdhashes"), false, false, &applicationIdentity, &error) ||
+        !Privileged::ParseApplicationCodeHashes(applicationIdentity.bytes, &codeHashes) ||
+        !Privileged::InspectApplicationExecutable(paths.CydiaApplicationPath(), &correct) ||
+        !ReadApplicationProcess(parent, &ApplicationProcess_, &runningHash)) {
+        fprintf(stderr, "Cydia application identity could not be verified.\n");
+        return EX_NOPERM;
+    }
+    CurrentApplicationAuthorized_ = codeHashes.count(runningHash) != 0;
+    if (!CurrentApplicationAuthorized_ && !ContinueApplicationSession(paths, parent, ApplicationProcess_)) {
+        fprintf(stderr, "Cydia's running signature does not match its package. Reopen Cydia after upgrading it.\n");
         return EX_NOPERM;
     }
 
@@ -589,7 +679,10 @@ int main(int argc, char *argv[]) {
             cydia = true;
     });
 
-    if (!cydia) {
+    Privileged::ApplicationProcessIdentity checkedProcess;
+    if (!cydia || !ReadApplicationProcess(parent, &checkedProcess, &runningHash) || !(checkedProcess == ApplicationProcess_) ||
+        (!CurrentApplicationAuthorized_ && !ContinueApplicationSession(paths, parent, checkedProcess)) ||
+        !Privileged::RecheckEvidence({applicationIdentity}, &error)) {
         fprintf(stderr, "none shall pass\n");
         return EX_NOPERM;
     }

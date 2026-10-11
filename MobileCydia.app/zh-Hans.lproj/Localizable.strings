@@ -252,3 +252,5 @@
 "APT_EXTENDED_STATE_PERSIST_ERROR" = "无法保存 APT 扩展状态（类型=%d，代码=%d，错误=%d）";
 "ERROR_DESTINATION" = "访问目标";
 "ABOUT_REFURBISHED_COPYRIGHT" = "重制部分 版权所有 (C) %@";
+"TRANSACTION_FAILED_TITLE" = "操作失败";
+"TRANSACTION_CANCELLED" = "已取消";
