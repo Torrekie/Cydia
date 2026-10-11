@@ -9,7 +9,7 @@
 # a wildcard.
 
 APT_SOURCE_DIR := apt64
-APT_SOURCE_COMMIT := 9c189c40b78b765a341dcf3288117b0aeb93df72
+APT_SOURCE_COMMIT := 5c762da034fe4f2ccd9d0352455fc938d48ddcd3
 APT_SOURCE_BASE_COMMIT := ed053de346d92c1a4218a7b80a20158f3535fe2a
 APT_SOURCE_URL := https://salsa.debian.org/apt-team/apt.git
 APT_SOURCE_VERSION := 2.7.9
@@ -57,12 +57,20 @@ APT_AUDIT_CXX_STANDARD ?= $(APT_SOURCE_CXX_STANDARD)
 # even when the source file itself does not include an apt-pkg header.
 apt_api_sources := \
     Cydia/APTSrvCompat.cpp \
+    Cydia/AdvancedSettingsController.mm \
     Cydia/AptBackend.cpp \
     Cydia/AptBackendFacade.cpp \
     Cydia/AptBackendOperations.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptRuntime.cpp \
     Cydia/AptVersionPolicy.cpp \
+    Cydia/CapabilityController.mm \
+    Cydia/KeyringImportController.mm \
+    Cydia/PrivilegedConfig.cpp \
+    Cydia/PrivilegedClient.mm \
+    Cydia/RuntimeAccessController.mm \
+    Cydia/RuntimeState.cpp \
+    Cydia/SettingsController.mm \
     Cydia/ConfirmationController.mm \
     Cydia/ConfirmationControllerProbe.mm \
     Cydia/ConfirmationViewModel.mm \
@@ -75,7 +83,6 @@ apt_api_sources := \
     Cydia/ProgressEvent.mm \
     Cydia/Relations.mm \
     Cydia/Source.mm \
-    Cydia/SourceControllers.mm \
     Sources.mm \
     MobileCydia.mm
 

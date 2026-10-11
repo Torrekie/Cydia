@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "Comprobar el acceso a la gestión de paquetes";
+"ACCESS_CHECK_START" = "Iniciar comprobación";
+"ACCESS_CHECK_EXPLANATION" = "Comprueba el acceso protegido al gestor de paquetes y adquiere brevemente su bloqueo. No se modifican paquetes ni definiciones de repositorios.";
+"ACCESS_CHECK_RUNNING" = "Comprobando…";
+"ACCESS_CHECK_PASSED" = "El acceso a la gestión de paquetes funciona.";
+"ACCESS_CHECK_FAILED" = "No se pudo completar la comprobación.";
+"ACCESS_CHECK_BUSY" = "Otra operación de paquetes está utilizando el gestor. Vuelve a intentarlo cuando termine.";
+"ACCESS_CHECK_RUNTIME" = "Configuración de ejecución protegida";
+"ACCESS_CHECK_TRUST" = "Estado de los repositorios y de la confianza";
+"ACCESS_CHECK_LOCK" = "Titular del bloqueo y acceso exclusivo";
+"ACCESS_CHECK_STATE" = "Estado protegido de los paquetes de APT";
+"ACCESS_CHECK_RELEASE" = "Liberación del bloqueo y protección del acceso";
+"ACCESS_CHECK_UNCHANGED" = "Los archivos de paquetes y repositorios no cambiaron";
+"ACCESS_CHECK_CHANGED" = "El estado de los paquetes o repositorios cambió durante la comprobación. Vuelve a intentarlo cuando los demás gestores de paquetes estén inactivos.";
+"ACCESS_CHECK_TIMEOUT" = "La comprobación agotó el tiempo de espera. No se inició ninguna operación de paquetes.";
+"ACCESS_CHECK_DETAILS" = "Detalles técnicos";
+"ACCESS_CHECK_NOT_RUN" = "Sin comprobar";
+"ACCESS_CHECK_COMPLETE" = "Verificado";

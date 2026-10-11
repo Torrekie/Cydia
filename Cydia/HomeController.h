@@ -20,6 +20,7 @@
 
 - (instancetype) initWithDatabase:(Database *)database;
 - (void) aboutButtonClicked;
+- (void) settingsButtonClicked;
 - (void) refreshButtonClicked;
 
 #if defined(CYDIA_HOME_SIMULATOR_PROBE)

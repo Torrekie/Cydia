@@ -19,6 +19,10 @@
 #include "Cydia/HomePlaceholderController.h"
 #include "Cydia/HomeStorageController.h"
 #include "Cydia/HomeController.h"
+#include "Cydia/SettingsController.h"
+#include "Cydia/CapabilityController.h"
+#include "Cydia/AdvancedSettingsController.h"
+#include "Cydia/KeyringImportController.h"
 #include "Cydia/PackageControllers.h"
 #include "Cydia/PackageFeatureControllers.h"
 #include "Cydia/PackageSupportController.h"
@@ -192,7 +196,15 @@ static UIViewController *CydiaExternalPresentationHost(UIViewController *control
             controller = [[CopyingFilesGuideController alloc] init];
             break;
         case CydiaUIRouteKindHomeGuide:
-            if ([[arguments objectAtIndex:0] isEqualToString:@"storage"])
+            if ([[arguments objectAtIndex:0] isEqualToString:@"settings"])
+                controller = [arguments count] != 2 ?
+                    [[CydiaSettingsController alloc] initWithDatabase:database_] :
+                    [[arguments objectAtIndex:1] isEqualToString:@"capabilities"] ?
+                        [[CydiaCapabilityController alloc] initWithDatabase:database_] :
+                    [[arguments objectAtIndex:1] isEqualToString:@"key-import"] ?
+                        [[CydiaKeyringImportController alloc] initWithDatabase:database_] :
+                        [[CydiaAdvancedSettingsController alloc] initWithDatabase:database_];
+            else if ([[arguments objectAtIndex:0] isEqualToString:@"storage"])
                 controller = [[HomeStorageController alloc] init];
             else if ([[@[@"featured", @"themes", @"account"] copy]
                       containsObject:[arguments objectAtIndex:0]])
@@ -386,8 +398,21 @@ static UIViewController *CydiaExternalPresentationHost(UIViewController *control
 
     if (!loaded_)
         starturl_ = url;
+    else if ([url isFileURL])
+        [self openKeyringFileURL:url];
     else
         [self openCydiaURL:url context:[CydiaUIRouteContext externalURLContext]];
+}
+
+- (BOOL) openKeyringFileURL:(NSURL *)url {
+    if (![url isFileURL]) return NO;
+    NSString *extension([[url pathExtension] lowercaseString]);
+    if (![@[@"asc", @"gpg", @"pgp", @"key"] containsObject:extension]) return NO;
+    CydiaKeyringImportController *controller([[CydiaKeyringImportController alloc]
+        initWithDatabase:database_ importURL:url]);
+    [controller setDelegate:self];
+    [tabbar_ setUnselectedViewController:controller];
+    return YES;
 }
 
 @end

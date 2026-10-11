@@ -7,6 +7,7 @@
 #define Cydia_PackageDatabasePaths_HPP
 
 #include <string>
+#include <vector>
 
 namespace CydiaRuntime {
 
@@ -21,6 +22,18 @@ enum class PackageDatabaseLayout {
     Rootful,
     Rootless,
 };
+
+struct InstalledExecutableCandidate {
+    PackageDatabaseLayout layout;
+    std::string path;
+};
+
+/* Match complete canonical paths supplied by the embedding package, not path
+ * suffixes or database presence. This selects a layout, not authorization or
+ * the effective APT/dpkg database. Candidate order resolves package aliases. */
+bool ResolveInstalledExecutableLayout(const std::string &executable,
+                                     const std::vector<InstalledExecutableCandidate> &candidates,
+                                     PackageDatabaseLayout *layout);
 
 /*
  * The bootstrap supplies the BSD implementations of these commands in

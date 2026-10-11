@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Getroffen geïnstalleerde pakketten";
+"RECOVERY_BUSY" = "Wacht tot de huidige pakketbewerking is voltooid.";
+"RECOVERY_COMPLETED" = "Het pakket is verwijderd. Door het overslaan van de opruiming kunnen bestanden of diensten achterblijven. De oorspronkelijke scripts zijn bewaard in de beschermde reservekopie.";
+"RECOVERY_CONFIRM" = "Noodverwijdering bevestigen";
+"RECOVERY_CONSEQUENCES" = "Cydia maakt een reservekopie van de scripts van dit pakket en verwijdert het daarna zonder de scripts uit te voeren. De opruiming wordt overgeslagen, waardoor bestanden of diensten die deze scripts hebben aangemaakt kunnen achterblijven. Configuratiebestanden blijven behouden. Opnieuw installeren kan nodig zijn om de normale werking te herstellen.";
+"RECOVERY_DETAILS" = "Details";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Dit pakket verwijderen zonder de mislukte scripts uit te voeren.";
+"RECOVERY_EMPTY" = "Er zijn geen pakketten met een onvolledige dpkg-status meer.";
+"RECOVERY_EXPLANATION" = "Deze pakketten hebben een onvolledige dpkg-status. Kies een pakket om een normaal herstel te proberen.";
+"RECOVERY_FAILED" = "Het normale herstel is niet voltooid. Opnieuw installeren kan het pakket herstellen. ‘%@’ is een optie voor noodverwijdering.";
+"RECOVERY_NORMAL_FIRST" = "Probeer eerst normaal herstel of opnieuw installeren. ‘%@’ wordt beschikbaar als het normale herstel mislukt.";
+"RECOVERY_PROTECTED" = "Noodverwijdering is geblokkeerd omdat dit een beschermd pakket of een geïnstalleerde afhankelijkheid zou raken.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "De geïnstalleerde versie is niet beschikbaar in je huidige pakketbronnen. Vernieuw de bronnen of kies normaal verwijderen.";
+"RECOVERY_REMOVE_FAILED" = "Noodverwijdering is mislukt. De oorspronkelijke scripts zijn waar mogelijk hersteld en de beschermde reservekopie is bewaard. Bekijk de details voordat je het opnieuw probeert.";
+"RECOVERY_REPAIR" = "Normaal herstel proberen";
+"RECOVERY_REPAIR_COMPLETE" = "Het normale herstel is voltooid. De pakketstatus wordt opnieuw geladen.";
+"RECOVERY_REPAIR_EXPLANATION" = "Voer de normale configuratiescripts van dit pakket uit om de installatie te voltooien.";
+"RECOVERY_STATE_CHANGED" = "De pakketstatus is gewijzigd. Laad het herstel opnieuw en controleer het pakket nogmaals.";
+"RECOVERY_TITLE" = "Pakketherstel";
+"RECOVERY_UNAVAILABLE" = "Veilig herstel is niet beschikbaar. Controleer Geavanceerde instellingen of probeer het opnieuw zodra andere pakketbewerkingen zijn voltooid.";
+"RECOVERY_WORKING" = "Bezig…";

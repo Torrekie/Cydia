@@ -182,13 +182,17 @@ NSURL *PackageRouteURL(NSString *URLString) {
         return [self.delegate clearPackage:package];
     else if ([name isEqualToString:@"REMOVE"])
         return [self.delegate removePackage:package];
-    else if ([name isEqualToString:@"DOWNGRADE"])
+    else if ([name isEqualToString:@"PURGE"] || [name isEqualToString:@"PACKAGE_PURGE_ACTION"])
+        return [self.delegate purgePackage:package];
+    else if ([name isEqualToString:@"REINSTALL"])
+        return [self.delegate reinstallPackage:package];
+    else if ([name isEqualToString:@"DOWNGRADE"] || [name isEqualToString:@"PACKAGE_VERSIONS"]) {
         for (CydiaPackageDetailModifyAction *action in [[self viewModel] modifyActions])
-            if ([action kind] == CydiaPackageDetailModifyActionKindDowngrade)
+            if ([action kind] == CydiaPackageDetailModifyActionKindVersions)
                 return [self selectModifyAction:action];
-
+        return;
+    }
     else if ([name isEqualToString:@"INSTALL"]);
-    else if ([name isEqualToString:@"REINSTALL"]);
     else if ([name isEqualToString:@"UPGRADE"]);
     else _assert(false);
 
@@ -274,13 +278,15 @@ NSURL *PackageRouteURL(NSString *URLString) {
 - (void) synchronizeLegacyStateWithPackage:(Package *)package
                                   viewModel:(CydiaPackageDetailViewModel *)viewModel {
     package_ = package;
-    versions_ = [package downgrades] ?: @[];
+    versions_ = [package availableVersions] ?: @[];
     commercial_ = [viewModel isCommercial];
 
     buttons_.clear();
     for (CydiaPackageDetailModifyAction *action in [viewModel modifyActions])
         buttons_.push_back(std::make_pair([action titleLocalizationKey],
-                                          UCLocalizeEx([action titleLocalizationKey])));
+            [[action titleLocalizationKey] hasPrefix:@"PACKAGE_"] ? [[NSBundle mainBundle]
+                localizedStringForKey:[action titleLocalizationKey] value:[action titleLocalizationKey]
+                table:@"Actions"] : UCLocalizeEx([action titleLocalizationKey])));
 }
 
 - (void) reloadData {
@@ -331,17 +337,21 @@ NSURL *PackageRouteURL(NSString *URLString) {
             return [self.delegate clearPackage:package];
         case CydiaPackageDetailModifyActionKindRemove:
             return [self.delegate removePackage:package];
-        case CydiaPackageDetailModifyActionKindInstall:
+        case CydiaPackageDetailModifyActionKindPurge:
+            return [self.delegate purgePackage:package];
         case CydiaPackageDetailModifyActionKindReinstall:
+            return [self.delegate reinstallPackage:package];
+        case CydiaPackageDetailModifyActionKindInstall:
         case CydiaPackageDetailModifyActionKindUpgrade:
-            return [self.delegate installPackage:package];
         case CydiaPackageDetailModifyActionKindDowngrade:
+            return [self.delegate installPackage:package];
+        case CydiaPackageDetailModifyActionKindVersions:
             break;
     }
 
     if (versionChoice == nil)
         return;
-    for (Package *version in (id)versions_)
+    for (Package *version in [package availableVersions])
         if ([[version id] isEqualToString:[versionChoice identity]] &&
             [[version latest] isEqualToString:[versionChoice version]])
             return [self.delegate installPackage:version];

@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Choisir une version";
+"PACKAGE_PURGE_ACTION" = "Purger le paquet et sa configuration";
+"PACKAGE_PURGE_EX" = "Supprime le paquet et ses fichiers de configuration enregistrés.";
+"PACKAGE_HELD_NOTICE" = "Ce paquet est bloqué. Désactivez « Ignorer les mises à niveau » dans les réglages du paquet avant de le modifier.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Ce paquet est marqué comme essentiel (Essential). Cydia ne le supprimera ni ne le purgera.";
+"PACKAGE_PROTECTED_NOTICE" = "Ce paquet est marqué comme protégé (Protected). Cydia ne le supprimera ni ne le purgera.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "La version installée n’est pas disponible dans les sources actuelles. Choisissez une autre version disponible.";
+"PACKAGE_PRIORITY" = "Priorité : %ld";
+"PACKAGE_CANDIDATE" = "Version candidate";
+"PACKAGE_HOLD_FAILED" = "Impossible de modifier le blocage du paquet. Rechargez la vue et réessayez.";
+"PACKAGE_HOLD_QUEUE" = "Terminez ou annulez les modifications de paquets en attente avant de modifier un blocage.";
+"PACKAGE_HELD_ISSUE" = "%@ est bloqué. Désactivez « Ignorer les mises à niveau » dans les réglages du paquet avant de le modifier.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ est marqué comme essentiel (Essential). Cydia ne le supprimera ni ne le purgera.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ est marqué comme protégé (Protected). Cydia ne le supprimera ni ne le purgera.";

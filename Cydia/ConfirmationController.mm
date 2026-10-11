@@ -151,6 +151,7 @@ NSDictionary *LegacyChanges(CydiaConfirmationViewModel *viewModel) {
         @"upgrades": LegacyPackageIdentities(viewModel, CydiaConfirmationChangeKindUpgrade),
         @"downgrades": LegacyPackageIdentities(viewModel, CydiaConfirmationChangeKindDowngrade),
         @"removes": LegacyPackageIdentities(viewModel, CydiaConfirmationChangeKindRemove),
+        @"purges": LegacyPackageIdentities(viewModel, CydiaConfirmationChangeKindPurge),
     };
 }
 
@@ -683,6 +684,9 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             }
             NSString *title(UCLocalizeEx([group titleLocalizationKey]));
             NSString *detail([names componentsJoinedByString:@"\n"]);
+            if ([group kind] == CydiaConfirmationChangeKindPurge)
+                detail = [NSString stringWithFormat:@"%@\n%@", [[NSBundle mainBundle]
+                    localizedStringForKey:@"PACKAGE_PURGE_EX" value:@"PACKAGE_PURGE_EX" table:@"Actions"], detail];
             [titleLabel setText:title];
             [detailLabel setText:detail];
             [cell setAccessibilityIdentifier:[NSString stringWithFormat:
@@ -700,6 +704,12 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
                 [section issue], [indexPath row], &relationship));
             NSString *visible(clause == nil ? UCLocalize("CANNOT_COMPLY_EX") :
                                               VisibleClauseDescription(clause));
+            NSString *kind([[section issue] kind]);
+            NSString *messageKey([@{@"held":@"PACKAGE_HELD_ISSUE", @"protected_removal":@"PACKAGE_PROTECTED_ISSUE",
+                @"essential_removal":@"PACKAGE_ESSENTIAL_ISSUE"} objectForKey:kind]);
+            if (messageKey != nil) visible = [NSString stringWithFormat:[[NSBundle mainBundle]
+                localizedStringForKey:messageKey value:messageKey table:@"Actions"],
+                [[[section issue] package] displayName] ?: @""];
             NSString *accessible(clause == nil ? visible : ClauseDescription(clause));
             [titleLabel setText:relationship];
             [detailLabel setText:visible];

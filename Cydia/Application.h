@@ -76,6 +76,8 @@
                             context:(NSObject<CyteWebNavigationContext> *)context
                        withReferrer:(NSString *)referrer;
 - (BOOL) openCydiaURL:(NSURL *)url context:(CydiaUIRouteContext *)context;
+- (BOOL) openKeyringFileURL:(NSURL *)url;
+- (void) showPackageRecovery:(NSArray *)packages;
 /* Source-compatible route adapters retained for existing native callers. */
 - (CyteViewController *) pageForURL:(NSURL *)url forExternal:(BOOL)external withReferrer:(NSString *)referrer;
 - (BOOL) openCydiaURL:(NSURL *)url forExternal:(BOOL)external;

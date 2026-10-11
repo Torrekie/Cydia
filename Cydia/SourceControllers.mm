@@ -1,42 +1,106 @@
-/* Cydia - iPhone UIKit Front-End for Debian APT
- * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
- * Modified work Copyright (C) 2018       Sam Bingner (sbingner)
- * Modified work Copyright (C) 2026       Torrekie
- */
-
+/* Copyright (C) 2008-2017 Jay Freeman; Modified work Copyright (C) 2026 Torrekie.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "CyteKit/UCPlatform.h"
-#include "Cydia/SourceControllers.h"
-
-#include "Cydia/Appearance.h"
-#include "Cydia/AppState.h"
-#include "Cydia/CydiaDelegate.h"
-#include "Cydia/Database.h"
-#include "Cydia/LegacyUICompatibilityNativeCaller.h"
-#include "Cydia/SectionControllers.h"
-#include "Cydia/Source.h"
-#include "Cydia/SourceVerificationRequestPolicy.h"
-#include "Cydia/MoreSourcesModel.h"
-#include "Cydia/AptRuntime.hpp"
-#include "Cydia/URLHelpers.h"
-#include "Sources.h"
-#include "CyteKit/Localize.h"
-#include "CyteKit/TableViewCell.h"
-#include "CyteKit/extern.h"
-#include "Menes/Menes.h"
-#include "Menes/ObjectHandle.h"
-#include "iPhonePrivate.h"
-
+#import "Cydia/SourceControllers.h"
+#import "Cydia/Appearance.h"
+#import "Cydia/CydiaDelegate.h"
+#import "Cydia/Database.h"
+#import "Cydia/LegacyUICompatibilityNativeCaller.h"
+#import "Cydia/SectionControllers.h"
+#import "Cydia/AdvancedSettingsController.h"
+#import "Cydia/Source.h"
+#import "Sources.h"
+#import "CyteKit/Localize.h"
+#import "CyteKit/TableViewCell.h"
+#import "CyteKit/extern.h"
+#import "Menes/Menes.h"
+#import "Menes/ObjectHandle.h"
+#import "iPhonePrivate.h"
 #include <QuartzCore/QuartzCore.h>
-
 #include <objc/runtime.h>
+#include <algorithm>
 
-#include <cstdio>
-
-#define lprintf(args...) fprintf(stderr, args)
-
-// Match MobileCydia's release build: trace logging is disabled.
-#undef _trace
-#define _trace(args...)
+static NSString *SourceUI(NSString *key) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Sources"];
+}
+static void SourceMessage(UIViewController *presenter, NSString *message) {
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("SOURCES") message:message preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([presenter.presentedViewController isKindOfClass:[UIAlertController class]])
+            [presenter dismissViewControllerAnimated:YES completion:^{ [presenter presentViewController:alert animated:YES completion:nil]; }];
+        else [presenter presentViewController:alert animated:YES completion:nil];
+    });
+}
+static void SourceSettings(CyteViewController *presenter, Database *database) {
+    CydiaAdvancedSettingsController *settings([[CydiaAdvancedSettingsController alloc] initWithDatabase:database]);
+    [settings setDelegate:[presenter delegate]];
+    [presenter.navigationController pushViewController:settings animated:YES];
+}
+static void SourceReviewRequired(CyteViewController *presenter, Database *database, NSString *message = nil) {
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("SOURCES")
+        message:message ?: SourceUI(@"SOURCE_PROTECTION_REVIEW_REQUIRED") preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:SourceUI(@"SOURCE_ADVANCED_SETTINGS") style:UIAlertActionStyleDefault handler:^(UIAlertAction *) { SourceSettings(presenter, database); }]];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([presenter.presentedViewController isKindOfClass:[UIAlertController class]])
+            [presenter dismissViewControllerAnimated:YES completion:^{ [presenter presentViewController:alert animated:YES completion:nil]; }];
+        else [presenter presentViewController:alert animated:YES completion:nil];
+    });
+}
+static void StyleSourceCell(UITableViewCell *cell) {
+    cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    cell.textLabel.adjustsFontForContentSizeCategory = YES;
+    cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
+    cell.textLabel.numberOfLines = 0; cell.detailTextLabel.numberOfLines = 0;
+    cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:cell.traitCollection];
+    cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:cell.traitCollection];
+    cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:cell.traitCollection];
+}
+static void ReviewedSourceCommit(CyteViewController *presenter, Database *database,
+    const CydiaSources::StoredDocument &expected, const CydiaSources::Mutation &mutation,
+    CydiaSources::Access access, NSString *action, NSString *summary, void (^completion)(void)) {
+    const auto captured(expected); const auto edit(mutation);
+    if (access == CydiaSources::Access::AdvancedSettings && mutation.kind != CydiaSources::EditKind::AppendDefinition &&
+        mutation.ordinal < expected.document.definitions.size()) {
+        const auto policy(CydiaReadSourceProtection());
+        const auto &definition(expected.document.definitions[mutation.ordinal]);
+        for (const auto &selector : policy.selectors)
+            if (selector.originPath == definition.path && selector.semanticKey == definition.semanticKey) {
+                summary = [summary stringByAppendingFormat:@"\n\n%@", SourceUI(@"SOURCE_BOOTSTRAP_CHANGE")];
+                break;
+            }
+    }
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:SourceUI(@"SOURCE_REVIEW_CHANGE")
+        message:summary preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:action
+        style:mutation.kind == CydiaSources::EditKind::RemoveDefinition ? UIAlertActionStyleDestructive : UIAlertActionStyleDefault
+        handler:^(UIAlertAction *) {
+            if (![database beginSettingsChange]) { SourceMessage(presenter, SourceUI(@"SOURCE_WAIT_FOR_OPERATION")); return; }
+            NSError *error(nil); bool success(false);
+            @try { success = CydiaCommitSourceMutation(captured, edit, &error, access); }
+            @finally { [database endSettingsChange]; }
+            if (!success) {
+                if (error.code == 74) {
+                    id<CydiaDelegate, NSObject> delegate((id)[presenter delegate]);
+                    if ([delegate respondsToSelector:@selector(syncData)]) [delegate syncData];
+                    SourceReviewRequired(presenter, database, error.localizedDescription);
+                } else SourceMessage(presenter, error.localizedDescription ?: SourceUI(@"SOURCE_SAVE_FAILED"));
+                return;
+            }
+            if (completion != nil) completion();
+            id<CydiaDelegate, NSObject> delegate((id)[presenter delegate]);
+            if ([delegate respondsToSelector:@selector(syncData)]) [delegate syncData];
+        }]];
+    [presenter presentViewController:alert animated:YES completion:nil];
+}
+static NSString *DefinitionSummary(CydiaSourceDefinition *row) {
+    return [NSString stringWithFormat:@"%@:%lu\n%@\n%@", row.filePath, (unsigned long)row.lineNumber,
+        row.original ?: @"",
+        SourceUI(@"SOURCE_WHOLE_DEFINITION")];
+}
 
 /* Source Cell {{{ */
 @interface SourceCell : CyteTableViewCell <CyteTableViewCellDelegate, SourceDelegate> {
@@ -103,7 +167,8 @@
     [self.content setNeedsDisplay];
 
     url_ = [source iconURL];
-    [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:url_];
+    if (url_ != nil)
+        [NSThread detachNewThreadSelector:@selector(_setSource:) toTarget:self withObject:url_];
 }
 
 - (void) setAllSource {
@@ -190,42 +255,192 @@
 
 @end
 /* }}} */
-/* Sources Controller {{{ */
-@protocol SourcesControllerApplicationDelegate <CydiaDelegate, NSObject>
-- (CydiaLegacyUICompatibilityNativeSession *) legacyUICompatibilitySessionForSource:(Source *)source
-                                                                              presenter:(id)presenter;
+
+@interface CydiaSourceDefinitionEditor : CyteViewController <UITextViewDelegate>
+- (instancetype)initWithDatabase:(Database *)database expected:(const CydiaSources::StoredDocument &)expected
+                            row:(CydiaSourceDefinition *)row contents:(NSString *)contents access:(CydiaSources::Access)access;
+@property(nonatomic, copy) void (^saved)(void);
+@end
+@implementation CydiaSourceDefinitionEditor {
+    Database *database_;
+    CydiaSources::StoredDocument expected_;
+    CydiaSources::Access access_;
+    CydiaSourceDefinition *row_;
+    NSString *contents_;
+    UITextView *text_;
+}
+- (instancetype)initWithDatabase:(Database *)database expected:(const CydiaSources::StoredDocument &)expected
+                            row:(CydiaSourceDefinition *)row contents:(NSString *)contents access:(CydiaSources::Access)access {
+    if ((self = [super init]) != nil) { database_ = database; expected_ = expected; row_ = row; contents_ = [contents copy]; access_ = access; }
+    return self;
+}
+- (void)loadView {
+    UIView *view([[UIView alloc] initWithFrame:CGRectZero]);
+    view.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleBackground traitCollection:self.traitCollection];
+    UILabel *location([[UILabel alloc] init]); location.numberOfLines = 0;
+    location.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    location.adjustsFontForContentSizeCategory = YES;
+    location.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection];
+    location.text = [NSString stringWithFormat:@"%@\n%@", [NSString stringWithUTF8String:expected_.document.path.c_str()], SourceUI(@"SOURCE_EDITOR_EXPLANATION")];
+    text_ = [[UITextView alloc] init]; text_.delegate = self;
+    text_.font = [UIFont fontWithName:@"Menlo" size:16] ?: [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    text_.adjustsFontForContentSizeCategory = YES;
+    text_.autocorrectionType = UITextAutocorrectionTypeNo; text_.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    text_.smartQuotesType = UITextSmartQuotesTypeNo; text_.smartDashesType = UITextSmartDashesTypeNo;
+    text_.text = contents_ ?: @""; text_.accessibilityIdentifier = @"cydia.sources.definition";
+    text_.backgroundColor = view.backgroundColor;
+    text_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+    UIStackView *stack([[UIStackView alloc] initWithArrangedSubviews:@[location, text_]]);
+    stack.axis = UILayoutConstraintAxisVertical; stack.spacing = 12; stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [view addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.leadingAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.leadingAnchor constant:16],
+        [stack.trailingAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.trailingAnchor constant:-16],
+        [stack.topAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor constant:12],
+        [stack.bottomAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.bottomAnchor constant:-12]]];
+    self.view = view;
+}
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.navigationItem.title = row_ == nil ? UCLocalize("ADD_SOURCE") : UCLocalize("EDIT");
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:SourceUI(@"SOURCE_SAVE")
+        style:UIBarButtonItemStyleDone target:self action:@selector(saveDefinition)];
+}
+- (void)saveDefinition {
+    if (!CydiaCanEditSources(access_)) { SourceReviewRequired(self, database_); return; }
+    CydiaSources::Mutation edit(row_ == nil ? CydiaSources::EditKind::AppendDefinition : CydiaSources::EditKind::ReplaceDefinition);
+    edit.ordinal = row_ == nil ? 0 : row_.ordinal;
+    edit.contents = [text_.text UTF8String] ?: "";
+    const auto parsed(CydiaSources::ParseDocument(expected_.document.path, expected_.document.format, edit.contents));
+    if (!parsed.valid() || parsed.definitions.size() != 1) { SourceMessage(self, SourceUI(@"SOURCE_DEFINITION_INVALID")); return; }
+    CydiaSources::StoredDocument replacement; replacement.document = parsed;
+    CydiaSourceDefinition *row([[CydiaSourceDefinition alloc] initWithSnapshot:replacement ordinal:0]);
+    NSString *summary([NSString stringWithFormat:@"%@\n%@%@\n%@", [NSString stringWithUTF8String:expected_.document.path.c_str()],
+        row_ == nil ? @"" : [NSString stringWithFormat:@"%@\n↓\n", row_.original ?: @""],
+        row.original ?: @"", SourceUI(@"SOURCE_WHOLE_DEFINITION")]);
+    __weak CydiaSourceDefinitionEditor *weakSelf(self);
+    ReviewedSourceCommit(self, database_, expected_, edit, access_, SourceUI(@"SOURCE_SAVE"), summary, ^{
+        CydiaSourceDefinitionEditor *strongSelf(weakSelf);
+        [strongSelf.navigationController popViewControllerAnimated:NO];
+        if (strongSelf.saved != nil) strongSelf.saved();
+    });
+}
 @end
 
+@interface CydiaSourceDefinitionController : CyteViewController <UITableViewDataSource, UITableViewDelegate>
+- (instancetype)initWithDatabase:(Database *)database row:(CydiaSourceDefinition *)row access:(CydiaSources::Access)access;
+@end
+@implementation CydiaSourceDefinitionController {
+    Database *database_;
+    CydiaSourceDefinition *row_;
+    CydiaSources::Access access_;
+    UITableView *table_;
+    NSArray<Source *> *browsable_;
+}
+- (instancetype)initWithDatabase:(Database *)database row:(CydiaSourceDefinition *)row access:(CydiaSources::Access)access {
+    if ((self = [super init]) != nil) { database_ = database; row_ = row; access_ = access; }
+    return self;
+}
+- (void)reloadData {
+    [super reloadData];
+    NSMutableArray *browse([NSMutableArray array]);
+    @synchronized (database_) {
+        for (Source *source in [database_ sources]) {
+            NSString *uri([[source rooturi] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]]);
+            for (NSString *candidate in row_.uris)
+                if ([uri isEqual:[candidate stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]]] &&
+                    [row_.suites containsObject:[source distribution]]) {
+                    if (![browse containsObject:source]) [browse addObject:source];
+                }
+        }
+    }
+    browsable_ = browse; [table_ reloadData];
+}
+- (void)loadView {
+    table_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
+    table_.dataSource = self; table_.delegate = self;
+    table_.rowHeight = UITableViewAutomaticDimension; table_.estimatedRowHeight = 60; self.view = table_;
+}
+- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = UCLocalize("SOURCES"); [self reloadData]; }
+- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self reloadData]; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
+    return section == 0 ? 4 : section == 1 ? browsable_.count : 4;
+}
+- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
+    return section == 0 ? SourceUI(@"SOURCE_DEFINITION") : section == 1 ? SourceUI(@"SOURCE_BROWSE_PACKAGES") : nil;
+}
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
+    if (section == 1 && browsable_.count == 0) return SourceUI(@"SOURCE_INDEX_UNAVAILABLE");
+    if (section == 2 && !CydiaSourceDefinitionCanEdit(row_, access_)) return SourceUI(@"SOURCE_PROTECTED_OR_REVIEW");
+    return nil;
+}
+- (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
+    StyleSourceCell(cell);
+    if (path.section == 0) {
+        NSArray *titles(@[SourceUI(@"SOURCE_LOCATION"), SourceUI(@"SOURCE_STATUS"), SourceUI(@"SOURCE_REPOSITORIES"), SourceUI(@"SOURCE_DEFINITION")]);
+        NSArray *values(@[[NSString stringWithFormat:@"%@:%lu", row_.filePath, (unsigned long)row_.lineNumber],
+            SourceUI(row_.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED"),
+            [[row_.uris arrayByAddingObjectsFromArray:row_.suites] componentsJoinedByString:@"\n"], row_.original ?: @""]);
+        cell.textLabel.text = titles[path.row]; cell.detailTextLabel.text = values[path.row];
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    } else if (path.section == 1) {
+        Source *source(browsable_[path.row]); cell.textLabel.text = [source name];
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ %@", [source rooturi], [source distribution]];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    } else {
+        NSArray *titles(@[UCLocalize("EDIT"), SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE"), UCLocalize("REMOVE"), SourceUI(@"SOURCE_ADVANCED_SETTINGS")]);
+        cell.textLabel.text = titles[path.row]; cell.accessibilityTraits |= UIAccessibilityTraitButton;
+        if (path.row < 3 && !CydiaSourceDefinitionCanEdit(row_, access_)) {
+            cell.textLabel.enabled = NO; cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        }
+        if (path.row == 3) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    }
+    return cell;
+}
+- (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    [table deselectRowAtIndexPath:path animated:YES];
+    if (path.section == 1) {
+        Source *source(browsable_[path.row]);
+        if (![[database_ sources] containsObject:source]) { SourceMessage(self, SourceUI(@"SOURCE_RELOAD_REQUIRED")); return; }
+        SectionsController *controller([[SectionsController alloc] initWithDatabase:database_ source:source]);
+        [controller setDelegate:self.delegate]; [self.navigationController pushViewController:controller animated:YES]; return;
+    }
+    if (path.section != 2) return;
+    if (path.row == 3) { SourceSettings(self, database_); return; }
+    if (!CydiaSourceDefinitionCanEdit(row_, access_)) { SourceReviewRequired(self, database_); return; }
+    if (path.row == 0) {
+        CydiaSourceDefinitionEditor *editor([[CydiaSourceDefinitionEditor alloc] initWithDatabase:database_ expected:[row_ snapshot] row:row_ contents:row_.original access:access_]);
+        [editor setDelegate:self.delegate]; __weak CydiaSourceDefinitionController *weakSelf(self);
+        editor.saved = ^{ [weakSelf.navigationController popViewControllerAnimated:YES]; };
+        [self.navigationController pushViewController:editor animated:YES]; return;
+    }
+    CydiaSources::Mutation edit(path.row == 1 ? CydiaSources::EditKind::SetEnabled : CydiaSources::EditKind::RemoveDefinition);
+    edit.ordinal = row_.ordinal; edit.enabled = !row_.enabled;
+    NSString *action(path.row == 1 ? SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE") : UCLocalize("REMOVE"));
+    __weak CydiaSourceDefinitionController *weakSelf(self);
+    ReviewedSourceCommit(self, database_, [row_ snapshot], edit, access_, action, DefinitionSummary(row_), ^{
+        [weakSelf.navigationController popViewControllerAnimated:YES];
+    });
+}
+@end
+
+@protocol SourcesControllerApplicationDelegate <CydiaDelegate, NSObject>
+- (CydiaLegacyUICompatibilityNativeSession *)legacyUICompatibilitySessionForSource:(Source *)source presenter:(id)presenter;
+@end
 @interface SourcesController () <UITableViewDataSource, UITableViewDelegate>
 @end
-
 @implementation SourcesController {
     __weak Database *database_;
     unsigned era_;
-
     _H<UITableView, 2> list_;
     _H<NSMutableArray> sources_;
-    int offset_;
-
-    _H<NSString> href_;
-    _H<UIProgressHUD> hud_;
-    _H<NSError> error_;
-
-    __strong NSURLConnection *trivial_bz2_;
-    __strong NSURLConnection *trivial_gz_;
-    __strong NSURLConnection *trivial_xz_;
-    __strong NSMapTable *source_verification_trackers_;
-
+    NSArray<CydiaSourceDefinition *> *definitions_;
+    CydiaSources::Access access_;
+    NSArray<NSString *> *diagnostics_;
     __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilitySession_;
-
-    BOOL cydia_;
-    NSDictionary *restoration_;
-    void (^restorationCompletion_)(BOOL);
-    UIAlertView *restorationAlert_;
-    BOOL restorationConfirmed_;
-    NSUInteger restorationGeneration_;
 }
-
 - (void) invalidateLegacyCompatibilitySession {
     [legacyCompatibilitySession_ invalidate];
     legacyCompatibilitySession_ = nil;
@@ -283,547 +498,6 @@
         return;
     }
     legacyCompatibilitySession_ = session;
-}
-
-- (void) _cancelConnection:(NSURLConnection *)connection {
-    if (connection != nil) {
-        [connection cancel];
-        //[connection setDelegate:nil];
-    }
-}
-
-- (void) dealloc {
-    [self invalidateLegacyCompatibilitySession];
-    [self _cancelConnection:trivial_gz_];
-    [self _cancelConnection:trivial_bz2_];
-    [self _cancelConnection:trivial_xz_];
-    [source_verification_trackers_ removeAllObjects];
-}
-
-- (NSURL *) navigationURL {
-    return [NSURL URLWithString:@"cydia://sources"];
-}
-
-- (void) viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-    [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
-}
-
-- (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {
-    return 2;
-}
-
-- (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    if (section == 1)
-        return UCLocalize("INDIVIDUAL_SOURCES");
-    return nil;
-}
-
-- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    switch (section) {
-        case 0: return 1;
-        case 1: return [sources_ count];
-        default: return 0;
-    }
-}
-
-- (Source *) sourceAtIndexPath:(NSIndexPath *)indexPath {
-@synchronized (database_) {
-    if ([database_ era] != era_)
-        return nil;
-    if ([indexPath section] != 1)
-        return nil;
-    NSUInteger index([indexPath row]);
-    if (index >= [sources_ count])
-        return nil;
-    return [sources_ objectAtIndex:index];
-} }
-
-- (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *cellIdentifier = @"SourceCell";
-
-    SourceCell *cell = (SourceCell *) [tableView dequeueReusableCellWithIdentifier:cellIdentifier];
-    if (cell == nil) cell = [[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:cellIdentifier];
-    [cell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-
-    Source *source([self sourceAtIndexPath:indexPath]);
-    if (source == nil)
-        [cell setAllSource];
-    else
-        [cell setSource:source];
-
-    return cell;
-}
-
-- (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    Source *source([self sourceAtIndexPath:indexPath]);
-    [self bindLegacyCompatibilitySessionForSource:source];
-    SectionsController *controller([[SectionsController alloc]
-        initWithDatabase:database_
-        source:source
-    ]);
-
-    [controller setDelegate:self.delegate];
-    [[self navigationController] pushViewController:controller animated:YES];
-}
-
-- (BOOL) tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (!CydiaCanEditManagedSources() || [indexPath section] != 1)
-        return false;
-    Source *source = [self sourceAtIndexPath:indexPath];
-    /* The ownership marker, rather than the optional Sources_ metadata
-     * record, is authoritative.  Keep an owned row deletable even if its
-     * preference record disappeared during a migration. */
-    return source != nil && CydiaManagedSourceKeyIsOwned([source key]);
-}
-
-- (void) tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    _assert([indexPath section] == 1);
-    if (!CydiaCanEditManagedSources())
-        return;
-    if (editingStyle ==  UITableViewCellEditingStyleDelete) {
-        Source *source = [self sourceAtIndexPath:indexPath];
-        if (source == nil || !CydiaManagedSourceKeyIsOwned([source key])) return;
-
-        CydiaRemoveSource([source key]);
-
-        [(NSObject<CydiaDelegate> *) [self delegate] syncData];
-    }
-}
-
-- (void) tableView:(UITableView *)tableView didEndEditingRowAtIndexPath:(NSIndexPath *)indexPath {
-    [self updateButtonsForEditingStatusAnimated:YES];
-}
-
-- (void) complete {
-    if (!CydiaCanEditManagedSources() || [href_ length] == 0) {
-        href_ = nil;
-        [self finishDefaultSourceRestoration:NO];
-        return;
-    }
-    // Consume before calling out: duplicate warning/network callbacks cannot
-    // repeat a write, and the later refresh cannot revive the pending tuple.
-    NSString *href = href_;
-    NSDictionary *restoration = restoration_;
-    href_ = nil;
-    if (restoration != nil) {
-        [(NSObject<CydiaDelegate> *) [self delegate] addSource:@{
-            @"Type":@"deb", @"URI":href, @"Distribution":restoration[@"distribution"],
-            @"Sections":restoration[@"components"]}];
-        [self finishDefaultSourceRestoration:YES];
-    } else
-        [(NSObject<CydiaDelegate> *) [self delegate] addTrivialSource:href];
-    [(NSObject<CydiaDelegate> *) [self delegate] syncData];
-}
-
-- (void) finishDefaultSourceRestoration:(BOOL)added {
-    void (^completion)(BOOL) = restorationCompletion_;
-    restorationCompletion_ = nil; restoration_ = nil;
-    restorationAlert_ = nil; restorationConfirmed_ = NO;
-    ++restorationGeneration_;
-    if (completion) completion(added);
-}
-
-- (void) cancelDefaultSourceRestoration {
-    if (restoration_ == nil) return;
-    [restorationAlert_ setDelegate:nil];
-    [restorationAlert_ dismissWithClickedButtonIndex:-1 animated:NO];
-    [self _cancelConnection:trivial_bz2_];
-    [self _cancelConnection:trivial_gz_];
-    [self _cancelConnection:trivial_xz_];
-    trivial_bz2_ = nil; trivial_gz_ = nil; trivial_xz_ = nil;
-    [source_verification_trackers_ removeAllObjects];
-    if (hud_ != nil) {
-        [(NSObject<CydiaDelegate> *)self.delegate releaseNetworkActivityIndicator];
-        [(NSObject<CydiaDelegate> *)self.delegate removeProgressHUD:hud_];
-        hud_ = nil;
-    }
-    href_ = nil; error_ = nil;
-    [self finishDefaultSourceRestoration:NO];
-}
-
-- (void) showRestoreDefaultSourcePrompt:(NSString *)identifier completion:(void (^)(BOOL))completion {
-    NSDictionary *row = CydiaDefaultSourceForIdentifier(identifier);
-    if (row == nil || restoration_ != nil || [href_ length] != 0 ||
-        !CydiaCanEditManagedSources() || self.delegate == nil) {
-        if (completion) completion(NO);
-        return;
-    }
-    // Recheck actual database sources at activation, not only the Home snapshot.
-    @synchronized (database_) {
-        for (Source *source in [database_ sources])
-            if (![CydiaMissingDefaultSources(@[@{@"rooturi":[source rooturi] ?: @"",
-                @"distribution":[source distribution] ?: @""}]) containsObject:row]) {
-                if (completion) completion(NO);
-                return;
-            }
-    }
-    restoration_ = row; restorationCompletion_ = [completion copy];
-    restorationConfirmed_ = NO;
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:UCLocalize("ADD_SOURCE")
-        message:[NSString stringWithFormat:@"%@\n%@\n%@ %@", row[@"name"], row[@"rooturi"],
-            row[@"distribution"], [row[@"components"] componentsJoinedByString:@" "]]
-        delegate:self cancelButtonTitle:UCLocalize("CANCEL")
-        otherButtonTitles:UCLocalize("ADD_SOURCE"), nil];
-    [alert setContext:@"restore-default-source"];
-    restorationAlert_ = alert; [alert show];
-}
-
-- (void) verifyDefaultSourceRestoration {
-    if (restoration_ == nil || !CydiaCanEditManagedSources()) {
-        [self cancelDefaultSourceRestoration]; return;
-    }
-    NSString *href = VerifySource(restoration_[@"rooturi"]);
-    NSString *architecture = [NSString stringWithUTF8String:CydiaAPT::Architecture().c_str()];
-    NSCharacterSet *invalid = [[NSCharacterSet characterSetWithCharactersInString:
-        @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"] invertedSet];
-    if (href == nil || architecture.length == 0 || [architecture rangeOfCharacterFromSet:invalid].location != NSNotFound) {
-        [self cancelDefaultSourceRestoration]; return;
-    }
-    href_ = href; error_ = nil; cydia_ = NO;
-    NSString *base = [href stringByAppendingFormat:@"dists/%@/%@/binary-%@/Packages",
-        restoration_[@"distribution"], [restoration_[@"components"] firstObject], architecture];
-    trivial_bz2_ = [self _requestHRef:[base stringByAppendingString:@".bz2"] method:@"HEAD"];
-    trivial_gz_ = [self _requestHRef:[base stringByAppendingString:@".gz"] method:@"HEAD"];
-    trivial_xz_ = [self _requestHRef:[base stringByAppendingString:@".xz"] method:@"HEAD"];
-    if (trivial_bz2_ == nil && trivial_gz_ == nil && trivial_xz_ == nil) {
-        [self cancelDefaultSourceRestoration]; return;
-    }
-    hud_ = [(NSObject<CydiaDelegate> *)self.delegate addProgressHUD];
-    [hud_ setText:UCLocalize("VERIFYING_URL")];
-    [(NSObject<CydiaDelegate> *)self.delegate retainNetworkActivityIndicator];
-    [trivial_bz2_ start]; [trivial_gz_ start]; [trivial_xz_ start];
-}
-
-- (NSString *) getWarningForSource:(NSDictionary *)snapshot {
-    // yieldToSelector runs off-main-thread. Never read pending UI state here;
-    // it can be cleared by Back/Cancel while the request is in flight.
-    NSString *href(snapshot[@"href"]);
-    NSRange colon([href rangeOfString:@"://"]);
-    if (colon.location != NSNotFound)
-        href = [href substringFromIndex:(colon.location + 3)];
-    href = [href stringByAddingPercentEscapes];
-    href = [CydiaURL(@"api/repotag/") stringByAppendingString:href];
-
-    NSURL *url([NSURL URLWithString:href]);
-
-    if ([snapshot[@"bounded"] boolValue]) {
-        // This newly exposed Home action must not wait indefinitely on the
-        // historical warning service. Keep its warning text, with a deadline.
-        NSURLRequest *request = [NSURLRequest requestWithURL:url
-            cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:10];
-        NSURLResponse *response = nil;
-        NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:NULL];
-        if (![response isKindOfClass:[NSHTTPURLResponse class]] || [(NSHTTPURLResponse *)response statusCode] != 200) return nil;
-        NSString *warning = data == nil ? nil : [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-        return warning.length == 0 ? nil : warning;
-    }
-
-    NSStringEncoding encoding;
-    NSError *error(nil);
-
-    if (NSString *warning = [NSString stringWithContentsOfURL:url usedEncoding:&encoding error:&error])
-        return [warning length] == 0 ? nil : warning;
-    return nil;
-}
-
-- (void) _endConnection:(NSURLConnection *)connection {
-    // XXX: the memory management in this method is horribly awkward
-    if ([source_verification_trackers_ objectForKey:connection] == nil) return;
-    [source_verification_trackers_ removeObjectForKey:connection];
-
-    if (connection == trivial_bz2_)
-        trivial_bz2_ = nil;
-    else if (connection == trivial_gz_)
-        trivial_gz_ = nil;
-    else if (connection == trivial_xz_)
-        trivial_xz_ = nil;
-    else
-        _assert(false);
-
-    if (
-        trivial_bz2_ == nil &&
-        trivial_gz_ == nil &&
-        trivial_xz_ == nil
-    ) {
-        NSUInteger generation = restorationGeneration_;
-        NSDictionary *snapshot = @{@"href":(NSString *)href_ ?: @"", @"bounded":@(restoration_ != nil)};
-        NSString *warning(cydia_ ? [self yieldToSelector:@selector(getWarningForSource:) withObject:snapshot] : nil);
-        if (generation != restorationGeneration_) return; // Cancel while warning lookup yielded.
-
-        [(NSObject<CydiaDelegate> *) [self delegate] releaseNetworkActivityIndicator];
-
-        [(NSObject<CydiaDelegate> *) [self delegate] removeProgressHUD:hud_];
-        hud_ = nil;
-
-        if (cydia_) {
-            if (warning != nil) {
-                UIAlertView *alert = [[UIAlertView alloc]
-                    initWithTitle:UCLocalize("SOURCE_WARNING")
-                    message:warning
-                    delegate:self
-                    cancelButtonTitle:UCLocalize("CANCEL")
-                    otherButtonTitles:
-                        UCLocalize("ADD_ANYWAY"),
-                    nil
-                ];
-
-                [alert setContext:@"warning"];
-                if (restoration_ != nil) restorationAlert_ = alert;
-                [alert setNumberOfRows:1];
-                [alert show];
-
-                // XXX: there used to be this great mechanism called yieldToPopup... who deleted it?
-                error_ = nil;
-                return;
-            }
-
-            [self complete];
-        } else if (error_ != nil) {
-            UIAlertView *alert = [[UIAlertView alloc]
-                initWithTitle:UCLocalize("VERIFICATION_ERROR")
-                message:[error_ localizedDescription]
-                delegate:self
-                cancelButtonTitle:UCLocalize("OK")
-                otherButtonTitles:nil
-            ];
-
-            [alert setContext:@"urlerror"];
-            if (restoration_ != nil) restorationAlert_ = alert;
-            [alert show];
-
-            href_ = nil;
-        } else {
-            UIAlertView *alert = [[UIAlertView alloc]
-                initWithTitle:UCLocalize("NOT_REPOSITORY")
-                message:UCLocalize("NOT_REPOSITORY_EX")
-                delegate:self
-                cancelButtonTitle:UCLocalize("OK")
-                otherButtonTitles:nil
-            ];
-
-            [alert setContext:@"trivial"];
-            if (restoration_ != nil) restorationAlert_ = alert;
-            [alert show];
-
-            href_ = nil;
-        }
-
-        error_ = nil;
-    }
-}
-
-- (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {
-    if ([source_verification_trackers_ objectForKey:connection] == nil) return;
-    switch ([response statusCode]) {
-        case 200:
-            cydia_ = YES;
-    }
-}
-
-- (NSURLRequest *) connection:(NSURLConnection *)connection
-              willSendRequest:(NSURLRequest *)request
-             redirectResponse:(NSURLResponse *)response {
-    CydiaSourceVerificationRedirectTracker *tracker(
-        [source_verification_trackers_ objectForKey:connection]);
-    if (tracker == nil)
-        return CydiaSourceVerificationRedirectRequest(request);
-    return [tracker requestForProposedRequest:request redirectResponse:response];
-}
-
-- (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    if ([source_verification_trackers_ objectForKey:connection] == nil) return;
-    lprintf("connection:\"%s\" didFailWithError:\"%s\"\n", [href_ UTF8String], [[error localizedDescription] UTF8String]);
-    error_ = error;
-    [self _endConnection:connection];
-}
-
-- (void) connectionDidFinishLoading:(NSURLConnection *)connection {
-    [self _endConnection:connection];
-}
-
-- (NSURLConnection *) _requestHRef:(NSString *)href method:(NSString *)method {
-    NSURL *url([NSURL URLWithString:href]);
-
-    NSMutableURLRequest *request = [NSMutableURLRequest
-        requestWithURL:url
-        cachePolicy:NSURLRequestUseProtocolCachePolicy
-        timeoutInterval:10
-    ];
-
-    [request setHTTPMethod:method];
-
-    NSString *machine(Machine_ == NULL ? nil :
-        [NSString stringWithUTF8String:Machine_]);
-    NSURLRequest *verified(CydiaSourceVerificationInitialRequest(
-        request, machine, UniqueID_));
-    NSURLConnection *connection([[NSURLConnection alloc]
-        initWithRequest:verified delegate:self startImmediately:NO]);
-    if (connection == nil)
-        return nil;
-
-    CydiaSourceVerificationRedirectTracker *tracker(
-        [[CydiaSourceVerificationRedirectTracker alloc]
-            initWithInitialURL:[verified URL]]);
-    [source_verification_trackers_ setObject:tracker forKey:connection];
-    return connection;
-}
-
-- (void) alertView:(UIAlertView *)alert clickedButtonAtIndex:(NSInteger)button {
-    NSString *context([alert context]);
-    if ([context isEqualToString:@"restore-default-source"]) {
-        if (restoration_ == nil || restorationAlert_ != alert || restorationConfirmed_) return;
-        restorationAlert_ = nil;
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-        if (button == 1) {
-            restorationConfirmed_ = YES;
-            [self verifyDefaultSourceRestoration];
-        } else [self cancelDefaultSourceRestoration];
-    } else if ([context isEqualToString:@"source"]) {
-        switch (button) {
-            case 1: {
-                NSString *href = [[alert textField] text];
-                href = VerifySource(href);
-                if (href == nil)
-                    break;
-                href_ = href;
-
-                trivial_bz2_ = [self _requestHRef:[href_ stringByAppendingString:@"Packages.bz2"] method:@"HEAD"];
-                trivial_gz_ = [self _requestHRef:[href_ stringByAppendingString:@"Packages.gz"] method:@"HEAD"];
-                trivial_xz_ = [self _requestHRef:[href_ stringByAppendingString:@"Packages.xz"] method:@"HEAD"];
-
-                cydia_ = false;
-
-                // XXX: this is stupid
-                hud_ = [(NSObject<CydiaDelegate> *) [self delegate] addProgressHUD];
-                [hud_ setText:UCLocalize("VERIFYING_URL")];
-                [(NSObject<CydiaDelegate> *) [self delegate] retainNetworkActivityIndicator];
-
-                /* All ivars and UI state must be installed before a deferred
-                 * connection can deliver a delegate callback. */
-                [trivial_bz2_ start];
-                [trivial_gz_ start];
-                [trivial_xz_ start];
-            } break;
-
-            case 0:
-            break;
-
-            _nodefault
-        }
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    } else if ([context isEqualToString:@"trivial"]) {
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-        if (restorationAlert_ == alert) [self cancelDefaultSourceRestoration];
-    } else if ([context isEqualToString:@"urlerror"]) {
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-        if (restorationAlert_ == alert) [self cancelDefaultSourceRestoration];
-    } else if ([context isEqualToString:@"warning"]) {
-        if (restoration_ != nil && restorationAlert_ != alert) return;
-        restorationAlert_ = nil;
-        switch (button) {
-            case 1: {
-                NSUInteger generation = restorationGeneration_;
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    if (generation == restorationGeneration_) [self complete];
-                });
-            }
-            break;
-
-            case 0:
-                [self cancelDefaultSourceRestoration];
-            break;
-
-            _nodefault
-        }
-
-        [alert dismissWithClickedButtonIndex:-1 animated:YES];
-    }
-}
-
-- (void) updateButtonsForEditingStatusAnimated:(BOOL)animated {
-    if (!CydiaCanEditManagedSources()) {
-        [list_ setEditing:NO animated:animated];
-        [[self navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("REFRESH")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(refreshButtonClicked)
-        ] animated:animated];
-        [[self navigationItem] setRightBarButtonItem:nil animated:animated];
-        return;
-    }
-
-    BOOL editing([list_ isEditing]);
-
-    if (editing)
-        [[self navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("ADD")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(addButtonClicked)
-        ] animated:animated];
-    else if ([(NSObject<CydiaDelegate> *) [self delegate] updating])
-        [[self navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("CANCEL")
-            style:UIBarButtonItemStyleDone
-            target:self
-            action:@selector(cancelButtonClicked)
-        ] animated:animated];
-    else
-        [[self navigationItem] setLeftBarButtonItem:[[UIBarButtonItem alloc]
-            initWithTitle:UCLocalize("REFRESH")
-            style:UIBarButtonItemStylePlain
-            target:self
-            action:@selector(refreshButtonClicked)
-        ] animated:animated];
-
-    [[self navigationItem] setRightBarButtonItem:[[UIBarButtonItem alloc]
-        initWithTitle:(editing ? UCLocalize("DONE") : UCLocalize("EDIT"))
-        style:(editing ? UIBarButtonItemStyleDone : UIBarButtonItemStylePlain)
-        target:self
-        action:@selector(editButtonClicked)
-    ] animated:animated];
-}
-
-- (void) loadView {
-    list_ = [[UITableView alloc] initWithFrame:[[UIScreen mainScreen] applicationFrame] style:UITableViewStylePlain];
-    if ([list_ respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)])
-        [list_ setCellLayoutMarginsFollowReadableWidth:NO];
-    [list_ setAutoresizingMask:CydiaAutoresizingFlexibleBoth];
-    [list_ setRowHeight:53];
-    [(UITableView *) list_ setDataSource:self];
-    [list_ setDelegate:self];
-    [self setView:list_];
-}
-
-- (void) viewDidLoad {
-    [super viewDidLoad];
-    [[self navigationItem] setTitle:UCLocalize("SOURCES")];
-    [self updateButtonsForEditingStatusAnimated:NO];
-}
-
-- (void) viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-
-    [list_ setEditing:NO];
-    [self updateButtonsForEditingStatusAnimated:NO];
-}
-
-- (void) releaseSubviews {
-    list_ = nil;
-
-    sources_ = nil;
-
-    [super releaseSubviews];
-}
-
-- (id) initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) {
-        database_ = database;
-        source_verification_trackers_ = [NSMapTable weakToStrongObjectsMapTable];
-    } return self;
 }
 
 - (NSDictionary *) cydiaNativeCompatibilitySourceSessionDiagnosticWithDelegate:(id)delegate {
@@ -932,92 +606,172 @@
     };
 }
 
-- (void) reloadData {
-    NSString *boundSourceKey([legacyCompatibilitySession_ sourceKey]);
-    [self invalidateLegacyCompatibilitySession];
-    [super reloadData];
-    [self updateButtonsForEditingStatusAnimated:YES];
 
-    Source *sourceToRebind(nil);
-@synchronized (database_) {
-    era_ = [database_ era];
-
-    sources_ = [NSMutableArray arrayWithCapacity:16];
-    [sources_ addObjectsFromArray:[database_ sources]];
-    _trace();
-    [sources_ sortUsingSelector:@selector(compareByName:)];
-    _trace();
-
-    int count([sources_ count]);
-    offset_ = 0;
-    for (int i = 0; i != count; i++) {
-        if ([[sources_ objectAtIndex:i] record] == nil)
-            break;
-        offset_++;
+- (void)dealloc { [self invalidateLegacyCompatibilitySession]; }
+- (NSURL *)navigationURL { return access_ == CydiaSources::Access::AdvancedSettings ? nil : [NSURL URLWithString:@"cydia://sources"]; }
+- (id)initWithDatabase:(Database *)database { return [self initWithDatabase:database advancedAccess:NO]; }
+- (id)initWithDatabase:(Database *)database advancedAccess:(BOOL)advancedAccess {
+    if ((self = [super init]) != nil) {
+        database_ = database;
+        access_ = advancedAccess ? CydiaSources::Access::AdvancedSettings : CydiaSources::Access::Ordinary;
     }
-
-    if ([boundSourceKey isKindOfClass:[NSString class]] &&
-        [boundSourceKey length] != 0)
-        for (id candidate in (NSArray *)sources_)
-            if (object_getClass(candidate) == [Source class] &&
-                [[(Source *)candidate key] isEqualToString:boundSourceKey]) {
-                sourceToRebind = (Source *)candidate;
-                break;
-            }
-
-    [list_ reloadData];
+    return self;
 }
-    if (boundSourceKey != nil)
-        [self bindLegacyCompatibilitySessionForSource:sourceToRebind];
+- (void)loadView {
+    list_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
+    [list_ setDataSource:self]; [list_ setDelegate:self];
+    [(UITableView *)list_ setRowHeight:UITableViewAutomaticDimension]; [(UITableView *)list_ setEstimatedRowHeight:64]; self.view = list_;
 }
-
-- (void) showAddSourcePrompt {
-    if (!CydiaCanEditManagedSources())
-        return;
-    UIAlertView *alert = [[UIAlertView alloc]
-        initWithTitle:UCLocalize("ENTER_APT_URL")
-        message:nil
-        delegate:self
-        cancelButtonTitle:UCLocalize("CANCEL")
-        otherButtonTitles:
-            UCLocalize("ADD_SOURCE"),
-        nil
-    ];
-
-    [alert setContext:@"source"];
-
-    [alert setNumberOfRows:1];
-    [alert addTextFieldWithValue:@"https://" label:@""];
-
-    NSObject<UITextInputTraits> *traits = [[alert textField] textInputTraits];
-    [traits setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [traits setAutocorrectionType:UITextAutocorrectionTypeNo];
-    [traits setKeyboardType:UIKeyboardTypeURL];
-    // XXX: UIReturnKeyDone
-    [traits setReturnKeyType:UIReturnKeyNext];
-
-    [alert show];
+- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = UCLocalize("SOURCES"); [self reloadData]; }
+- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self reloadData]; }
+- (void)viewDidDisappear:(BOOL)animated { [super viewDidDisappear:animated]; [self invalidateLegacyCompatibilitySession]; }
+- (void)releaseSubviews { list_ = nil; sources_ = nil; definitions_ = nil; diagnostics_ = nil; [super releaseSubviews]; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
+- (CGFloat)tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
+    return path.section == 0 ? 53 : UITableViewAutomaticDimension;
 }
-
-- (void) addButtonClicked {
-    [self showAddSourcePrompt];
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
+    return section == 0 ? 1 : section == 1 ? definitions_.count : diagnostics_.count;
 }
-
-- (void) refreshButtonClicked {
-    if ([(NSObject<CydiaDelegate> *) [self delegate] requestUpdate])
-        [self updateButtonsForEditingStatusAnimated:YES];
+- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
+    return section == 1 ? SourceUI(@"SOURCE_DEFINITIONS") : section == 2 && diagnostics_.count != 0 ? SourceUI(@"SOURCE_FILE_ERRORS") : nil;
 }
-
-- (void) cancelButtonClicked {
-    [(NSObject<CydiaDelegate> *) [self delegate] cancelUpdate];
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
+    return section == 1 ? (CydiaCanEditSources(access_) ? SourceUI(@"SOURCE_DEFINITIONS_EXPLANATION") : SourceUI(@"SOURCE_PROTECTED_OR_REVIEW")) : nil;
 }
-
-- (void) editButtonClicked {
-    if (!CydiaCanEditManagedSources())
-        return;
-    [list_ setEditing:![list_ isEditing] animated:YES];
-    [self updateButtonsForEditingStatusAnimated:YES];
+- (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    if (path.section == 0) {
+        SourceCell *cell([[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:nil]);
+        [cell setAllSource]; cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; return cell;
+    }
+    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
+    StyleSourceCell(cell);
+    if (path.section == 1) {
+        CydiaSourceDefinition *row(definitions_[path.row]);
+        cell.textLabel.text = [row.uris componentsJoinedByString:@", "];
+        if (cell.textLabel.text.length == 0) cell.textLabel.text = SourceUI(@"SOURCE_DISABLED_TEMPLATE");
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@:%lu\n%@", SourceUI(row.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED"),
+            row.filePath.lastPathComponent, (unsigned long)row.lineNumber, [row.suites componentsJoinedByString:@" "]];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.sources.definition.%lu", (unsigned long)path.row];
+    } else {
+        cell.textLabel.text = SourceUI(@"SOURCE_FILE_UNAVAILABLE"); cell.detailTextLabel.text = diagnostics_[path.row];
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    }
+    return cell;
 }
-
+- (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    [table deselectRowAtIndexPath:path animated:YES];
+    if (path.section == 0) {
+        SectionsController *controller([[SectionsController alloc] initWithDatabase:database_ source:nil]);
+        [controller setDelegate:self.delegate]; [self.navigationController pushViewController:controller animated:YES];
+    } else if (path.section == 1) {
+        CydiaSourceDefinitionController *controller([[CydiaSourceDefinitionController alloc] initWithDatabase:database_ row:definitions_[path.row] access:access_]);
+        [controller setDelegate:self.delegate]; [self.navigationController pushViewController:controller animated:YES];
+    }
+}
+- (BOOL)tableView:(UITableView *)table canEditRowAtIndexPath:(NSIndexPath *)path {
+    return path.section == 1 && CydiaSourceDefinitionCanEdit(definitions_[path.row], access_);
+}
+- (void)tableView:(UITableView *)table commitEditingStyle:(UITableViewCellEditingStyle)style forRowAtIndexPath:(NSIndexPath *)path {
+    if (style != UITableViewCellEditingStyleDelete || path.section != 1) return;
+    CydiaSourceDefinition *row(definitions_[path.row]);
+    CydiaSources::Mutation edit(CydiaSources::EditKind::RemoveDefinition); edit.ordinal = row.ordinal;
+    __weak SourcesController *weakSelf(self);
+    ReviewedSourceCommit(self, database_, [row snapshot], edit, access_, UCLocalize("REMOVE"), DefinitionSummary(row), ^{ [weakSelf reloadData]; });
+}
+- (void)reloadData {
+    NSString *key([legacyCompatibilitySession_ sourceKey]); [self invalidateLegacyCompatibilitySession]; [super reloadData];
+    @synchronized (database_) { era_ = [database_ era]; sources_ = [[database_ sources] mutableCopy]; }
+    NSArray<NSString *> *diagnostics(nil);
+    definitions_ = CydiaReadSourceDefinitions(&diagnostics); diagnostics_ = diagnostics;
+    [list_ reloadData]; [self updateButtonsForEditingStatusAnimated:NO];
+    if (key != nil) for (Source *source in (NSArray *)sources_) if ([[source key] isEqual:key]) { [self bindLegacyCompatibilitySessionForSource:source]; break; }
+}
+- (void)updateButtonsForEditingStatusAnimated:(BOOL)animated {
+    id<CydiaDelegate, NSObject> delegate((id)[self delegate]); BOOL updating([delegate respondsToSelector:@selector(updating)] && [delegate updating]);
+    UIBarButtonItem *refresh([[UIBarButtonItem alloc] initWithTitle:(updating ? UCLocalize("CANCEL") : UCLocalize("REFRESH"))
+        style:UIBarButtonItemStylePlain target:self action:updating ? @selector(cancelButtonClicked) : @selector(refreshButtonClicked)]);
+    UIBarButtonItem *add([[UIBarButtonItem alloc] initWithTitle:UCLocalize("ADD") style:UIBarButtonItemStylePlain target:self action:@selector(showAddSourcePrompt)]);
+    self.navigationItem.leftBarButtonItem = access_ == CydiaSources::Access::AdvancedSettings ? nil : refresh;
+    self.navigationItem.rightBarButtonItems = access_ == CydiaSources::Access::AdvancedSettings ? @[add, refresh] : @[add];
+}
+- (void)refreshButtonClicked { [(id<CydiaDelegate>)self.delegate requestUpdate]; [self updateButtonsForEditingStatusAnimated:YES]; }
+- (void)cancelButtonClicked { [(id<CydiaDelegate>)self.delegate cancelUpdate]; }
+- (void)showAddSourcePrompt {
+    if (!CydiaCanEditSources(access_)) { SourceReviewRequired(self, database_); return; }
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("ADD_SOURCE") message:SourceUI(@"SOURCE_ENTER_DETAILS") preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = SourceUI(@"SOURCE_URI"); field.keyboardType = UIKeyboardTypeURL; field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = SourceUI(@"SOURCE_SUITE"); field.text = @"./"; field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = SourceUI(@"SOURCE_COMPONENTS"); field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:SourceUI(@"SOURCE_ENTER_DEFINITION") style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+        [self showAddSourceDefinitionPrompt:@""];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:SourceUI(@"SOURCE_CONTINUE") style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+        NSString *components(alert.textFields[2].text ?: @"");
+        NSArray *words([[components componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]]);
+        NSString *draft(CydiaSourceDraftForLegacySource(@{@"Type":@"deb", @"URI":alert.textFields[0].text ?: @"", @"Distribution":alert.textFields[1].text ?: @"", @"Sections":words}));
+        if (draft == nil) { SourceMessage(self, SourceUI(@"SOURCE_DEFINITION_INVALID")); return; }
+        [self showAddSourceDefinitionPrompt:draft];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+- (void)editDestination:(const CydiaSources::StoredDocument &)expected draft:(NSString *)draft {
+    NSString *contents(draft ?: @"");
+    const auto parsed(CydiaSources::ParseDocument("/draft.list", CydiaSources::Format::OneLine, [contents UTF8String] ?: ""));
+    if (expected.document.format == CydiaSources::Format::Deb822 && parsed.valid() && parsed.definitions.size() == 1) {
+        const auto &definition(parsed.definitions.front());
+        NSMutableArray *uris([NSMutableArray array]), *suites([NSMutableArray array]), *types([NSMutableArray array]), *components([NSMutableArray array]);
+        for (const auto &value : definition.uris) [uris addObject:[NSString stringWithUTF8String:value.c_str()]];
+        for (const auto &value : definition.suites) [suites addObject:[NSString stringWithUTF8String:value.c_str()]];
+        for (const auto &value : definition.types) [types addObject:[NSString stringWithUTF8String:value.c_str()]];
+        for (const auto &value : definition.components) [components addObject:[NSString stringWithUTF8String:value.c_str()]];
+        contents = [NSString stringWithFormat:@"Types: %@\nURIs: %@\nSuites: %@\n%@", [types componentsJoinedByString:@" "], [uris componentsJoinedByString:@" "],
+            [suites componentsJoinedByString:@" "], components.count == 0 ? @"" : [NSString stringWithFormat:@"Components: %@\n", [components componentsJoinedByString:@" "]]];
+    }
+    CydiaSourceDefinitionEditor *editor([[CydiaSourceDefinitionEditor alloc] initWithDatabase:database_ expected:expected row:nil contents:contents access:access_]);
+    [editor setDelegate:self.delegate]; __weak SourcesController *weakSelf(self); editor.saved = ^{ [weakSelf reloadData]; };
+    [self.navigationController pushViewController:editor animated:YES];
+}
+- (void)showAddSourceDefinitionPrompt:(NSString *)draft {
+    if (!CydiaCanEditSources(access_)) { SourceReviewRequired(self, database_); return; }
+    const auto snapshot(CydiaReadSourceDocuments()); const auto locations(CydiaEffectiveSourceLocations());
+    UIAlertController *chooser([UIAlertController alertControllerWithTitle:SourceUI(@"SOURCE_CHOOSE_FILE") message:SourceUI(@"SOURCE_DESTINATION_EXPLANATION") preferredStyle:UIAlertControllerStyleActionSheet]);
+    BOOL hasMain(NO);
+    for (const auto &document : snapshot.documents) {
+        hasMain = hasMain || document.document.path == locations.mainFile;
+        const auto expected(document);
+        [chooser addAction:[UIAlertAction actionWithTitle:[NSString stringWithUTF8String:document.document.path.c_str()] style:UIAlertActionStyleDefault handler:^(UIAlertAction *) { [self editDestination:expected draft:draft]; }]];
+    }
+    if (!hasMain && !locations.mainFile.empty() && locations.mainFile != "/dev/null") {
+        const auto expected(CydiaSources::NewDocument(locations.mainFile, locations.mainFile.size() >= 8 && locations.mainFile.substr(locations.mainFile.size() - 8) == ".sources" ? CydiaSources::Format::Deb822 : CydiaSources::Format::OneLine));
+        [chooser addAction:[UIAlertAction actionWithTitle:[NSString stringWithUTF8String:locations.mainFile.c_str()] style:UIAlertActionStyleDefault handler:^(UIAlertAction *) { [self editDestination:expected draft:draft]; }]];
+    }
+    if (!locations.partsDirectory.empty() && locations.partsDirectory != "/dev/null")
+        [chooser addAction:[UIAlertAction actionWithTitle:SourceUI(@"SOURCE_NEW_FILE") style:UIAlertActionStyleDefault handler:^(UIAlertAction *) { [self chooseNewFile:draft]; }]];
+    [chooser addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    chooser.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItem;
+    [self presentViewController:chooser animated:YES completion:nil];
+}
+- (void)chooseNewFile:(NSString *)draft {
+    const auto locations(CydiaEffectiveSourceLocations());
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:SourceUI(@"SOURCE_NEW_FILE") message:SourceUI(@"SOURCE_NEW_FILE_EXPLANATION") preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = SourceUI(@"SOURCE_FILENAME"); field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:SourceUI(@"SOURCE_CONTINUE") style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+        NSString *name(alert.textFields.firstObject.text ?: @"");
+        std::string directory(locations.partsDirectory); while (!directory.empty() && directory.back() == '/') directory.pop_back();
+        const std::string path(directory + "/" + ([name UTF8String] ?: ""));
+        if ([name rangeOfString:@"/"].location != NSNotFound || !CydiaSources::IsEffectiveDestination(locations, path)) { SourceMessage(self, SourceUI(@"SOURCE_FILENAME_INVALID")); return; }
+        auto expected(CydiaSources::NewDocument(path, [name hasSuffix:@".sources"] ? CydiaSources::Format::Deb822 : CydiaSources::Format::OneLine));
+        const auto current(CydiaSources::ReadDocument(path, expected.document.format));
+        if (!current.documents.empty()) { SourceMessage(self, SourceUI(@"SOURCE_FILE_EXISTS")); return; }
+        [self editDestination:expected draft:draft];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+// Retired catalogue entry point: callers cannot resurrect assumed repositories.
+- (void)showRestoreDefaultSourcePrompt:(NSString *)identifier completion:(void (^)(BOOL))completion { if (completion != nil) completion(NO); }
+- (void)cancelDefaultSourceRestoration {}
 @end
-/* }}} */

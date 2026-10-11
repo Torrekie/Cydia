@@ -486,8 +486,12 @@ CydiaUIRouteDescriptor *CydiaUIParseRouteURL(NSURL *url, NSError **error) {
                  containsObject:[arguments objectAtIndex:0]])
         kind = CydiaUIRouteKindHomeGuide;
     else if (count == 2 && [base isEqualToString:@"home"] &&
-             [@[@"storage", @"featured", @"themes", @"account"]
+             [@[@"storage", @"featured", @"themes", @"account", @"settings"]
                  containsObject:[arguments objectAtIndex:0]])
+        kind = CydiaUIRouteKindHomeGuide;
+    else if (count == 3 && [base isEqualToString:@"home"] &&
+             [[arguments objectAtIndex:0] isEqualToString:@"settings"] &&
+             [@[@"capabilities", @"advanced", @"key-import"] containsObject:[arguments objectAtIndex:1]])
         kind = CydiaUIRouteKindHomeGuide;
     else if (count == 1 && [base isEqualToString:@"sources"])
         kind = CydiaUIRouteKindSources;
@@ -590,7 +594,11 @@ CydiaUIRouteDecision *CydiaUIEvaluateRoute(CydiaUIRouteDescriptor *descriptor,
             denialReason:CydiaUIRouteDenialReasonCaller
             requiresConfirmation:NO];
 
-    if (!CallerAllowsKind([context caller], [descriptor kind]))
+    const BOOL settingsRoute([descriptor kind] == CydiaUIRouteKindHomeGuide &&
+        [[[descriptor arguments] firstObject] isEqualToString:@"settings"]);
+    if ((settingsRoute && [context caller] != CydiaUIRouteCallerTrustedNative &&
+            [context caller] != CydiaUIRouteCallerTrustedInProcess) ||
+        !CallerAllowsKind([context caller], [descriptor kind]))
         return [[CydiaUIRouteDecision alloc]
             initWithDescriptor:descriptor
             disposition:CydiaUIRouteDispositionRejected

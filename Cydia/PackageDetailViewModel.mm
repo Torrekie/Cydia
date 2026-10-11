@@ -59,6 +59,15 @@
 - (nullable NSArray *)applications;
 - (nullable NSArray *)downgrades;
 @optional
+- (BOOL) protectedPackage;
+- (BOOL) canReinstall;
+- (BOOL) hasSavedConfiguration;
+- (BOOL) versionAvailable;
+- (BOOL) policyCandidate;
+- (BOOL) selectedVersionInstalled;
+- (NSInteger) versionPriority;
+- (NSInteger) versionComparison;
+- (nullable NSArray *)availableVersions;
 - (nullable NSString *)getField:(NSString *)name;
 - (nullable NSString *)getRecord;
 - (nullable NSArray *)tags;
@@ -106,6 +115,10 @@
 @end
 
 namespace {
+
+NSString *ActionText(NSString *key) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Actions"];
+}
 
 NSString *StringOrNil(id value) {
     if (![value isKindOfClass:[NSString class]] || [value length] == 0)
@@ -348,6 +361,10 @@ NSDictionary *SourceSnapshot(id source) {
     if ((self = [super init]) != nil) {
         _identity = identity;
         _version = version;
+        _architecture = [package respondsToSelector:@selector(architecture)] ? StringOrNil([package architecture]) : nil;
+        _priority = [package respondsToSelector:@selector(versionPriority)] ? [package versionPriority] : 0;
+        _candidate = [package respondsToSelector:@selector(policyCandidate)] && [package policyCandidate];
+        _installed = [package respondsToSelector:@selector(selectedVersionInstalled)] && [package selectedVersionInstalled];
     }
     return self;
 }
@@ -425,6 +442,15 @@ NSDictionary *SourceSnapshot(id source) {
         _upgradable = [sourcePackage upgradableAndEssential:NO];
         _held = [sourcePackage ignored];
         _essential = [sourcePackage essential];
+        _protectedPackage = [sourcePackage respondsToSelector:@selector(protectedPackage)] && [sourcePackage protectedPackage];
+        const BOOL canReinstall([sourcePackage respondsToSelector:@selector(canReinstall)] ?
+            [sourcePackage canReinstall] : [sourcePackage source] != nil);
+        NSMutableArray *actionWarnings([_warnings mutableCopy]);
+        if (_held) [actionWarnings addObject:ActionText(@"PACKAGE_HELD_NOTICE")];
+        if (_essential) [actionWarnings addObject:ActionText(@"PACKAGE_ESSENTIAL_NOTICE")];
+        else if (_protectedPackage) [actionWarnings addObject:ActionText(@"PACKAGE_PROTECTED_NOTICE")];
+        if (_installed && !canReinstall) [actionWarnings addObject:ActionText(@"PACKAGE_REINSTALL_UNAVAILABLE")];
+        _warnings = [actionWarnings copy];
         _commercial = [sourcePackage isCommercial];
         _consolePackage = [sourcePackage hasTag:@"purpose::console"];
 
@@ -544,7 +570,8 @@ NSDictionary *SourceSnapshot(id source) {
 
         NSMutableArray<CydiaPackageDetailVersionChoice *> *versions(
             [NSMutableArray array]);
-        id legacyDowngrades([sourcePackage downgrades]);
+        id legacyDowngrades([sourcePackage respondsToSelector:@selector(availableVersions)] ?
+            [sourcePackage availableVersions] : [sourcePackage downgrades]);
         if ([legacyDowngrades isKindOfClass:[NSArray class]]) {
             for (id value in legacyDowngrades) {
                 CydiaPackageDetailVersionChoice *choice(
@@ -560,23 +587,35 @@ NSDictionary *SourceSnapshot(id source) {
         if (_modeLocalizationKey != nil)
             [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                 initWithKind:CydiaPackageDetailModifyActionKindClear key:@"CLEAR" versions:@[]]];
-        if (_source != nil) {
+        const BOOL available([sourcePackage respondsToSelector:@selector(versionAvailable)] ?
+            [sourcePackage versionAvailable] : _source != nil);
+        const NSInteger comparison([sourcePackage respondsToSelector:@selector(versionComparison)] ?
+            [sourcePackage versionComparison] : (_upgradable ? 1 : 0));
+        if (!_held && available) {
             if (_upgradable)
                 [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                     initWithKind:CydiaPackageDetailModifyActionKindUpgrade key:@"UPGRADE" versions:@[]]];
             else if (!_installed)
                 [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                     initWithKind:CydiaPackageDetailModifyActionKindInstall key:@"INSTALL" versions:@[]]];
-            else
+            else if (comparison < 0)
+                [actions addObject:[[CydiaPackageDetailModifyAction alloc]
+                    initWithKind:CydiaPackageDetailModifyActionKindDowngrade key:@"DOWNGRADE" versions:@[]]];
+        }
+        if (!_held && _installed && canReinstall)
                 [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                     initWithKind:CydiaPackageDetailModifyActionKindReinstall key:@"REINSTALL" versions:@[]]];
-        }
-        if (_installed)
+        if (!_held && _installed && !_essential && !_protectedPackage) {
             [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                 initWithKind:CydiaPackageDetailModifyActionKindRemove key:@"REMOVE" versions:@[]]];
-        if ([versions count] != 0)
+        }
+        if (!_held && !_essential && !_protectedPackage && (_installed ||
+            ([sourcePackage respondsToSelector:@selector(hasSavedConfiguration)] && [sourcePackage hasSavedConfiguration])))
             [actions addObject:[[CydiaPackageDetailModifyAction alloc]
-                initWithKind:CydiaPackageDetailModifyActionKindDowngrade key:@"DOWNGRADE"
+                initWithKind:CydiaPackageDetailModifyActionKindPurge key:@"PACKAGE_PURGE_ACTION" versions:@[]]];
+        if (!_held && [versions count] != 0)
+            [actions addObject:[[CydiaPackageDetailModifyAction alloc]
+                initWithKind:CydiaPackageDetailModifyActionKindVersions key:@"PACKAGE_VERSIONS"
                      versions:versions]];
         _modifyActions = [actions copy];
         if ([actions count] == 1)

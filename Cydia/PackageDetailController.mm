@@ -332,7 +332,9 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     CydiaMinimumTargetButton *modifyButton(
         [CydiaMinimumTargetButton buttonWithType:UIButtonTypeSystem]);
     modifyButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [modifyButton setTitle:UCLocalizeEx(key) forState:UIControlStateNormal];
+    [modifyButton setTitle:([key hasPrefix:@"PACKAGE_"] ?
+        [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Actions"] : UCLocalizeEx(key))
+        forState:UIControlStateNormal];
     modifyButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     modifyButton.titleLabel.adjustsFontForContentSizeCategory = YES;
     modifyButton.accessibilityIdentifier = @"cydia.package.modify";
@@ -1000,7 +1002,10 @@ dispatch:
     UIAlertController *sheet([UIAlertController
         alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet]);
     for (CydiaPackageDetailModifyAction *action in actions) {
-        [sheet addAction:[UIAlertAction actionWithTitle:UCLocalizeEx([action titleLocalizationKey])
+        NSString *key([action titleLocalizationKey]);
+        NSString *title([key hasPrefix:@"PACKAGE_"] ? [[NSBundle mainBundle]
+            localizedStringForKey:key value:key table:@"Actions"] : UCLocalizeEx(key));
+        [sheet addAction:[UIAlertAction actionWithTitle:title
                                                   style:UIAlertActionStyleDefault
                                                 handler:^(__unused UIAlertAction *selected) {
             [self selectModifyAction:action];
@@ -1013,7 +1018,7 @@ dispatch:
 }
 
 - (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action {
-    if ([action kind] != CydiaPackageDetailModifyActionKindDowngrade) {
+    if ([action kind] != CydiaPackageDetailModifyActionKindVersions) {
         [_packageDelegate packageDetailController:self
                             didSelectModifyAction:action
                                      versionChoice:nil];
@@ -1022,7 +1027,17 @@ dispatch:
     UIAlertController *sheet([UIAlertController
         alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet]);
     for (CydiaPackageDetailVersionChoice *choice in [action versions]) {
-        [sheet addAction:[UIAlertAction actionWithTitle:[choice version]
+        NSMutableArray *details([NSMutableArray array]);
+        if ([choice architecture] != nil) [details addObject:[choice architecture]];
+        NSString *priority([[NSBundle mainBundle] localizedStringForKey:@"PACKAGE_PRIORITY"
+            value:@"PACKAGE_PRIORITY" table:@"Actions"]);
+        [details addObject:[NSString stringWithFormat:priority, (long)[choice priority]]];
+        if ([choice candidate]) [details addObject:[[NSBundle mainBundle]
+            localizedStringForKey:@"PACKAGE_CANDIDATE" value:@"PACKAGE_CANDIDATE" table:@"Actions"]];
+        if ([choice installed]) [details addObject:UCLocalize("INSTALLED")];
+        NSString *title([NSString stringWithFormat:@"%@ (%@)", [choice version],
+            [details componentsJoinedByString:@", "]]);
+        [sheet addAction:[UIAlertAction actionWithTitle:title
                                                   style:UIAlertActionStyleDefault
                                                 handler:^(__unused UIAlertAction *selected) {
             [self.packageDelegate packageDetailController:self

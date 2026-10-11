@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "اختيار إصدار";
+"PACKAGE_PURGE_ACTION" = "إزالة الحزمة وملفات إعدادها";
+"PACKAGE_PURGE_EX" = "يزيل الحزمة وملفات إعدادها المحفوظة.";
+"PACKAGE_HELD_NOTICE" = "هذه الحزمة معلّقة. أوقف «تجاهل الترقيات» في إعدادات الحزمة قبل تغييرها.";
+"PACKAGE_ESSENTIAL_NOTICE" = "هذه الحزمة مصنّفة أساسية (Essential). لن يزيلها Cydia أو يحذف ملفات إعدادها.";
+"PACKAGE_PROTECTED_NOTICE" = "هذه الحزمة مصنّفة محمية (Protected). لن يزيلها Cydia أو يحذف ملفات إعدادها.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "الإصدار المثبّت غير متاح في المصادر الحالية. اختر إصدارًا آخر متاحًا.";
+"PACKAGE_PRIORITY" = "الأولوية: %ld";
+"PACKAGE_CANDIDATE" = "الإصدار المرشّح";
+"PACKAGE_HOLD_FAILED" = "تعذّر تغيير تعليق الحزمة. أعد التحميل وحاول مرة أخرى.";
+"PACKAGE_HOLD_QUEUE" = "أكمل أو ألغِ تغييرات الحزم في قائمة الانتظار قبل تغيير التعليق.";
+"PACKAGE_HELD_ISSUE" = "%@ معلّقة. أوقف «تجاهل الترقيات» في إعدادات الحزمة قبل تغييرها.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ مصنّفة أساسية (Essential). لن يزيلها Cydia أو يحذف ملفات إعدادها.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ مصنّفة محمية (Protected). لن يزيلها Cydia أو يحذف ملفات إعدادها.";

@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Versie kiezen";
+"PACKAGE_PURGE_ACTION" = "Pakket en configuratie wissen";
+"PACKAGE_PURGE_EX" = "Verwijdert het pakket en de opgeslagen configuratiebestanden.";
+"PACKAGE_HELD_NOTICE" = "Dit pakket is vastgehouden. Schakel ‘Negeer upgrades’ uit in de pakketinstellingen voordat je het wijzigt.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Dit pakket is als essentieel (Essential) gemarkeerd. Cydia zal het niet verwijderen of wissen.";
+"PACKAGE_PROTECTED_NOTICE" = "Dit pakket is als beschermd (Protected) gemarkeerd. Cydia zal het niet verwijderen of wissen.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "De geïnstalleerde versie is niet beschikbaar via de huidige bronnen. Kies een andere beschikbare versie.";
+"PACKAGE_PRIORITY" = "Prioriteit: %ld";
+"PACKAGE_CANDIDATE" = "Kandidaatversie";
+"PACKAGE_HOLD_FAILED" = "De vasthoudstatus van het pakket kon niet worden gewijzigd. Laad opnieuw en probeer het nog eens.";
+"PACKAGE_HOLD_QUEUE" = "Voltooi of annuleer pakketwijzigingen in de wachtrij voordat je een vasthoudstatus wijzigt.";
+"PACKAGE_HELD_ISSUE" = "%@ is vastgehouden. Schakel ‘Negeer upgrades’ uit in de pakketinstellingen voordat je het wijzigt.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ is als essentieel (Essential) gemarkeerd. Cydia zal het niet verwijderen of wissen.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ is als beschermd (Protected) gemarkeerd. Cydia zal het niet verwijderen of wissen.";

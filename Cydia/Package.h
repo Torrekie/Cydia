@@ -109,6 +109,16 @@ struct ParsedPackage {
 - (BOOL) uninstalled;
 - (BOOL) upgradableAndEssential:(BOOL)essential;
 - (BOOL) essential;
+- (BOOL) protectedPackage;
+- (BOOL) canReinstall;
+- (BOOL) hasSavedConfiguration;
+- (BOOL) versionAvailable;
+- (BOOL) policyCandidate;
+- (BOOL) selectedVersionInstalled;
+- (NSInteger) versionPriority;
+- (NSInteger) versionComparison;
+- (NSArray *) availableVersions;
+- (bool) setHeld:(bool)held;
 - (BOOL) broken;
 - (BOOL) unfiltered;
 - (BOOL) visible;
@@ -147,8 +157,10 @@ struct ParsedPackage {
 - (CYString &) cyname;
 - (uint32_t) compareBySection:(NSArray *)sections;
 - (void) clear;
-- (void) install;
-- (void) remove;
+- (bool) install;
+- (bool) reinstall;
+- (bool) remove;
+- (bool) purge;
 
 @end
 

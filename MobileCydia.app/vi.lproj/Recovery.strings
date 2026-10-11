@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Các gói đã cài bị ảnh hưởng";
+"RECOVERY_BUSY" = "Chờ thao tác gói hiện tại hoàn tất.";
+"RECOVERY_COMPLETED" = "Đã gỡ gói. Việc bỏ qua bước dọn dẹp có thể để lại tệp hoặc dịch vụ. Các tập lệnh gốc được giữ trong bản sao lưu được bảo vệ.";
+"RECOVERY_CONFIRM" = "Xác nhận gỡ khẩn cấp";
+"RECOVERY_CONSEQUENCES" = "Cydia sẽ sao lưu các tập lệnh của gói này, rồi gỡ gói mà không chạy chúng. Bước dọn dẹp bị bỏ qua nên các tệp hoặc dịch vụ do tập lệnh tạo ra có thể còn lại. Các tệp cấu hình được giữ lại. Có thể cần cài đặt lại để khôi phục hoạt động bình thường.";
+"RECOVERY_DETAILS" = "Chi tiết";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Gỡ gói này mà không chạy các tập lệnh bị lỗi.";
+"RECOVERY_EMPTY" = "Không còn gói nào có trạng thái dpkg chưa hoàn tất.";
+"RECOVERY_EXPLANATION" = "Các gói này có trạng thái dpkg chưa hoàn tất. Chọn một gói để thử sửa chữa thông thường.";
+"RECOVERY_FAILED" = "Sửa chữa thông thường chưa hoàn tất. Cài đặt lại có thể khôi phục gói. «%@» là tùy chọn gỡ khẩn cấp.";
+"RECOVERY_NORMAL_FIRST" = "Hãy thử sửa chữa thông thường hoặc cài đặt lại trước. «%@» sẽ khả dụng nếu sửa chữa thông thường thất bại.";
+"RECOVERY_PROTECTED" = "Gỡ khẩn cấp bị chặn vì sẽ ảnh hưởng đến gói được bảo vệ hoặc quan hệ phụ thuộc của gói đã cài.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Các kho hiện tại không cung cấp phiên bản đã cài. Hãy làm mới nguồn hoặc chọn gỡ thông thường.";
+"RECOVERY_REMOVE_FAILED" = "Gỡ khẩn cấp thất bại. Các tập lệnh gốc đã được khôi phục khi có thể và bản sao lưu được bảo vệ được giữ lại. Xem chi tiết trước khi thử lại.";
+"RECOVERY_REPAIR" = "Thử sửa chữa thông thường";
+"RECOVERY_REPAIR_COMPLETE" = "Sửa chữa thông thường đã hoàn tất. Trạng thái gói sẽ được tải lại.";
+"RECOVERY_REPAIR_EXPLANATION" = "Chạy các tập lệnh cấu hình thông thường của gói này để hoàn tất cài đặt.";
+"RECOVERY_STATE_CHANGED" = "Trạng thái gói đã thay đổi. Tải lại trang khôi phục và xem xét gói một lần nữa.";
+"RECOVERY_TITLE" = "Khôi phục gói";
+"RECOVERY_UNAVAILABLE" = "Không thể khôi phục an toàn. Kiểm tra Cài đặt nâng cao hoặc thử lại sau khi các thao tác gói khác hoàn tất.";
+"RECOVERY_WORKING" = "Đang xử lý…";

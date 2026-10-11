@@ -20,8 +20,10 @@
 - (void) releaseNetworkActivityIndicator;
 - (void) clearPackage:(Package *)package;
 - (void) installPackage:(Package *)package;
+- (void) reinstallPackage:(Package *)package;
 - (void) installPackages:(NSArray *)packages;
 - (void) removePackage:(Package *)package;
+- (void) purgePackage:(Package *)package;
 - (void) beginUpdate;
 - (void) cancelUpdate;
 - (BOOL) updating;

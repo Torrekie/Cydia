@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "Kontrollera åtkomst till pakethantering";
+"ACCESS_CHECK_START" = "Starta kontroll";
+"ACCESS_CHECK_EXPLANATION" = "Kontrollerar skyddad åtkomst till pakethanteraren och tar kortvarigt dess lås. Inga paket eller definitioner av paketkällor ändras.";
+"ACCESS_CHECK_RUNNING" = "Kontrollerar…";
+"ACCESS_CHECK_PASSED" = "Åtkomsten till pakethantering fungerar.";
+"ACCESS_CHECK_FAILED" = "Kontrollen kunde inte slutföras.";
+"ACCESS_CHECK_BUSY" = "En annan paketåtgärd använder pakethanteraren. Försök igen när den är klar.";
+"ACCESS_CHECK_RUNTIME" = "Skyddad körningskonfiguration";
+"ACCESS_CHECK_TRUST" = "Status för paketkällor och tillit";
+"ACCESS_CHECK_LOCK" = "Låsägare och exklusiv åtkomst";
+"ACCESS_CHECK_STATE" = "Skyddad APT-paketstatus";
+"ACCESS_CHECK_RELEASE" = "Frigörande av lås och åtkomstskydd";
+"ACCESS_CHECK_UNCHANGED" = "Paket- och källfiler förblev oförändrade";
+"ACCESS_CHECK_CHANGED" = "Paket- eller källstatus ändrades under kontrollen. Försök igen när andra pakethanterare inte är aktiva.";
+"ACCESS_CHECK_TIMEOUT" = "Kontrollen tog för lång tid. Ingen paketåtgärd startades.";
+"ACCESS_CHECK_DETAILS" = "Tekniska detaljer";
+"ACCESS_CHECK_NOT_RUN" = "Inte kontrollerat";
+"ACCESS_CHECK_COMPLETE" = "Verifierat";

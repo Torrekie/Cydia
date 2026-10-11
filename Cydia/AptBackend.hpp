@@ -13,6 +13,12 @@
 
 namespace CydiaAPT {
 
+struct AutoInstalledDelta {
+    std::string package;
+    std::string architecture;
+    bool automatic;
+};
+
 class AcquireStatus;
 
 namespace Internal {
@@ -40,6 +46,9 @@ class AptBackend {
     void discardErrors();
     bool loadSources();
     bool openCache();
+    bool lockForTransaction();
+    void unlockForTransaction();
+    std::vector<AutoInstalledDelta> autoInstalledDeltas();
     CacheStateSummary cacheState();
     bool applyStatus();
     bool fixBroken();
@@ -53,6 +62,7 @@ class AptBackend {
     std::vector<PackageHandle> packageHandles();
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
+    std::vector<PackageHandle> versionHandles(PackageHandle handle);
     PackageSnapshot packageSnapshot(PackageHandle handle);
     PackageRecordData recordData(PackageHandle handle);
     PackageStateData packageState(PackageHandle handle);
@@ -63,7 +73,8 @@ class AptBackend {
     bool prepareDistUpgrade();
     bool clearPackage(PackageHandle handle);
     bool installPackage(PackageHandle handle);
-    bool removePackage(PackageHandle handle);
+    bool reinstallPackage(PackageHandle handle);
+    bool removePackage(PackageHandle handle, bool purge = false);
     std::vector<SourceHandle> sourceHandles();
     SourceSnapshot sourceSnapshot(SourceHandle handle);
     std::string sourceField(SourceHandle handle, const std::string &name);

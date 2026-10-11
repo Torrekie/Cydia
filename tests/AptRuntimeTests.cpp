@@ -35,6 +35,22 @@ enum class SourceFixture {
     InvalidManaged,
 };
 SourceFixture gSourceFixture(SourceFixture::Relative);
+enum class RuntimeFixture {
+    Default,
+    CoherentOptions,
+    ContradictoryAdmin,
+    CoherentRoot,
+    ContradictoryRoot,
+    UnsupportedChroot,
+    NativeQuery,
+    NativeQueryConfigured,
+    QueryFailure,
+    MalformedOptions,
+    InvalidStatus,
+    InvalidExecutableOverrides,
+};
+RuntimeFixture gRuntimeFixture(RuntimeFixture::Default);
+std::string gFakeDpkgExecutable;
 
 void Fail(const std::string &message) {
     std::cerr << "[verify-apt-runtime][FAIL] " << message << std::endl;
@@ -67,17 +83,24 @@ std::string ExpectedEtcDirectory() {
 void ExpectBootstrapConfiguration(const Configuration &configuration, const char *stage,
                                   const std::string &expectedEtc) {
     const CydiaAPT::InitializationOptions &options(*gExpectedOptions);
-    ExpectValue(configuration, "APT::Architecture", options.architecture, stage);
+    const bool beforeConfig(std::strcmp(stage, "before pkgInitConfig") == 0);
+    const bool queried(gRuntimeFixture == RuntimeFixture::NativeQuery ||
+                       gRuntimeFixture == RuntimeFixture::NativeQueryConfigured);
+    ExpectValue(configuration, "APT::Architecture",
+                beforeConfig ? options.architecture : queried ? "native-dpkg-test" : "apt-conf-override", stage);
     ExpectValue(configuration, "Dir::Etc", expectedEtc, stage);
-    ExpectValue(configuration, "Dir::State::status", options.dpkgStatusPath, stage);
+    if (gRuntimeFixture == RuntimeFixture::Default || beforeConfig)
+        ExpectValue(configuration, "Dir::State::status",
+                    beforeConfig ? options.dpkgStatusPath : "/apt-conf-override/status", stage);
     ExpectValue(configuration, "Dir::Bin::dpkg", options.dpkgPath, stage);
     ExpectValue(configuration, "Dir::dpkg::cputable",
-                JoinPath(options.dpkgDataDirectory, "cputable"), stage);
+                beforeConfig ? JoinPath(options.dpkgDataDirectory, "cputable") : "/apt-conf-override/cputable", stage);
     ExpectValue(configuration, "Dir::dpkg::tupletable",
-                JoinPath(options.dpkgDataDirectory, "tupletable"), stage);
+                beforeConfig ? JoinPath(options.dpkgDataDirectory, "tupletable") : "/apt-conf-override/tupletable", stage);
     ExpectValue(configuration, "Dir::dpkg::triplettable",
-                JoinPath(options.dpkgDataDirectory, "triplettable"), stage);
-    ExpectValue(configuration, "DPkg::Path", options.dpkgExecutableSearchPath, stage);
+                beforeConfig ? JoinPath(options.dpkgDataDirectory, "triplettable") : "/apt-conf-override/triplettable", stage);
+    ExpectValue(configuration, "DPkg::Path",
+                beforeConfig ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin", stage);
 }
 
 void ExpectRootDirectory(const Configuration &configuration, const char *stage) {
@@ -153,11 +176,44 @@ void OverrideBootstrapConfiguration(Configuration &configuration) {
     configuration.Set("APT::Architecture", "apt-conf-override");
     configuration.Set("Dir::State::status", "/apt-conf-override/status");
     configuration.Set("Dir::Bin::dpkg", "/apt-conf-override/dpkg");
+    configuration.Set("Dir::Bin::dpkg-query", "/apt-conf-override/dpkg-query");
+    configuration.Set("Dir::Bin::dpkg-deb", "/apt-conf-override/dpkg-deb");
     configuration.Set("Dir::dpkg::cputable", "/apt-conf-override/cputable");
     configuration.Set("Dir::dpkg::tupletable", "/apt-conf-override/tupletable");
     configuration.Set("Dir::dpkg::triplettable", "/apt-conf-override/triplettable");
     configuration.Set("DPkg::Path", "/apt-conf-override/bin");
     configuration.Set("APT::Architectures::configured", "iphoneos-foreign-test");
+    configuration.Set("Dir::Bin::Methods", "/bootstrap/methods");
+    configuration.Set("Dir::State::extended_states", "/bootstrap/extended_states");
+    configuration.Set("Dir::Etc::trusted", "bootstrap-trusted.gpg");
+    configuration.Set("Dir::Etc::trustedparts", "bootstrap-trusted.gpg.d");
+    if (gRuntimeFixture == RuntimeFixture::CoherentOptions ||
+        gRuntimeFixture == RuntimeFixture::ContradictoryAdmin) {
+        configuration.Set("Dir::State::status", "/selected-admin/status");
+        configuration.Set("DPkg::Options::0", "--instdir=/selected-install-root");
+        configuration.Set("DPkg::Options::1", "--admindir");
+        configuration.Set("DPkg::Options::2", gRuntimeFixture == RuntimeFixture::CoherentOptions ?
+                          "/selected-admin" : "/another-admin");
+        configuration.Set("DPkg::Options::3", "--force-confold");
+    } else if (gRuntimeFixture == RuntimeFixture::CoherentRoot ||
+               gRuntimeFixture == RuntimeFixture::ContradictoryRoot) {
+        configuration.Set("DPkg::Options::0", "--root=/selected-root");
+        configuration.Set("Dir::State::status", gRuntimeFixture == RuntimeFixture::CoherentRoot ?
+                          "/selected-root/var/lib/dpkg/status" : "/another-admin/status");
+    } else if (gRuntimeFixture == RuntimeFixture::MalformedOptions)
+        configuration.Set("DPkg::Options::0", "--admindir");
+    else if (gRuntimeFixture == RuntimeFixture::InvalidStatus)
+        configuration.Set("Dir::State::status", "/selected-admin/snapshot");
+    else if (gRuntimeFixture == RuntimeFixture::UnsupportedChroot)
+        configuration.Set("DPkg::Chroot-Directory", "/selected-chroot");
+    else if (gRuntimeFixture == RuntimeFixture::NativeQuery ||
+             gRuntimeFixture == RuntimeFixture::NativeQueryConfigured ||
+             gRuntimeFixture == RuntimeFixture::QueryFailure) {
+        configuration.Set("Dir::Bin::dpkg", gRuntimeFixture == RuntimeFixture::NativeQueryConfigured ?
+                          gFakeDpkgExecutable : gExpectedOptions->dpkgPath);
+        if (gRuntimeFixture == RuntimeFixture::NativeQuery)
+            configuration.Clear("APT::Architectures");
+    }
 }
 
 CydiaAPT::InitializationOptions OptionsForLayout(
@@ -304,17 +360,17 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
     Expect(gConfigInitCalls == 1, std::string(name) + " pkgInitConfig call count");
     Expect(gSystemInitCalls == 1, std::string(name) + " pkgInitSystem call count");
     Expect(_system == &gTestSystem, std::string(name) + " selected package system");
-    Expect(architecture == options.architecture, std::string(name) + " reported architecture");
+    Expect(architecture == "apt-conf-override", std::string(name) + " reported bootstrap architecture");
     ExpectBootstrapConfiguration(configuration, "after initialization",
                                  ExpectedEtcDirectory());
     ExpectRootDirectory(configuration, "after initialization");
     ExpectSourceConfiguration(configuration, "after initialization");
-    ExpectArchitectures(configuration, {options.architecture, "iphoneos-foreign-test"},
+    ExpectArchitectures(configuration, {"iphoneos-foreign-test"},
                         "after initialization");
     Expect(CydiaAPT::Architectures() ==
-               std::vector<std::string>({options.architecture, "iphoneos-foreign-test"}),
+               std::vector<std::string>({"apt-conf-override", "iphoneos-foreign-test"}),
            std::string(name) + " materialized architecture vector");
-    Expect(CydiaAPT::IsArchitectureSupported(options.architecture),
+    Expect(CydiaAPT::IsArchitectureSupported("apt-conf-override"),
            std::string(name) + " native architecture support");
     Expect(CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test"),
            std::string(name) + " foreign architecture support");
@@ -325,7 +381,7 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
     Expect(!CydiaAPT::IsArchitectureSupported("any"),
            std::string(name) + " dependency proxy is not a dpkg architecture");
     Expect(CydiaAPT::SourceArchitectureOption() ==
-               "[arch=" + options.architecture + ",iphoneos-foreign-test]",
+               "[arch=apt-conf-override,iphoneos-foreign-test]",
            std::string(name) + " managed source architecture option");
     Expect(CydiaAPT::SourceListPath() == ExpectedSourceListPath(),
            std::string(name) + " maintainer source list resolution");
@@ -404,6 +460,102 @@ void VerifyIncompatibleRootedOptionsRejected() {
            "incompatible RootDir clears managed source state");
 }
 
+void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
+    CydiaAPT::InitializationOptions options(OptionsForLayout(
+        CydiaRuntime::PackageDatabasePaths::ForLayout(CydiaRuntime::PackageDatabaseLayout::Rootful)));
+    if (fixture == RuntimeFixture::NativeQuery)
+        options.nativeDpkgPath = gFakeDpkgExecutable;
+    else if (fixture == RuntimeFixture::NativeQueryConfigured || fixture == RuntimeFixture::QueryFailure)
+        options.nativeDpkgPath = "/unavailable-dpkg";
+    options.checkValidUntil = false;
+    options.helperPath = "/selected-helper";
+    if (fixture == RuntimeFixture::InvalidExecutableOverrides)
+        options.privateRuntimeConfigurationPath = "/dev/null";
+    Configuration configuration;
+    configuration.Set("DPkg::Options::stale", "--root=/stale-root");
+    configuration.Set("APT::Get::AllowUnauthenticated", "maintainer-setting");
+    _config = &configuration;
+    _system = NULL;
+    gExpectedOptions = &options;
+    gExpectedLayout = "runtime-descriptor";
+    gExpectedRootDir = "";
+    gSourceFixture = SourceFixture::Relative;
+    gRuntimeFixture = fixture;
+    std::string architecture;
+    Expect(CydiaAPT::Initialize(options, &architecture), "runtime descriptor remains readable");
+    Expect(CydiaAPT::MethodsDirectory() == "/bootstrap/methods", "loaded methods must survive initialization");
+    Expect(CydiaAPT::ExtendedStatesPath() == "/bootstrap/extended_states", "loaded shared extended state path");
+    Expect(CydiaAPT::TrustedKeyringDirectory() == ExpectedEtcDirectory() + "/bootstrap-trusted.gpg",
+           "relative legacy keyring follows bootstrap Dir::Etc");
+    Expect(CydiaAPT::TrustedKeyringPartsDirectory() == ExpectedEtcDirectory() + "/bootstrap-trusted.gpg.d",
+           "relative keyring parts follow bootstrap Dir::Etc");
+    ExpectValue(configuration, "Dir::Bin::dpkg", options.dpkgPath, "privileged execution wrapper");
+    Expect(CydiaAPT::DpkgQueryExecutablePath() == "/apt-conf-override/dpkg-query",
+           "loaded dpkg-query executable survives initialization");
+    Expect(CydiaAPT::DpkgDebExecutablePath() == "/apt-conf-override/dpkg-deb",
+           "loaded dpkg-deb executable survives initialization");
+    Expect(CydiaAPT::PrivilegedHelperPath() == options.helperPath, "explicit trusted helper endpoint");
+    const char *aptConfig = std::getenv("APT_CONFIG");
+    Expect(CydiaAPT::AptConfigOverride() == (aptConfig == NULL ? std::string() : aptConfig),
+           "review descriptor retains declared APT_CONFIG");
+
+    const bool valid(fixture == RuntimeFixture::Default || fixture == RuntimeFixture::CoherentOptions ||
+                     fixture == RuntimeFixture::CoherentRoot || fixture == RuntimeFixture::NativeQuery ||
+                     fixture == RuntimeFixture::NativeQueryConfigured);
+    Expect(CydiaAPT::MutationEnvironmentValid() == valid, "descriptor mutation capability");
+    Expect(CydiaAPT::RuntimeError().empty() == valid, "invalid mutation environment needs a diagnostic");
+    Expect(CydiaAPT::RuntimeErrorCode().empty() == valid, "invalid mutation environment needs a stable code");
+    if (fixture == RuntimeFixture::ContradictoryAdmin || fixture == RuntimeFixture::ContradictoryRoot)
+        Expect(CydiaAPT::RuntimeErrorCode() == "contradictory_dpkg_admin", "mismatched database code");
+    if (fixture == RuntimeFixture::InvalidExecutableOverrides)
+        Expect(CydiaAPT::RuntimeErrorCode() == "invalid_executable_overrides",
+               "invalid private authority blocks mutation without blocking reads");
+    if (fixture == RuntimeFixture::UnsupportedChroot) {
+        Expect(CydiaAPT::DpkgChrootDirectory() == "/selected-chroot", "chroot is distinct from install root");
+        Expect(CydiaAPT::DpkgRootDirectory() == "/", "chroot must not become --root");
+    }
+    if (fixture == RuntimeFixture::CoherentOptions) {
+        Expect(CydiaAPT::DpkgAdminDirectory() == "/selected-admin", "selected admin directory");
+        Expect(CydiaAPT::DpkgRootDirectory() == "/selected-install-root", "instdir installation root");
+        Expect(CydiaAPT::DpkgOptions() == std::vector<std::string>({
+            "--instdir=/selected-install-root", "--admindir", "/selected-admin", "--force-confold"}),
+            "exact loaded option order and values survive");
+    }
+    if (fixture == RuntimeFixture::CoherentRoot) {
+        Expect(CydiaAPT::DpkgRootDirectory() == "/selected-root", "explicit dpkg root");
+        Expect(CydiaAPT::DpkgAdminDirectory() == "/selected-root/var/lib/dpkg", "root-selected default admin directory");
+    }
+    if (fixture == RuntimeFixture::NativeQuery || fixture == RuntimeFixture::NativeQueryConfigured) {
+        Expect(CydiaAPT::DpkgExecutablePath() == gFakeDpkgExecutable, "real executable selected without cydo");
+        Expect(architecture == "native-dpkg-test", "native architecture comes from real dpkg query");
+        Expect(CydiaAPT::IsArchitectureSupported("foreign-dpkg-test") ==
+                   (fixture == RuntimeFixture::NativeQuery),
+               "explicit bootstrap foreign architecture policy must survive discovery");
+        Expect(CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test") ==
+                   (fixture == RuntimeFixture::NativeQueryConfigured),
+               "configured foreign architecture policy remains effective");
+    }
+    Expect(!CydiaAPT::CachedRepositoryTrustValid(), "initialization cannot authenticate cached indexes");
+    CydiaAPT::SetCachedRepositoryTrustValid(true);
+    for (CydiaAPT::RepositorySecurityMode mode : { CydiaAPT::RepositorySecurityMode::Allow,
+                                                  CydiaAPT::RepositorySecurityMode::Warning,
+                                                  CydiaAPT::RepositorySecurityMode::Error }) {
+        CydiaAPT::SetRepositorySecurityMode(mode);
+        Expect(CydiaAPT::CachedRepositoryTrustValid(), "changing security mode must preserve the existing proof flag");
+        const char *expected(CydiaAPT::AllowsInsecureRepositories(mode) ? "true" : "false");
+        ExpectValue(configuration, "Cydia::RepositorySecurityMode", RepositorySecurityModeName(mode), "security mode");
+        ExpectValue(configuration, "Acquire::AllowInsecureRepositories", expected, "security mode");
+        ExpectValue(configuration, "Acquire::AllowWeakRepositories", expected, "security mode");
+        ExpectValue(configuration, "Acquire::AllowDowngradeToInsecureRepositories", expected, "security mode");
+        ExpectValue(configuration, "Acquire::Check-Valid-Until", "false", "separate freshness policy");
+        ExpectValue(configuration, "APT::Get::AllowUnauthenticated", "maintainer-setting", "archive source preference");
+    }
+    CydiaAPT::SetCachedRepositoryTrustValid(false);
+    CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityMode::Error);
+    Expect(!CydiaAPT::CachedRepositoryTrustValid(), "changing to Error cannot establish trust proof");
+    gRuntimeFixture = RuntimeFixture::Default;
+}
+
 } // namespace
 
 bool pkgInitConfig(Configuration &configuration) {
@@ -452,7 +604,8 @@ bool pkgInitSystem(Configuration &configuration, pkgSystem *&system) {
     ++gSystemInitCalls;
     ExpectBootstrapConfiguration(configuration, "before pkgInitSystem",
                                  ExpectedEtcDirectory());
-    ExpectArchitectures(configuration, {}, "before pkgInitSystem");
+    if (gRuntimeFixture != RuntimeFixture::NativeQuery)
+        ExpectArchitectures(configuration, {"iphoneos-foreign-test"}, "before pkgInitSystem");
     ExpectValue(configuration, "Dir", "/", "before pkgInitSystem");
     ExpectRootDirectory(configuration, "before pkgInitSystem");
     ExpectSourceConfiguration(configuration, "before pkgInitSystem");
@@ -486,14 +639,39 @@ std::vector<std::string> getArchitectures(bool cached) {
     (void) cached;
     Expect(_system == &gTestSystem,
            std::string(gExpectedLayout) + " architecture discovery preceded pkgInitSystem");
-    return {gExpectedOptions->architecture, "iphoneos-foreign-test",
-            gExpectedOptions->architecture, "", "all", "any"};
+    std::vector<std::string> result(_config->FindVector("APT::Architectures"));
+    result.push_back(_config->Find("APT::Architecture"));
+    result.push_back("");
+    result.push_back("all");
+    result.push_back("any");
+    return result;
 }
 
 } // namespace Configuration
 } // namespace APT
 
-int main() {
+int main(int argc, char **argv) {
+    /* The same portable test binary acts as an unprivileged dpkg fixture;
+     * executable paths are discovered at runtime, never saved in the repo. */
+    if (argc == 4 && std::strcmp(argv[1], "--root=/") == 0 &&
+        std::strcmp(argv[2], "--admindir=/apt-conf-override") == 0) {
+        if (std::strcmp(argv[3], "--print-architecture") == 0) {
+            std::cout << "native-dpkg-test\n";
+            return 0;
+        }
+        if (std::strcmp(argv[3], "--print-foreign-architectures") == 0) {
+            std::cout << "foreign-dpkg-test\n";
+            return 0;
+        }
+    }
+    gFakeDpkgExecutable = argv[0];
+    for (RuntimeFixture fixture : { RuntimeFixture::Default, RuntimeFixture::CoherentOptions,
+                                    RuntimeFixture::ContradictoryAdmin, RuntimeFixture::CoherentRoot,
+                                    RuntimeFixture::ContradictoryRoot, RuntimeFixture::UnsupportedChroot,
+                                    RuntimeFixture::NativeQuery, RuntimeFixture::NativeQueryConfigured,
+                                    RuntimeFixture::QueryFailure, RuntimeFixture::MalformedOptions,
+                                    RuntimeFixture::InvalidStatus, RuntimeFixture::InvalidExecutableOverrides })
+        VerifyRuntimeEnvironment(fixture);
     const char *existingRoot(getenv("DPKG_ROOT"));
     const bool hadRoot(existingRoot != NULL);
     const std::string savedRoot(hadRoot ? existingRoot : "");
@@ -560,7 +738,7 @@ int main() {
     else
         unsetenv("DPKG_ROOT");
 
-    std::cout << "[verify-apt-runtime][ ok ] bootstrap paths precede both APT initialization stages"
+    std::cout << "[verify-apt-runtime][ ok ] effective bootstrap paths, dpkg descriptors and architecture discovery"
               << std::endl;
     return 0;
 }

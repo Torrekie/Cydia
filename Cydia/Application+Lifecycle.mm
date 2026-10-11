@@ -296,19 +296,5 @@ typedef enum {
     [self unlockSuspend];
 }
 
-- (void) stash {
-    UpdateExternalStatus(1);
-    [self yieldToSelector:@selector(runStashHelper)];
-    UpdateExternalStatus(0);
-
-    [self removeStashController];
-    [self reloadSpringBoard];
-}
-
-- (void) runStashHelper {
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    CydiaRuntime::Dpkg::Runner privileged(paths.CydoPath());
-    (void) privileged.Run({paths.CydiaHelperPath("free.sh")});
-}
 
 @end

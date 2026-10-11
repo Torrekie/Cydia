@@ -35,6 +35,25 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     return versions;
 }
 
+- (NSArray *) availableVersions {
+    NSMutableArray *versions([NSMutableArray array]);
+    if ([database_ era] != era_) return versions;
+    for (const CydiaAPT::PackageHandle handle : [database_ packageVersions:handle_]) {
+        Package *package([[Package alloc] initWithHandle:handle withZone:NULL inPool:NULL database:database_]);
+        if (package != nil) [versions addObject:package];
+    }
+    return versions;
+}
+
+- (BOOL) protectedPackage { return [database_ era] == era_ && [database_ packageState:handle_].protectedPackage; }
+- (BOOL) canReinstall { return [database_ era] == era_ && [database_ packageState:handle_].installedVersionAvailable; }
+- (BOOL) hasSavedConfiguration { return [database_ era] == era_ && [database_ packageState:handle_].state == "ConfigFiles"; }
+- (BOOL) versionAvailable { return [database_ era] == era_ && [database_ packageState:handle_].versionAvailable; }
+- (BOOL) policyCandidate { return [database_ era] == era_ && [database_ packageState:handle_].policyCandidate; }
+- (BOOL) selectedVersionInstalled { return [database_ era] == era_ && [database_ packageState:handle_].installedVersion; }
+- (NSInteger) versionPriority { return [database_ era] == era_ ? [database_ packageState:handle_].versionPriority : 0; }
+- (NSInteger) versionComparison { return [database_ era] == era_ ? [database_ packageState:handle_].versionComparison : 0; }
+
 - (NSString *) section {
     if (section$_ == nil) {
         if (section_.empty())

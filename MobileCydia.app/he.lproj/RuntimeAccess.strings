@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "בדיקת גישה לניהול חבילות";
+"ACCESS_CHECK_START" = "הפעלת הבדיקה";
+"ACCESS_CHECK_EXPLANATION" = "בודק גישה מוגנת למנהל החבילות ומחזיק בנעילה שלו לזמן קצר. חבילות והגדרות מאגרים אינן משתנות.";
+"ACCESS_CHECK_RUNNING" = "הבדיקה מתבצעת…";
+"ACCESS_CHECK_PASSED" = "הגישה לניהול חבילות פועלת.";
+"ACCESS_CHECK_FAILED" = "לא ניתן היה להשלים את הבדיקה.";
+"ACCESS_CHECK_BUSY" = "פעולת חבילות אחרת משתמשת במנהל החבילות. יש לנסות שוב לאחר שתסתיים.";
+"ACCESS_CHECK_RUNTIME" = "תצורת זמן ריצה מוגנת";
+"ACCESS_CHECK_TRUST" = "מצב המאגרים והאמון";
+"ACCESS_CHECK_LOCK" = "בעלות על הנעילה וגישה בלעדית";
+"ACCESS_CHECK_STATE" = "מצב חבילות APT מוגן";
+"ACCESS_CHECK_RELEASE" = "שחרור הנעילה והגנת הגישה";
+"ACCESS_CHECK_UNCHANGED" = "קובצי החבילות והמאגרים נותרו ללא שינוי";
+"ACCESS_CHECK_CHANGED" = "מצב החבילות או המאגרים השתנה במהלך הבדיקה. יש לנסות שוב כאשר מנהלי חבילות אחרים אינם פעילים.";
+"ACCESS_CHECK_TIMEOUT" = "תם הזמן שהוקצב לבדיקה. לא הופעלה פעולת חבילות.";
+"ACCESS_CHECK_DETAILS" = "פרטים טכניים";
+"ACCESS_CHECK_NOT_RUN" = "לא נבדק";
+"ACCESS_CHECK_COMPLETE" = "אומת";

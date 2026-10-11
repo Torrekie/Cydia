@@ -126,13 +126,38 @@ struct CacheStateSummary {
     CacheStateSummary();
 };
 
+enum class FetchDiagnosticKind {
+    General,
+    ArchiveIncomplete,
+    ArchiveMissingHashes,
+    ArchiveMismatch,
+    ArchiveUnavailable,
+    UnauthenticatedSource,
+    UnsignedRepository,
+    MissingSigningKey,
+    UnusableSigningKey,
+    WeakRepository,
+    MissingReleaseFile,
+    RepositoryTrustDowngrade,
+    BadRepositorySignature,
+    InvalidRepositorySignature,
+    ArchiveTrustNeedsRefresh,
+};
+
 struct FetchFailureData {
     std::string uri;
     std::string error;
+    std::string package;
+    FetchDiagnosticKind kind;
+
+    FetchFailureData() : kind(FetchDiagnosticKind::General) {}
 };
 
 struct FetchResultData {
     std::vector<FetchFailureData> failures;
+    /* Advisory only; display before package-manager execution without
+     * adding a second blocking approval for Warning mode. */
+    std::vector<FetchFailureData> warnings;
     bool completed;
 
     FetchResultData();
@@ -146,8 +171,13 @@ struct SourceListData {
 };
 
 struct UpdateResultData {
+    std::vector<FetchFailureData> warnings;
+    std::vector<FetchFailureData> failures;
     bool prepared;
     bool success;
+    /* APT may reuse old indexes after a transient network error even while
+     * reporting success. That run cannot establish a new trust proof. */
+    bool metadataComplete;
 
     UpdateResultData();
 };
@@ -175,6 +205,7 @@ struct PackageStateData {
     std::string selection;
     std::string mode;
     bool essential;
+    bool protectedPackage;
     bool ignored;
     bool broken;
     bool hasMode;
@@ -189,6 +220,12 @@ struct PackageStateData {
     bool reinstall;
     bool upgrade;
     bool downgrade;
+    bool versionAvailable;
+    bool installedVersionAvailable;
+    bool policyCandidate;
+    bool installedVersion;
+    int versionPriority;
+    int versionComparison;
 
     PackageStateData();
 };
@@ -238,6 +275,7 @@ struct TransactionReasonData {
 
 struct TransactionIssueData {
     std::string package;
+    std::string kind;
     std::vector<TransactionReasonData> reasons;
 };
 
@@ -247,6 +285,7 @@ struct TransactionData {
     std::vector<std::string> upgrades;
     std::vector<std::string> downgrades;
     std::vector<std::string> removes;
+    std::vector<std::string> purges;
     std::vector<TransactionIssueData> issues;
     std::uint64_t downloading;
     std::uint64_t resuming;
@@ -257,6 +296,7 @@ struct TransactionData {
 };
 
 std::string Fingerprint(const void *data, std::size_t size);
+std::string FingerprintFileDescriptor(int descriptor);
 
 } // namespace CydiaAPT
 

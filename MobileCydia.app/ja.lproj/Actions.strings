@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "バージョンを選択";
+"PACKAGE_PURGE_ACTION" = "パッケージと設定を完全に削除";
+"PACKAGE_PURGE_EX" = "パッケージと保存されている設定ファイルを削除します。";
+"PACKAGE_HELD_NOTICE" = "このパッケージは保留されています。変更する前にパッケージの設定で「アップグレードを適用しない」をオフにしてください。";
+"PACKAGE_ESSENTIAL_NOTICE" = "このパッケージは必須（Essential）に指定されています。Cydia では削除や設定を含む完全削除はできません。";
+"PACKAGE_PROTECTED_NOTICE" = "このパッケージは保護対象（Protected）に指定されています。Cydia では削除や設定を含む完全削除はできません。";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "インストール済みのバージョンは現在のソースから入手できません。入手可能な別のバージョンを選択してください。";
+"PACKAGE_PRIORITY" = "優先度: %ld";
+"PACKAGE_CANDIDATE" = "候補";
+"PACKAGE_HOLD_FAILED" = "パッケージの保留状態を変更できませんでした。再読み込みしてもう一度試してください。";
+"PACKAGE_HOLD_QUEUE" = "保留状態を変更する前に、キューにあるパッケージの変更を完了するか取り消してください。";
+"PACKAGE_HELD_ISSUE" = "%@は保留されています。変更する前にパッケージの設定で「アップグレードを適用しない」をオフにしてください。";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@は必須（Essential）に指定されています。Cydia では削除や設定を含む完全削除はできません。";
+"PACKAGE_PROTECTED_ISSUE" = "%@は保護対象（Protected）に指定されています。Cydia では削除や設定を含む完全削除はできません。";

@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Choose Version";
+"PACKAGE_PURGE_ACTION" = "Purge Package and Configuration";
+"PACKAGE_PURGE_EX" = "Removes the package and its saved configuration files.";
+"PACKAGE_HELD_NOTICE" = "This package is on hold. Turn off Ignore Upgrades in package settings before changing it.";
+"PACKAGE_ESSENTIAL_NOTICE" = "This package is marked Essential. Cydia will not remove or purge it.";
+"PACKAGE_PROTECTED_NOTICE" = "This package is marked Protected. Cydia will not remove or purge it.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "The installed version is unavailable from the current sources. Choose another available version instead.";
+"PACKAGE_PRIORITY" = "Priority: %ld";
+"PACKAGE_CANDIDATE" = "Candidate";
+"PACKAGE_HOLD_FAILED" = "The package hold could not be changed. Reload and try again.";
+"PACKAGE_HOLD_QUEUE" = "Complete or cancel queued package changes before changing a hold.";
+"PACKAGE_HELD_ISSUE" = "%@ is on hold. Turn off Ignore Upgrades in package settings before changing it.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ is marked Essential and cannot be removed or purged in Cydia.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ is marked Protected and cannot be removed or purged in Cydia.";

@@ -1,0 +1,2 @@
+# Mail patches preserve upstream context whitespace for exact Git replay.
+apt-extra/*.patch -whitespace

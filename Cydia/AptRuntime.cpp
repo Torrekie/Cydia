@@ -6,6 +6,8 @@
  */
 
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/DpkgRunner.h"
+#include "Cydia/PrivilegedRuntime.hpp"
 
 #include <apt-pkg/aptconfiguration.h>
 #include <apt-pkg/configuration.h>
@@ -15,6 +17,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
+#include <sstream>
 #include <vector>
 
 namespace CydiaAPT {
@@ -25,6 +29,25 @@ std::vector<std::string> gArchitectures;
 std::string gSourceListPath;
 std::string gSourcePartsDirectory;
 std::string gManagedSourceListPath;
+std::string gDpkgExecutablePath;
+std::string gDpkgQueryExecutablePath;
+std::string gDpkgDebExecutablePath;
+std::string gAptConfigOverride;
+std::string gPrivilegedHelperPath;
+std::string gDpkgAdminDirectory;
+std::string gDpkgRootDirectory;
+std::string gDpkgChrootDirectory;
+std::vector<std::string> gDpkgOptions;
+bool gMutationEnvironmentValid(false);
+std::string gRuntimeError;
+std::string gRuntimeErrorCode;
+std::string gExtendedStatesPath;
+std::string gMethodsDirectory;
+std::string gListsDirectory;
+std::string gTrustedKeyringDirectory;
+std::string gTrustedKeyringPartsDirectory;
+RepositorySecurityMode gRepositorySecurityMode(DefaultRepositorySecurityMode());
+bool gCachedRepositoryTrustValid(false);
 
 std::string JoinPath(const std::string &directory, const char *leaf) {
     std::string path(directory);
@@ -33,34 +56,18 @@ std::string JoinPath(const std::string &directory, const char *leaf) {
     return path;
 }
 
-void ApplyBootstrapConfiguration(const InitializationOptions &options,
-                                 bool resetArchitectureVector,
-                                 const std::string *etcSetting = NULL,
-                                 const std::string *sourceListSetting = NULL,
-                                 const std::string *sourcePartsSetting = NULL) {
-    /* pkgInitConfig supplies compile-time defaults and then reads apt.conf.
-     * Seed the selected non-source bootstrap paths before that read.  The
-     * second call, before pkgInitSystem, reapplies those selected paths while
-     * carrying the maintainer's raw Dir::Etc/source settings explicitly. */
+void ApplyBootstrapConfiguration(const InitializationOptions &options) {
+    /* Seed fallbacks once, before apt.conf is read. Loaded bootstrap paths,
+     * methods and architecture policy are authoritative after that read. */
     _config->Set("APT::Architecture", options.architecture);
-    if (resetArchitectureVector)
-        _config->Clear("APT::Architectures");
-    if (etcSetting == NULL)
-        _config->Set("Dir::Etc", options.aptConfigDirectory);
-    else
-        _config->Set("Dir::Etc", *etcSetting);
-    /* Keep the maintainer's spelling (including relative values and an
-     * explicit /dev/null) for the second pass. Passing FindFile/FindDir's
-     * already-rooted result back here would apply RootDir twice. */
-    if (sourceListSetting != NULL)
-        _config->Set("Dir::Etc::sourcelist", *sourceListSetting);
-    if (sourcePartsSetting != NULL)
-        _config->Set("Dir::Etc::sourceparts", *sourcePartsSetting);
+    _config->Set("Dir::Etc", options.aptConfigDirectory);
     _config->Set("Dir::Bin::Methods", options.methodsDirectory);
     _config->Set("Dir::Cache", options.cacheDirectory);
     _config->Set("Dir::State", options.stateDirectory);
     _config->Set("Dir::State::Lists", options.listsDirectory);
     _config->Set("Dir::State::status", options.dpkgStatusPath);
+    if (!options.bootstrapExtendedStatesPath.empty())
+        _config->Set("Dir::State::extended_states", options.bootstrapExtendedStatesPath);
     _config->Set("Dir::Log", options.logDirectory);
     _config->Set("Dir::Bin::dpkg", options.dpkgPath);
     _config->Set("Dir::dpkg::cputable", JoinPath(options.dpkgDataDirectory, "cputable"));
@@ -75,6 +82,25 @@ void ResetRuntimeState() {
     gSourceListPath.clear();
     gSourcePartsDirectory.clear();
     gManagedSourceListPath.clear();
+    gDpkgExecutablePath.clear();
+    gDpkgQueryExecutablePath.clear();
+    gDpkgDebExecutablePath.clear();
+    gAptConfigOverride.clear();
+    gPrivilegedHelperPath.clear();
+    gDpkgAdminDirectory.clear();
+    gDpkgRootDirectory.clear();
+    gDpkgChrootDirectory.clear();
+    gDpkgOptions.clear();
+    gMutationEnvironmentValid = false;
+    gRuntimeError.clear();
+    gRuntimeErrorCode.clear();
+    gExtendedStatesPath.clear();
+    gMethodsDirectory.clear();
+    gListsDirectory.clear();
+    gTrustedKeyringDirectory.clear();
+    gTrustedKeyringPartsDirectory.clear();
+    gRepositorySecurityMode = DefaultRepositorySecurityMode();
+    gCachedRepositoryTrustValid = false;
     _system = NULL;
 }
 
@@ -99,30 +125,24 @@ bool IsPathUnderRootDirectory(const std::string &path,
          path[root.size()] == '/');
 }
 
-bool HasIncompatibleRootedOptions(const InitializationOptions &options,
-                                  const std::string &rootDirectory) {
+bool HasIncompatibleRootedOptions(const std::string &rootDirectory) {
     if (rootDirectory.empty() || rootDirectory == "/")
         return false;
 
-    /* APT applies RootDir to FILE/DIR options itself. InitializationOptions
-     * use that same (root-relative) coordinate system; accepting a physical
+    /* APT applies RootDir to FILE/DIR options itself. Loaded values use
+     * that same (root-relative) coordinate system; accepting a physical
      * path which already contains RootDir would silently produce e.g.
      * /var/jb/var/jb/etc/apt. Reject the mixed coordinate system rather than
      * letting source discovery or dpkg status access land in an unintended
      * tree. DPkg::Path is a search path and is intentionally excluded: APT
      * does not RootDir-prefix its colon-separated entries. */
-    const std::string *paths[] = {
-        &options.aptConfigDirectory,
-        &options.methodsDirectory,
-        &options.cacheDirectory,
-        &options.stateDirectory,
-        &options.listsDirectory,
-        &options.logDirectory,
-        &options.dpkgStatusPath,
-        &options.dpkgDataDirectory,
+    const char *paths[] = {
+        "Dir::Etc", "Dir::Bin::Methods", "Dir::Cache", "Dir::State",
+        "Dir::State::Lists", "Dir::Log", "Dir::State::status",
+        "Dir::dpkg::cputable", "Dir::dpkg::tupletable", "Dir::dpkg::triplettable",
     };
     for (std::size_t index(0); index != sizeof(paths) / sizeof(paths[0]); ++index)
-        if (IsPathUnderRootDirectory(*paths[index], rootDirectory))
+        if (IsPathUnderRootDirectory(_config->Find(paths[index]), rootDirectory))
             return true;
 
     return false;
@@ -244,9 +264,171 @@ std::string ResolveManagedSourceList(const std::string &sourcePartsDirectory) {
     return candidate;
 }
 
+void InvalidateMutations(const char *code, const char *message) {
+    gMutationEnvironmentValid = false;
+    if (gRuntimeError.empty()) {
+        gRuntimeErrorCode = code;
+        gRuntimeError = message;
+    }
+}
+
+std::string NormalizeAbsolutePath(const std::string &value) {
+    if (value.empty() || value[0] != '/')
+        return std::string();
+    std::vector<std::string> parts;
+    std::istringstream input(value);
+    std::string part;
+    while (std::getline(input, part, '/')) {
+        if (part.empty() || part == ".")
+            continue;
+        if (part == "..") {
+            if (!parts.empty())
+                parts.pop_back();
+        } else
+            parts.push_back(part);
+    }
+    std::string result;
+    for (const std::string &component : parts)
+        result += '/' + component;
+    return result.empty() ? "/" : result;
+}
+
+bool PathsReferToSameDirectory(const std::string &left, const std::string &right) {
+    if (left == right)
+        return true;
+    /* Bootstrap paths can use equivalent aliases such as /var and
+     * /private/var. A differing spelling is not a different database. */
+    char *resolvedLeft(realpath(left.c_str(), NULL));
+    char *resolvedRight(realpath(right.c_str(), NULL));
+    const bool same(resolvedLeft != NULL && resolvedRight != NULL &&
+                    std::string(resolvedLeft) == resolvedRight);
+    std::free(resolvedLeft);
+    std::free(resolvedRight);
+    return same;
+}
+
+void ResolveDpkgEnvironment(const InitializationOptions &options) {
+    gMutationEnvironmentValid = true;
+    const std::string configured(_config->Find("Dir::Bin::dpkg", options.dpkgPath.c_str()));
+    gDpkgExecutablePath = configured != options.dpkgPath &&
+        !PathsReferToSameDirectory(configured, options.dpkgPath) ? configured : options.nativeDpkgPath;
+    const std::string::size_type binSlash(options.nativeDpkgPath.rfind('/'));
+    const std::string bin(binSlash == std::string::npos ? std::string() :
+                          options.nativeDpkgPath.substr(0, binSlash + 1));
+    gDpkgQueryExecutablePath = _config->Find("Dir::Bin::dpkg-query", (bin + "dpkg-query").c_str());
+    gDpkgDebExecutablePath = _config->Find("Dir::Bin::dpkg-deb", (bin + "dpkg-deb").c_str());
+    const std::string status(NormalizeAbsolutePath(_config->FindFile("Dir::State::status")));
+    const std::string::size_type slash(status.rfind('/'));
+    if (slash == std::string::npos || status.substr(slash + 1) != "status")
+        InvalidateMutations("invalid_dpkg_status", "APT's status path is not a dpkg status database.");
+    else
+        gDpkgAdminDirectory = slash == 0 ? "/" : status.substr(0, slash);
+
+    gDpkgRootDirectory = "/";
+    gDpkgChrootDirectory = NormalizeAbsolutePath(
+        _config->FindDir("DPkg::Chroot-Directory", "/"));
+    if (gDpkgChrootDirectory != "/")
+        InvalidateMutations("unsupported_dpkg_chroot", "This dpkg chroot requires a supported privileged wrapper before packages can be changed.");
+
+    gDpkgOptions = _config->FindVector("DPkg::Options");
+    /* Match APT's command construction: empty list entries are not argv. */
+    gDpkgOptions.erase(std::remove(gDpkgOptions.begin(), gDpkgOptions.end(), std::string()), gDpkgOptions.end());
+    std::string declaredAdmin;
+    for (std::size_t index(0); index != gDpkgOptions.size(); ++index) {
+        const std::string &argument(gDpkgOptions[index]);
+        const char *names[] = { "--root", "--instdir", "--admindir" };
+        for (const char *name : names) {
+            const std::string key(name);
+            std::string value;
+            if (argument == key) {
+                if (index + 1 != gDpkgOptions.size())
+                    value = gDpkgOptions[++index];
+            } else if (argument.compare(0, key.size() + 1, key + '=') == 0)
+                value = argument.substr(key.size() + 1);
+            else
+                continue;
+
+            const std::string normalized(NormalizeAbsolutePath(value));
+            if (normalized.empty()) {
+                InvalidateMutations("invalid_dpkg_options", "The configured dpkg root or admin directory must be an absolute path.");
+                continue;
+            }
+            if (key == "--admindir")
+                declaredAdmin = normalized;
+            else {
+                gDpkgRootDirectory = normalized;
+                if (key == "--root")
+                    declaredAdmin = NormalizeAbsolutePath(JoinPath(normalized, "var/lib/dpkg"));
+            }
+            break;
+        }
+    }
+    if (!declaredAdmin.empty() && !PathsReferToSameDirectory(declaredAdmin, gDpkgAdminDirectory))
+        InvalidateMutations("contradictory_dpkg_admin", "APT and the configured dpkg options select different package databases.");
+}
+
+void ApplyTrustedExecutableOverrides(const InitializationOptions &options) {
+    if (options.privateRuntimeConfigurationPath.empty()) return;
+    std::map<std::string, std::string> overrides;
+    CydiaRuntime::Privileged::Evidence evidence;
+    CydiaRuntime::Privileged::Error error;
+    if (!CydiaRuntime::Privileged::ReadExecutableOverridesFromPath(
+            options.privateRuntimeConfigurationPath, &overrides, &evidence, &error)) {
+        InvalidateMutations("invalid_executable_overrides", error.message.empty() ?
+            "The protected executable configuration could not be validated." : error.message.c_str());
+        return;
+    }
+    for (const auto &entry : overrides) {
+        if (entry.first == "dpkg") gDpkgExecutablePath = entry.second;
+        else if (entry.first == "dpkg-query") gDpkgQueryExecutablePath = entry.second;
+        else if (entry.first == "dpkg-deb") gDpkgDebExecutablePath = entry.second;
+        else if (entry.first == "apt-key" || entry.first == "gpgv")
+            _config->Set(("Dir::Bin::" + entry.first).c_str(), entry.second);
+    }
+}
+
+bool IsArchitectureName(const std::string &value) {
+    if (value.empty() || value == "any" || value == "all")
+        return false;
+    for (unsigned char character : value)
+        if (!(character >= 'a' && character <= 'z') &&
+            !(character >= '0' && character <= '9') && character != '-')
+            return false;
+    return true;
+}
+
+bool QueryDpkgArchitectures(std::vector<std::string> &discovered) {
+    CydiaRuntime::Dpkg::Runner runner(gDpkgExecutablePath);
+    std::vector<std::string> arguments;
+    arguments.push_back("--root=" + gDpkgRootDirectory);
+    arguments.push_back("--admindir=" + gDpkgAdminDirectory);
+    arguments.push_back("--print-architecture");
+    std::string native;
+    if (!runner.RunAndCapture(arguments, &native, 65536).succeeded())
+        return false;
+    std::istringstream nativeInput(native);
+    std::string architecture;
+    std::string excess;
+    if (!(nativeInput >> architecture) || (nativeInput >> excess) || !IsArchitectureName(architecture))
+        return false;
+    _config->Set("APT::Architecture", architecture);
+    discovered.push_back(architecture);
+
+    arguments.back() = "--print-foreign-architectures";
+    std::string foreign;
+    if (!runner.RunAndCapture(arguments, &foreign, 65536).succeeded())
+        return false;
+    std::istringstream foreignInput(foreign);
+    while (foreignInput >> architecture) {
+        if (!IsArchitectureName(architecture))
+            return false;
+        discovered.push_back(architecture);
+    }
+    return true;
+}
+
 void MaterializeArchitectures(const std::string &nativeArchitecture) {
-    std::vector<std::string> discovered(
-        APT::Configuration::getArchitectures(false));
+    const std::vector<std::string> discovered(APT::Configuration::getArchitectures(false));
     std::vector<std::string> normalized;
     if (!nativeArchitecture.empty())
         normalized.push_back(nativeArchitecture);
@@ -260,21 +442,15 @@ void MaterializeArchitectures(const std::string &nativeArchitecture) {
         normalized.push_back(*architecture);
     }
 
-    /* Freeze exactly what the selected dpkg reported. Source parsing and
-     * acquisition must not revive an architecture vector inherited from an
-     * apt.conf belonging to another bootstrap layout. */
-    _config->Clear("APT::Architectures");
-    for (std::size_t index(0); index != normalized.size(); ++index) {
-        const std::string key("APT::Architectures::" + std::to_string(index));
-        _config->Set(key.c_str(), normalized[index]);
-    }
+    /* Do not rewrite the maintainer's explicit foreign-architecture policy.
+     * getArchitectures adds the native architecture and normalizes the view. */
     gArchitectures.swap(normalized);
 }
 } // namespace
 
 InitializationOptions::InitializationOptions() :
     maxParallel(0),
-    allowInsecureRepositories(false),
+    repositorySecurityMode(DefaultRepositorySecurityMode()),
     checkValidUntil(true),
     forceEssential(false)
 {
@@ -282,6 +458,9 @@ InitializationOptions::InitializationOptions() :
 
 bool Initialize(const InitializationOptions &options, std::string *architecture) {
     ResetRuntimeState();
+    const char *aptConfig(std::getenv("APT_CONFIG"));
+    gAptConfigOverride = aptConfig == NULL ? std::string() : aptConfig;
+    gPrivilegedHelperPath = options.helperPath.empty() ? options.dpkgPath : options.helperPath;
 
     /* Configuration is process-global. Remove any vector inherited from a
      * previous bootstrap before reading the selected maintainer config. The
@@ -295,7 +474,10 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     _config->Clear("Dir::Etc::sourcelist");
     _config->Clear("Dir::Etc::sourceparts");
     _config->Clear("Cydia::APT::ManagedSourceList");
-    ApplyBootstrapConfiguration(options, true);
+    _config->Clear("APT::Architectures");
+    _config->Clear("DPkg::Options");
+    _config->Clear("DPkg::Chroot-Directory");
+    ApplyBootstrapConfiguration(options);
     if (!pkgInitConfig(*_config)) {
         ResetRuntimeState();
         return false;
@@ -313,7 +495,7 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
         _config->Find("Dir::Etc::sourcelist", "sources.list"));
     const std::string sourcePartsSetting(
         _config->Find("Dir::Etc::sourceparts", "sources.list.d"));
-    if (HasIncompatibleRootedOptions(options, rootDirectory) ||
+    if (HasIncompatibleRootedOptions(rootDirectory) ||
         IsPathUnderRootDirectory(etcSetting, rootDirectory) ||
         IsPathUnderRootDirectory(sourceListSetting, rootDirectory) ||
         IsPathUnderRootDirectory(sourcePartsSetting, rootDirectory)) {
@@ -329,13 +511,31 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     gSourceListPath = ResolveSourceListPath();
     gSourcePartsDirectory = ResolveSourcePartsDirectory();
 
-    /* The selected dpkg is the authority for native and foreign architecture
-     * state. Clear a stale/partial apt.conf vector again so libapt asks the
-     * initialized pkgSystem (and therefore this exact dpkg) when it constructs
-     * the cache. */
-    ApplyBootstrapConfiguration(options, true,
-                                &etcSetting,
-                                &sourceListSetting, &sourcePartsSetting);
+    ResolveDpkgEnvironment(options);
+    ApplyTrustedExecutableOverrides(options);
+    if (gDpkgExecutablePath.empty())
+        InvalidateMutations("missing_dpkg_executable", "The configured dpkg executable is missing.");
+    /* Query the real dpkg without invoking the privileged wrapper. An
+     * explicit APT::Architectures list remains the bootstrap's acquisition
+     * policy; only an absent list is populated from dpkg's foreign state. */
+    if (!options.nativeDpkgPath.empty()) {
+        std::vector<std::string> discovered;
+        if (!QueryDpkgArchitectures(discovered))
+            InvalidateMutations("architecture_query_failed", "Unable to query the selected dpkg's native and foreign architectures.");
+        if (_config->FindVector("APT::Architectures").empty()) {
+            if (discovered.empty())
+                discovered.push_back(_config->Find("APT::Architecture"));
+            for (std::size_t index(0); index != discovered.size(); ++index) {
+                const std::string key("APT::Architectures::" + std::to_string(index));
+                _config->Set(key.c_str(), discovered[index]);
+            }
+        }
+    }
+    /* Only the privileged execution endpoint is Cydia-owned. The real
+     * configured executable and all options remain in the descriptor. */
+    _config->Set("Dir::Bin::dpkg", options.dpkgPath);
+    _config->Set("Dir::Etc::sourcelist", sourceListSetting);
+    _config->Set("Dir::Etc::sourceparts", sourcePartsSetting);
     if (!pkgInitSystem(*_config, _system)) {
         ResetRuntimeState();
         return false;
@@ -352,11 +552,16 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
 
     gArchitecture = _config->Find("APT::Architecture");
     MaterializeArchitectures(gArchitecture);
+    gExtendedStatesPath = _config->FindFile("Dir::State::extended_states", "extended_states");
+    gMethodsDirectory = NormalizeRootDirectory(_config->FindDir("Dir::Bin::Methods"));
+    gListsDirectory = NormalizeRootDirectory(_config->FindDir("Dir::State::Lists"));
+    gTrustedKeyringDirectory = _config->FindFile("Dir::Etc::trusted", "trusted.gpg");
+    gTrustedKeyringPartsDirectory = NormalizeRootDirectory(
+        _config->FindDir("Dir::Etc::trustedparts", "trusted.gpg.d"));
 
-    if (options.allowInsecureRepositories)
-        _config->Set("Acquire::AllowInsecureRepositories", true);
+    SetCachedRepositoryTrustValid(false);
+    SetRepositorySecurityMode(options.repositorySecurityMode);
     _config->Set("Acquire::Check-Valid-Until", options.checkValidUntil);
-    _config->Set("Dir::Bin::Methods", options.methodsDirectory);
     if (options.forceEssential)
         _config->Set("pkgCacheGen::ForceEssential", "");
     if (!options.translation.empty())
@@ -369,6 +574,30 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
         *architecture = gArchitecture;
     return true;
 }
+
+void SetRepositorySecurityMode(RepositorySecurityMode mode) {
+    gRepositorySecurityMode = RepositorySecurityModeFromString(
+        RepositorySecurityModeName(mode));
+    const bool allow(AllowsInsecureRepositories(gRepositorySecurityMode));
+    /* This process-local override is consumed by the bundled acquisition
+     * policy. It takes precedence over per-source Trusted/allow shortcuts,
+     * while leaving the administrator's source documents unchanged. */
+    _config->Set("Cydia::RepositorySecurityMode", RepositorySecurityModeName(gRepositorySecurityMode));
+    _config->Set("Acquire::AllowInsecureRepositories", allow);
+    _config->Set("Acquire::AllowWeakRepositories", allow);
+    _config->Set("Acquire::AllowDowngradeToInsecureRepositories", allow);
+}
+
+RepositorySecurityMode GetRepositorySecurityMode() {
+    return gRepositorySecurityMode;
+}
+
+void SetCachedRepositoryTrustValid(bool valid) {
+    gCachedRepositoryTrustValid = valid;
+    _config->Set("Cydia::CachedRepositoryTrustValid", valid);
+}
+
+bool CachedRepositoryTrustValid() { return gCachedRepositoryTrustValid; }
 
 const std::string &Architecture() {
     return gArchitecture;
@@ -389,6 +618,24 @@ const std::string &SourcePartsDirectory() {
 const std::string &ManagedSourceListPath() {
     return gManagedSourceListPath;
 }
+
+const std::string &DpkgExecutablePath() { return gDpkgExecutablePath; }
+const std::string &DpkgQueryExecutablePath() { return gDpkgQueryExecutablePath; }
+const std::string &DpkgDebExecutablePath() { return gDpkgDebExecutablePath; }
+const std::string &AptConfigOverride() { return gAptConfigOverride; }
+const std::string &PrivilegedHelperPath() { return gPrivilegedHelperPath; }
+const std::string &DpkgAdminDirectory() { return gDpkgAdminDirectory; }
+const std::string &DpkgRootDirectory() { return gDpkgRootDirectory; }
+const std::string &DpkgChrootDirectory() { return gDpkgChrootDirectory; }
+const std::vector<std::string> &DpkgOptions() { return gDpkgOptions; }
+bool MutationEnvironmentValid() { return gMutationEnvironmentValid; }
+const std::string &RuntimeError() { return gRuntimeError; }
+const std::string &RuntimeErrorCode() { return gRuntimeErrorCode; }
+const std::string &ExtendedStatesPath() { return gExtendedStatesPath; }
+const std::string &MethodsDirectory() { return gMethodsDirectory; }
+const std::string &ListsDirectory() { return gListsDirectory; }
+const std::string &TrustedKeyringDirectory() { return gTrustedKeyringDirectory; }
+const std::string &TrustedKeyringPartsDirectory() { return gTrustedKeyringPartsDirectory; }
 
 bool IsArchitectureSupported(const std::string &architecture) {
     if (architecture == "all")

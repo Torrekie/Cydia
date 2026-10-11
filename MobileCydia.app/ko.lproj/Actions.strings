@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "버전 선택";
+"PACKAGE_PURGE_ACTION" = "패키지와 설정 완전히 제거";
+"PACKAGE_PURGE_EX" = "패키지와 저장된 설정 파일을 제거합니다.";
+"PACKAGE_HELD_NOTICE" = "이 패키지는 보류 중입니다. 변경하기 전에 패키지 설정에서 “업그레이드 무시”를 끄세요.";
+"PACKAGE_ESSENTIAL_NOTICE" = "이 패키지는 필수(Essential)로 표시되어 있습니다. Cydia에서는 이 패키지를 제거하거나 설정까지 삭제할 수 없습니다.";
+"PACKAGE_PROTECTED_NOTICE" = "이 패키지는 보호됨(Protected)으로 표시되어 있습니다. Cydia에서는 이 패키지를 제거하거나 설정까지 삭제할 수 없습니다.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "설치된 버전은 현재 소스에서 사용할 수 없습니다. 사용 가능한 다른 버전을 선택하세요.";
+"PACKAGE_PRIORITY" = "우선순위: %ld";
+"PACKAGE_CANDIDATE" = "후보 버전";
+"PACKAGE_HOLD_FAILED" = "패키지 보류 상태를 변경하지 못했습니다. 다시 불러온 후 재시도하세요.";
+"PACKAGE_HOLD_QUEUE" = "보류 상태를 변경하기 전에 대기열의 패키지 변경을 완료하거나 취소하세요.";
+"PACKAGE_HELD_ISSUE" = "%@는 보류 중입니다. 변경하기 전에 패키지 설정에서 “업그레이드 무시”를 끄세요.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@는 필수(Essential)로 표시되어 있습니다. Cydia에서는 이 패키지를 제거하거나 설정까지 삭제할 수 없습니다.";
+"PACKAGE_PROTECTED_ISSUE" = "%@는 보호됨(Protected)으로 표시되어 있습니다. Cydia에서는 이 패키지를 제거하거나 설정까지 삭제할 수 없습니다.";

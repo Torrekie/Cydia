@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Version auswählen";
+"PACKAGE_PURGE_ACTION" = "Paket und Konfiguration völlig entfernen";
+"PACKAGE_PURGE_EX" = "Entfernt das Paket und seine gespeicherten Konfigurationsdateien.";
+"PACKAGE_HELD_NOTICE" = "Dieses Paket wird zurückgehalten. Deaktivieren Sie „Aktualisierungen ignorieren“ in den Paketeinstellungen, bevor Sie es ändern.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Dieses Paket ist als essenziell (Essential) markiert. Cydia entfernt es nicht, auch nicht zusammen mit seiner Konfiguration.";
+"PACKAGE_PROTECTED_NOTICE" = "Dieses Paket ist als geschützt (Protected) markiert. Cydia entfernt es nicht, auch nicht zusammen mit seiner Konfiguration.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "Die installierte Version ist in den aktuellen Quellen nicht verfügbar. Wählen Sie stattdessen eine andere verfügbare Version.";
+"PACKAGE_PRIORITY" = "Priorität: %ld";
+"PACKAGE_CANDIDATE" = "Kandidat";
+"PACKAGE_HOLD_FAILED" = "Der Zurückhaltungsstatus des Pakets konnte nicht geändert werden. Laden Sie die Ansicht neu und versuchen Sie es erneut.";
+"PACKAGE_HOLD_QUEUE" = "Schließen Sie vorgemerkte Paketänderungen ab oder brechen Sie sie ab, bevor Sie den Zurückhaltungsstatus ändern.";
+"PACKAGE_HELD_ISSUE" = "%@ wird zurückgehalten. Deaktivieren Sie „Aktualisierungen ignorieren“ in den Paketeinstellungen, bevor Sie es ändern.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ ist als essenziell (Essential) markiert. Cydia entfernt es nicht, auch nicht zusammen mit seiner Konfiguration.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ ist als geschützt (Protected) markiert. Cydia entfernt es nicht, auch nicht zusammen mit seiner Konfiguration.";

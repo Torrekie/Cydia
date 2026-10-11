@@ -7,6 +7,7 @@
 
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
+#include <mach-o/dyld.h>
 #else
 #define TARGET_OS_SIMULATOR 0
 #endif
@@ -25,6 +26,28 @@ std::string SimulatorDataRootValue() {
         return std::string(root);
 #endif
     return std::string();
+}
+
+std::string CurrentExecutablePath() {
+#if defined(__APPLE__)
+    uint32_t size(0);
+    _NSGetExecutablePath(NULL, &size);
+    if (size == 0) return std::string();
+    std::vector<char> executable(size);
+    if (_NSGetExecutablePath(executable.data(), &size) == 0) return executable.data();
+#elif defined(__linux__)
+    std::vector<char> executable(4096);
+    const ssize_t size(readlink("/proc/self/exe", executable.data(), executable.size()));
+    if (size > 0 && static_cast<std::size_t>(size) < executable.size()) return std::string(executable.data(), size);
+#endif
+    return std::string();
+}
+
+std::string CanonicalPath(const std::string &path) {
+    if (path.empty() || path[0] != '/' || path.find('\0') != std::string::npos) return std::string();
+    char *resolved(realpath(path.c_str(), NULL));
+    if (resolved == NULL) return std::string();
+    const std::string canonical(resolved); free(resolved); return canonical;
 }
 
 #if TARGET_OS_SIMULATOR
@@ -132,6 +155,19 @@ const char *BSDCommandLeaf(CydiaRuntime::BootstrapBSDCommand command) {
 
 namespace CydiaRuntime {
 
+bool ResolveInstalledExecutableLayout(const std::string &executable,
+                                     const std::vector<InstalledExecutableCandidate> &candidates,
+                                     PackageDatabaseLayout *layout) {
+    if (layout == NULL) return false;
+    const std::string canonical(CanonicalPath(executable));
+    if (canonical.empty()) return false;
+    for (const auto &candidate : candidates) {
+        const std::string installed(CanonicalPath(candidate.path));
+        if (!installed.empty() && installed == canonical) { *layout = candidate.layout; return true; }
+    }
+    return false;
+}
+
 PackageDatabasePaths::PackageDatabasePaths(PackageDatabaseLayout layout,
                                            const char *aptArchitecture,
                                            const char *dpkgStatus,
@@ -205,6 +241,18 @@ std::string PackageDatabasePaths::SimulatorDataRoot() {
 }
 
 PackageDatabasePaths PackageDatabasePaths::Detect() {
+    std::vector<InstalledExecutableCandidate> candidates;
+    for (const auto layout : {PackageDatabaseLayout::Rootless, PackageDatabaseLayout::Rootful}) {
+        // Simulator fixture overrides do not identify a device installation.
+        const auto &installed(ValuesForLayout(layout));
+        candidates.push_back({layout, installed.cydiaApplication});
+        candidates.push_back({layout, installed.cydo});
+        candidates.push_back({layout, JoinPath(installed.cydiaLibexecDirectory, "cydo.dummy")});
+    }
+    PackageDatabaseLayout installed;
+    if (ResolveInstalledExecutableLayout(CurrentExecutablePath(), candidates, &installed))
+        return ForLayout(installed);
+
     /* An explicit layout is useful for launchers and makes tests deterministic. */
     const char *forced(getenv("CYDIA_PACKAGE_LAYOUT"));
     if (IsLayoutValue(forced, "rootless"))

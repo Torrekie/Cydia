@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Wybierz wersję";
+"PACKAGE_PURGE_ACTION" = "Usuń pakiet wraz z konfiguracją";
+"PACKAGE_PURGE_EX" = "Usuwa pakiet i jego zapisane pliki konfiguracyjne.";
+"PACKAGE_HELD_NOTICE" = "Ten pakiet jest wstrzymany. Wyłącz „Ignoruj uaktualnienia” w ustawieniach pakietu przed jego zmianą.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Ten pakiet jest oznaczony jako niezbędny (Essential). Cydia nie usunie go ani jego konfiguracji.";
+"PACKAGE_PROTECTED_NOTICE" = "Ten pakiet jest oznaczony jako chroniony (Protected). Cydia nie usunie go ani jego konfiguracji.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "Zainstalowana wersja nie jest dostępna w bieżących źródłach. Wybierz inną dostępną wersję.";
+"PACKAGE_PRIORITY" = "Priorytet: %ld";
+"PACKAGE_CANDIDATE" = "Wersja kandydująca";
+"PACKAGE_HOLD_FAILED" = "Nie udało się zmienić wstrzymania pakietu. Wczytaj ponownie i spróbuj jeszcze raz.";
+"PACKAGE_HOLD_QUEUE" = "Zakończ lub anuluj zmiany pakietów w kolejce przed zmianą wstrzymania.";
+"PACKAGE_HELD_ISSUE" = "%@ jest wstrzymany. Wyłącz „Ignoruj uaktualnienia” w ustawieniach pakietu przed jego zmianą.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ jest oznaczony jako niezbędny (Essential). Cydia nie usunie go ani jego konfiguracji.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ jest oznaczony jako chroniony (Protected). Cydia nie usunie go ani jego konfiguracji.";

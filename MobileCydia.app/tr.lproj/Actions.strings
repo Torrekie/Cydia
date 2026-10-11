@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Sürüm seç";
+"PACKAGE_PURGE_ACTION" = "Paketi ve yapılandırmayı tamamen kaldır";
+"PACKAGE_PURGE_EX" = "Paketi ve kayıtlı yapılandırma dosyalarını kaldırır.";
+"PACKAGE_HELD_NOTICE" = "Bu paket beklemeye alınmış. Değiştirmeden önce paket ayarlarında “Güncellemeleri Yoksay” seçeneğini kapatın.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Bu paket temel (Essential) olarak işaretlenmiş. Cydia bu paketi kaldırmaz veya yapılandırmasıyla birlikte silmez.";
+"PACKAGE_PROTECTED_NOTICE" = "Bu paket korumalı (Protected) olarak işaretlenmiş. Cydia bu paketi kaldırmaz veya yapılandırmasıyla birlikte silmez.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "Yüklü sürüm geçerli kaynaklarda bulunmuyor. Başka bir kullanılabilir sürüm seçin.";
+"PACKAGE_PRIORITY" = "Öncelik: %ld";
+"PACKAGE_CANDIDATE" = "Aday sürüm";
+"PACKAGE_HOLD_FAILED" = "Paketin bekletme durumu değiştirilemedi. Yeniden yükleyip tekrar deneyin.";
+"PACKAGE_HOLD_QUEUE" = "Bekletme durumunu değiştirmeden önce sıradaki paket değişikliklerini tamamlayın veya iptal edin.";
+"PACKAGE_HELD_ISSUE" = "%@ beklemeye alınmış. Değiştirmeden önce paket ayarlarında “Güncellemeleri Yoksay” seçeneğini kapatın.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ temel (Essential) olarak işaretlenmiş. Cydia bu paketi kaldırmaz veya yapılandırmasıyla birlikte silmez.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ korumalı (Protected) olarak işaretlenmiş. Cydia bu paketi kaldırmaz veya yapılandırmasıyla birlikte silmez.";

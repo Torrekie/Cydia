@@ -46,6 +46,7 @@ void TestGroupsIdentityAndOwnership() {
     transaction.upgrades.push_back("foreign-package:iphoneos-arm");
     transaction.downgrades.push_back("independent-package");
     transaction.removes.push_back("old-package");
+    transaction.purges.push_back("old-config-package");
 
     NSMutableString *foreignName([NSMutableString stringWithString:@"Foreign Runtime"]);
     __block NSUInteger resolverCalls(0);
@@ -65,16 +66,17 @@ void TestGroupsIdentityAndOwnership() {
         advancedModeEnabled:NO
         packageNameResolver:resolver]);
 
-    Require([[model groups] count] == 5, "non-empty change group count changed");
+    Require([[model groups] count] == 6, "remove and purge groups must remain distinct");
     const CydiaConfirmationChangeKind kinds[] = {
         CydiaConfirmationChangeKindInstall,
         CydiaConfirmationChangeKindReinstall,
         CydiaConfirmationChangeKindUpgrade,
         CydiaConfirmationChangeKindDowngrade,
         CydiaConfirmationChangeKindRemove,
+        CydiaConfirmationChangeKindPurge,
     };
-    NSArray *keys(@[@"INSTALL", @"REINSTALL", @"UPGRADE", @"DOWNGRADE", @"REMOVE"]);
-    for (NSUInteger index(0); index != 5; ++index) {
+    NSArray *keys(@[@"INSTALL", @"REINSTALL", @"UPGRADE", @"DOWNGRADE", @"REMOVE", @"PURGE"]);
+    for (NSUInteger index(0); index != 6; ++index) {
         CydiaConfirmationChangeGroup *group([[model groups] objectAtIndex:index]);
         Require([group kind] == kinds[index], "change group order changed");
         RequireString([group titleLocalizationKey], [keys objectAtIndex:index],
@@ -107,7 +109,7 @@ void TestGroupsIdentityAndOwnership() {
     RequireString([foreign identity], @"foreign-package:iphoneos-arm",
                   "model retained qualified transaction storage");
     RequireString([foreign displayName], @"Foreign Runtime", "model retained resolver storage");
-    Require(resolverCalls == 6, "resolver was not called exactly once per unique package identity");
+    Require(resolverCalls == 7, "resolver was not called exactly once per unique package identity");
     Require(![[model groups] isKindOfClass:[NSMutableArray class]], "groups remained mutable");
 }
 
@@ -211,7 +213,7 @@ void TestSizesAndPolicies() {
         packageNameResolver:nil]);
     Require(![emptyModel hasChanges], "empty transaction contains changes");
     Require(![emptyModel hasBlockingIssues], "empty transaction contains issues");
-    Require([emptyModel showsConfirmAction], "legacy empty transaction lost Confirm");
+    Require(![emptyModel showsConfirmAction], "empty transaction exposed Confirm");
     Require([[emptyModel groups] count] == 0, "empty transaction exposed empty sections");
     Require([emptyModel essentialRemovalPolicy] == CydiaConfirmationEssentialRemovalPolicyNone,
             "empty transaction has an essential policy");
@@ -232,14 +234,14 @@ void TestSizesAndPolicies() {
     Require([blocked essentialRemovalPolicy] == CydiaConfirmationEssentialRemovalPolicyBlocked,
             "non-Advanced essential removal was not blocked");
     Require([blocked requiresSubstrateRestart], "substrate restart flag was lost");
-    Require([blocked showsConfirmAction], "essential policy incorrectly hid Confirm");
+    Require(![blocked showsConfirmAction], "essential removal exposed Confirm");
 
     CydiaConfirmationViewModel *forceAllowed([[CydiaConfirmationViewModel alloc]
         initWithTransactionData:dangerous
         advancedModeEnabled:YES
         packageNameResolver:nil]);
-    Require([forceAllowed essentialRemovalPolicy] == CydiaConfirmationEssentialRemovalPolicyForceAllowed,
-            "Advanced essential removal did not require force confirmation");
+    Require([forceAllowed essentialRemovalPolicy] == CydiaConfirmationEssentialRemovalPolicyBlocked,
+            "legacy Advanced flag bypassed essential protection");
 }
 
 } // namespace

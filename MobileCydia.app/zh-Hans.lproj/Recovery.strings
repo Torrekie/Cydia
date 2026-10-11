@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "受影响的已安装软件包";
+"RECOVERY_BUSY" = "请等待当前软件包操作完成。";
+"RECOVERY_COMPLETED" = "软件包已移除。由于跳过了清理步骤，可能仍有文件或服务残留。其原始脚本已保存在受保护的备份中。";
+"RECOVERY_CONFIRM" = "确认紧急移除";
+"RECOVERY_CONSEQUENCES" = "Cydia 将备份此软件包的脚本，然后在不运行这些脚本的情况下移除软件包。清理步骤将被跳过，因此脚本创建的文件或服务可能残留。配置文件会被保留。可能需要重新安装才能恢复正常行为。";
+"RECOVERY_DETAILS" = "详情";
+"RECOVERY_EMERGENCY_EXPLANATION" = "移除此软件包，但不运行其失败的脚本。";
+"RECOVERY_EMPTY" = "已没有 dpkg 状态不完整的软件包。";
+"RECOVERY_EXPLANATION" = "这些软件包的 dpkg 状态不完整。请选择一个软件包尝试正常修复。";
+"RECOVERY_FAILED" = "正常修复未完成。重新安装可能恢复此软件包。「%@」可用于紧急移除。";
+"RECOVERY_NORMAL_FIRST" = "请先尝试正常修复或重新安装。如果正常修复失败，即可使用「%@」。";
+"RECOVERY_PROTECTED" = "紧急移除会影响受保护的软件包或已安装的依赖软件包，因此已被阻止。";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "当前软件源未提供已安装的版本。请刷新软件源，或选择正常移除。";
+"RECOVERY_REMOVE_FAILED" = "紧急移除失败。已尽可能恢复原始脚本，并保留受保护的备份。重试前请查看详情。";
+"RECOVERY_REPAIR" = "尝试正常修复";
+"RECOVERY_REPAIR_COMPLETE" = "正常修复已完成。软件包状态将重新载入。";
+"RECOVERY_REPAIR_EXPLANATION" = "运行此软件包的常规配置脚本，以完成安装。";
+"RECOVERY_STATE_CHANGED" = "软件包状态已改变。请重新载入修复页面并再次检查此软件包。";
+"RECOVERY_TITLE" = "软件包修复";
+"RECOVERY_UNAVAILABLE" = "无法安全修复。请检查高级设置，或等其他软件包操作完成后重试。";
+"RECOVERY_WORKING" = "正在处理…";

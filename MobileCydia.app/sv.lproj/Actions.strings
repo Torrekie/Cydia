@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Välj version";
+"PACKAGE_PURGE_ACTION" = "Rensa paket och konfiguration";
+"PACKAGE_PURGE_EX" = "Tar bort paketet och dess sparade konfigurationsfiler.";
+"PACKAGE_HELD_NOTICE" = "Det här paketet är låst. Stäng av ”Ignorera uppgraderingar” i paketinställningarna innan du ändrar det.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Det här paketet är markerat som nödvändigt (Essential). Cydia kommer inte att ta bort eller rensa det.";
+"PACKAGE_PROTECTED_NOTICE" = "Det här paketet är markerat som skyddat (Protected). Cydia kommer inte att ta bort eller rensa det.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "Den installerade versionen finns inte i de aktuella källorna. Välj en annan tillgänglig version.";
+"PACKAGE_PRIORITY" = "Prioritet: %ld";
+"PACKAGE_CANDIDATE" = "Kandidatversion";
+"PACKAGE_HOLD_FAILED" = "Paketets låsning kunde inte ändras. Läs in igen och försök på nytt.";
+"PACKAGE_HOLD_QUEUE" = "Slutför eller avbryt köade paketändringar innan du ändrar en låsning.";
+"PACKAGE_HELD_ISSUE" = "%@ är låst. Stäng av ”Ignorera uppgraderingar” i paketinställningarna innan du ändrar det.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ är markerat som nödvändigt (Essential). Cydia kommer inte att ta bort eller rensa det.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ är markerat som skyddat (Protected). Cydia kommer inte att ta bort eller rensa det.";

@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "選擇版本";
+"PACKAGE_PURGE_ACTION" = "徹底移除套件與設定";
+"PACKAGE_PURGE_EX" = "移除套件及其已儲存的設定檔。";
+"PACKAGE_HELD_NOTICE" = "此套件已被保留。變更前請先在套件設定中關閉「忽略升級項目」。";
+"PACKAGE_ESSENTIAL_NOTICE" = "此套件被標記為必要（Essential）。Cydia 不會移除或徹底清除此套件。";
+"PACKAGE_PROTECTED_NOTICE" = "此套件被標記為受保護（Protected）。Cydia 不會移除或徹底清除此套件。";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "目前的套件來源不提供已安裝的版本。請選擇其他可用版本。";
+"PACKAGE_PRIORITY" = "優先順序：%ld";
+"PACKAGE_CANDIDATE" = "候選版本";
+"PACKAGE_HOLD_FAILED" = "無法變更套件的保留狀態。請重新載入並重試。";
+"PACKAGE_HOLD_QUEUE" = "變更保留狀態前，請先完成或取消佇列中的套件變更。";
+"PACKAGE_HELD_ISSUE" = "%@已被保留。變更前請先在套件設定中關閉「忽略升級項目」。";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@被標記為必要（Essential）。Cydia 不會移除或徹底清除此套件。";
+"PACKAGE_PROTECTED_ISSUE" = "%@被標記為受保護（Protected）。Cydia 不會移除或徹底清除此套件。";

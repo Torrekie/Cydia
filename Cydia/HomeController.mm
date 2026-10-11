@@ -9,6 +9,7 @@
 #include "Cydia/ExternalURLPolicy.h"
 #include "Cydia/HomeSplitDisclosure.h"
 #include "Cydia/HomeTableAppearance.h"
+#include "Cydia/SettingsController.h"
 #include "Cydia/TableViewCompatibility.h"
 
 #include "Cydia/Application.h"
@@ -774,10 +775,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 
 - (UIBarButtonItem *) leftButton {
     return [[UIBarButtonItem alloc]
-        initWithTitle:UCLocalize("ABOUT")
+        initWithTitle:UCLocalize("SETTINGS")
         style:UIBarButtonItemStylePlain
         target:self
-        action:@selector(aboutButtonClicked)];
+        action:@selector(settingsButtonClicked)];
 }
 
 - (void) setReachabilityKnownValue:(NSNumber *)value {
@@ -979,6 +980,12 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CLOSE")
         style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void) settingsButtonClicked {
+    CydiaSettingsController *settings([[CydiaSettingsController alloc] initWithDatabase:database_]);
+    [settings setDelegate:[self delegate]];
+    [self.navigationController pushViewController:settings animated:YES];
 }
 
 - (NSInteger) numberOfSectionsInTableView:(UITableView *)tableView {

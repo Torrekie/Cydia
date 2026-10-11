@@ -26,6 +26,7 @@ bool MinimizeUpgrade(pkgDepCache &cache);
 bool PrepareDistUpgrade(pkgDepCache &cache);
 bool ResolveDependencies(pkgProblemResolver &resolver);
 bool UpdateLists(pkgAcquireStatus &status, pkgSourceList &list, int pulseInterval);
+bool UpdateLists(pkgAcquireStatus &status, pkgSourceList &list, int pulseInterval, UpdateResultData &result);
 
 } // namespace CydiaAPT
 

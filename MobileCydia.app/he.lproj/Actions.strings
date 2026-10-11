@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "בחירת גרסה";
+"PACKAGE_PURGE_ACTION" = "הסרת החבילה וההגדרות";
+"PACKAGE_PURGE_EX" = "מסיר את החבילה ואת קובצי ההגדרות השמורים שלה.";
+"PACKAGE_HELD_NOTICE" = "חבילה זו נמצאת בהקפאה. יש לכבות את „התעלם משדרוגים” בהגדרות החבילה לפני שינויה.";
+"PACKAGE_ESSENTIAL_NOTICE" = "חבילה זו מסומנת כחיונית (Essential). Cydia לא יסיר אותה או את ההגדרות שלה.";
+"PACKAGE_PROTECTED_NOTICE" = "חבילה זו מסומנת כמוגנת (Protected). Cydia לא יסיר אותה או את ההגדרות שלה.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "הגרסה המותקנת אינה זמינה במקורות הנוכחיים. יש לבחור גרסה זמינה אחרת.";
+"PACKAGE_PRIORITY" = "עדיפות: %ld";
+"PACKAGE_CANDIDATE" = "גרסה מועמדת";
+"PACKAGE_HOLD_FAILED" = "לא ניתן לשנות את הקפאת החבילה. יש לטעון מחדש ולנסות שוב.";
+"PACKAGE_HOLD_QUEUE" = "יש להשלים או לבטל שינויים בחבילות הממתינים בתור לפני שינוי ההקפאה.";
+"PACKAGE_HELD_ISSUE" = "%@ נמצאת בהקפאה. יש לכבות את „התעלם משדרוגים” בהגדרות החבילה לפני שינויה.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ מסומנת כחיונית (Essential). Cydia לא יסיר אותה או את ההגדרות שלה.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ מסומנת כמוגנת (Protected). Cydia לא יסיר אותה או את ההגדרות שלה.";

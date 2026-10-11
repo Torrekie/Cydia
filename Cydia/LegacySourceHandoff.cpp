@@ -344,12 +344,12 @@ static bool IsTrustedMarkerLocation(const std::string &marker,
 
     struct stat parentStat;
     if (lstat(parent.c_str(), &parentStat) == -1 || !S_ISDIR(parentStat.st_mode) ||
-        (parentStat.st_mode & 0022) != 0)
+        parentStat.st_uid != geteuid() || (parentStat.st_mode & 0022) != 0)
         return false;
 
     struct stat markerStat;
     if (lstat(marker.c_str(), &markerStat) == -1 || !S_ISREG(markerStat.st_mode) ||
-        markerStat.st_uid != parentStat.st_uid)
+        markerStat.st_uid != geteuid() || (markerStat.st_mode & 0022) != 0)
         return false;
     return true;
 }
@@ -400,7 +400,10 @@ static int RenameLegacySourceNoReplace(const char *source, const char *target) {
 }
 
 bool RestoreLegacySourceHandoff() {
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    return RestoreLegacySourceHandoff(PackageDatabasePaths::Current());
+}
+
+bool RestoreLegacySourceHandoff(const PackageDatabasePaths &paths) {
     std::vector<std::string> candidates;
     /* Use the layout abstraction for the normal state marker.  The explicit
      * admin/root candidates below retain compatibility with maintainer

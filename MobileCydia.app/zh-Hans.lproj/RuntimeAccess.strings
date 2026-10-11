@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "检查软件包管理访问权限";
+"ACCESS_CHECK_START" = "开始检查";
+"ACCESS_CHECK_EXPLANATION" = "检查受保护的软件包管理访问权限，并短暂获取其锁。不会更改软件包或软件源定义。";
+"ACCESS_CHECK_RUNNING" = "正在检查…";
+"ACCESS_CHECK_PASSED" = "软件包管理访问正常。";
+"ACCESS_CHECK_FAILED" = "未能完成检查。";
+"ACCESS_CHECK_BUSY" = "另一项软件包操作正在使用软件包管理器。请在操作完成后重试。";
+"ACCESS_CHECK_RUNTIME" = "受保护的运行时配置";
+"ACCESS_CHECK_TRUST" = "软件源与信任状态";
+"ACCESS_CHECK_LOCK" = "锁的持有者与互斥访问";
+"ACCESS_CHECK_STATE" = "受保护的 APT 软件包状态";
+"ACCESS_CHECK_RELEASE" = "锁的释放与访问保护";
+"ACCESS_CHECK_UNCHANGED" = "软件包和软件源文件未发生变化";
+"ACCESS_CHECK_CHANGED" = "检查期间软件包或软件源状态发生了变化。请在其他软件包管理器空闲时重试。";
+"ACCESS_CHECK_TIMEOUT" = "检查超时。未启动任何软件包操作。";
+"ACCESS_CHECK_DETAILS" = "技术详情";
+"ACCESS_CHECK_NOT_RUN" = "尚未检查";
+"ACCESS_CHECK_COMPLETE" = "已验证";

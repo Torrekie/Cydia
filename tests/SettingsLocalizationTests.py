@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Check the invented Settings table against every shipped locale."""
+import json
+import pathlib
+import re
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+ENTRY = re.compile(r'("(?:[^"\\]|\\.)*")\s*=\s*("(?:[^"\\]|\\.)*")\s*;')
+FORMAT = re.compile(r'%(?!%)(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztL])?[@diouxXfFeEgGaAcCsSp]')
+
+
+def read_table(path, allow_equal=False):
+    text = path.read_text(encoding="utf-8-sig")
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+    result = {}
+    end = 0
+    for match in ENTRY.finditer(text):
+        assert not text[end:match.start()].strip(), f"Invalid entry in {path.name}"
+        key, value = (json.loads(part) for part in match.groups())
+        assert key not in result, f"Duplicate key: {key}"
+        assert value and (allow_equal or value != key), f"Untranslated key: {key}"
+        result[key] = value
+        end = match.end()
+    assert not text[end:].strip(), f"Invalid trailing entry in {path.name}"
+    return result
+
+
+def main():
+    bundles = sorted((ROOT / "MobileCydia.app").glob("*.lproj"))
+    assert len(bundles) == 21, "Review changes to the shipped locale baseline"
+    english = read_table(ROOT / "MobileCydia.app/en.lproj/Settings.strings")
+    assert english, "Settings table is empty"
+    for bundle in bundles:
+        assert (bundle / "Localizable.strings").is_file(), "Locale baseline missing"
+        table = read_table(bundle / "Settings.strings")
+        assert table.keys() == english.keys(), f"Settings keys differ in {bundle.name}"
+        for key, value in table.items():
+            expected = sorted(FORMAT.findall(english[key].replace("%%", "")))
+            actual = sorted(FORMAT.findall(value.replace("%%", "")))
+            assert actual == expected, f"Format arguments differ: {bundle.name}/{key}"
+    file_types = read_table(ROOT / "MobileCydia.app/en.lproj/InfoPlist.strings", allow_equal=True)
+    for bundle in bundles:
+        assert read_table(bundle / "InfoPlist.strings", allow_equal=True).keys() == file_types.keys(), \
+            f"File type labels differ in {bundle.name}"
+    access = read_table(ROOT / "MobileCydia.app/en.lproj/RuntimeAccess.strings")
+    for bundle in bundles:
+        table = read_table(bundle / "RuntimeAccess.strings")
+        assert table.keys() == access.keys(), f"Access check keys differ in {bundle.name}"
+        for key, value in table.items():
+            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(access[key].replace("%%", ""))), \
+                f"Access check arguments differ: {bundle.name}/{key}"
+    print(f"[settings-localization] PASS: {len(english)} keys in {len(bundles)} locales")
+    print(f"[runtime-access-localization] PASS: {len(access)} keys in {len(bundles)} locales")
+
+
+if __name__ == "__main__":
+    main()

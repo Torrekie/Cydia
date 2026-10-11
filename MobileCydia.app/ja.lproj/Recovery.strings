@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "影響を受けるインストール済みパッケージ";
+"RECOVERY_BUSY" = "現在のパッケージ操作が完了するまでお待ちください。";
+"RECOVERY_COMPLETED" = "パッケージを削除しました。後処理を省略したため、ファイルやサービスが残っている可能性があります。元のスクリプトは保護されたバックアップに保存されています。";
+"RECOVERY_CONFIRM" = "緊急削除を確認";
+"RECOVERY_CONSEQUENCES" = "Cydia はこのパッケージのスクリプトをバックアップし、実行せずにパッケージを削除します。後処理を省略するため、スクリプトが作成したファイルやサービスが残る可能性があります。設定ファイルは保持されます。通常の動作に戻すために再インストールが必要になる場合があります。";
+"RECOVERY_DETAILS" = "詳細";
+"RECOVERY_EMERGENCY_EXPLANATION" = "失敗したスクリプトを実行せずに、このパッケージを削除します。";
+"RECOVERY_EMPTY" = "dpkg の状態が不完全なパッケージはありません。";
+"RECOVERY_EXPLANATION" = "これらのパッケージは dpkg の状態が不完全です。パッケージを選択して通常の修復を試してください。";
+"RECOVERY_FAILED" = "通常の修復は完了しませんでした。再インストールで復旧できる場合があります。「%@」は緊急削除のための操作です。";
+"RECOVERY_NORMAL_FIRST" = "まず通常の修復または再インストールを試してください。通常の修復が失敗した場合に「%@」を使用できます。";
+"RECOVERY_PROTECTED" = "保護されたパッケージやインストール済みの依存関係に影響するため、緊急削除はできません。";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "現在のリポジトリにインストール済みのバージョンがありません。ソースを更新するか、通常の削除を選択してください。";
+"RECOVERY_REMOVE_FAILED" = "緊急削除に失敗しました。可能な範囲で元のスクリプトを復元し、保護されたバックアップを保持しました。再試行する前に詳細を確認してください。";
+"RECOVERY_REPAIR" = "通常の修復を試す";
+"RECOVERY_REPAIR_COMPLETE" = "通常の修復が完了しました。パッケージの状態を再読み込みします。";
+"RECOVERY_REPAIR_EXPLANATION" = "このパッケージの通常の設定スクリプトを実行して、インストールを完了します。";
+"RECOVERY_STATE_CHANGED" = "パッケージの状態が変更されました。修復画面を再読み込みして、もう一度確認してください。";
+"RECOVERY_TITLE" = "パッケージの修復";
+"RECOVERY_UNAVAILABLE" = "安全な修復を実行できません。詳細設定を確認するか、他のパッケージ操作が完了してから再試行してください。";
+"RECOVERY_WORKING" = "処理中…";

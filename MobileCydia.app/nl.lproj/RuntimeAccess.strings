@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "Toegang tot pakketbeheer controleren";
+"ACCESS_CHECK_START" = "Controle starten";
+"ACCESS_CHECK_EXPLANATION" = "Controleert de beveiligde toegang tot pakketbeheer en vergrendelt het kort. Pakketten en repositorydefinities worden niet gewijzigd.";
+"ACCESS_CHECK_RUNNING" = "Controleren…";
+"ACCESS_CHECK_PASSED" = "De toegang tot pakketbeheer werkt.";
+"ACCESS_CHECK_FAILED" = "De controle kon niet worden voltooid.";
+"ACCESS_CHECK_BUSY" = "Een andere pakketbewerking gebruikt het pakketbeheer. Probeer het opnieuw wanneer die is voltooid.";
+"ACCESS_CHECK_RUNTIME" = "Beveiligde runtimeconfiguratie";
+"ACCESS_CHECK_TRUST" = "Repository- en vertrouwensstatus";
+"ACCESS_CHECK_LOCK" = "Eigenaar van de vergrendeling en exclusieve toegang";
+"ACCESS_CHECK_STATE" = "Beveiligde APT-pakketstatus";
+"ACCESS_CHECK_RELEASE" = "Vrijgeven van de vergrendeling en toegangsbeveiliging";
+"ACCESS_CHECK_UNCHANGED" = "Pakket- en repositorybestanden bleven ongewijzigd";
+"ACCESS_CHECK_CHANGED" = "De pakket- of repositorystatus is tijdens de controle gewijzigd. Probeer het opnieuw wanneer andere pakketbeheerders niet actief zijn.";
+"ACCESS_CHECK_TIMEOUT" = "De controle duurde te lang. Er is geen pakketbewerking gestart.";
+"ACCESS_CHECK_DETAILS" = "Technische details";
+"ACCESS_CHECK_NOT_RUN" = "Niet gecontroleerd";
+"ACCESS_CHECK_COMPLETE" = "Geverifieerd";

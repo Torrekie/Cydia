@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Pacotes instalados afetados";
+"RECOVERY_BUSY" = "Aguarde a conclusão da operação atual com pacotes.";
+"RECOVERY_COMPLETED" = "O pacote foi removido. A limpeza ignorada pode deixar ficheiros ou serviços. Os scripts originais foram mantidos na cópia de segurança protegida.";
+"RECOVERY_CONFIRM" = "Confirmar remoção de emergência";
+"RECOVERY_CONSEQUENCES" = "O Cydia fará uma cópia de segurança dos scripts deste pacote e irá removê-lo sem os executar. A limpeza será ignorada, pelo que podem permanecer ficheiros ou serviços criados por esses scripts. Os ficheiros de configuração serão mantidos. Poderá ser necessário reinstalar para restaurar o funcionamento normal.";
+"RECOVERY_DETAILS" = "Detalhes";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Remover este pacote sem executar os scripts que falharam.";
+"RECOVERY_EMPTY" = "Não restam pacotes com estado dpkg incompleto.";
+"RECOVERY_EXPLANATION" = "Estes pacotes têm um estado dpkg incompleto. Selecione um pacote para tentar uma reparação normal.";
+"RECOVERY_FAILED" = "A reparação normal não foi concluída. A reinstalação pode restaurar o pacote. «%@» é uma opção de remoção de emergência.";
+"RECOVERY_NORMAL_FIRST" = "Tente primeiro uma reparação normal ou uma reinstalação. «%@» ficará disponível se a reparação normal falhar.";
+"RECOVERY_PROTECTED" = "A remoção de emergência foi bloqueada porque afetaria um pacote protegido ou uma dependência instalada.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "A versão instalada não está disponível nos repositórios atuais. Atualize as fontes ou escolha a remoção normal.";
+"RECOVERY_REMOVE_FAILED" = "A remoção de emergência falhou. Os scripts originais foram restaurados quando possível e a cópia de segurança protegida foi mantida. Verifique os detalhes antes de tentar novamente.";
+"RECOVERY_REPAIR" = "Tentar reparação normal";
+"RECOVERY_REPAIR_COMPLETE" = "A reparação normal foi concluída. O estado dos pacotes será recarregado.";
+"RECOVERY_REPAIR_EXPLANATION" = "Execute os scripts de configuração normais deste pacote para concluir a instalação.";
+"RECOVERY_STATE_CHANGED" = "O estado do pacote foi alterado. Volte a carregar a recuperação e verifique novamente o pacote.";
+"RECOVERY_TITLE" = "Recuperação de pacotes";
+"RECOVERY_UNAVAILABLE" = "A recuperação segura não está disponível. Verifique as definições avançadas ou tente novamente quando terminarem as outras operações com pacotes.";
+"RECOVERY_WORKING" = "A processar…";

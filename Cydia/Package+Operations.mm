@@ -180,20 +180,38 @@
     (void) [database_ clearPackageHandle:handle_];
 } }
 
-- (void) install {
+- (bool) install {
 @synchronized (database_) {
     if ([database_ era] != era_ || !handle_.valid())
-        return;
+        return false;
 
-    (void) [database_ installPackageHandle:handle_];
+    return [database_ installPackageHandle:handle_];
 } }
 
-- (void) remove {
+- (bool) reinstall {
+@synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid()) return false;
+    return [database_ reinstallPackageHandle:handle_];
+} }
+
+- (bool) remove {
 @synchronized (database_) {
     if ([database_ era] != era_ || !handle_.valid())
-        return;
+        return false;
 
-    (void) [database_ removePackageHandle:handle_];
+    return [database_ removePackageHandle:handle_];
+} }
+
+- (bool) purge {
+@synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid()) return false;
+    return [database_ purgePackageHandle:handle_];
+} }
+
+- (bool) setHeld:(bool)held {
+@synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid()) return false;
+    return [database_ setPackageHandle:handle_ held:held];
 } }
 
 @end

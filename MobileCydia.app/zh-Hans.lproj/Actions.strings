@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "选择版本";
+"PACKAGE_PURGE_ACTION" = "彻底移除软件包和配置";
+"PACKAGE_PURGE_EX" = "移除软件包及其已保存的配置文件。";
+"PACKAGE_HELD_NOTICE" = "此软件包已被保持。更改前请先在软件包设置中关闭“忽略更新”。";
+"PACKAGE_ESSENTIAL_NOTICE" = "此软件包被标记为必需（Essential）。Cydia 不会移除或彻底清除此软件包。";
+"PACKAGE_PROTECTED_NOTICE" = "此软件包被标记为受保护（Protected）。Cydia 不会移除或彻底清除此软件包。";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "当前软件源不提供已安装的版本。请选择其他可用版本。";
+"PACKAGE_PRIORITY" = "优先级：%ld";
+"PACKAGE_CANDIDATE" = "候选版本";
+"PACKAGE_HOLD_FAILED" = "无法更改软件包的保持状态。请重新载入并重试。";
+"PACKAGE_HOLD_QUEUE" = "更改保持状态前，请先完成或取消队列中的软件包更改。";
+"PACKAGE_HELD_ISSUE" = "%@已被保持。更改前请先在软件包设置中关闭“忽略更新”。";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@被标记为必需（Essential）。Cydia 不会移除或彻底清除此软件包。";
+"PACKAGE_PROTECTED_ISSUE" = "%@被标记为受保护（Protected）。Cydia 不会移除或彻底清除此软件包。";

@@ -20,7 +20,7 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-sed -n '/^- (void) perform {/,/^- (bool) delocked/p' "$database" >"$work"
+sed -n '/^- (bool) perform {/,/^- (bool) delocked/p' "$database" >"$work"
 
 line() {
     result=$(grep -n -F "$1" "$work" | sed -n '1s/:.*//p')
@@ -37,7 +37,7 @@ retain=$(line '@selector(retainNetworkActivityIndicator)')
 fetch=$(line 'CydiaAPT::FetchResultData fetch(apt_->runFetcher(PulseInterval_));')
 release=$(line '@selector(releaseNetworkActivityIndicator)')
 incomplete=$(line 'if (!fetch.completed) {')
-failures=$(line 'if (!fetch.failures.empty()) {')
+failures=$(line 'if (!fetch.failures.empty() || !requireUnchanged()) return false;')
 
 test "$retain" -lt "$fetch" && test "$fetch" -lt "$release" &&
     test "$release" -lt "$incomplete" && test "$incomplete" -lt "$failures" ||

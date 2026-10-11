@@ -13,8 +13,11 @@
 @interface SourcesController : CyteViewController
 
 - (id) initWithDatabase:(Database *)database;
+// Only the explicit native Advanced Settings entry point enables this mode.
+- (id) initWithDatabase:(Database *)database advancedAccess:(BOOL)advancedAccess;
 - (void) showAddSourcePrompt;
-// Finite Home restoration catalog, not arbitrary URL/distribution input.
+- (void) showAddSourceDefinitionPrompt:(NSString *)definition;
+// Compatibility entry points no longer install a built-in repository catalogue.
 - (void) showRestoreDefaultSourcePrompt:(NSString *)identifier completion:(void (^)(BOOL added))completion;
 - (void) cancelDefaultSourceRestoration;
 - (void) updateButtonsForEditingStatusAnimated:(BOOL)animated;

@@ -188,20 +188,34 @@ $(CFVERSION_BINARY): cfversion.mm
 	$(cycc) $(objc_arc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation
 	@$(LDID) -T0 -Sgenent.xml $@
 
+$(FIRMWARE_DISCOVERY_BINARY): firmware-discovery.mm
+	@mkdir -p $(dir $@)
+	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation
+	@$(LDID) -T0 -Sgenent.xml $@
+
 $(SETNSFPN_BINARY): setnsfpn.cpp
 	@mkdir -p $(dir $@)
 	$(cycc) -o $@ $(filter %.cpp,$^) $(flag) $(link)
 	@$(LDID) -T0 -Sgenent.xml $@
 
 $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
-		$(EXEC_COMPAT_LIBRARY)
+		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/PrivilegedRuntime.hpp \
+		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
+		Cydia/SourceDocument.hpp Cydia/SourceDocumentStore.hpp Cydia/SourceDocumentCommit.hpp \
+		Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp Cydia/RuntimeState.cpp Cydia/RuntimeState.hpp \
+		Cydia/RuntimeSnapshotInputs.cpp Cydia/RuntimeSnapshotInputs.hpp \
+		Cydia/KeyringImport.cpp Cydia/KeyringImportPrivileged.cpp Cydia/KeyringImport.hpp \
+		Cydia/KeyringVerifier.cpp Cydia/KeyringVerifier.hpp \
+		Cydia/RecoveryPlan.cpp Cydia/RecoveryPlan.hpp Cydia/RecoveryPrivileged.cpp Cydia/RecoveryPrivileged.hpp \
+		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
+		$(EXEC_COMPAT_LIBRARY) $(APT_LIBRARY)
 	@mkdir -p $(dir $@)
-	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings
+	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(APT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings -framework CoreFoundation -licucore
 	@$(LDID) -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp CyteKit/stringWith.mm CyteKit/stringWith.h CyteKit/UCPlatform.h Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
-	$(cycc) $(plus) $(objc_arc) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link) -framework CoreFoundation -framework Foundation -framework UIKit
+	$(cycc) $(plus) $(objc_arc) -DCYDIA_POSTINST_ROOTLESS=$(if $(filter rootless,$(PACKAGE_LAYOUT)),1,0) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link)
 	@$(LDID) -T0 -Sgenent.xml $@
 
 MobileCydia: $(APP_BINARY)

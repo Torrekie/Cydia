@@ -7,6 +7,8 @@
 #define Cydia_Database_H
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/TransactionResult.hpp"
+#include "Cydia/RepositoryTrustProof.hpp"
 #include "CyteKit/UCPlatform.h"
 #include "Menes/ObjectHandle.h"
 #include "Menes/Pooling.hpp"
@@ -58,7 +60,9 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     CYPool pool_;
 
     unsigned era_;
-    _H<NSDate> delock_;
+    _H<NSString> transactionSnapshot_;
+    CydiaRuntime::RepositoryTrustProof repositoryTrustProof_;
+    CydiaRuntime::TransactionResult transactionResult_;
 
     CydiaAPT::AptBackend *apt_;
 
@@ -75,6 +79,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     int cydiafd_;
     int statusfd_;
     FILE *input_;
+    NSRecursiveLock *operationLock_;
 
     std::map<const char *, _H<NSString> > sections_;
 }
@@ -90,13 +95,21 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (CydiaAPT::PackageStateData) packageState:(CydiaAPT::PackageHandle)handle;
 - (std::vector<CydiaAPT::RelationData>) packageRelations:(CydiaAPT::PackageHandle)handle;
 - (std::vector<CydiaAPT::PackageHandle>) packageDowngrades:(CydiaAPT::PackageHandle)handle;
+- (std::vector<CydiaAPT::PackageHandle>) packageVersions:(CydiaAPT::PackageHandle)handle;
 - (CydiaAPT::TransactionData) transactionData;
 - (bool) resolveDependencies;
+- (BOOL) beginSettingsChange;
+- (void) endSettingsChange;
+- (bool) canChangePackages;
+- (bool) hasPendingPackageChanges;
 - (void) clearSelections;
 - (bool) prepareDistUpgrade;
 - (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle;
 - (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle;
+- (bool) reinstallPackageHandle:(CydiaAPT::PackageHandle)handle;
 - (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle;
+- (bool) purgePackageHandle:(CydiaAPT::PackageHandle)handle;
+- (bool) setPackageHandle:(CydiaAPT::PackageHandle)handle held:(bool)held;
 
 - (NSArray *) packages;
 - (NSArray *) sources;
@@ -109,10 +122,11 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 
 - (void) clear;
-- (void) configure;
+- (bool) configure;
 - (bool) clean;
 - (bool) prepare;
-- (void) perform;
+- (bool) perform;
+- (CydiaRuntime::TransactionResult) lastTransactionResult;
 - (bool) delocked;
 - (bool) upgrade;
 - (void) update;

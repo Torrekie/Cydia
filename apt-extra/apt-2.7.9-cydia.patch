@@ -1,7 +1,7 @@
 From 7cd7e534fa2969526b071d6a44c7eff0658abf94 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:05:45 +0800
-Subject: [PATCH 1/2] cydia: include Deb822 source parts in cache mtime
+Subject: [PATCH 1/6] cydia: include Deb822 source parts in cache mtime
 
 ---
  apt-pkg/sourcelist.cc          |  5 ++++-
@@ -9,7 +9,7 @@ Subject: [PATCH 1/2] cydia: include Deb822 source parts in cache mtime
  2 files changed, 27 insertions(+), 1 deletion(-)
 
 diff --git a/apt-pkg/sourcelist.cc b/apt-pkg/sourcelist.cc
-index e11afceed18b6e83abc8a51fa849a0c9f02b9c89..61a9289b681adb2fbe841c2dcbef685954292b54 100644
+index e11afceed..61a9289b6 100644
 --- a/apt-pkg/sourcelist.cc
 +++ b/apt-pkg/sourcelist.cc
 @@ -519,7 +519,10 @@ time_t pkgSourceList::GetLastModifiedTime()
@@ -25,7 +25,7 @@ index e11afceed18b6e83abc8a51fa849a0c9f02b9c89..61a9289b681adb2fbe841c2dcbef6859
     // calculate the time
     std::vector<time_t> modtimes;
 diff --git a/test/libapt/sourcelist_test.cc b/test/libapt/sourcelist_test.cc
-index 42fab65a9ce2d5789da6eff061b117be19b4ca6c..1f27fb341108b868f8852386dd2edd2e68e8bf5e 100644
+index 42fab65a9..1f27fb341 100644
 --- a/test/libapt/sourcelist_test.cc
 +++ b/test/libapt/sourcelist_test.cc
 @@ -7,6 +7,7 @@
@@ -62,18 +62,21 @@ index 42fab65a9ce2d5789da6eff061b117be19b4ca6c..1f27fb341108b868f8852386dd2edd2e
 +   EXPECT_EQ(deb822Times.modtime, sources.GetLastModifiedTime());
 +   removeDirectory(directory);
 +}
+-- 
+2.39.3 (Apple Git-145)
+
 
 From 9c189c40b78b765a341dcf3288117b0aeb93df72 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:12:51 +0800
-Subject: [PATCH 2/2] test: name Deb822 source mtime assertion
+Subject: [PATCH 2/6] test: name Deb822 source mtime assertion
 
 ---
  test/libapt/sourcelist_test.cc | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/test/libapt/sourcelist_test.cc b/test/libapt/sourcelist_test.cc
-index 1f27fb341108b868f8852386dd2edd2e68e8bf5e..6960a46e3fd7d057b3e749ca393990fa3bb281b6 100644
+index 1f27fb341..6960a46e3 100644
 --- a/test/libapt/sourcelist_test.cc
 +++ b/test/libapt/sourcelist_test.cc
 @@ -48,9 +48,10 @@ TEST(SourceListTest,GetLastModifiedTimeIncludesDeb822Parts)
@@ -88,3 +91,941 @@ index 1f27fb341108b868f8852386dd2edd2e68e8bf5e..6960a46e3fd7d057b3e749ca393990fa
 +   EXPECT_EQ(deb822Time, sources.GetLastModifiedTime());
     removeDirectory(directory);
  }
+-- 
+2.39.3 (Apple Git-145)
+
+
+From 6d10c85655707995930ebaadf31fa79a1719307a Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 09:41:00 +0000
+Subject: [PATCH 3/6] Preserve typed repository authentication and validate
+ embedded configuration reads
+
+---
+ apt-pkg/acquire-item.cc                       | 204 ++++++++++++++++--
+ apt-pkg/acquire-item.h                        |  13 ++
+ apt-pkg/contrib/configuration.cc              |  17 ++
+ apt-pkg/contrib/configuration.h               |   8 +
+ apt-pkg/deb/debmetaindex.cc                   |  45 +++-
+ methods/file.cc                               |   4 +
+ methods/gpgv.cc                               |  20 ++
+ .../test-cydia-repository-security            | 108 ++++++++++
+ 8 files changed, 395 insertions(+), 24 deletions(-)
+ create mode 100755 test/integration/test-cydia-repository-security
+
+diff --git a/apt-pkg/acquire-item.cc b/apt-pkg/acquire-item.cc
+index 400838dcb..a45a67117 100644
+--- a/apt-pkg/acquire-item.cc
++++ b/apt-pkg/acquire-item.cc
+@@ -166,8 +166,31 @@ static void ReportMirrorFailureToCentral(pkgAcquire::Item const &I, std::string
+ }
+ 									/*}}}*/
+ 
++// Empty leaves upstream authentication policy unchanged for other clients.
++static std::string RepositorySecurityMode()
++{
++   return _config->Find("Cydia::RepositorySecurityMode");
++}
++static bool RepositorySecurityPolicyActive()
++{
++   return RepositorySecurityMode().empty() == false;
++}
++static bool RepositoryAuthenticationRequired()
++{
++   return RepositorySecurityMode() == "error";
++}
++static bool MetadataFileIsAbsent(std::string const &Message)
++{
++   auto const reason = LookupTag(Message, "FailReason");
++   return reason == "HttpError404" || reason == "FileNotFound";
++}
++
+ static APT_NONNULL(2) bool MessageInsecureRepository(bool const isError, char const * const msg, std::string const &repo)/*{{{*/
+ {
++   // Cydia returns typed advisories to its existing progress UI. Avoid
++   // duplicating them as untranslated warnings (Allow has no advisory).
++   if (not isError && RepositorySecurityPolicyActive())
++      return false;
+    std::string m;
+    strprintf(m, msg, repo.c_str());
+    if (isError)
+@@ -188,6 +211,8 @@ static APT_NONNULL(2) bool MessageInsecureRepository(bool const isError, char co
+ enum class InsecureType { UNSIGNED, WEAK, NORELEASE };
+ static bool TargetIsAllowedToBe(IndexTarget const &Target, InsecureType const type)
+ {
++   if (RepositoryAuthenticationRequired())
++      return false;
+    if (_config->FindB("Acquire::AllowInsecureRepositories"))
+       return true;
+ 
+@@ -210,6 +235,15 @@ static bool TargetIsAllowedToBe(IndexTarget const &Target, InsecureType const ty
+ static bool APT_NONNULL(3, 4, 5) AllowInsecureRepositories(InsecureType const msg, std::string const &repo,
+       metaIndex const * const MetaIndexParser, pkgAcqMetaClearSig * const TransactionManager, pkgAcquire::Item * const I)
+ {
++   if (RepositorySecurityPolicyActive() && I->GetAuthenticationIssue() == pkgAcquire::Item::AuthenticationIssue::None)
++   {
++      auto issue = pkgAcquire::Item::AuthenticationIssue::Unsigned;
++      if (msg == InsecureType::WEAK)
++         issue = pkgAcquire::Item::AuthenticationIssue::WeakSecurity;
++      else if (msg == InsecureType::NORELEASE)
++         issue = pkgAcquire::Item::AuthenticationIssue::MissingRelease;
++      I->SetAuthenticationIssue(issue);
++   }
+    // we skip weak downgrades as its unlikely that a repository gets really weaker –
+    // its more realistic that apt got pickier in a newer version
+    if (msg != InsecureType::WEAK)
+@@ -225,15 +259,21 @@ static bool APT_NONNULL(3, 4, 5) AllowInsecureRepositories(InsecureType const ms
+ 	    case InsecureType::NORELEASE: msgstr = _("The repository '%s' no longer has a Release file."); break;
+ 	    case InsecureType::WEAK: /* unreachable */ break;
+ 	 }
+-	 if (_config->FindB("Acquire::AllowDowngradeToInsecureRepositories") ||
+-	       TransactionManager->Target.OptionBool(IndexTarget::ALLOW_DOWNGRADE_TO_INSECURE))
++         if (RepositorySecurityPolicyActive() && I->GetAuthenticationIssue() == pkgAcquire::Item::AuthenticationIssue::Unsigned)
++            I->SetAuthenticationIssue(pkgAcquire::Item::AuthenticationIssue::TrustDowngrade);
++	 if (not RepositoryAuthenticationRequired() &&
++             (_config->FindB("Acquire::AllowDowngradeToInsecureRepositories") ||
++	       TransactionManager->Target.OptionBool(IndexTarget::ALLOW_DOWNGRADE_TO_INSECURE)))
+ 	 {
+ 	    // meh, the users wants to take risks (we still mark the packages
+ 	    // from this repository as unauthenticated)
+-	    _error->Warning(msgstr, repo.c_str());
+-	    _error->Warning(_("This is normally not allowed, but the option "
++            if (not RepositorySecurityPolicyActive())
++            {
++	       _error->Warning(msgstr, repo.c_str());
++	       _error->Warning(_("This is normally not allowed, but the option "
+ 		     "Acquire::AllowDowngradeToInsecureRepositories was "
+ 		     "given to override it."));
++            }
+ 	 } else {
+ 	    MessageInsecureRepository(true, msgstr, repo);
+ 	    TransactionManager->AbortTransaction();
+@@ -243,7 +283,7 @@ static bool APT_NONNULL(3, 4, 5) AllowInsecureRepositories(InsecureType const ms
+       }
+    }
+ 
+-   if(MetaIndexParser->GetTrusted() == metaIndex::TRI_YES)
++   if (not RepositorySecurityPolicyActive() && MetaIndexParser->GetTrusted() == metaIndex::TRI_YES)
+       return true;
+ 
+    char const * msgstr = nullptr;
+@@ -300,6 +340,7 @@ public:
+    std::vector<std::string> PastRedirections;
+    std::unordered_map<std::string, std::string> CustomFields;
+    time_point FetchAfter = {};
++   AuthenticationIssue AuthIssue = AuthenticationIssue::None;
+ 
+    Private()
+    {
+@@ -786,6 +827,15 @@ pkgAcquire::Item::Item(pkgAcquire * const owner) :
+    Status = StatIdle;
+ }
+ 									/*}}}*/
++pkgAcquire::Item::AuthenticationIssue pkgAcquire::Item::GetAuthenticationIssue() const
++{
++   return d->AuthIssue;
++}
++void pkgAcquire::Item::SetAuthenticationIssue(AuthenticationIssue const issue)
++{
++   d->AuthIssue = issue;
++}
++
+ // Acquire::Item::~Item - Destructor					/*{{{*/
+ pkgAcquire::Item::~Item()
+ {
+@@ -1349,6 +1399,34 @@ bool pkgAcqMetaBase::CheckStopAuthentication(pkgAcquire::Item * const I, const s
+ {
+    string const Final = I->GetFinalFilename();
+    std::string const GPGError = LookupTag(Message, "Message");
++   if (RepositorySecurityPolicyActive())
++   {
++      auto issue = pkgAcquire::Item::AuthenticationIssue::None;
++      auto const reason = LookupTag(Message, "FailReason");
++      if (reason == "GPGVMissingKey")
++         issue = pkgAcquire::Item::AuthenticationIssue::MissingKey;
++      else if (reason == "GPGVUnusableSignature")
++         issue = pkgAcquire::Item::AuthenticationIssue::UnusableSignature;
++      else if (reason == "GPGVBadSignature")
++         issue = pkgAcquire::Item::AuthenticationIssue::BadSignature;
++      else if (reason == "GPGVInvalidSignature")
++         issue = pkgAcquire::Item::AuthenticationIssue::InvalidSignature;
++      I->SetAuthenticationIssue(issue);
++      bool const mayAllow = issue == pkgAcquire::Item::AuthenticationIssue::MissingKey ||
++                            issue == pkgAcquire::Item::AuthenticationIssue::UnusableSignature;
++      if (not mayAllow || RepositoryAuthenticationRequired())
++      {
++         I->Status = StatAuthError;
++         TransactionManager->AbortTransaction();
++         _error->Error(_("GPG error: %s: %s"), Desc.Description.c_str(), GPGError.c_str());
++         RunScripts("APT::Update::Auth-Failure");
++         return true;
++      }
++      // A recognized missing/expired/revoked signing key is policy, not a
++      // corrupt signature. Acquire the new metadata as unauthenticated
++      // instead of silently retaining old authenticated indexes.
++      return false;
++   }
+    if (FileExists(Final))
+    {
+       I->Status = StatTransientNetworkError;
+@@ -1507,6 +1585,13 @@ bool pkgAcqMetaBase::CheckAuthDone(string const &Message, pkgAcquire::MethodConf
+    }
+ 
+    bool const GoodAuth = TransactionManager->MetaIndexParser->Load(DestFile, &ErrorText);
++   if (RepositorySecurityPolicyActive() && not GoodAuth &&
++       TransactionManager->MetaIndexParser->GetLoadedSuccessfully() != metaIndex::TRI_DONTCARE)
++   {
++      Status = StatAuthError;
++      SetAuthenticationIssue(AuthenticationIssue::None);
++      return _error->Error(_("Unable to parse Release file %s"), DestFile.c_str());
++   }
+    if (GoodAuth == false && AllowInsecureRepositories(InsecureType::WEAK, Target.Description, TransactionManager->MetaIndexParser, TransactionManager, this) == false)
+    {
+       Status = StatAuthError;
+@@ -1516,6 +1601,8 @@ bool pkgAcqMetaBase::CheckAuthDone(string const &Message, pkgAcquire::MethodConf
+    if (!VerifyVendor(Message))
+    {
+       Status = StatAuthError;
++      if (RepositorySecurityPolicyActive())
++         SetAuthenticationIssue(AuthenticationIssue::None);
+       return false;
+    }
+ 
+@@ -1974,6 +2061,12 @@ void pkgAcqMetaClearSig::Done(std::string const &Message,
+    {
+       string const FinalFile = GetFinalFileNameFromURI(DetachedDataTarget.URI);
+       string const OldFile = GetFinalFilename();
++      if (RepositorySecurityPolicyActive())
++      {
++         // A weak Release is unauthenticated. Do not retain an older signed
++         // InRelease alongside its newly acquired unverified indexes.
++         new CleanupItem(Owner, TransactionManager, Target);
++      }
+       if (TransactionManager->IMSHit == false)
+ 	 TransactionManager->TransactionStageCopy(this, DestFile, FinalFile);
+       else if (RealFileExists(OldFile) == false)
+@@ -1989,6 +2082,11 @@ void pkgAcqMetaClearSig::Failed(string const &Message,pkgAcquire::MethodConfig c
+ 
+    if (AuthPass == false)
+    {
++      if (RepositorySecurityPolicyActive() && not MetadataFileIsAbsent(Message))
++      {
++         TransactionManager->AbortTransaction();
++         return;
++      }
+       if (Status == StatTransientNetworkError)
+       {
+ 	 TransactionManager->AbortTransaction();
+@@ -2005,6 +2103,14 @@ void pkgAcqMetaClearSig::Failed(string const &Message,pkgAcquire::MethodConfig c
+ 	 // error or got a file, but it wasn't valid, we end up here (see VerifyDone).
+ 	 // As these is usually called by web-portals we do not try Release/Release.gpg
+ 	 // as this is going to fail anyway and instead abort our try (LP#346386)
++         // A malformed InRelease or a real transport error cannot become
++         // an unsigned repository merely because insecure sources are allowed.
++         if (RepositorySecurityPolicyActive())
++         {
++            TransactionManager->AbortTransaction();
++            _error->Error(_("Failed to fetch %s  %s"), Target.URI.c_str(), ErrorText.c_str());
++            return;
++         }
+ 	 _error->PushToStack();
+ 	 _error->Error(_("Failed to fetch %s  %s"), Target.URI.c_str(), ErrorText.c_str());
+ 	 if (Target.Option(IndexTarget::INRELEASE_PATH).empty() == true && AllowInsecureRepositories(InsecureType::UNSIGNED, Target.Description, TransactionManager->MetaIndexParser, TransactionManager, this) == true)
+@@ -2035,18 +2141,36 @@ void pkgAcqMetaClearSig::Failed(string const &Message,pkgAcquire::MethodConfig c
+ 	 string const FinalRelease = GetFinalFileNameFromURI(DetachedDataTarget.URI);
+ 	 string const PartialRelease = GetPartialFileNameFromURI(DetachedDataTarget.URI);
+ 	 string const FinalInRelease = GetFinalFilename();
++         if (RepositorySecurityPolicyActive())
++         {
++            new CleanupItem(Owner, TransactionManager, Target);
++            new CleanupItem(Owner, TransactionManager, DetachedSigTarget);
++         }
+ 	 Rename(DestFile, PartialRelease);
+ 	 LoadLastMetaIndexParser(TransactionManager, FinalRelease, FinalInRelease);
+ 
+ 	 // we parse the indexes here because at this point the user wanted
+ 	 // a repository that may potentially harm him
+-	 if (TransactionManager->MetaIndexParser->Load(PartialRelease, &ErrorText) == false || VerifyVendor(Message) == false)
+-	    /* expired Release files are still a problem you need extra force for */;
+-	 else
+-	 {
+-	    TransactionManager->TransactionStageCopy(this, PartialRelease, FinalRelease);
+-	    TransactionManager->QueueIndexes(true);
+-	 }
++         bool const GoodLoad = TransactionManager->MetaIndexParser->Load(PartialRelease, &ErrorText);
++         if (RepositorySecurityPolicyActive() && not GoodLoad &&
++             (TransactionManager->MetaIndexParser->GetLoadedSuccessfully() != metaIndex::TRI_DONTCARE ||
++              not AllowInsecureRepositories(InsecureType::WEAK, Target.Description, TransactionManager->MetaIndexParser, TransactionManager, this)))
++         {
++            Status = StatAuthError;
++            if (TransactionManager->MetaIndexParser->GetLoadedSuccessfully() != metaIndex::TRI_DONTCARE)
++               SetAuthenticationIssue(AuthenticationIssue::None);
++            _error->Error(_("Unable to parse Release file %s"), PartialRelease.c_str());
++         }
++         else if ((GoodLoad || RepositorySecurityPolicyActive()) && VerifyVendor(Message))
++         {
++            TransactionManager->TransactionStageCopy(this, PartialRelease, FinalRelease);
++            TransactionManager->QueueIndexes(GoodLoad);
++         }
++         else if (RepositorySecurityPolicyActive())
++         {
++            Status = StatAuthError;
++            SetAuthenticationIssue(AuthenticationIssue::None);
++         }
+       }
+    }
+ }
+@@ -2105,6 +2229,15 @@ void pkgAcqMetaIndex::Failed(string const &Message,
+                              pkgAcquire::MethodConfig const * const Cnf)
+ {
+    pkgAcquire::Item::Failed(Message, Cnf);
++   if (RepositorySecurityPolicyActive())
++   {
++      if (Status == StatAuthError || Status == StatTransientNetworkError ||
++          not MetadataFileIsAbsent(Message))
++      {
++         TransactionManager->AbortTransaction();
++         return;
++      }
++   }
+    Status = StatDone;
+ 
+    // No Release file was present so fall
+@@ -2114,6 +2247,8 @@ void pkgAcqMetaIndex::Failed(string const &Message,
+    {
+       // ensure old Release files are removed
+       TransactionManager->TransactionStageRemoval(this, GetFinalFilename());
++      if (RepositorySecurityPolicyActive())
++         new CleanupItem(Owner, TransactionManager, DetachedSigTarget);
+ 
+       // queue without any kind of hashsum support
+       TransactionManager->QueueIndexes(false);
+@@ -2218,6 +2353,8 @@ void pkgAcqMetaSig::Done(string const &Message, HashStringList const &Hashes,
+    }
+    else if (MetaIndex->Status != StatAuthError)
+    {
++      if (RepositorySecurityPolicyActive())
++         TransactionManager->TransactionStageRemoval(this, GetFinalFilename());
+       std::string const FinalFile = MetaIndex->GetFinalFilename();
+       if (TransactionManager->IMSHit == false)
+ 	 TransactionManager->TransactionStageCopy(MetaIndex, MetaIndex->DestFile, FinalFile);
+@@ -2230,6 +2367,16 @@ void pkgAcqMetaSig::Failed(string const &Message,pkgAcquire::MethodConfig const
+ {
+    Item::Failed(Message,Cnf);
+ 
++   if (RepositorySecurityPolicyActive() && MetaIndex->AuthPass == false)
++   {
++      if (Status == StatAuthError || Status == StatTransientNetworkError ||
++          not MetadataFileIsAbsent(Message))
++      {
++         TransactionManager->AbortTransaction();
++         return;
++      }
++   }
++
+    // check if we need to fail at this point
+    if (MetaIndex->AuthPass == true && MetaIndex->CheckStopAuthentication(this, Message))
+          return;
+@@ -2252,20 +2399,43 @@ void pkgAcqMetaSig::Failed(string const &Message,pkgAcquire::MethodConfig const
+       // we parse the indexes here because at this point the user wanted
+       // a repository that may potentially harm him
+       bool const GoodLoad = TransactionManager->MetaIndexParser->Load(MetaIndex->DestFile, &ErrorText);
++      if (RepositorySecurityPolicyActive() && not GoodLoad &&
++          (TransactionManager->MetaIndexParser->GetLoadedSuccessfully() != metaIndex::TRI_DONTCARE ||
++           not AllowInsecureRepositories(InsecureType::WEAK, MetaIndex->Target.Description, TransactionManager->MetaIndexParser, TransactionManager, this)))
++      {
++         Status = StatAuthError;
++         if (TransactionManager->MetaIndexParser->GetLoadedSuccessfully() != metaIndex::TRI_DONTCARE)
++            SetAuthenticationIssue(AuthenticationIssue::None);
++         _error->Error(_("Unable to parse Release file %s"), MetaIndex->DestFile.c_str());
++         return;
++      }
+       if (MetaIndex->VerifyVendor(Message) == false)
+-	 /* expired Release files are still a problem you need extra force for */;
++      {
++         if (RepositorySecurityPolicyActive())
++         {
++            Status = StatAuthError;
++            SetAuthenticationIssue(AuthenticationIssue::None);
++         }
++         // Expired/future Release files retain their independent policy.
++      }
+       else
+       {
+ 	 TransactionManager->TransactionStageCopy(MetaIndex, MetaIndex->DestFile, FinalRelease);
+ 	 TransactionManager->QueueIndexes(GoodLoad);
+       }
+    }
+-   else if (TransactionManager->IMSHit == false)
+-      Rename(MetaIndex->DestFile, MetaIndex->DestFile + ".FAILED");
++   else
++   {
++      if (TransactionManager->IMSHit == false)
++         Rename(MetaIndex->DestFile, MetaIndex->DestFile + ".FAILED");
++      if (RepositorySecurityPolicyActive())
++         return;
++   }
+ 
+    // FIXME: this is used often (e.g. in pkgAcqIndexTrans) so refactor
+-   if (Cnf->LocalOnly == true ||
+-       StringToBool(LookupTag(Message,"Transient-Failure"),false) == false)
++   if ((not RepositorySecurityPolicyActive() || Status != StatAuthError) &&
++       (Cnf->LocalOnly == true ||
++        StringToBool(LookupTag(Message,"Transient-Failure"),false) == false))
+    {
+       // Ignore this
+       Status = StatDone;
+diff --git a/apt-pkg/acquire-item.h b/apt-pkg/acquire-item.h
+index 22da9815d..77b9c2d34 100644
+--- a/apt-pkg/acquire-item.h
++++ b/apt-pkg/acquire-item.h
+@@ -19,6 +19,8 @@
+ #ifndef PKGLIB_ACQUIRE_ITEM_H
+ #define PKGLIB_ACQUIRE_ITEM_H
+ 
++#define APT_CYDIA_AUTHENTICATION_PROVENANCE 1
++
+ #include <apt-pkg/acquire.h>
+ #include <apt-pkg/hashes.h>
+ #include <apt-pkg/indexfile.h>
+@@ -59,6 +61,17 @@ class APT_PUBLIC pkgAcquire::Item : public WeakPointable				/*{{{*/
+ {
+    public:
+ 
++   /* Repository authentication provenance is independent of ItemState:
++    * StatAuthError is also used for failed download hashes. The optional
++    * Cydia::RepositorySecurityMode policy uses these typed reasons without
++    * weakening transport, content-integrity or method-execution failures. */
++   enum class AuthenticationIssue {
++      None, Unsigned, MissingKey, UnusableSignature, WeakSecurity,
++      MissingRelease, TrustDowngrade, BadSignature, InvalidSignature
++   };
++   AuthenticationIssue GetAuthenticationIssue() const;
++   void SetAuthenticationIssue(AuthenticationIssue issue);
++
+    /** \brief The current status of this item. */
+    enum ItemState
+      {
+diff --git a/apt-pkg/contrib/configuration.cc b/apt-pkg/contrib/configuration.cc
+index 1134ed667..89f00d3c5 100644
+--- a/apt-pkg/contrib/configuration.cc
++++ b/apt-pkg/contrib/configuration.cc
+@@ -52,6 +52,17 @@ using namespace std;
+ 
+ Configuration *_config = new Configuration;
+ 
++namespace {
++ConfigurationReadValidator configurationReadValidator = nullptr;
++void *configurationReadContext = nullptr;
++}
++
++void SetConfigurationReadValidator(ConfigurationReadValidator validator, void *context)
++{
++   configurationReadValidator = validator;
++   configurationReadContext = context;
++}
++
+ /* TODO: This config verification shouldn't be using a static variable
+    but a Cnf-member – but that would need ABI breaks and stuff and for now
+    that really is an apt-dev-only tool, so it isn't that bad that it is
+@@ -845,6 +856,9 @@ static void leaveCurrentScope(std::stack<std::string> &Stack, std::string &Paren
+ bool ReadConfigFile(Configuration &Conf,const string &FName,bool const &AsSectional,
+ 		    unsigned const &Depth)
+ {
++   if (configurationReadValidator != nullptr &&
++       not configurationReadValidator(FName, false, configurationReadContext))
++      return _error->Error("Configuration read denied for %s", FName.c_str());
+    // Open the stream for reading
+    FileFd F;
+    if (OpenConfigurationFileFd(FName, F) == false)
+@@ -1131,6 +1145,9 @@ bool ReadConfigFile(Configuration &Conf,const string &FName,bool const &AsSectio
+ bool ReadConfigDir(Configuration &Conf,const string &Dir,
+ 		   bool const &AsSectional, unsigned const &Depth)
+ {
++   if (configurationReadValidator != nullptr &&
++       not configurationReadValidator(Dir, true, configurationReadContext))
++      return _error->Error("Configuration directory read denied for %s", Dir.c_str());
+    _error->PushToStack();
+    auto const files = GetListOfFilesInDir(Dir, "conf", true, true);
+    auto const successfulList = not _error->PendingError();
+diff --git a/apt-pkg/contrib/configuration.h b/apt-pkg/contrib/configuration.h
+index 6ebf28d03..6cc9032f6 100644
+--- a/apt-pkg/contrib/configuration.h
++++ b/apt-pkg/contrib/configuration.h
+@@ -141,6 +141,14 @@ class APT_PUBLIC Configuration
+ 
+ APT_PUBLIC extern Configuration *_config;
+ 
++/* Optional embedding guard. It is called before opening every configuration
++ * file and before enumerating every configuration directory, including
++ * #include inputs. The default null validator preserves upstream behavior.
++ * The embedding process owns the callback context and its lifetime. */
++using ConfigurationReadValidator = bool (*)(std::string const &, bool, void *);
++APT_PUBLIC void SetConfigurationReadValidator(ConfigurationReadValidator validator,
++                                              void *context);
++
+ APT_PUBLIC bool ReadConfigFile(Configuration &Conf,const std::string &FName,
+ 		    bool const &AsSectional = false,
+ 		    unsigned const &Depth = 0);
+diff --git a/apt-pkg/deb/debmetaindex.cc b/apt-pkg/deb/debmetaindex.cc
+index 3fef976e9..f9f49b942 100644
+--- a/apt-pkg/deb/debmetaindex.cc
++++ b/apt-pkg/deb/debmetaindex.cc
+@@ -549,12 +549,17 @@ bool debReleaseIndex::Load(std::string const &Filename, std::string * const Erro
+    }
+ 
+    bool AuthPossible = false;
+-   if(FoundHashSum == false)
+-      _error->Warning(_("No Hash entry in Release file %s"), Filename.c_str());
+-   else if(FoundStrongHashSum == false)
+-      _error->Warning(_("No Hash entry in Release file %s which is considered strong enough for security purposes"), Filename.c_str());
+-   else
++   if (FoundHashSum && FoundStrongHashSum)
+       AuthPossible = true;
++   else if (_config->Find("Cydia::RepositorySecurityMode").empty())
++   {
++      // Cydia reports this as a typed WeakSecurity advisory/error after
++      // acquisition; suppress only these duplicate authentication warnings.
++      if (not FoundHashSum)
++         _error->Warning(_("No Hash entry in Release file %s"), Filename.c_str());
++      else
++         _error->Warning(_("No Hash entry in Release file %s which is considered strong enough for security purposes"), Filename.c_str());
++   }
+ 
+    std::string const StrDate = Section.FindS("Date");
+    if (RFC1123StrToTime(StrDate, Date) == false)
+@@ -650,6 +655,10 @@ bool debReleaseIndex::Load(std::string const &Filename, std::string * const Erro
+ 
+    if (AuthPossible)
+       LoadedSuccessfully = TRI_YES;
++   else if (not _config->Find("Cydia::RepositorySecurityMode").empty())
++      // Parsed completely, but lacks strong metadata hashes. Unlike
++      // TRI_NO (parse/open failure), only this state is policy-permissible.
++      LoadedSuccessfully = TRI_DONTCARE;
+    return AuthPossible;
+ }
+ 									/*}}}*/
+@@ -825,16 +834,38 @@ bool debReleaseIndex::SetSignedBy(std::string const &pSignedBy)
+ // ReleaseIndex::IsTrusted						/*{{{*/
+ bool debReleaseIndex::IsTrusted() const
+ {
+-   if (Trusted == TRI_YES)
++   // Cydia's selected policy must inspect authentication independently of
++   // a source's explicit Trusted: yes shortcut. Other APT clients retain
++   // upstream behavior when this process-local setting is absent.
++   bool const cydiaPolicy = not _config->Find("Cydia::RepositorySecurityMode").empty();
++   if (Trusted == TRI_YES && not cydiaPolicy)
+       return true;
+    else if (Trusted == TRI_NO)
+       return false;
+ 
+ 
+-   if(_config->FindB("APT::Authentication::TrustCDROM", false))
++   if (not cydiaPolicy && _config->FindB("APT::Authentication::TrustCDROM", false))
+       if(URI.substr(0,strlen("cdrom:")) == "cdrom:")
+ 	 return true;
+ 
++   if (cydiaPolicy)
++   {
++      // Preserve APT's authenticated-cache contract, but never mistake a
++      // stale signature beside missing/weak metadata for authenticated data.
++      auto const inrelease = MetaIndexFile("InRelease");
++      auto const release = MetaIndexFile("Release");
++      std::string const metadata = FileExists(inrelease) ? inrelease :
++         (FileExists(MetaIndexFile("Release.gpg")) ? release : "");
++      if (metadata.empty())
++         return false;
++      metaIndex * const parsed = UnloadedClone();
++      _error->PushToStack();
++      bool const strong = parsed->Load(metadata, nullptr) && not _error->PendingError();
++      _error->RevertToStack();
++      delete parsed;
++      return strong;
++   }
++
+    if (FileExists(MetaIndexFile("Release.gpg")))
+       return true;
+ 
+diff --git a/methods/file.cc b/methods/file.cc
+index b2fe133f2..2f69a758e 100644
+--- a/methods/file.cc
++++ b/methods/file.cc
+@@ -43,6 +43,7 @@ class FileMethod : public aptMethod
+ /* */
+ bool FileMethod::Fetch(FetchItem *Itm)
+ {
++   SetFailReason("");
+    URI Get(Itm->Uri);
+    std::string const File = DecodeSendURI(Get.Path);
+    FetchResult Res;
+@@ -119,6 +120,9 @@ bool FileMethod::Fetch(FetchItem *Itm)
+       URIDone(Res);
+    else
+    {
++      // Metadata fallbacks may ignore a genuinely absent file, never an
++      // unreadable file or a filesystem failure. Keep the reason typed.
++      SetFailReason(olderrno == ENOENT || olderrno == ENOTDIR ? "FileNotFound" : "FileAccessFailure");
+       errno = olderrno;
+       return _error->Errno(File.c_str(), _("File not found"));
+    }
+diff --git a/methods/gpgv.cc b/methods/gpgv.cc
+index 267b43e08..f342fb2fd 100644
+--- a/methods/gpgv.cc
++++ b/methods/gpgv.cc
+@@ -384,6 +384,7 @@ string GPGVMethod::VerifyGetSigners(const char *file, const char *outfile,
+ 
+    if (WEXITSTATUS(status) == 112)
+    {
++      SetFailReason("GPGVInvalidSignature");
+       // acquire system checks for "NODATA" to generate GPG errors (the others are only warnings)
+       std::string errmsg;
+       //TRANSLATORS: %s is a single techy word like 'NODATA'
+@@ -392,6 +393,7 @@ string GPGVMethod::VerifyGetSigners(const char *file, const char *outfile,
+    }
+    else if (gotNODATA)
+    {
++      SetFailReason("GPGVInvalidSignature");
+       // acquire system checks for "NODATA" to generate GPG errors (the others are only warnings)
+       std::string errmsg;
+       //TRANSLATORS: %s is a single techy word like 'NODATA'
+@@ -474,6 +476,9 @@ static std::string GenerateKeyFile(std::string const key)
+ 
+ bool GPGVMethod::URIAcquire(std::string const &Message, FetchItem *Itm)
+ {
++   // Single-instance methods handle multiple requests; do not leak the
++   // preceding signature's failure classification to the next repository.
++   SetFailReason("");
+    URI const Get(Itm->Uri);
+    std::string const Path = DecodeSendURI(Get.Host + Get.Path); // To account for relative paths
+    SignersStorage Signers;
+@@ -505,6 +510,8 @@ bool GPGVMethod::URIAcquire(std::string const &Message, FetchItem *Itm)
+    string const msg = VerifyGetSignersWithLegacy(Path.c_str(), Itm->DestFile.c_str(), keyFpts, keyFiles, Signers);
+    if (_error->PendingError())
+       return false;
++   if (FailReason == "GPGVInvalidSignature" && not _config->Find("Cydia::RepositorySecurityMode").empty())
++      return _error->Error("%s", msg.c_str());
+ 
+    // Check if all good signers are soon worthless and warn in that case
+    if (std::all_of(Signers.Good.begin(), Signers.Good.end(), [&](std::string const &good) {
+@@ -554,7 +561,20 @@ bool GPGVMethod::URIAcquire(std::string const &Message, FetchItem *Itm)
+       // least one bad signature. good signatures and NoPubKey signatures
+       // happen easily when a file is signed with multiple signatures
+       if (Signers.Good.empty() or !Signers.Bad.empty())
++      {
++         if (not Signers.Bad.empty())
++            SetFailReason("GPGVBadSignature");
++         else if (FailReason != "GPGVInvalidSignature")
++         {
++            // NODATA must not be hidden by an accompanying missing key.
++            if (not Signers.NoPubKey.empty())
++               SetFailReason("GPGVMissingKey");
++            else if (not Signers.Worthless.empty())
++               SetFailReason("GPGVUnusableSignature");
++         }
++         // Unclassified verifier/execution failures remain hard errors.
+ 	 return _error->Error("%s", errmsg.c_str());
++      }
+    }
+ 
+    std::unordered_map<std::string, std::string> fields;
+diff --git a/test/integration/test-cydia-repository-security b/test/integration/test-cydia-repository-security
+new file mode 100755
+index 000000000..d026cfe15
+--- /dev/null
++++ b/test/integration/test-cydia-repository-security
+@@ -0,0 +1,108 @@
++#!/bin/sh
++# Cydia's process-local trust policy does not change normal APT callers.
++set -e
++TESTDIR="$(readlink -f "$(dirname "$0")")"
++. "$TESTDIR/framework"
++setupenvironment
++configarchitecture 'i386'
++configcompression '.'
++buildsimplenativepackage 'policy-test' 'i386' '1.0' 'unstable'
++
++policyupdate() {
++    aptget update -o "Cydia::RepositorySecurityMode=$MODE" \
++        -o Acquire::AllowInsecureRepositories=true \
++        -o Acquire::AllowWeakRepositories=true \
++        -o Acquire::AllowDowngradeToInsecureRepositories=true \
++        -o APT::Get::List-Cleanup=false -o Acquire::By-Hash=false "$@"
++}
++resetarchive() {
++    rm -rf rootdir/var/lib/apt/lists
++    setupaptarchive --no-update
++    # Error must override even explicit per-source bypasses, without editing
++    # the source document. Warning/Allow must still mark packages untrusted.
++    sed -i 's#^deb\(-src\)\? #deb\1 [trusted=yes allow-insecure=yes allow-weak=yes allow-downgrade-to-insecure=yes] #' rootdir/etc/apt/sources.list.d/*.list
++}
++for OMIT in Release.gpg InRelease; do
++export APT_DONT_SIGN="$OMIT"
++for MODE in allow warning error; do
++    resetarchive
++    testsuccess policyupdate
++    listcurrentlistsdirectory > lists.before
++    BADFILE=aptarchive/dists/unstable/InRelease
++    if [ "$OMIT" = InRelease ]; then BADFILE=aptarchive/dists/unstable/Release; fi
++    sed -i 's/^Codename:.*/Codename: tampered/' "$BADFILE"
++    touch -d '+1 minute' "$BADFILE"
++    # BADSIG is always a hard error, also with authenticated cached indexes.
++    testfailure policyupdate
++    testfileequal lists.before "$(listcurrentlistsdirectory)"
++
++    resetarchive
++    testsuccess policyupdate
++    if [ "$OMIT" = InRelease ]; then
++        printf 'invalid signature data\n' > aptarchive/dists/unstable/Release.gpg
++        touch -d '+1 minute' aptarchive/dists/unstable/Release.gpg
++    else
++        cp aptarchive/dists/unstable/Release aptarchive/dists/unstable/InRelease
++        touch -d '+1 minute' aptarchive/dists/unstable/InRelease
++    fi
++    # Plain/malformed signature data is not an unsigned-repository fallback.
++    testfailure policyupdate
++
++    resetarchive
++    testsuccess policyupdate
++    rm -f aptarchive/dists/unstable/InRelease aptarchive/dists/unstable/Release.gpg
++    if [ "$MODE" = error ]; then
++        testfailure policyupdate
++    else
++        testsuccess policyupdate
++        # List-Cleanup=false must not retain stale signatures implying trust.
++        testempty find rootdir/var/lib/apt/lists -name '*InRelease' -o -name '*Release.gpg'
++        testfailure aptget install policy-test -y --download-only \
++            -o "Cydia::RepositorySecurityMode=$MODE"
++    fi
++
++    resetarchive
++    # Unknown and expired/revoked keys are authentication policy failures,
++    # whereas a signature mismatch above is an integrity failure.
++    signreleasefiles 'Marvin Paranoid'
++    if [ "$MODE" = error ]; then
++        testfailure policyupdate
++    else
++        testsuccess policyupdate
++    fi
++    resetarchive
++    signreleasefiles 'Rex Expired'
++    if [ "$MODE" = error ]; then
++        testfailure policyupdate
++    else
++        testsuccess policyupdate
++    fi
++
++    resetarchive
++    # A syntactically damaged Release is not merely weak metadata.
++    printf 'SHA256:\n malformed-entry\n' > aptarchive/dists/unstable/Release
++    signreleasefiles
++    testfailure policyupdate
++
++    resetarchive
++    # Keep authentic metadata, but damage the referenced downloaded index.
++    echo 'tampered index' >> aptarchive/dists/unstable/main/binary-i386/Packages
++    testfailure policyupdate
++    resetarchive
++    testsuccess policyupdate
++    sed -i '/^SHA256:/,$d' aptarchive/dists/unstable/Release
++    signreleasefiles
++    if [ "$MODE" = error ]; then
++        testfailure policyupdate
++    else
++        testsuccess policyupdate
++    fi
++    resetarchive
++    find aptarchive/dists/unstable -name '*Release*' -delete
++    if [ "$MODE" = error ]; then
++        testfailure policyupdate
++    else
++        testsuccess policyupdate
++    fi
++done
++done
+-- 
+2.39.3 (Apple Git-145)
+
+
+From db0b431062804ccd1d2b0effe25f5fcad22c7809 Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 09:58:00 +0000
+Subject: [PATCH 4/6] Allow embedded frontends to acquire protected lock files
+ safely
+
+---
+ apt-pkg/contrib/fileutl.cc | 19 +++++++++++++++++--
+ apt-pkg/contrib/fileutl.h  |  6 ++++++
+ 2 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/apt-pkg/contrib/fileutl.cc b/apt-pkg/contrib/fileutl.cc
+index 99b1df3ff..848720de6 100644
+--- a/apt-pkg/contrib/fileutl.cc
++++ b/apt-pkg/contrib/fileutl.cc
+@@ -248,15 +248,30 @@ static std::string GetProcessName(int pid)
+    }
+    return "";
+ }
++namespace {
++LockFileOpener lockFileOpener = nullptr;
++void *lockFileOpenerContext = nullptr;
++}
++
++void SetLockFileOpener(LockFileOpener opener, void *context)
++{
++   lockFileOpener = opener;
++   lockFileOpenerContext = context;
++}
++
+ int GetLock(string File,bool Errors)
+ {
+    // GetLock() is used in aptitude on directories with public-write access
+    // Use O_NOFOLLOW here to prevent symlink traversal attacks
+-   int FD = open(File.c_str(),O_RDWR | O_CREAT | O_NOFOLLOW,0640);
++   int FD = -1;
++   bool const handled = lockFileOpener != nullptr &&
++      lockFileOpener(File, &FD, lockFileOpenerContext);
++   if (!handled)
++      FD = open(File.c_str(),O_RDWR | O_CREAT | O_NOFOLLOW,0640);
+    if (FD < 0)
+    {
+       // Read only .. can't have locking problems there.
+-      if (errno == EROFS)
++      if (!handled && errno == EROFS)
+       {
+ 	 _error->Warning(_("Not using locking for read only lock file %s"),File.c_str());
+ 	 return dup(0);       // Need something for the caller to close
+diff --git a/apt-pkg/contrib/fileutl.h b/apt-pkg/contrib/fileutl.h
+index 970b11878..1050240cd 100644
+--- a/apt-pkg/contrib/fileutl.h
++++ b/apt-pkg/contrib/fileutl.h
+@@ -181,6 +181,12 @@ APT_PUBLIC bool CopyFile(FileFd &From,FileFd &To);
+ APT_PUBLIC bool RemoveFile(char const * const Function, std::string const &FileName);
+ APT_PUBLIC bool RemoveFileAt(char const * const Function, int const dirfd, std::string const &FileName);
+ APT_PUBLIC int GetLock(std::string File,bool Errors = true);
++/* Optional embedding hook: return false for the normal open path, or true
++ * with an opened descriptor (negative on failure). GetLock still owns fcntl
++ * locking and close-on-exec. Register outside active APT operations. */
++#define APT_CYDIA_LOCK_FILE_OPENER 1
++using LockFileOpener = bool (*)(std::string const &, int *, void *);
++APT_PUBLIC void SetLockFileOpener(LockFileOpener opener, void *context);
+ APT_PUBLIC bool FileExists(std::string File);
+ APT_PUBLIC bool RealFileExists(std::string File);
+ APT_PUBLIC bool DirectoryExists(std::string const &Path);
+-- 
+2.39.3 (Apple Git-145)
+
+
+From 9038aa6e0a019eaae5ae2d0a25b1721ddbc0ebf4 Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 10:13:00 +0000
+Subject: [PATCH 5/6] Allow embedded frontends to defer shared automatic state
+ commits
+
+---
+ apt-pkg/depcache.cc | 13 +++++++++++++
+ apt-pkg/depcache.h  |  7 +++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/apt-pkg/depcache.cc b/apt-pkg/depcache.cc
+index 322bf1bbe..13ed3cfcc 100644
+--- a/apt-pkg/depcache.cc
++++ b/apt-pkg/depcache.cc
+@@ -49,6 +49,17 @@
+ 
+ using std::string;
+ 
++namespace {
++StateFileWriter stateFileWriter = nullptr;
++void *stateFileWriterContext = nullptr;
++}
++
++void SetStateFileWriter(StateFileWriter writer, void *context)
++{
++   stateFileWriter = writer;
++   stateFileWriterContext = context;
++}
++
+ // helper for kernel autoremoval				  	/*{{{*/
+ 
+ /** \brief Returns \b true for packages matching a regular
+@@ -363,6 +374,8 @@ bool pkgDepCache::readStateFile(OpProgress * const Prog)		/*{{{*/
+ 									/*}}}*/
+ bool pkgDepCache::writeStateFile(OpProgress * const /*prog*/, bool const InstalledOnly)	/*{{{*/
+ {
++   if (stateFileWriter != nullptr)
++      return stateFileWriter(*this, InstalledOnly, stateFileWriterContext);
+    bool const debug_autoremove = _config->FindB("Debug::pkgAutoRemove",false);
+    
+    if(debug_autoremove)
+diff --git a/apt-pkg/depcache.h b/apt-pkg/depcache.h
+index be27b1d77..b86257da1 100644
+--- a/apt-pkg/depcache.h
++++ b/apt-pkg/depcache.h
+@@ -506,4 +506,11 @@ class APT_PUBLIC pkgDepCache : protected pkgCache::Namespace
+    APT_HIDDEN void PerformDependencyPass(OpProgress * const Prog);
+ };
+ 
++/* Optional embedding hook for a frontend which commits auto-installed
++ * deltas through a privileged boundary after package-manager success. The
++ * default null hook preserves upstream state-file writes. */
++#define APT_CYDIA_STATE_FILE_WRITER 1
++using StateFileWriter = bool (*)(pkgDepCache &, bool, void *);
++APT_PUBLIC void SetStateFileWriter(StateFileWriter writer, void *context);
++
+ #endif
+-- 
+2.39.3 (Apple Git-145)
+
+
+From 5c762da034fe4f2ccd9d0352455fc938d48ddcd3 Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 10:56:26 +0000
+Subject: [PATCH 6/6] Require current frontend proof for cached repository
+ trust
+
+---
+ apt-pkg/deb/debmetaindex.cc                     |  6 ++++++
+ test/integration/test-cydia-repository-security | 10 ++++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/apt-pkg/deb/debmetaindex.cc b/apt-pkg/deb/debmetaindex.cc
+index f9f49b942..803253a79 100644
+--- a/apt-pkg/deb/debmetaindex.cc
++++ b/apt-pkg/deb/debmetaindex.cc
+@@ -850,6 +850,12 @@ bool debReleaseIndex::IsTrusted() const
+ 
+    if (cydiaPolicy)
+    {
++      // Cached indexes are authenticated only for the successful refresh
++      // proof currently held by the frontend. Its protected trust inputs and
++      // index digest must still match; a cache reload cannot establish proof.
++      if (_config->Exists("Cydia::CachedRepositoryTrustValid") &&
++          not _config->FindB("Cydia::CachedRepositoryTrustValid", false))
++         return false;
+       // Preserve APT's authenticated-cache contract, but never mistake a
+       // stale signature beside missing/weak metadata for authenticated data.
+       auto const inrelease = MetaIndexFile("InRelease");
+diff --git a/test/integration/test-cydia-repository-security b/test/integration/test-cydia-repository-security
+index d026cfe15..98308659e 100755
+--- a/test/integration/test-cydia-repository-security
++++ b/test/integration/test-cydia-repository-security
+@@ -27,6 +27,16 @@ export APT_DONT_SIGN="$OMIT"
+ for MODE in allow warning error; do
+     resetarchive
+     testsuccess policyupdate
++    if [ "$MODE" = error ] && [ "$OMIT" = Release.gpg ]; then
++        # Only the frontend's completed-refresh proof permits cached trust.
++        # Source Trusted=yes cannot bypass an absent proof in this process.
++        testfailure aptget install policy-test -y --download-only \
++            -o Cydia::RepositorySecurityMode=error \
++            -o Cydia::CachedRepositoryTrustValid=false
++        testsuccess aptget install policy-test -y --download-only \
++            -o Cydia::RepositorySecurityMode=error \
++            -o Cydia::CachedRepositoryTrustValid=true
++    fi
+     listcurrentlistsdirectory > lists.before
+     BADFILE=aptarchive/dists/unstable/InRelease
+     if [ "$OMIT" = InRelease ]; then BADFILE=aptarchive/dists/unstable/Release; fi
+-- 
+2.39.3 (Apple Git-145)
+

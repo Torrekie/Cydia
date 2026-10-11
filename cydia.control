@@ -1,17 +1,16 @@
 Package: cydia
-Priority: required
+Priority: optional
 Section: Packaging
 Maintainer: Torrekie <me@torrekie.dev>
 Architecture: iphoneos-arm
 Version: 
-Replaces: bigboss, bigbossbetarepo, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, saurik, ste, yellowsn0w.com, zodttd
-Depends: bash, cydia-lproj (>= 1.1.10), darwintools, debianutils, dpkg (>= 1.19.1), sed, shell-cmds, system-cmds, uikittools (>= 1.1.14), xz
-Conflicts: bigboss, bigbossbetarepo, com.sosiphone.addcydia, cydia-sources, ispazio.net, modmyifone, ste, yellowsn0w.com, zodttd
-Pre-Depends: debianutils, dpkg (>= 1.16.1), firmware (>= 12.0)
-Provides: bigbossbetarepo, cydia-sources
+Depends: cydia-lproj (>= @CYDIA_TRANSLATION_VERSION@), xz | xz-utils
+Pre-Depends: bash, dpkg (>= 1.19.1), coreutils | file-cmds, coreutils | shell-cmds, coreutils | system-cmds
+Suggests: gnupg
+Provides: cydia-sources
 Description: graphical iPhone front-end for APT
 Name: Cydia Refurbished
 Author: Jay Freeman (saurik) <saurik@saurik.com>
 Depiction: http://cydia.saurik.com/info/cydia/
 Icon: file:///Applications/Cydia.app/Icon-60.png
-Tag: purpose::uikit, cydia::essential, role::enduser
+Tag: purpose::uikit, role::enduser

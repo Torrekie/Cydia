@@ -67,6 +67,11 @@ class CancelStatus :
         return cancelled_;
     }
 
+    virtual void Start() {
+        cancelled_ = false;
+        pkgAcquireStatus::Start();
+    }
+
     virtual bool MediaChange(std::string media, std::string drive) {
         (void) media;
         (void) drive;
@@ -138,7 +143,7 @@ class ProgressStatus : public CancelStatus {
     }
 
     virtual void Start() {
-        pkgAcquireStatus::Start();
+        CancelStatus::Start();
         [delegate_ performSelectorOnMainThread:@selector(setProgressCancellable:) withObject:[NSNumber numberWithBool:YES] waitUntilDone:YES];
     }
 

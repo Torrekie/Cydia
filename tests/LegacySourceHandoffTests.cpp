@@ -4,6 +4,7 @@
  */
 
 #include "Cydia/LegacySourceHandoff.hpp"
+#include "Cydia/PackageDatabasePaths.hpp"
 
 #include <dirent.h>
 #include <errno.h>
@@ -155,6 +156,20 @@ void TestRegularV2() {
             "v2 regular marker remains");
 }
 
+void TestExplicitPackageLayout() {
+    Fixture fixture;
+    fixture.Configure();
+    const auto selected(CydiaRuntime::PackageDatabasePaths::ForLayout(CydiaRuntime::PackageDatabaseLayout::Rootless));
+    Require(CydiaRuntime::PackageDatabasePaths::Current().layout() == CydiaRuntime::PackageDatabaseLayout::Rootful,
+            "fixture ambient layout should differ from explicit package layout");
+    WriteFile(fixture.backup, "deb https://explicit-layout.invalid/ ./\n");
+    fixture.WriteMarker("2");
+    Require(CydiaRuntime::RestoreLegacySourceHandoff(selected), "explicit package layout lost alternate dpkg-root handoff");
+    Require(ReadFile(fixture.source) == "deb https://explicit-layout.invalid/ ./\n" &&
+            access(fixture.marker.c_str(), F_OK) == -1 && errno == ENOENT,
+            "explicit package layout did not preserve and consume its authorized handoff");
+}
+
 void TestLegacyV1() {
     Fixture fixture;
     fixture.Configure();
@@ -204,6 +219,18 @@ void TestSymlink() {
             "symlink marker remains");
 }
 
+void TestUntrustedMarker() {
+    Fixture fixture;
+    fixture.Configure();
+    WriteFile(fixture.backup, "deb https://untrusted.invalid/ stable main\n");
+    fixture.WriteMarker("2");
+    Require(chmod(fixture.marker.c_str(), 0666) == 0, "prepare writable marker");
+    Require(CydiaRuntime::RestoreLegacySourceHandoff(), "ignore untrusted marker failed");
+    Require(access(fixture.source.c_str(), F_OK) == -1 && errno == ENOENT &&
+            access(fixture.backup.c_str(), F_OK) == 0 && access(fixture.marker.c_str(), F_OK) == 0,
+            "writable marker authorized source restoration");
+}
+
 void TestCollisionAndActiveSibling() {
     Fixture collision;
     collision.Configure();
@@ -249,9 +276,11 @@ void TestCollisionAndActiveSibling() {
 
 int main() {
     TestRegularV2();
+    TestExplicitPackageLayout();
     TestLegacyV1();
     TestLegacyInfoMarkerCompatibility();
     TestSymlink();
+    TestUntrustedMarker();
     TestCollisionAndActiveSibling();
     puts("[legacy-source-handoff][ ok ] marker-authorized restore is executable and fail-closed");
     return 0;

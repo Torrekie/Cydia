@@ -1,0 +1,6 @@
+#!/bin/bash
+# The package recipe embeds the lifecycle library above this entry point.
+if ! declare -F cydia_shared_config_lifecycle >/dev/null; then
+    source "$(dirname -- "${BASH_SOURCE[0]}")/Library/shared-config-lifecycle.sh" || exit 1
+fi
+cydia_shared_config_lifecycle postrm "$@"

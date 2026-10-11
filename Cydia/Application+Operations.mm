@@ -17,6 +17,7 @@
 #include "Cydia/ProgressController.h"
 #include "Cydia/ProgressEvent.h"
 #include "Cydia/ControllerState.h"
+#include "Cydia/RecoveryController.h"
 #include "Cydia/Source.h"
 #include "Cydia/TabBarController.h"
 #include "CyteKit/CyteKit.h"
@@ -111,6 +112,18 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 }
 
 @implementation Cydia (Operations)
+- (void)showPackageRecovery:(NSArray *)packages {
+    if (packages.count == 0) return;
+    UIViewController *presented([tabbar_ presentedViewController]);
+    if ([presented isKindOfClass:[UINavigationController class]] &&
+        [[(UINavigationController *)presented viewControllers].firstObject isKindOfClass:[CydiaRecoveryController class]]) return;
+    if (presented != nil) return;
+    CydiaRecoveryController *controller([[CydiaRecoveryController alloc] initWithDatabase:database_ packages:packages]);
+    [controller setDelegate:self];
+    UINavigationController *navigation([[UINavigationController alloc] initWithRootViewController:controller]);
+    if (IsWildcat_) navigation.modalPresentationStyle = UIModalPresentationFormSheet;
+    [tabbar_ presentViewController:navigation animated:YES completion:nil];
+}
 - (ProgressController *) invokeNewProgress:(NSInvocation *)invocation forController:(UINavigationController *)navigation withTitle:(NSString *)title {
     ProgressController *progress([[ProgressController alloc] initWithDatabase:database_ delegate:self]);
 
@@ -184,7 +197,7 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 - (void) installPackages:(NSArray *)packages {
     @synchronized (self) {
         for (Package *package in packages)
-            [package install];
+            if (![package install]) return;
         [self resolve];
         [self perform];
     }
@@ -192,7 +205,7 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 
 - (void) installPackage:(Package *)package {
     @synchronized (self) {
-        [package install];
+        if (![package install]) return;
         [self resolve];
         [self perform];
     }
@@ -200,7 +213,23 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 
 - (void) removePackage:(Package *)package {
     @synchronized (self) {
-        [package remove];
+        if (![package remove]) return;
+        [self resolve];
+        [self perform];
+    }
+}
+
+- (void) reinstallPackage:(Package *)package {
+    @synchronized (self) {
+        if (![package reinstall]) return;
+        [self resolve];
+        [self perform];
+    }
+}
+
+- (void) purgePackage:(Package *)package {
+    @synchronized (self) {
+        if (![package purge]) return;
         [self resolve];
         [self perform];
     }
@@ -229,8 +258,8 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
     [self removeProgressHUD:hud];
 }
 
-- (void) perform_ {
-    [database_ perform];
+- (bool) perform_ {
+    const bool succeeded([database_ perform]);
     if (Finish_ == 0 && !RestartSubstrate_) {
         [self performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:YES];
     } else {
@@ -244,6 +273,7 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
         UICache_ = false;
         [self performSelectorOnMainThread:@selector(uicache) withObject:nil waitUntilDone:YES];
     }
+    return succeeded;
 }
 
 - (void) confirmWithNavigationController:(UINavigationController *)navigation {
@@ -281,40 +311,8 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"fixhalf"]) {
-        if (button == [alert cancelButtonIndex]) {
-            @synchronized (self) {
-                for (Package *broken in (id) broken_) {
-                    [broken remove];
-                    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-                    const char *name([[broken dpkgId] UTF8String]);
-                    std::vector<std::string> files;
-                    const char *suffixes[] = {".prerm", ".postrm", ".preinst", ".postinst", ".extrainst_"};
-                    for (const char *suffix : suffixes) {
-                        std::string file(paths.DpkgInfoFile(name, suffix));
-                        if (!file.empty())
-                            files.push_back(file);
-                    }
-
-                    std::vector<std::string> arguments;
-                    arguments.push_back(paths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Remove));
-                    arguments.push_back("-f");
-                    arguments.insert(arguments.end(), files.begin(), files.end());
-                    CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
-                    const CydiaRuntime::Dpkg::Result result(runner.Run(arguments));
-                    if (!result.succeeded())
-                        NSLog(@"Unable to remove failed package scripts for %@ (kind=%d, code=%d, error=%d)",
-                              [broken id], static_cast<int>(result.kind), result.code, result.error);
-                }
-
-                [self resolve];
-                [self perform];
-            }
-        } else if (button == [alert firstOtherButtonIndex]) {
-            [broken_ removeAllObjects];
-            [self _loaded];
-        }
-
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
+        [self showPackageRecovery:broken_];
     } else if ([context isEqualToString:@"upgrade"]) {
         if (button == [alert firstOtherButtonIndex]) {
             @synchronized (self) {

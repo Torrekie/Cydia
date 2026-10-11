@@ -76,19 +76,22 @@
         [(NSObject<CydiaDelegate> *) [self delegate] updateData];
 }
 
-- (void) _updateIgnored {
+- (bool) _updateIgnored {
     bool on([ignoredSwitch_ isOn]);
 
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const char *name([[package_ dpkgId] UTF8String]);
-    std::string input(name == NULL ? "" : name);
-    input += on ? " hold\n" : " install\n";
-
-    CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
-    (void) runner.RunWithInput({paths.DpkgBinaryPath(), "--set-selections"}, input);
+    return [package_ setHeld:on];
 }
 
 - (void) onIgnored:(id)control {
+    if ([database_ hasPendingPackageChanges]) {
+        [ignoredSwitch_ setOn:[package_ ignored] animated:YES];
+        UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("SETTINGS")
+            message:[[NSBundle mainBundle] localizedStringForKey:@"PACKAGE_HOLD_QUEUE"
+                value:@"PACKAGE_HOLD_QUEUE" table:@"Actions"] preferredStyle:UIAlertControllerStyleAlert]);
+        [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
     NSInvocation *invocation([NSInvocation invocationWithMethodSignature:[self methodSignatureForSelector:@selector(_updateIgnored)]]);
     [invocation setTarget:self];
     [invocation setSelector:@selector(_updateIgnored)];

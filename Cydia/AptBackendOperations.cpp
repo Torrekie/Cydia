@@ -8,6 +8,7 @@
 
 #include "Cydia/AptBackendInternal.hpp"
 #include "Cydia/AptCompatibilityInternal.hpp"
+#include "Cydia/AptRuntime.hpp"
 
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/clean.h>
@@ -16,9 +17,111 @@
 #include <apt-pkg/metaindex.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/progress.h>
+#include <apt-pkg/hashes.h>
+
+#include <sys/stat.h>
 
 namespace CydiaAPT {
 namespace Internal {
+
+namespace {
+
+#ifdef APT_CYDIA_STATE_FILE_WRITER
+bool DeferStateFileWrite(pkgDepCache &, bool, void *) { return true; }
+class DeferredStateFileWrites {
+public:
+    DeferredStateFileWrites() { SetStateFileWriter(DeferStateFileWrite, NULL); }
+    ~DeferredStateFileWrites() { SetStateFileWriter(NULL, NULL); }
+};
+#endif
+
+ArchiveIntegrity VerifyArchiveIntegrity(pkgAcqArchive &archive) {
+    const HashStringList expected(archive.GetExpectedHashes());
+    if ((expected.empty() || !expected.usable()) && archive.HashesRequired())
+        return ArchiveIntegrity::MissingExpectedHashes;
+
+    FileFd file(archive.DestFile, FileFd::ReadOnly);
+    struct stat info;
+    if (!file.IsOpen() || file.Failed() ||
+        fstat(file.Fd(), &info) != 0 || !S_ISREG(info.st_mode))
+        return ArchiveIntegrity::Unavailable;
+
+    /* APT permits genuinely local volatile archives without repository
+     * hashes. Preserve that explicit exception, while still checking that
+     * the payload exists. Remote archives must have usable expected hashes. */
+    if (expected.empty())
+        return ArchiveIntegrity::NotRequired;
+
+    const HashString *size(expected.find("Checksum-FileSize"));
+    if (size != NULL && size->HashValue() != std::to_string(info.st_size))
+        return ArchiveIntegrity::Mismatch;
+
+    Hashes actual(expected);
+    if (!actual.AddFD(file) || file.Failed())
+        return ArchiveIntegrity::Unavailable;
+    return actual.GetHashStringList() == expected ?
+        ArchiveIntegrity::Verified : ArchiveIntegrity::Mismatch;
+}
+
+void ValidateArchiveItems(pkgAcquire &fetcher, FetchResultData &result) {
+    const RepositorySecurityMode mode(GetRepositorySecurityMode());
+    for (pkgAcquire::ItemIterator item(fetcher.ItemsBegin()); item != fetcher.ItemsEnd(); ++item) {
+        pkgAcqArchive *archive(dynamic_cast<pkgAcqArchive *>(*item));
+        if ((*item)->Status != pkgAcquire::Item::StatDone || !(*item)->Complete) {
+            /* Idle non-archive helper items can be optional. An archive
+             * itself must be complete before dpkg may use its filename. */
+            if (archive == NULL && (*item)->Status == pkgAcquire::Item::StatIdle)
+                continue;
+            FetchFailureData failure;
+            failure.uri = (*item)->DescURI();
+            failure.package = (*item)->ShortDesc();
+            failure.kind = (*item)->ErrorText.empty() ?
+                FetchDiagnosticKind::ArchiveIncomplete : FetchDiagnosticKind::General;
+            failure.error = (*item)->ErrorText.empty() ?
+                "Package archive acquisition did not complete." : (*item)->ErrorText;
+            result.failures.push_back(failure);
+            continue;
+        }
+        if (archive == NULL)
+            continue;
+
+        const ArchiveIntegrity integrity(VerifyArchiveIntegrity(*archive));
+        const bool trustProof(CachedRepositoryTrustValid());
+        const ArchiveSecurityDecision decision(EvaluateArchiveSecurity(
+            mode, trustProof && archive->IsTrusted(), integrity));
+        if (decision.allowed && !decision.warning)
+            continue;
+
+        FetchFailureData diagnostic;
+        diagnostic.uri = archive->DescURI();
+        const std::string package(archive->ShortDesc());
+        diagnostic.package = package;
+        if (integrity == ArchiveIntegrity::MissingExpectedHashes) {
+            diagnostic.kind = FetchDiagnosticKind::ArchiveMissingHashes;
+            diagnostic.error = "Package archive has no usable expected hashes: " + package;
+        } else if (integrity == ArchiveIntegrity::Mismatch) {
+            diagnostic.kind = FetchDiagnosticKind::ArchiveMismatch;
+            diagnostic.error = "Package archive size or hash verification failed: " + package;
+        } else if (integrity == ArchiveIntegrity::Unavailable) {
+            diagnostic.kind = FetchDiagnosticKind::ArchiveUnavailable;
+            diagnostic.error = "Package archive is unavailable or unreadable: " + package;
+        } else if (!trustProof) {
+            diagnostic.kind = FetchDiagnosticKind::ArchiveTrustNeedsRefresh;
+            diagnostic.error = "Refresh sources to verify repository authentication for this session: " + package;
+        } else {
+            diagnostic.kind = FetchDiagnosticKind::UnauthenticatedSource;
+            diagnostic.error = "Package source is unauthenticated: " + package +
+                " (" + diagnostic.uri + ")";
+        }
+
+        if (decision.warning)
+            result.warnings.push_back(diagnostic);
+        else
+            result.failures.push_back(diagnostic);
+    }
+}
+
+} // namespace
 
 std::vector<ErrorData> AptBackend::drainErrors() {
     std::vector<ErrorData> result;
@@ -38,7 +141,43 @@ void AptBackend::discardErrors() {
 
 bool AptBackend::openCache() {
     OpProgress progress;
-    return cache_.Open(&progress, false);
+    originalAutoInstalled_.clear();
+    if (!cache_.Open(&progress, false)) return false;
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package)
+        originalAutoInstalled_[std::string(package.Name()) + ':' + package.Arch()] =
+            (cache[package].Flags & pkgCache::Flag::Auto) != 0;
+    return true;
+}
+
+bool AptBackend::lockForTransaction() {
+    if (_system == NULL || _system->IsLocked())
+        return _error->Error("The package-manager transaction lock is not available.");
+    const std::string configured(_config->Find("Debug::NoLocking"));
+    _config->Set("Debug::NoLocking", false);
+    const bool success(_system->Lock());
+    _config->Set("Debug::NoLocking", configured);
+    return success;
+}
+
+void AptBackend::unlockForTransaction() {
+    if (_system != NULL && _system->IsLocked()) _system->UnLock();
+}
+
+std::vector<AutoInstalledDelta> AptBackend::autoInstalledDeltas() {
+    std::vector<AutoInstalledDelta> result;
+    if (static_cast<pkgDepCache *>(cache_) == NULL) return result;
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
+        const std::string key(std::string(package.Name()) + ':' + package.Arch());
+        const bool automatic(!cache[package].Delete() &&
+                             (cache[package].Flags & pkgCache::Flag::Auto) != 0);
+        const auto before(originalAutoInstalled_.find(key));
+        if (before != originalAutoInstalled_.end() && before->second == automatic) continue;
+        if (before == originalAutoInstalled_.end() && !automatic) continue;
+        result.push_back({package.Name(), package.Arch(), automatic});
+    }
+    return result;
 }
 
 CacheStateSummary AptBackend::cacheState() {
@@ -120,21 +259,49 @@ FetchResultData AptBackend::runFetcher(int pulseInterval) {
     if (!result.completed)
         return result;
 
-    for (pkgAcquire::ItemIterator item(fetcher_->ItemsBegin()); item != fetcher_->ItemsEnd(); ++item) {
-        if (((*item)->Status == pkgAcquire::Item::StatDone && (*item)->Complete) ||
-            (*item)->Status == pkgAcquire::Item::StatIdle)
-            continue;
-        FetchFailureData failure;
-        failure.uri = (*item)->DescURI();
-        failure.error = (*item)->ErrorText;
-        result.failures.push_back(failure);
-    }
+    /* Also verify completed/cached payloads: upstream skips downloading a
+     * same-size cached .deb without recalculating its expected hashes. */
+    ValidateArchiveItems(*fetcher_, result);
     return result;
 }
 
 PackageManagerResult AptBackend::runPackageManager(int statusFd) {
-    return manager_.get() == NULL ? PackageManagerResult::Failed :
-        RunPackageManager(*manager_, statusFd);
+    if (manager_.get() == NULL || fetcher_ == NULL)
+        return PackageManagerResult::Failed;
+    if (_system == NULL || !_system->IsLocked()) {
+        _error->Error("Package execution requires the frontend transaction lock.");
+        return PackageManagerResult::Failed;
+    }
+    /* A resolver or another caller may have introduced an indirect removal.
+     * Recheck the final state rather than relying on visible action buttons. */
+    if (!transactionData().issues.empty()) {
+        _error->Error("The transaction contains blocked package changes.");
+        return PackageManagerResult::Failed;
+    }
+
+    /* Repeat immediately before execution, including when a caller bypasses
+     * runFetcher. Warning mode remains nonblocking; its advisory is returned
+     * by runFetcher for presentation before reaching this method. */
+    FetchResultData verified;
+    ValidateArchiveItems(*fetcher_, verified);
+    if (!verified.failures.empty()) {
+        for (std::vector<FetchFailureData>::const_iterator failure(verified.failures.begin());
+             failure != verified.failures.end(); ++failure)
+            _error->Error("%s", failure->error.c_str());
+        return PackageManagerResult::Failed;
+    }
+    /* Follow APT's normal handoff: keep the frontend lock while dpkg owns
+     * the inner admin lock, then reacquire the inner lock before persistence. */
+    if (!_system->UnLockInner()) return PackageManagerResult::Failed;
+#ifdef APT_CYDIA_STATE_FILE_WRITER
+    DeferredStateFileWrites deferred;
+#else
+    _error->Error("The embedded package manager cannot defer shared state writes.");
+    return PackageManagerResult::Failed;
+#endif
+    const PackageManagerResult result(RunPackageManager(*manager_, statusFd));
+    if (!_system->LockInner()) return PackageManagerResult::Failed;
+    return result;
 }
 
 UpdateResultData AptBackend::updateLists(pkgAcquireStatus &status, int pulseInterval) {
@@ -147,7 +314,7 @@ UpdateResultData AptBackend::updateLists(pkgAcquireStatus &status, int pulseInte
     if (_error->PendingError())
         return result;
     result.prepared = true;
-    result.success = UpdateLists(status, list, pulseInterval);
+    result.success = UpdateLists(status, list, pulseInterval, result);
     return result;
 }
 

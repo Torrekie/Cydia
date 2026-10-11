@@ -4,7 +4,17 @@
 #import "Cydia/MoreSourcesModel.h"
 #import "Cydia/UIColor+Cydia.h"
 #import "Cydia/NativeAccessibilityTrace.h"
+#import "Cydia/UIRouteContext.h"
 #import "CyteKit/Localize.h"
+
+@protocol CydiaMoreSourcesRouteDelegate <NSObject>
+- (CyteViewController *)pageForURL:(NSURL *)URL
+    context:(NSObject<CyteWebNavigationContext> *)context withReferrer:(NSString *)referrer;
+@end
+
+static NSString *MoreSourcesSetting(NSString *key) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Settings"];
+}
 
 @interface CydiaMoreSourcesCell : UITableViewCell
 @property(nonatomic, strong) UILabel *body;
@@ -81,7 +91,6 @@
 }
 - (void)reloadData {
     [super reloadData];
-    _missing = CydiaMissingDefaultSources([_provider configuredSources]);
     [_table reloadData];
 }
 - (void)viewWillAppear:(BOOL)animated {
@@ -119,23 +128,18 @@
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 3; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? _missing.count : 1;
+    return section == 0 ? 2 : 1;
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return section == 0 && _missing.count ? UCLocalizeEx(@"DEFAULT_SOURCES", @"Default Sources") : nil;
+    return nil;
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return section == 0 && _missing.count && ![_provider canEditSources] ?
-        UCLocalizeEx(@"MORE_SOURCES_READ_ONLY", @"This bootstrap has not enabled source editing in Cydia. Manage repositories with your bootstrap's package manager; Cydia will read the same APT sources.") : nil;
+    return nil;
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
-    if (section == 0 && _missing.count)
-        return UITableViewAutomaticDimension;
     return 0.01;
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
-    if (section == 0 && _missing.count && ![_provider canEditSources])
-        return UITableViewAutomaticDimension;
     return section < 2 ? 12.0 : 0.01;
 }
 - (void)styleSectionView:(UIView *)view {
@@ -152,22 +156,20 @@
     [self styleSectionView:view];
 }
 - (NSString *)textForRow:(NSIndexPath *)path {
-    if (path.section == 0) return _missing[path.row][@"name"];
-    if (path.section == 2) return UCLocalizeEx(@"MORE_SOURCES_RESTORE",
-        @"If you remove a default repository (BigBoss, ModMyi, or ZodTTD & MacCiti) from your Sources list, you can use this page to reinstall that default repository. Uninstalled default repositories are listed at the top of this page (if any).");
+    if (path.section == 0) return path.row == 0 ? UCLocalize("SOURCES") : MoreSourcesSetting(@"ADVANCED_SETTINGS");
+    if (path.section == 2) return MoreSourcesSetting(@"BOOTSTRAP_REPOSITORIES_HELP");
     NSArray *paragraphs = @[
         UCLocalizeEx(@"MORE_SOURCES_HEADING", @"What are package sources?"),
         UCLocalizeEx(@"MORE_SOURCES_INTRO", @"Cydia is an open, decentralized platform that helps you install software packages hosted by independent repositories, also called sources."),
         UCLocalizeEx(@"MORE_SOURCES_OWNERS", @"Each source chooses the packages it hosts, how its pages look, and how it is run. They may choose to have ads."),
-        UCLocalizeEx(@"MORE_SOURCES_HISTORY", @"Cydia includes a few default sources (BigBoss, Cydia/Telesphoreo, Dev Team, ModMyi, and ZodTTD & MacCiti) that host thousands of popular and useful packages."),
         UCLocalizeEx(@"MORE_SOURCES_HOSTING", @"Anyone can run their own source (a source is basically a specialized website viewable in Cydia)."),
-        UCLocalizeEx(@"MORE_SOURCES_RISK", @"You are free to add un-trusted third-party sources, but you do that at your own risk (not recommended). Packages from third-party sources may not have the same strict quality control as the packages in default sources, and we do not screen them.")
+        MoreSourcesSetting(@"REPOSITORY_SECURITY_EXPLANATION")
     ];
     return [paragraphs componentsJoinedByString:@"\n\n"];
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
     CydiaMoreSourcesCell *cell = [[CydiaMoreSourcesCell alloc] init];
-    BOOL action = path.section == 0, enabled = action && !_restoring && [_provider canEditSources];
+    BOOL action = path.section == 0, enabled = action;
     cell.body.text = [self textForRow:path];
     cell.body.font = [UIFont preferredFontForTextStyle:action ?
         UIFontTextStyleBody : UIFontTextStyleSubheadline compatibleWithTraitCollection:self.traitCollection];
@@ -192,35 +194,24 @@
         config.backgroundColor = background; cell.backgroundConfiguration = config;
     }
     cell.accessibilityLabel = cell.body.text;
-    cell.accessibilityIdentifier = action ? [@"cydia.home.more-sources." stringByAppendingString:_missing[path.row][@"identifier"]] :
+    cell.accessibilityIdentifier = action ? [@"cydia.home.more-sources." stringByAppendingString:path.row == 0 ? @"sources" : @"advanced"] :
         [NSString stringWithFormat:@"cydia.home.more-sources.text.%ld.%ld", (long)path.section, (long)path.row];
     cell.accessibilityTraits = action ? UIAccessibilityTraitButton | (enabled ? 0 : UIAccessibilityTraitNotEnabled) :
         UIAccessibilityTraitStaticText | (path.section == 1 && path.row == 0 ? UIAccessibilityTraitHeader : 0);
     cell.selectionStyle = enabled ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
     if (action) {
-        cell.icon.image = [UIImage imageNamed:[NSString stringWithFormat:@"MoreSources/%@.png", _missing[path.row][@"identifier"]]];
-        cell.iconWidth.constant = 32; cell.iconGap.constant = 12;
         cell.accessoryType = enabled ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
     }
     return cell;
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
     [tableView deselectRowAtIndexPath:path animated:YES];
-    if (path.section != 0 || path.row >= _missing.count || _restoring || ![_provider canEditSources]) return;
-    NSString *identifier = _missing[path.row][@"identifier"];
-    _restoring = YES; [_table reloadData];
-    __weak MoreSourcesController *weakSelf = self;
-    [_provider restoreSourceIdentifier:identifier presenter:self completion:^(BOOL added) {
-        MoreSourcesController *self = weakSelf;
-        if (!self) return;
-        self.restoring = NO;
-        if (!self.visible) return;
-        if (added) [self.navigationController popViewControllerAnimated:YES];
-        else {
-            [self reloadData];
-            UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
-            CydiaCaptureNativeAccessibility(self, @"more-sources");
-        }
-    }];
+    if (path.section != 0) return;
+    id<CydiaMoreSourcesRouteDelegate> delegate(self.delegate);
+    NSURL *URL([NSURL URLWithString:path.row == 0 ? @"cydia://sources" : @"cydia://home/settings/advanced"]);
+    if (![delegate respondsToSelector:@selector(pageForURL:context:withReferrer:)]) return;
+    CyteViewController *page([delegate pageForURL:URL context:[CydiaUIRouteContext trustedNativeContext]
+        withReferrer:self.navigationURL.absoluteString]);
+    if (page != nil) { page.delegate = self.delegate; [self.navigationController pushViewController:page animated:YES]; }
 }
 @end

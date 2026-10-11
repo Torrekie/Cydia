@@ -94,9 +94,13 @@ check_control "$cydia" cydia "Cydia Refurbished"
 check_control "$lproj" cydia-lproj "Cydia Translations"
 
 depends=$(dpkg-deb -f "$cydia" Depends)
-printf '%s\n' "$depends" | tr ',' '\n' | \
+translation_version=$(dpkg-deb -f "$lproj" Version)
+printf '%s\n' "$depends" | grep -F "cydia-lproj (>= $translation_version)" >/dev/null || \
+    fail "cydia package can be installed without its required native translations"
+pre_depends=$(dpkg-deb -f "$cydia" Pre-Depends)
+printf '%s\n' "$pre_depends" | tr ',' '\n' | \
     grep -E '^[[:space:]]*bash([[:space:](]|$)' >/dev/null || \
-    fail "cydia package does not declare its Bash runtime dependency"
+    fail "cydia package does not declare its maintscript Bash predependency"
 if printf '%s\n' "$depends" | tr ',' '\n' | \
         grep -E '^[[:space:]]*org[.]thebigboss[.]repo[.]icons([[:space:](]|$)' >/dev/null; then
     fail "cydia package still depends on org.thebigboss.repo.icons"
@@ -123,7 +127,10 @@ for asset in DOWNGRADE.png INSTALL.png PURGE.png REINSTALL.png REMOVE.png UPGRAD
         "${prefix:+$prefix/}Applications/Cydia.app/Modes/$asset"
 done
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/cydo"
-require_path "$cydia_paths" "${prefix:+$prefix/}Library/LaunchDaemons/com.saurik.Cydia.Startup.plist"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/firmware-discovery"
+if grep -E "^${prefix:+$prefix/}(etc/apt/|Library/LaunchDaemons/)" "$cydia_paths" >/dev/null; then
+    fail "package owns shared APT configuration or automatic bootstrap startup jobs"
+fi
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/NOTICE"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/copyright"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/COPYING"
@@ -172,17 +179,9 @@ planetiphones_section_icon=$data_directory/${prefix:+$prefix/}Applications/Cydia
 [ -f "$data_directory/${prefix:+$prefix/}Applications/Cydia.app/unknown.png" ] ||
     fail "package does not contain the source/section icon fallback"
 
-for script in preinst postinst triggers; do
+for script in preinst postinst prerm postrm cydia-shared-config-lifecycle triggers; do
     [ -f "$control_directory/$script" ] || fail "missing maintainer file: $script"
 done
-
-launchd=$data_directory/${prefix:+$prefix/}Library/LaunchDaemons/com.saurik.Cydia.Startup.plist
-expected_launch_path=/${prefix:+$prefix/}usr/libexec/cydia/startup
-grep -F "$expected_launch_path" "$launchd" >/dev/null ||
-    fail "launch daemon does not use $expected_launch_path"
-expected_launch_shell=/${prefix:+$prefix/}bin/bash
-grep -F "$expected_launch_shell" "$launchd" >/dev/null ||
-    fail "launch daemon does not use $expected_launch_shell"
 
 expected_trigger_prefix=/${prefix:+$prefix/}
 grep -Fx "interest-noawait ${expected_trigger_prefix}Applications" \
@@ -192,13 +191,17 @@ grep -Fx "interest-noawait ${expected_trigger_prefix}Library/Themes" \
     "$control_directory/triggers" >/dev/null || \
     fail "package has the wrong themes trigger for $layout"
 
-expected_shebang='#!/bin/bash'
-[ "$(sed -n '1p' "$control_directory/preinst")" = "$expected_shebang" ] ||
-    fail "preinst shebang was rewritten"
+expected_shebang="#!/${prefix:+$prefix/}bin/bash"
+for script in preinst prerm postrm cydia-shared-config-lifecycle; do
+    [ "$(sed -n '1p' "$control_directory/$script")" = "$expected_shebang" ] ||
+        fail "$script does not use the installed bootstrap shell"
+    grep -F 'cydia_shared_config_lifecycle()' "$control_directory/$script" >/dev/null ||
+        fail "$script lacks its self-contained configuration handoff"
+done
 for helper in firmware.sh package-paths.sh startup; do
     helper_path=$data_directory/${prefix:+$prefix/}usr/libexec/cydia/$helper
     [ "$(sed -n '1p' "$helper_path")" = "$expected_shebang" ] ||
-        fail "$helper shebang was rewritten"
+        fail "$helper does not use the installed bootstrap shell"
 done
 
 icon=$(dpkg-deb -f "$cydia" Icon)
@@ -207,4 +210,4 @@ expected_icon="file:///${prefix:+$prefix/}Applications/Cydia.app/Icon-60.png"
 
 echo "[verify-package][ ok ] $layout cydia and translation archives"
 echo "[verify-package][ ok ] architecture $architecture, prefix /${prefix}"
-echo "[verify-package][ ok ] dependencies, canonical shebangs, triggers, and launchd paths"
+echo "[verify-package][ ok ] dependencies, bootstrap shebangs, triggers, and isolated maintscripts"

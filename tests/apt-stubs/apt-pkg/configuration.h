@@ -41,11 +41,11 @@ class Configuration {
     }
 
     std::string FindFile(const char *name, const char *defaultValue = NULL) const {
-        return ResolvePath(Find(name, defaultValue), false);
+        return ResolvePath(name, Find(name, defaultValue), false);
     }
 
     std::string FindDir(const char *name, const char *defaultValue = NULL) const {
-        return ResolvePath(Find(name, defaultValue), true);
+        return ResolvePath(name, Find(name, defaultValue), true);
     }
 
     void Clear(const std::string &name) {
@@ -72,12 +72,17 @@ class Configuration {
     }
 
   private:
-    std::string ResolvePath(const std::string &value, bool directory) const {
+    std::string ResolvePath(const std::string &name, const std::string &value, bool directory) const {
         if (value.empty() || value == "/dev/null")
             return ApplyRoot(value);
         std::string result(value);
-        if (result[0] != '/') {
-            const std::string parent(Find("Dir::Etc"));
+        std::string key(name);
+        while (result[0] != '/') {
+            const std::string::size_type separator(key.rfind("::"));
+            if (separator == std::string::npos)
+                break;
+            key.erase(separator);
+            const std::string parent(Find(key.c_str()));
             if (!parent.empty())
                 result = parent + "/" + result;
         }

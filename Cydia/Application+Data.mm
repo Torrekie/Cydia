@@ -16,6 +16,7 @@
 #include "Cydia/Package.h"
 #include "Cydia/PackageFeatureControllers.h"
 #include "Cydia/ProgressController.h"
+#include "Cydia/ProgressEvent.h"
 #include "Cydia/SourceControllers.h"
 #include "Cydia/Source.h"
 #include "Cydia/TabBarController.h"
@@ -373,23 +374,9 @@ static NSString *CydiaNativeCompatibilityMutationDiagnosticKey(void) {
 }
 
 - (bool) requestUpdate {
-    if (CyteIsReachable("cydia.saurik.com")) {
-        [self beginUpdate];
-        return true;
-    } else {
-        UIAlertView *alert = [[UIAlertView alloc]
-            initWithTitle:[NSString stringWithFormat:Colon_, Error_, UCLocalize("REFRESH")]
-            message:@"Host Unreachable" // XXX: Localize
-            delegate:self
-            cancelButtonTitle:UCLocalize("OK")
-            otherButtonTitles:nil
-        ];
-
-        [alert setContext:@"norefresh"];
-        [alert show];
-
-        return false;
-    }
+    // APT reports the state of the repositories actually being refreshed.
+    [self beginUpdate];
+    return true;
 }
 
 - (BOOL) updating {
@@ -398,21 +385,7 @@ static NSString *CydiaNativeCompatibilityMutationDiagnosticKey(void) {
 
 - (void) _loaded {
     if ([broken_ count] != 0) {
-        int count = [broken_ count];
-
-        UIAlertView *alert = [[UIAlertView alloc]
-            initWithTitle:(count == 1 ? UCLocalize("HALFINSTALLED_PACKAGE") : [NSString stringWithFormat:UCLocalize("HALFINSTALLED_PACKAGES"), count])
-            message:UCLocalize("HALFINSTALLED_PACKAGE_EX")
-            delegate:self
-            cancelButtonTitle:[NSString stringWithFormat:UCLocalize("PARENTHETICAL"), UCLocalize("FORCIBLY_CLEAR"), UCLocalize("UNSAFE")]
-            otherButtonTitles:
-                UCLocalize("TEMPORARY_IGNORE"),
-            nil
-        ];
-
-        [alert setContext:@"fixhalf"];
-        [alert setNumberOfRows:2];
-        [alert show];
+        [self showPackageRecovery:broken_];
     } else if (!Ignored_ && [essential_ count] != 0) {
         int count = [essential_ count];
 
@@ -563,8 +536,7 @@ static NSString *CydiaNativeCompatibilityMutationDiagnosticKey(void) {
     //  - We already refreshed recently.
     //  - We already auto-refreshed this launch.
     //  - Auto-refresh is disabled.
-    //  - Cydia's server is not reachable
-    if (recently || loaded_ || ManualRefresh || !CyteIsReachable("cydia.saurik.com")) {
+    if (recently || loaded_ || ManualRefresh) {
         // If we are cancelling, we need to make sure it knows it's already loaded.
         loaded_ = true;
 
@@ -1025,6 +997,14 @@ _end
 }
 
 - (void) syncData {
+    /* Source changes are explicit. Saving appearance or other app preferences
+     * must never rewrite the bootstrap's repository files. */
+    if (!CydiaWriteSources()) {
+        [self addProgressEventOnMainThread:[CydiaProgressEvent
+            eventWithMessage:UCLocalize("ERROR") ofType:@"Error"]
+            forTask:UCLocalize("UPDATING_SOURCES")];
+        return;
+    }
     [self _saveConfig];
     [self detachNewProgressSelector:@selector(update_) toTarget:self forController:nil title:@"UPDATING_SOURCES"];
 }
@@ -1174,22 +1154,28 @@ _end
 }
 
 - (void) addSource:(NSDictionary *) source {
-    if (!CydiaCanEditManagedSources())
-        return;
-    CydiaAddSource(source);
+    NSString *draft(CydiaSourceDraftForLegacySource(source));
+    if (draft == nil || !CydiaCanEditSources()) return;
+    SourcesController *controller([[SourcesController alloc] initWithDatabase:database_]);
+    [controller setDelegate:self];
+    [tabbar_ setUnselectedViewController:controller];
+    // The native destination choice must be presented after the controller
+    // has joined its navigation hierarchy.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [controller showAddSourceDefinitionPrompt:draft];
+    });
 }
 
 - (void) addSource:(NSString *)href withDistribution:(NSString *)distribution andSections:(NSArray *)sections {
-    if (!CydiaCanEditManagedSources())
-        return;
-    CydiaAddSource(href, distribution, sections);
+    [self addSource:@{@"Type":@"deb", @"URI":href ?: @"",
+        @"Distribution":distribution ?: @"", @"Sections":sections ?: @[]}];
 }
 
-// XXX: this method should not return anything
+// Acceptance opens a reviewed native draft; it does not write an APT file.
 - (BOOL) addTrivialSource:(NSString *)href {
-    if (!CydiaCanEditManagedSources())
-        return NO;
-    CydiaAddSource(href, @"./");
+    NSDictionary *source(@{@"Type":@"deb", @"URI":href ?: @"", @"Distribution":@"./", @"Sections":@[]});
+    if (!CydiaCanEditSources() || CydiaSourceDraftForLegacySource(source) == nil) return NO;
+    [self addSource:source];
     return YES;
 }
 

@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Chọn phiên bản";
+"PACKAGE_PURGE_ACTION" = "Xóa gói và cấu hình";
+"PACKAGE_PURGE_EX" = "Xóa gói và các tệp cấu hình đã lưu của gói.";
+"PACKAGE_HELD_NOTICE" = "Gói này đang bị giữ lại. Hãy tắt “Bỏ Qua Nâng Cấp” trong cài đặt gói trước khi thay đổi gói.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Gói này được đánh dấu là thiết yếu (Essential). Cydia sẽ không xóa gói hoặc xóa cả cấu hình của gói.";
+"PACKAGE_PROTECTED_NOTICE" = "Gói này được đánh dấu là được bảo vệ (Protected). Cydia sẽ không xóa gói hoặc xóa cả cấu hình của gói.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "Phiên bản đã cài không có trong các nguồn hiện tại. Hãy chọn một phiên bản khác có sẵn.";
+"PACKAGE_PRIORITY" = "Độ ưu tiên: %ld";
+"PACKAGE_CANDIDATE" = "Phiên bản ứng viên";
+"PACKAGE_HOLD_FAILED" = "Không thể thay đổi trạng thái giữ lại của gói. Hãy tải lại và thử lại.";
+"PACKAGE_HOLD_QUEUE" = "Hoàn tất hoặc hủy các thay đổi gói trong hàng đợi trước khi thay đổi trạng thái giữ lại.";
+"PACKAGE_HELD_ISSUE" = "%@ đang bị giữ lại. Hãy tắt “Bỏ Qua Nâng Cấp” trong cài đặt gói trước khi thay đổi gói.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ được đánh dấu là thiết yếu (Essential). Cydia sẽ không xóa gói hoặc xóa cả cấu hình của gói.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ được đánh dấu là được bảo vệ (Protected). Cydia sẽ không xóa gói hoặc xóa cả cấu hình của gói.";

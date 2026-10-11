@@ -8,6 +8,7 @@
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/AptBackend.hpp"
+#include "Cydia/AptRuntime.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/DpkgStatusParser.hpp"
 #include "Cydia/Package.h"
@@ -15,6 +16,7 @@
 #include "Cydia/PackageMetadata.hpp"
 #include "Cydia/Profile.hpp"
 #include "Cydia/ProgressEvent.h"
+#include "Cydia/PrivilegedClient.h"
 #include "Cydia/Source.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
@@ -30,6 +32,8 @@
 #include <vector>
 
 #include <cstdio>
+#include <cerrno>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -56,10 +60,130 @@ static NSString * const kCydiaProgressEventTypeInformation = @"Information";
 static NSString * const kCydiaProgressEventTypeStatus = @"Status";
 static NSString * const kCydiaProgressEventTypeWarning = @"Warning";
 
-static NSDate *GetStatusDate() {
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    NSString *status([NSString stringWithUTF8String:paths.DpkgStatusPath().c_str()]);
-    return [[[NSFileManager defaultManager] attributesOfItemAtPath:status error:NULL] fileModificationDate];
+namespace {
+class DatabaseOperation {
+    NSRecursiveLock *__strong lock_;
+public:
+    explicit DatabaseOperation(NSRecursiveLock *lock) : lock_(lock) { [lock_ lock]; }
+    ~DatabaseOperation() { [lock_ unlock]; }
+    DatabaseOperation(const DatabaseOperation &) = delete;
+    DatabaseOperation &operator=(const DatabaseOperation &) = delete;
+};
+
+class PackageTransactionLock {
+    CydiaAPT::AptBackend *apt_;
+public:
+    explicit PackageTransactionLock(CydiaAPT::AptBackend *apt) : apt_(NULL) {
+        if (apt->lockForTransaction()) apt_ = apt;
+    }
+    ~PackageTransactionLock() { if (apt_ != NULL) apt_->unlockForTransaction(); }
+    bool held() const { return apt_ != NULL; }
+};
+
+class ConfigureFrontendLock {
+    int fd_;
+public:
+    ConfigureFrontendLock() : fd_(-1) {
+        CydiaRuntime::Privileged::Error error;
+        fd_ = CydiaRuntime::PrivilegedClient::OpenLock(CydiaAPT::PrivilegedHelperPath(),
+            CydiaRuntime::PrivilegedClient::RuntimeRequest(""), "lock-frontend", &error);
+        if (fd_ < 0) return;
+        struct flock lock = {};
+        lock.l_type = F_WRLCK; lock.l_whence = SEEK_SET;
+        if (fcntl(fd_, F_SETLK, &lock) != 0) { close(fd_); fd_ = -1; }
+    }
+    ~ConfigureFrontendLock() { if (fd_ >= 0) close(fd_); }
+    bool held() const { return fd_ >= 0; }
+};
+}
+
+static NSString *FetchDiagnosticMessage(const CydiaAPT::FetchFailureData &diagnostic) {
+    NSString *key(nil);
+    switch (diagnostic.kind) {
+        case CydiaAPT::FetchDiagnosticKind::ArchiveIncomplete: key = @"ARCHIVE_INCOMPLETE"; break;
+        case CydiaAPT::FetchDiagnosticKind::ArchiveMissingHashes: key = @"ARCHIVE_MISSING_HASHES"; break;
+        case CydiaAPT::FetchDiagnosticKind::ArchiveMismatch: key = @"ARCHIVE_MISMATCH"; break;
+        case CydiaAPT::FetchDiagnosticKind::ArchiveUnavailable: key = @"ARCHIVE_UNAVAILABLE"; break;
+        case CydiaAPT::FetchDiagnosticKind::ArchiveTrustNeedsRefresh: key = @"ARCHIVE_TRUST_REFRESH_REQUIRED"; break;
+        case CydiaAPT::FetchDiagnosticKind::UnauthenticatedSource: key = @"ARCHIVE_UNAUTHENTICATED"; break;
+        case CydiaAPT::FetchDiagnosticKind::UnsignedRepository: key = @"REPOSITORY_UNSIGNED"; break;
+        case CydiaAPT::FetchDiagnosticKind::MissingSigningKey: key = @"REPOSITORY_MISSING_KEY"; break;
+        case CydiaAPT::FetchDiagnosticKind::UnusableSigningKey: key = @"REPOSITORY_UNUSABLE_KEY"; break;
+        case CydiaAPT::FetchDiagnosticKind::WeakRepository: key = @"REPOSITORY_WEAK"; break;
+        case CydiaAPT::FetchDiagnosticKind::MissingReleaseFile: key = @"REPOSITORY_MISSING_RELEASE"; break;
+        case CydiaAPT::FetchDiagnosticKind::RepositoryTrustDowngrade: key = @"REPOSITORY_TRUST_DOWNGRADE"; break;
+        case CydiaAPT::FetchDiagnosticKind::BadRepositorySignature: key = @"REPOSITORY_BAD_SIGNATURE"; break;
+        case CydiaAPT::FetchDiagnosticKind::InvalidRepositorySignature: key = @"REPOSITORY_INVALID_SIGNATURE"; break;
+        case CydiaAPT::FetchDiagnosticKind::General: break;
+    }
+    if (key == nil) return [NSString stringWithUTF8String:diagnostic.error.c_str()];
+    NSString *format([[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Settings"]);
+    NSString *package([NSString stringWithUTF8String:diagnostic.package.c_str()]);
+    NSString *message([NSString stringWithFormat:format, package]);
+    if (!diagnostic.uri.empty()) message = [message stringByAppendingFormat:@"\n%@",
+        [NSString stringWithUTF8String:diagnostic.uri.c_str()]];
+    return message;
+}
+
+static NSString *SettingsMessage(NSString *key) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Settings"];
+}
+
+static NSString *CurrentListsSnapshot() {
+    NSMutableData *bytes([NSMutableData data]);
+    NSString *lists([NSString stringWithUTF8String:CydiaAPT::ListsDirectory().c_str()]);
+    NSArray *names([[NSFileManager defaultManager] contentsOfDirectoryAtPath:lists error:NULL]);
+    if (names == nil) return nil;
+    for (NSString *name in [names sortedArrayUsingSelector:@selector(compare:)]) {
+        if ([name isEqualToString:@"lock"] || [name isEqualToString:@"partial"] ||
+            [name isEqualToString:@"auxfiles"]) continue;
+        @autoreleasepool {
+            NSString *path([lists stringByAppendingPathComponent:name]);
+            struct stat before, after;
+            if (lstat([path fileSystemRepresentation], &before) != 0 || !S_ISREG(before.st_mode)) return nil;
+            int descriptor(open([path fileSystemRepresentation], O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+            if (descriptor < 0) return nil;
+            const std::string fingerprint(CydiaAPT::FingerprintFileDescriptor(descriptor));
+            struct stat opened;
+            const bool stable(fstat(descriptor, &opened) == 0 && opened.st_dev == before.st_dev &&
+                opened.st_ino == before.st_ino && opened.st_size == before.st_size &&
+                opened.st_mtimespec.tv_sec == before.st_mtimespec.tv_sec &&
+                opened.st_mtimespec.tv_nsec == before.st_mtimespec.tv_nsec &&
+                opened.st_ctimespec.tv_sec == before.st_ctimespec.tv_sec &&
+                opened.st_ctimespec.tv_nsec == before.st_ctimespec.tv_nsec);
+            close(descriptor);
+            if (fingerprint.empty() || !stable || lstat([path fileSystemRepresentation], &after) != 0 ||
+                before.st_dev != after.st_dev || before.st_ino != after.st_ino ||
+                before.st_size != after.st_size || before.st_mtime != after.st_mtime ||
+                before.st_ctime != after.st_ctime ||
+                before.st_mtimespec.tv_nsec != after.st_mtimespec.tv_nsec ||
+                before.st_ctimespec.tv_nsec != after.st_ctimespec.tv_nsec) return nil;
+            const std::string field(CydiaRuntime::Privileged::SerializeFields({[name UTF8String], fingerprint}));
+            [bytes appendBytes:field.data() length:field.size()];
+        }
+    }
+    NSArray *after([[NSFileManager defaultManager] contentsOfDirectoryAtPath:lists error:NULL]);
+    if (after == nil || ![[names sortedArrayUsingSelector:@selector(compare:)]
+        isEqual:[after sortedArrayUsingSelector:@selector(compare:)]]) return nil;
+    const std::string result(CydiaAPT::Fingerprint([bytes bytes], [bytes length]));
+    return result.empty() ? nil : [NSString stringWithUTF8String:result.c_str()];
+}
+
+static std::string CurrentTrustContext() {
+    const auto result(CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-trust-snapshot", "", 128));
+    if (!result.succeeded()) return "";
+    std::string token(result.output);
+    if (!token.empty() && token.back() == '\n') token.pop_back();
+    return token;
+}
+
+static NSString *CurrentTransactionSnapshot() {
+    const auto result(CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-runtime-snapshot", "", 128));
+    NSString *indexes(CurrentListsSnapshot());
+    if (!result.succeeded() || result.output.empty() || indexes == nil) return nil;
+    const std::string bytes(CydiaRuntime::Privileged::SerializeFields({result.output, [indexes UTF8String]}));
+    const std::string token(CydiaAPT::Fingerprint(bytes.data(), bytes.size()));
+    return token.empty() ? nil : [NSString stringWithUTF8String:token.c_str()];
 }
 
 template <typename Type_>
@@ -108,7 +232,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (void) _readOutput:(NSNumber *)fd;
 - (bool) popErrorWithTitle:(NSString *)title;
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success;
+- (bool) requirePackageChangesForTask:(NSString *)task;
 - (void) updateWithStatus:(CydiaAPT::AcquireStatus &)status;
+- (void) recheckRepositoryTrust;
 @end
 
 @implementation Database
@@ -263,6 +389,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
 - (id) init {
     if ((self = [super init]) != nil) {
+        operationLock_ = [[NSRecursiveLock alloc] init];
         status_ = new CydiaAPT::ProgressStatus();
         apt_ = new CydiaAPT::AptBackend(*status_);
 
@@ -331,32 +458,118 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->downgradeHandles(handle);
 }
 
+- (std::vector<CydiaAPT::PackageHandle>) packageVersions:(CydiaAPT::PackageHandle)handle {
+    return apt_->versionHandles(handle);
+}
+
 - (CydiaAPT::TransactionData) transactionData {
     return apt_->transactionData();
 }
 
 - (bool) resolveDependencies {
+    DatabaseOperation operation(operationLock_);
     return apt_->resolveDependencies();
 }
 
+- (BOOL) beginSettingsChange { return [operationLock_ tryLock]; }
+- (void) endSettingsChange { [operationLock_ unlock]; }
+
+- (bool) canChangePackages { return CydiaAPT::MutationEnvironmentValid(); }
+
+- (bool) hasPendingPackageChanges {
+    DatabaseOperation operation(operationLock_);
+    const CydiaAPT::CacheStateSummary state(apt_->cacheState());
+    return state.installs != 0 || state.deletes != 0;
+}
+
+- (bool) requirePackageChangesForTask:(NSString *)task {
+    if ([self canChangePackages]) return true;
+    NSString *message([[NSBundle mainBundle] localizedStringForKey:@"PACKAGE_CHANGES_UNAVAILABLE"
+        value:@"PACKAGE_CHANGES_UNAVAILABLE" table:@"Settings"]);
+    [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:message
+        ofType:kCydiaProgressEventTypeError] forTask:task];
+    return false;
+}
+
 - (void) clearSelections {
+    DatabaseOperation operation(operationLock_);
     apt_->clearSelections();
 }
 
 - (bool) prepareDistUpgrade {
+    DatabaseOperation operation(operationLock_);
+    if (![self requirePackageChangesForTask:UCLocalize("UPGRADE")]) return false;
     return apt_->prepareDistUpgrade();
 }
 
 - (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle {
+    DatabaseOperation operation(operationLock_);
     return apt_->clearPackage(handle);
 }
 
 - (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle {
+    DatabaseOperation operation(operationLock_);
+    if (![self requirePackageChangesForTask:UCLocalize("INSTALL")]) return false;
     return apt_->installPackage(handle);
 }
 
+- (bool) reinstallPackageHandle:(CydiaAPT::PackageHandle)handle {
+    DatabaseOperation operation(operationLock_);
+    if (![self requirePackageChangesForTask:UCLocalize("REINSTALL")]) return false;
+    return apt_->reinstallPackage(handle);
+}
+
 - (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle {
+    DatabaseOperation operation(operationLock_);
+    if (![self requirePackageChangesForTask:UCLocalize("REMOVE")]) return false;
     return apt_->removePackage(handle);
+}
+
+- (bool) purgePackageHandle:(CydiaAPT::PackageHandle)handle {
+    DatabaseOperation operation(operationLock_);
+    if (![self requirePackageChangesForTask:UCLocalize("PURGE")]) return false;
+    return apt_->removePackage(handle, true);
+}
+
+- (bool) setPackageHandle:(CydiaAPT::PackageHandle)handle held:(bool)held {
+    DatabaseOperation operation(operationLock_);
+    NSString *title(UCLocalize("SETTINGS"));
+    if (![self requirePackageChangesForTask:title]) return false;
+    const CydiaAPT::PackageSnapshot package(apt_->packageSnapshot(handle));
+    if (!package.handle.valid() || !package.state.hasCurrent) return false;
+    ConfigureFrontendLock frontend;
+    if (!frontend.held()) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("DPKG_LOCKED")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
+    }
+    if (transactionSnapshot_ == nil || ![transactionSnapshot_ isEqualToString:CurrentTransactionSnapshot()]) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_STALE")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
+    }
+    CydiaRuntime::Dpkg::Runner runner(CydiaAPT::PrivilegedHelperPath());
+    std::vector<std::string> arguments(1, CydiaAPT::DpkgExecutablePath());
+    arguments.insert(arguments.end(), CydiaAPT::DpkgOptions().begin(), CydiaAPT::DpkgOptions().end());
+    arguments.push_back("--root=" + CydiaAPT::DpkgRootDirectory());
+    arguments.push_back("--admindir=" + CydiaAPT::DpkgAdminDirectory());
+    arguments.push_back("--set-selections");
+    const std::string name(package.installedIdentity.dpkgName);
+    if (name.empty()) return false;
+    const CydiaRuntime::Dpkg::Result result(runner.RunWithInput(arguments,
+        name + (held ? " hold\n" : " install\n")));
+    transactionSnapshot_ = nil;
+    std::string selection;
+    CydiaRuntime::Dpkg::Runner query(CydiaAPT::DpkgQueryExecutablePath());
+    const CydiaRuntime::Dpkg::Result checked(query.RunAndCapture({
+        "--admindir=" + CydiaAPT::DpkgAdminDirectory(), "--show",
+        "--showformat=${db:Status-Want}", name}, &selection, 64));
+    const bool success(result.succeeded() && checked.succeeded() &&
+        selection == (held ? "hold" : "install"));
+    if (!success) [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:
+        [[NSBundle mainBundle] localizedStringForKey:@"PACKAGE_HOLD_FAILED" value:@"PACKAGE_HOLD_FAILED" table:@"Actions"]
+        ofType:kCydiaProgressEventTypeError] forTask:title];
+    return success;
 }
 
 - (NSArray *) packages {
@@ -406,10 +619,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
         lprintf("%c:[%s]\n", item->warning ? 'W' : 'E', item->message.c_str());
 
-        static RegEx no_pubkey("GPG error:.* NO_PUBKEY .*");
-        if (item->warning && no_pubkey(item->message.c_str()))
-            continue;
-
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:item->message.c_str()] ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
     }
 
@@ -421,6 +630,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation {
+    DatabaseOperation operation(operationLock_);
 @synchronized (self) {
     ++era_;
 
@@ -448,6 +658,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     NSString *title(UCLocalize("DATABASE"));
 
+    [self recheckRepositoryTrust];
+
     _profile(reloadDataWithInvocation$ReadMainList)
     if ([self popErrorWithTitle:title forOperation:apt_->loadSources()])
         return;
@@ -466,7 +678,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     bool opened;
     bool attemptedDpkgRepair(false);
   open:
-    delock_ = GetStatusDate();
+    transactionSnapshot_ = nil;
+    NSString *openingSnapshot(CurrentTransactionSnapshot());
     _profile(reloadDataWithInvocation$AptBackend$openCache)
         opened = apt_->openCache();
     _end
@@ -503,6 +716,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return;
     } else if ([self popErrorWithTitle:title forOperation:true])
         return;
+    NSString *openedSnapshot(CurrentTransactionSnapshot());
+    if (openingSnapshot != nil && [openingSnapshot isEqualToString:openedSnapshot])
+        transactionSnapshot_ = openedSnapshot;
     _trace();
 
     unlink("/tmp/cydia.chk");
@@ -662,13 +878,39 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     apt_->clearSelections();
 } }
 
-- (void) configure {
-    _trace();
-    CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
-    CydiaRuntime::Dpkg::Result result(runner.Run({"--configure", "-a"}, statusfd_));
-    if (!result.succeeded())
-        _trace();
-    _trace();
+- (CydiaRuntime::TransactionResult) lastTransactionResult { return transactionResult_; }
+
+- (bool) configure {
+    DatabaseOperation operation(operationLock_);
+    transactionResult_ = CydiaRuntime::TransactionResult();
+    transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Failed;
+    NSString *title(UCLocalize("DATABASE"));
+    if (![self requirePackageChangesForTask:title]) return false;
+    ConfigureFrontendLock frontend;
+    if (!frontend.held()) {
+        transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Busy;
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("DPKG_LOCKED")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
+    }
+    CydiaRuntime::Dpkg::Runner runner(CydiaAPT::PrivilegedHelperPath());
+    std::vector<std::string> arguments(1, CydiaAPT::DpkgExecutablePath());
+    arguments.insert(arguments.end(), CydiaAPT::DpkgOptions().begin(), CydiaAPT::DpkgOptions().end());
+    arguments.push_back("--root=" + CydiaAPT::DpkgRootDirectory());
+    arguments.push_back("--admindir=" + CydiaAPT::DpkgAdminDirectory());
+    arguments.push_back("--configure"); arguments.push_back("-a");
+    transactionResult_.packageManagerStarted = true;
+    const CydiaRuntime::Dpkg::Result result(runner.Run(arguments, statusfd_));
+    transactionResult_.launchError = result.error;
+    if (result.kind == CydiaRuntime::Dpkg::ResultKind::Exited) transactionResult_.exitCode = result.code;
+    if (result.kind == CydiaRuntime::Dpkg::ResultKind::Signaled) transactionResult_.signal = result.code;
+    if (!result.succeeded()) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
+    }
+    transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Succeeded;
+    return true;
 }
 
 - (bool) clean {
@@ -680,113 +922,107 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 } }
 
 - (bool) prepare {
+    DatabaseOperation operation(operationLock_);
     NSString *title(UCLocalize("PREPARE_ARCHIVES"));
-    if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()])
+    if (![self requirePackageChangesForTask:title]) return false;
+    if (transactionSnapshot_ == nil || ![transactionSnapshot_ isEqualToString:CurrentTransactionSnapshot()]) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_STALE")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
         return false;
+    }
+    [self recheckRepositoryTrust];
+    if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()]) return false;
     return true;
 }
 
-- (void) perform {
-    bool substrate(RestartSubstrate_);
+- (bool) perform {
+    DatabaseOperation operation(operationLock_);
+    transactionResult_ = CydiaRuntime::TransactionResult();
+    transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Failed;
+    const bool substrate(RestartSubstrate_);
     RestartSubstrate_ = false;
-
     NSString *title(UCLocalize("PERFORM_SELECTIONS"));
-
-    CydiaAPT::SourceListData before(apt_->sourceList());
-    if ([self popErrorWithTitle:title forOperation:before.success])
-        return;
-
+    if (![self requirePackageChangesForTask:title]) return false;
+    PackageTransactionLock transaction(apt_);
+    if (!transaction.held()) {
+        transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Busy;
+        [self popErrorWithTitle:title];
+        return false;
+    }
+    auto requireUnchanged = [&]() -> bool {
+        if (transactionSnapshot_ != nil && [transactionSnapshot_ isEqualToString:CurrentTransactionSnapshot()]) return true;
+        transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Stale;
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_STALE")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
+    };
+    if (!requireUnchanged()) return false;
+    const CydiaRuntime::PrivilegedClient::Result sharedState(
+        CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-extended-state-read", ""));
+    if (!sharedState.succeeded()) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
+    }
+    [self recheckRepositoryTrust];
+    if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()]) return false;
+    const CydiaAPT::TransactionData reviewed(apt_->transactionData());
+    if (!reviewed.issues.empty()) return false;
+    const CydiaAPT::SourceListData before(apt_->sourceList());
+    if ([self popErrorWithTitle:title forOperation:before.success]) return false;
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
-
-    CydiaAPT::FetchResultData fetch(apt_->runFetcher(PulseInterval_));
-    /* Progress cancellation makes pkgAcquire::Run return before package
-     * manager execution. Balance the application-wide activity lease before
-     * either the cancelled/incomplete or ordinary failure exits. */
+    const CydiaAPT::FetchResultData fetch(apt_->runFetcher(PulseInterval_));
     [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
     if (!fetch.completed) {
-        _trace();
-        [self popErrorWithTitle:title];
-        return;
+        if (status_->wasCancelled()) transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Cancelled;
+        else [self popErrorWithTitle:title];
+        return false;
     }
-
-    for (std::vector<CydiaAPT::FetchFailureData>::const_iterator failure(fetch.failures.begin()); failure != fetch.failures.end(); ++failure) {
-        lprintf("pAf:%s:%s\n", failure->uri.c_str(), failure->error.c_str());
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:failure->error.c_str()] ofType:kCydiaProgressEventTypeError]);
-        [delegate_ addProgressEventOnMainThread:event forTask:title];
+    for (const CydiaAPT::FetchFailureData &failure : fetch.failures)
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:FetchDiagnosticMessage(failure)
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+    for (const CydiaAPT::FetchFailureData &warning : fetch.warnings)
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:FetchDiagnosticMessage(warning)
+            ofType:kCydiaProgressEventTypeWarning] forTask:title];
+    if (!fetch.failures.empty() || !requireUnchanged()) return false;
+    [self recheckRepositoryTrust];
+    RestartSubstrate_ = substrate;
+    transactionResult_.packageManagerStarted = true;
+    const CydiaAPT::PackageManagerResult result(apt_->runPackageManager(statusfd_));
+    const bool errors([self popErrorWithTitle:title]);
+    if (result != CydiaAPT::PackageManagerResult::Completed || errors) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
     }
-
-    if (!fetch.failures.empty()) {
-        _trace();
-        return;
+    const std::vector<CydiaAPT::AutoInstalledDelta> deltas(apt_->autoInstalledDeltas());
+    std::vector<std::string> fields = {CydiaAPT::ExtendedStatesPath(), sharedState.output};
+    for (const CydiaAPT::AutoInstalledDelta &delta : deltas) {
+        fields.push_back(delta.package); fields.push_back(delta.architecture);
+        fields.push_back(delta.automatic ? "1" : "0");
     }
-
-    if (substrate)
-        RestartSubstrate_ = true;
-
-    if (![delock_ isEqual:GetStatusDate()]) {
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:UCLocalize("DPKG_LOCKED") ofType:kCydiaProgressEventTypeError] forTask:title];
-        return;
+    if (!deltas.empty() && !CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-extended-state-commit",
+            CydiaRuntime::Privileged::SerializeFields(fields)).succeeded()) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_STATE_SAVE_FAILED")
+            ofType:kCydiaProgressEventTypeError] forTask:title];
+        return false;
     }
-
-    delock_ = nil;
-
-    CydiaAPT::PackageManagerResult result(apt_->runPackageManager(statusfd_));
-
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    NSString *oextended([NSString stringWithUTF8String:paths.AptExtendedStatesPath().c_str()]);
-    NSString *nextended(Cache("extended_states"));
-
-    struct stat info;
-    if (stat([nextended UTF8String], &info) != -1 && (info.st_mode & S_IFMT) == S_IFREG) {
-        CydiaRuntime::Dpkg::Runner runner(CydiaRuntime::Dpkg::Executable::Cydo);
-        const CydiaRuntime::Dpkg::Result copyResult(runner.Run({
-            paths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Copy),
-            "-f",
-            [nextended UTF8String],
-            [oextended UTF8String],
-        }));
-        if (!copyResult.succeeded()) {
-            NSString *message([NSString stringWithFormat:
-                UCLocalizeEx(@"APT_EXTENDED_STATE_PERSIST_ERROR",
-                    @"Unable to persist APT extended state (kind=%d, code=%d, error=%d)"),
-                static_cast<int>(copyResult.kind), copyResult.code, copyResult.error]);
-            [delegate_ addProgressEventOnMainThread:
-                [CydiaProgressEvent eventWithMessage:message ofType:kCydiaProgressEventTypeError]
-                forTask:title];
-            return;
-        }
-    }
-
-    unlink([nextended UTF8String]);
-    symlink([oextended UTF8String], [nextended UTF8String]);
-
-    if ([self popErrorWithTitle:title])
-        return;
-
-    if (result == CydiaAPT::PackageManagerResult::Failed) {
-        _trace();
-        return;
-    }
-
-    if (result != CydiaAPT::PackageManagerResult::Completed) {
-        _trace();
-        return;
-    }
-
-    CydiaAPT::SourceListData after(apt_->sourceList());
-    if ([self popErrorWithTitle:title forOperation:after.success])
-        return;
-
-    if (before.uris != after.uris && Finish_ == 0)
-        [self update];
+    transactionSnapshot_ = nil;
+    const CydiaAPT::SourceListData after(apt_->sourceList());
+    if ([self popErrorWithTitle:title forOperation:after.success]) return false;
+    if (before.uris != after.uris && Finish_ == 0) [self update];
+    transactionResult_.outcome = CydiaRuntime::TransactionOutcome::Succeeded;
+    return true;
 }
 
 - (bool) delocked {
-    return ![delock_ isEqual:GetStatusDate()];
+    DatabaseOperation operation(operationLock_);
+    return transactionSnapshot_ == nil || ![transactionSnapshot_ isEqualToString:CurrentTransactionSnapshot()];
 }
 
 - (bool) upgrade {
     NSString *title(UCLocalize("UPGRADE"));
+    if (![self requirePackageChangesForTask:title]) return false;
     if ([self popErrorWithTitle:title forOperation:apt_->prepareDistUpgrade()])
         return false;
     return true;
@@ -807,7 +1043,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (void) updateWithStatus:(CydiaAPT::AcquireStatus &)status {
+    DatabaseOperation operation(operationLock_);
     NSString *title(UCLocalize("REFRESHING_DATA"));
+    const std::string beforeTrust(CurrentTrustContext());
 
     [delegate_ performSelectorOnMainThread:@selector(retainNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
 
@@ -815,19 +1053,37 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     if (!result.prepared) {
         [self popErrorWithTitle:title];
         [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+        [self recheckRepositoryTrust];
         return;
     }
     if (status.wasCancelled())
         apt_->discardErrors();
     else {
-        [self popErrorWithTitle:title forOperation:result.success];
-
-        [[NSDictionary dictionaryWithObjectsAndKeys:
-            [NSDate date], @"LastUpdate",
-        nil] writeToFile:CacheState_ atomically:YES];
+        for (const CydiaAPT::FetchFailureData &warning : result.warnings)
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent
+                eventWithMessage:FetchDiagnosticMessage(warning) ofType:kCydiaProgressEventTypeWarning] forTask:title];
+        for (const CydiaAPT::FetchFailureData &failure : result.failures)
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent
+                eventWithMessage:FetchDiagnosticMessage(failure) ofType:kCydiaProgressEventTypeError] forTask:title];
+        const bool failed([self popErrorWithTitle:title forOperation:result.success]);
+        if (!failed && result.failures.empty()) {
+            NSString *indexes(CurrentListsSnapshot());
+            repositoryTrustProof_.RecordCompletedRefresh(beforeTrust, CurrentTrustContext(),
+                indexes == nil ? "" : [indexes UTF8String], result.metadataComplete);
+            [[NSDictionary dictionaryWithObjectsAndKeys:
+                [NSDate date], @"LastUpdate",
+            nil] writeToFile:CacheState_ atomically:YES];
+        }
     }
 
+    [self recheckRepositoryTrust];
     [delegate_ performSelectorOnMainThread:@selector(releaseNetworkActivityIndicator) withObject:nil waitUntilDone:YES];
+}
+
+- (void) recheckRepositoryTrust {
+    NSString *indexes(CurrentListsSnapshot());
+    CydiaAPT::SetCachedRepositoryTrustValid(repositoryTrustProof_.Matches(CurrentTrustContext(),
+        indexes == nil ? "" : [indexes UTF8String]));
 }
 
 - (void) setDelegate:(NSObject<DatabaseDelegate> *)delegate {

@@ -19,6 +19,7 @@ package_version=${epoch}:${version}
 sed \
     -e "s@^\(Version:\).*@\1 ${package_version}@" \
     -e "s@^\(Architecture:\).*@\1 ${arch}@" \
+    -e "s|@CYDIA_TRANSLATION_VERSION@|${package_version}|g" \
     -e "s@file:///Applications/@file://${prefix}/Applications/@" \
     "${src}"
 echo "Installed-Size: $(du -s "${dir}" | cut -f 1)"

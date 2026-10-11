@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "التحقق من صلاحية إدارة الحزم";
+"ACCESS_CHECK_START" = "بدء التحقق";
+"ACCESS_CHECK_EXPLANATION" = "يتحقق من الوصول المحمي إلى مدير الحزم ويستحوذ على قفله لفترة وجيزة. لا يتم تغيير الحزم أو تعريفات المستودعات.";
+"ACCESS_CHECK_RUNNING" = "جارٍ التحقق…";
+"ACCESS_CHECK_PASSED" = "الوصول إلى إدارة الحزم يعمل.";
+"ACCESS_CHECK_FAILED" = "تعذر إكمال التحقق.";
+"ACCESS_CHECK_BUSY" = "تستخدم عملية حزم أخرى مدير الحزم. حاول مرة أخرى بعد انتهائها.";
+"ACCESS_CHECK_RUNTIME" = "إعدادات التشغيل المحمية";
+"ACCESS_CHECK_TRUST" = "حالة المستودعات والثقة";
+"ACCESS_CHECK_LOCK" = "مالك القفل والوصول الحصري";
+"ACCESS_CHECK_STATE" = "حالة حزم APT المحمية";
+"ACCESS_CHECK_RELEASE" = "تحرير القفل وحماية الوصول";
+"ACCESS_CHECK_UNCHANGED" = "بقيت ملفات الحزم والمستودعات دون تغيير";
+"ACCESS_CHECK_CHANGED" = "تغيرت حالة الحزم أو المستودعات أثناء التحقق. حاول مرة أخرى عندما لا تكون برامج إدارة الحزم الأخرى نشطة.";
+"ACCESS_CHECK_TIMEOUT" = "انتهت مهلة التحقق. لم تبدأ أي عملية حزم.";
+"ACCESS_CHECK_DETAILS" = "التفاصيل التقنية";
+"ACCESS_CHECK_NOT_RUN" = "لم يتم التحقق";
+"ACCESS_CHECK_COMPLETE" = "تم التحقق";

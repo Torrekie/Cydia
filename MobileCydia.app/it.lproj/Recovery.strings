@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Pacchetti installati interessati";
+"RECOVERY_BUSY" = "Attendi il completamento dell’operazione sui pacchetti in corso.";
+"RECOVERY_COMPLETED" = "Il pacchetto è stato rimosso. La pulizia saltata può lasciare file o servizi. Gli script originali sono stati conservati nel backup protetto.";
+"RECOVERY_CONFIRM" = "Conferma rimozione di emergenza";
+"RECOVERY_CONSEQUENCES" = "Cydia creerà un backup degli script di questo pacchetto, quindi lo rimuoverà senza eseguirli. La pulizia verrà saltata, quindi potrebbero rimanere file o servizi creati dagli script. I file di configurazione verranno conservati. Potrebbe essere necessaria una reinstallazione per ripristinare il normale funzionamento.";
+"RECOVERY_DETAILS" = "Dettagli";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Rimuovi questo pacchetto senza eseguire gli script che hanno fallito.";
+"RECOVERY_EMPTY" = "Non rimangono pacchetti con stato dpkg incompleto.";
+"RECOVERY_EXPLANATION" = "Questi pacchetti hanno uno stato dpkg incompleto. Seleziona un pacchetto per tentare una riparazione normale.";
+"RECOVERY_FAILED" = "La riparazione normale non è stata completata. La reinstallazione potrebbe ripristinare il pacchetto. «%@» è un’opzione di rimozione di emergenza.";
+"RECOVERY_NORMAL_FIRST" = "Prova prima una riparazione normale o la reinstallazione. «%@» diventa disponibile se la riparazione normale fallisce.";
+"RECOVERY_PROTECTED" = "La rimozione di emergenza è bloccata perché interesserebbe un pacchetto protetto o una dipendenza installata.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "La versione installata non è disponibile nei repository attuali. Aggiorna le sorgenti o scegli la rimozione normale.";
+"RECOVERY_REMOVE_FAILED" = "La rimozione di emergenza è fallita. Gli script originali sono stati ripristinati quando possibile e il backup protetto è stato conservato. Esamina i dettagli prima di riprovare.";
+"RECOVERY_REPAIR" = "Prova riparazione normale";
+"RECOVERY_REPAIR_COMPLETE" = "La riparazione normale è terminata. Lo stato dei pacchetti verrà ricaricato.";
+"RECOVERY_REPAIR_EXPLANATION" = "Esegui i normali script di configurazione di questo pacchetto per completare l’installazione.";
+"RECOVERY_STATE_CHANGED" = "Lo stato del pacchetto è cambiato. Ricarica il ripristino ed esamina nuovamente il pacchetto.";
+"RECOVERY_TITLE" = "Ripristino dei pacchetti";
+"RECOVERY_UNAVAILABLE" = "Il ripristino sicuro non è disponibile. Controlla le impostazioni avanzate o riprova quando le altre operazioni sui pacchetti sono terminate.";
+"RECOVERY_WORKING" = "Operazione in corso…";

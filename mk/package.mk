@@ -1,4 +1,4 @@
-$(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SETNSFPN_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library LaunchDaemons -type f) cydia.control cydia.preferences NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT
+$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT
 	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia
@@ -13,31 +13,17 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 	cp -a libiosexec/LICENSE $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/LIBIOSEXEC-LICENSE
 	cp -a libiosexec/debian/copyright $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia/LIBIOSEXEC-COPYRIGHT
 
-	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/apt.conf.d
-	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/preferences.d
-	mkdir -p $(CYDIA_STAGE_ROOT)/etc/apt/trusted.gpg.d
-	cp -a cydia.preferences $(CYDIA_STAGE_ROOT)/etc/apt/preferences.d/cydia
-	cp -a Trusted.gpg/. $(CYDIA_STAGE_ROOT)/etc/apt/trusted.gpg.d/
-	# Repository files are owned by the bootstrap maintainer.  Cydia does not
-	# install a sourceparts entry; an explicitly configured managed file is
-	# handled at runtime and remains visible to every APT frontend.
+	# APT sources, priority pins and global trust belong to the administrator.
+	# Historical Cydia payload ownership is released by the maintscripts.
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/libexec
 	cp -a Library $(CYDIA_STAGE_ROOT)/usr/libexec/cydia
+	# Retired filesystem-stashing helpers have no supported execution path.
+	rm -f $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/asuser \
+		$(CYDIA_STAGE_ROOT)/usr/libexec/cydia/free.sh $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/move.sh
 	cp -a $(CFVERSION_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cfversion
-	cp -a $(SETNSFPN_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/setnsfpn
+	cp -a $(FIRMWARE_DISCOVERY_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/firmware-discovery
 	cp -a $(CYDO_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
-
-	mkdir -p $(CYDIA_STAGE_ROOT)/Library
-	cp -a LaunchDaemons $(CYDIA_STAGE_ROOT)/Library/LaunchDaemons
-	@if test -n "$(PACKAGE_PREFIX)"; then \
-		file=$(CYDIA_STAGE_ROOT)/Library/LaunchDaemons/com.saurik.Cydia.Startup.plist; \
-		sed \
-			-e 's@/bin/bash@$(PACKAGE_PREFIX)/bin/bash@g' \
-			-e 's@/usr/libexec/cydia@$(PACKAGE_PREFIX)/usr/libexec/cydia@g' \
-			"$$file" >"$$file.tmp"; \
-		mv -f "$$file.tmp" "$$file"; \
-	fi
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications
 	cp -a MobileCydia.app $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
@@ -54,7 +40,21 @@ $(CYDIA_DEB): $(APP_BINARY) preinst $(POSTINST_BINARY) $(CFVERSION_BINARY) $(SET
 
 	mkdir -p $(CYDIA_STAGE)/DEBIAN
 	CYDIA_PACKAGE_EPOCH=$(PACKAGE_EPOCH) ./control.sh cydia.control $(CYDIA_STAGE) $(PACKAGE_ARCH) $(PACKAGE_PREFIX) >$(CYDIA_STAGE)/DEBIAN/control
-	cp -a preinst $(CYDIA_STAGE)/DEBIAN/
+	@for script in preinst prerm postrm; do \
+		cat Library/shared-config-lifecycle.sh "$$script" >$(CYDIA_STAGE)/DEBIAN/"$$script"; \
+		chmod 0755 $(CYDIA_STAGE)/DEBIAN/"$$script"; \
+	done
+	cp -a Library/shared-config-lifecycle.sh $(CYDIA_STAGE)/DEBIAN/cydia-shared-config-lifecycle
+	chmod 0755 $(CYDIA_STAGE)/DEBIAN/cydia-shared-config-lifecycle
+	@if test -n "$(PACKAGE_PREFIX)"; then \
+		for file in $(CYDIA_STAGE)/DEBIAN/preinst $(CYDIA_STAGE)/DEBIAN/prerm $(CYDIA_STAGE)/DEBIAN/postrm \
+			$(CYDIA_STAGE)/DEBIAN/cydia-shared-config-lifecycle $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/*; do \
+			if test -f "$$file" && head -n 1 "$$file" | grep -q '^#!/bin/'; then \
+				sed '1s@#!/bin/@#!$(PACKAGE_PREFIX)/bin/@' "$$file" >"$$file.tmp"; \
+				cat "$$file.tmp" >"$$file"; rm "$$file.tmp"; \
+			fi; \
+		done; \
+	fi
 	@if test -n "$(PACKAGE_PREFIX)"; then \
 		sed 's@ /@ $(PACKAGE_PREFIX)/@g' triggers >$(CYDIA_STAGE)/DEBIAN/triggers; \
 	else \

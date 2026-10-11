@@ -100,6 +100,8 @@ extern "C" {
 #include "Cydia/Collation.hpp"
 #include "Cydia/Appearance.h"
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/PrivilegedClient.h"
+#include "Cydia/SettingsStore.h"
 #include "Cydia/Application.h"
 #include "Cydia/ApplicationInternal.h"
 #include "Cydia/AppState.h"
@@ -482,17 +484,6 @@ void SaveConfig(NSObject *lock) {
         _trace();
     }
 
-    /* Write a maintainer-declared source file before committing the metadata
-     * that describes it.  If the privileged, atomic handoff fails, retaining
-     * the previous preference snapshot is safer than persisting a deletion or
-     * addition that was never reflected in APT's sourceparts.  With no
-     * Cydia::APT::ManagedSourceList key this is a no-op and the normal
-     * read-only distro setup is unaffected. */
-    if (!CydiaWriteSources()) {
-        NSLog(@"Unable to persist the maintainer-declared Cydia source file");
-        return;
-    }
-
     CFPreferencesSetMultiple((CFDictionaryRef) [NSDictionary dictionaryWithObjectsAndKeys:
         Values_, @"CydiaValues",
         Sections_, @"CydiaSections",
@@ -528,43 +519,6 @@ void SaveConfig(NSObject *lock) {
     [window_ orderFront:self];
     [window_ makeKey:self];
     [window_ setHidden:NO];
-
-    if (kCFCoreFoundationVersionNumber < 1349.56 && access("/.cydia_no_stash", F_OK) != 0) {
-
-    if (false) stash: {
-        [self addStashController];
-        // XXX: this would be much cleaner as a yieldToSelector:
-        // that way the removeStashController could happen right here inline
-        // we also could no longer require the useless stash_ field anymore
-        [self performSelector:@selector(stash) withObject:nil afterDelay:0];
-        return;
-    }
-
-    struct stat root;
-    int error(stat("/", &root));
-    _assert(error != -1);
-
-    #define Stash_(path) do { \
-        struct stat folder; \
-        int error(lstat((path), &folder)); \
-        if (error != -1 && ( \
-            folder.st_dev == root.st_dev && \
-            S_ISDIR(folder.st_mode) \
-        ) || error == -1 && ( \
-            errno == ENOENT || \
-            errno == ENOTDIR \
-        )) goto stash; \
-    } while (false)
-
-    Stash_("/Applications");
-    Stash_("/Library/Ringtones");
-    Stash_("/Library/Wallpaper");
-    //Stash_("/usr/bin");
-    Stash_("/usr/include");
-    Stash_("/usr/share");
-    //Stash_("/var/lib");
-
-    }
 
     database_ = [Database sharedInstance];
     [database_ setDelegate:self];
@@ -701,7 +655,8 @@ _trace();
 
     // (Try to) show the startup URL.
     if (starturl_ != nil) {
-        [self openCydiaURL:starturl_ context:[CydiaUIRouteContext externalURLContext]];
+        if ([starturl_ isFileURL]) [self openKeyringFileURL:starturl_];
+        else [self openCydiaURL:starturl_ context:[CydiaUIRouteContext externalURLContext]];
         starturl_ = nil;
     }
 
@@ -1041,37 +996,9 @@ int main(int argc, char *argv[]) {
     broken = nil;
 
     SaveConfig(nil);
-    const CydiaRuntime::Dpkg::Result metadataRemoval(privileged.Run({
-        packagePaths.BootstrapBSDCommandPath(CydiaRuntime::BootstrapBSDCommand::Remove),
-        "-f",
-        packagePaths.CydiaMetadataPath(),
-    }));
-    if (!metadataRemoval.succeeded())
-        NSLog(@"Unable to remove migrated Cydia metadata (kind=%d, code=%d, error=%d)",
-              static_cast<int>(metadataRemoval.kind), metadataRemoval.code, metadataRemoval.error);
     /* }}} */
 
     Finishes_ = [NSArray arrayWithObjects:@"return", @"reopen", @"restart", @"reload", @"reboot", nil];
-
-    if (kCFCoreFoundationVersionNumber > 1000)
-        (void) privileged.Run({packagePaths.CydiaHelperPath("setnsfpn"), packagePaths.PackageLibraryDirectory()});
-
-    NSString *firmwareVersionPath([NSString stringWithUTF8String:packagePaths.CydiaFirmwareVersionPath().c_str()]);
-    int version([[NSString stringWithContentsOfFile:firmwareVersionPath] intValue]);
-    const bool needsUserMigration(packagePaths.RequiresLegacyUserMigration(access("/User", F_OK) == 0));
-
-    if (needsUserMigration || version != 6) {
-        _trace();
-        const CydiaRuntime::Dpkg::Result firmwareRefresh(privileged.Run({
-            packagePaths.CydiaHelperPath("firmware.sh"),
-        }));
-        if (!firmwareRefresh.succeeded()) {
-            NSLog(@"Cydia firmware maintenance failed (kind=%d, code=%d, error=%d)",
-                  static_cast<int>(firmwareRefresh.kind), firmwareRefresh.code, firmwareRefresh.error);
-            return 1;
-        }
-        _trace();
-    }
 
     if (access("/tmp/cydia.chk", F_OK) == 0) {
         if (unlink([Cache("pkgcache.bin") UTF8String]) == -1)
@@ -1096,29 +1023,28 @@ int main(int argc, char *argv[]) {
     aptOptions.logDirectory = logs;
     aptOptions.dpkgStatusPath = packagePaths.DpkgStatusPath();
     aptOptions.dpkgPath = packagePaths.CydoPath();
+    aptOptions.nativeDpkgPath = packagePaths.DpkgBinaryPath();
+    aptOptions.privateRuntimeConfigurationPath = packagePaths.CydiaStateDirectory() + "/runtime.conf";
+    aptOptions.helperPath = packagePaths.CydoPath();
+    aptOptions.bootstrapExtendedStatesPath = packagePaths.AptExtendedStatesPath();
     aptOptions.dpkgDataDirectory = packagePaths.DpkgDataDirectory();
     aptOptions.dpkgExecutableSearchPath = packagePaths.DpkgExecutableSearchPath();
     aptOptions.translation = translation == NULL ? std::string() : translation;
     aptOptions.languages = languages;
     aptOptions.maxParallel = usermem >= 384 * 1024 * 1024 ? 16 : 3;
-    aptOptions.allowInsecureRepositories = true;
+    aptOptions.repositorySecurityMode = CydiaAPT::RepositorySecurityModeFromString(
+        [CydiaRepositorySecurityPreference() UTF8String]);
     aptOptions.checkValidUntil = false;
-    aptOptions.forceEssential = true;
+    aptOptions.forceEssential = false;
     std::string architecture;
     _assert(CydiaAPT::Initialize(aptOptions, &architecture));
+    CydiaRuntime::PrivilegedClient::ConfigureLockBridge(packagePaths.CydoPath(),
+        CydiaRuntime::PrivilegedClient::CurrentExpectedEnvironment());
     NSLog(@"Common Arch: %s\n", architecture.c_str());
     common_arch = CydiaAPT::Architecture().c_str();
 
-    /* APT has now loaded the maintainer's source list and sourceparts.  Only
-     * an explicit Cydia::APT::ManagedSourceList leaf enables Cydia-owned
-     * source edits; otherwise all existing distro entries remain read-only. */
-    const std::string managedSourceList(CydiaAPT::ManagedSourceListPath());
-    CydiaSetManagedSourceListPath(managedSourceList.empty() ? nil :
-        [NSString stringWithUTF8String:managedSourceList.c_str()]);
-
     mkdir([Cache("archives") UTF8String], 0755);
     mkdir([Cache("archives/partial") UTF8String], 0755);
-    symlink(packagePaths.AptExtendedStatesPath().c_str(), [Cache("extended_states") UTF8String]);
 
     mkdir([Cache("lists") UTF8String], 0755);
     mkdir([Cache("lists/partial") UTF8String], 0755);

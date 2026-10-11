@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Betroffene installierte Pakete";
+"RECOVERY_BUSY" = "Warte, bis der aktuelle Paketvorgang abgeschlossen ist.";
+"RECOVERY_COMPLETED" = "Das Paket wurde entfernt. Da die Aufräumarbeiten übersprungen wurden, können Dateien oder Dienste zurückbleiben. Die ursprünglichen Skripte wurden in der geschützten Sicherung aufbewahrt.";
+"RECOVERY_CONFIRM" = "Notfallentfernung bestätigen";
+"RECOVERY_CONSEQUENCES" = "Cydia sichert die Skripte dieses Pakets und entfernt es anschließend, ohne sie auszuführen. Die Aufräumarbeiten werden übersprungen, daher können von den Skripten angelegte Dateien oder Dienste zurückbleiben. Konfigurationsdateien bleiben erhalten. Eine Neuinstallation kann nötig sein, um das normale Verhalten wiederherzustellen.";
+"RECOVERY_DETAILS" = "Details";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Dieses Paket entfernen, ohne seine fehlgeschlagenen Skripte auszuführen.";
+"RECOVERY_EMPTY" = "Es sind keine Pakete mit unvollständigem dpkg-Zustand mehr vorhanden.";
+"RECOVERY_EXPLANATION" = "Diese Pakete haben einen unvollständigen dpkg-Zustand. Wähle ein Paket aus, um eine normale Reparatur zu versuchen.";
+"RECOVERY_FAILED" = "Die normale Reparatur wurde nicht abgeschlossen. Eine Neuinstallation kann das Paket wiederherstellen. „%@“ ist eine Option zur Notfallentfernung.";
+"RECOVERY_NORMAL_FIRST" = "Versuche zuerst eine normale Reparatur oder Neuinstallation. „%@“ wird verfügbar, wenn die normale Reparatur fehlschlägt.";
+"RECOVERY_PROTECTED" = "Die Notfallentfernung ist gesperrt, weil sie ein geschütztes Paket oder eine installierte Abhängigkeit betreffen würde.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Die installierte Version ist in deinen aktuellen Paketquellen nicht verfügbar. Aktualisiere die Quellen oder wähle die normale Entfernung.";
+"RECOVERY_REMOVE_FAILED" = "Die Notfallentfernung ist fehlgeschlagen. Die ursprünglichen Skripte wurden nach Möglichkeit wiederhergestellt und die geschützte Sicherung wurde aufbewahrt. Prüfe die Details vor einem erneuten Versuch.";
+"RECOVERY_REPAIR" = "Normale Reparatur versuchen";
+"RECOVERY_REPAIR_COMPLETE" = "Die normale Reparatur ist abgeschlossen. Der Paketstatus wird neu geladen.";
+"RECOVERY_REPAIR_EXPLANATION" = "Führe die normalen Konfigurationsskripte dieses Pakets aus, um die Installation abzuschließen.";
+"RECOVERY_STATE_CHANGED" = "Der Paketstatus hat sich geändert. Lade die Wiederherstellung neu und prüfe das Paket erneut.";
+"RECOVERY_TITLE" = "Paketwiederherstellung";
+"RECOVERY_UNAVAILABLE" = "Eine sichere Wiederherstellung ist nicht verfügbar. Prüfe die erweiterten Einstellungen oder versuche es erneut, sobald andere Paketvorgänge abgeschlossen sind.";
+"RECOVERY_WORKING" = "In Bearbeitung…";

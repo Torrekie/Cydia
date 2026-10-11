@@ -87,18 +87,20 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (NSArray *) sections {
-    return record_ == nil ? (id) [NSNull null] : [record_ objectForKey:@"Sections"] ?: [NSArray array];
+    NSArray<CydiaSourceDefinition *> *definitions(CydiaSourceDefinitionsForKey([self key]));
+    // libapt can merge several entries into one release. Expose components
+    // only when this legacy Source identity maps to one actual definition.
+    return definitions.count == 1 ? definitions.firstObject.components : (id)[NSNull null];
 }
 
 - (bool) _addSection:(NSString *)section {
     if (!CydiaUpdateSourceSection([self key], section, true))
         return false;
-    record_ = [Sources_ objectForKey:[self key]];
     return true;
 }
 
 - (bool) addSection:(NSString *)section {
-    if (!CydiaManagedSourceKeyIsOwned([self key]))
+    if ([database_ era] != era_ || !CydiaManagedSourceKeyIsOwned([self key]))
         return false;
 
     [self performSelectorOnMainThread:@selector(_addSection:) withObject:section waitUntilDone:NO];
@@ -108,12 +110,11 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 - (bool) _removeSection:(NSString *)section {
     if (!CydiaUpdateSourceSection([self key], section, false))
         return false;
-    record_ = [Sources_ objectForKey:[self key]];
     return true;
 }
 
 - (bool) removeSection:(NSString *)section {
-    if (!CydiaManagedSourceKeyIsOwned([self key]))
+    if ([database_ era] != era_ || !CydiaManagedSourceKeyIsOwned([self key]))
         return false;
 
     [self performSelectorOnMainThread:@selector(_removeSection:) withObject:section waitUntilDone:NO];
@@ -125,10 +126,7 @@ static const NSStringCompareOptions LaxCompareOptions_ = NSNumericSearch | NSDia
 }
 
 - (bool) remove {
-    /* The marker is the persistent ownership authority.  A source metadata
-     * record may be absent after a preference migration or package upgrade,
-     * but that must not make an owned line undeletable. */
-    bool value(CydiaManagedSourceKeyIsOwned([self key]));
+    bool value([database_ era] == era_ && CydiaManagedSourceKeyIsOwned([self key]));
     if (!value)
         return false;
     [self performSelectorOnMainThread:@selector(_remove) withObject:nil waitUntilDone:NO];

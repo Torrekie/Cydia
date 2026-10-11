@@ -194,6 +194,7 @@ CydiaConfirmationBuildTableSections(CydiaConfirmationViewModel *viewModel) {
         NSUInteger rows(0);
         for (CydiaConfirmationReason *reason in [issue reasons])
             rows += [[reason clauses] count];
+        if (![[issue kind] isEqualToString:@"dependency"]) rows = MAX(rows, NSUInteger(1));
         [sections addObject:[[CydiaConfirmationTableSection alloc]
             initWithKind:CydiaConfirmationTableSectionKindIssueDetails
             issue:issue
@@ -291,16 +292,17 @@ CydiaConfirmationBuildTableSections(CydiaConfirmationViewModel *viewModel) {
 
 @interface CydiaConfirmationIssue ()
 - (instancetype) initWithPackage:(nullable CydiaConfirmationPackageReference *)package
-                           reasons:(NSArray<CydiaConfirmationReason *> *)reasons;
+                           reasons:(NSArray<CydiaConfirmationReason *> *)reasons kind:(NSString *)kind;
 @end
 
 @implementation CydiaConfirmationIssue
 
 - (instancetype) initWithPackage:(CydiaConfirmationPackageReference *)package
-                           reasons:(NSArray<CydiaConfirmationReason *> *)reasons {
+                           reasons:(NSArray<CydiaConfirmationReason *> *)reasons kind:(NSString *)kind {
     if ((self = [super init]) != nil) {
         _package = package;
         _reasons = [reasons copy];
+        _kind = [kind copy];
     }
     return self;
 }
@@ -360,6 +362,7 @@ CydiaConfirmationChangeGroup *ChangeGroup(
                       advancedModeEnabled:(BOOL)advancedModeEnabled
                       packageNameResolver:(CydiaConfirmationPackageNameResolver)packageNameResolver {
     if ((self = [super init]) != nil) {
+        (void)advancedModeEnabled;
         NSMutableDictionary<NSString *, CydiaConfirmationPackageReference *> *references(
             [NSMutableDictionary dictionaryWithCapacity:32]);
         NSMutableArray<CydiaConfirmationChangeGroup *> *groups(
@@ -384,6 +387,10 @@ CydiaConfirmationChangeGroup *ChangeGroup(
             [groups addObject:group];
         group = ChangeGroup(CydiaConfirmationChangeKindRemove, @"REMOVE",
                             transaction.removes, packageNameResolver, references);
+        if (group != nil)
+            [groups addObject:group];
+        group = ChangeGroup(CydiaConfirmationChangeKindPurge, @"PURGE",
+                            transaction.purges, packageNameResolver, references);
         if (group != nil)
             [groups addObject:group];
 
@@ -421,7 +428,7 @@ CydiaConfirmationChangeGroup *ChangeGroup(
                 PackageReference(issue->package, packageNameResolver, references));
             [issues addObject:[[CydiaConfirmationIssue alloc]
                 initWithPackage:package
-                reasons:reasons]];
+                reasons:reasons kind:issue->kind.empty() ? @"dependency" : StringFromUTF8(issue->kind)]];
         }
 
         _groups = [groups copy];
@@ -430,14 +437,12 @@ CydiaConfirmationChangeGroup *ChangeGroup(
         _resumingBytes = transaction.resuming;
         if (!transaction.removesEssential)
             _essentialRemovalPolicy = CydiaConfirmationEssentialRemovalPolicyNone;
-        else if (advancedModeEnabled)
-            _essentialRemovalPolicy = CydiaConfirmationEssentialRemovalPolicyForceAllowed;
         else
             _essentialRemovalPolicy = CydiaConfirmationEssentialRemovalPolicyBlocked;
         _requiresSubstrateRestart = transaction.substrate;
         _hasChanges = [_groups count] != 0;
-        _hasBlockingIssues = [_issues count] != 0;
-        _showsConfirmAction = !_hasBlockingIssues;
+        _hasBlockingIssues = [_issues count] != 0 || transaction.removesEssential;
+        _showsConfirmAction = !_hasBlockingIssues && _hasChanges;
     }
     return self;
 }

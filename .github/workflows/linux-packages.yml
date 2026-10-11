@@ -52,7 +52,7 @@ jobs:
 
           # The public fork has no release-tag refs. Keep CI candidates
           # install-orderable without presenting them as a release.
-          echo "CYDIA_VERSION=${CYDIA_PACKAGE_BASE_VERSION}+git.$(git rev-parse --short=12 HEAD)" >>"$GITHUB_ENV"
+          echo "CYDIA_VERSION=$(./version.sh)" >>"$GITHUB_ENV"
 
       - name: Install Linux build dependencies
         shell: bash
@@ -60,7 +60,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             build-essential ca-certificates curl dpkg-dev git libtinfo5 \
-            perl ripgrep unzip xz-utils
+            perl ripgrep unzip xz-utils cmake ninja-build pkg-config \
+            libbz2-dev libdb-dev libgnutls28-dev libgcrypt20-dev liblz4-dev \
+            liblzma-dev libxxhash-dev zlib1g-dev gnupg gpgv fakeroot
+
+      - name: Verify repository security with native APT
+        if: matrix.layout == 'rootful'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S apt64 -B build/apt-native-policy -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DWITH_DOC=OFF -DWITH_TESTS=OFF \
+            -DUSE_NLS=OFF -DTRIEHASH_EXECUTABLE="$PWD/scripts/apt-triehash.pl"
+          cmake --build build/apt-native-policy --parallel 2 --target \
+            apt-get apt-cache apt-config apt-helper apt-ftparchive \
+            vendor-apt-key file copy store gpgv
+          APT_INTEGRATION_TESTS_BUILD_DIR="$PWD/build/apt-native-policy" \
+            MSGCOLOR=NO MSGLEVEL=2 apt64/test/integration/test-cydia-repository-security
+          APT_INTEGRATION_TESTS_BUILD_DIR="$PWD/build/apt-native-policy" \
+            MSGCOLOR=NO MSGLEVEL=2 sh tests/AptBackendPolicyTests.sh
+          mkdir -p build/native-key-verifier
+          g++ -std=c++17 -Wall -Wextra -Werror -I. \
+            tests/KeyringVerifierTests.cpp Cydia/KeyringVerifier.cpp \
+            Cydia/KeyringImport.cpp Cydia/DpkgRunner.cpp Cydia/SourceDocument.cpp \
+            Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
+            Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp \
+            -o build/native-key-verifier/KeyringVerifierTests
+          build/native-key-verifier/KeyringVerifierTests /usr/bin/gpg
 
       - name: Restore iOS SDK and toolchain
         id: ios-cache
@@ -119,7 +145,13 @@ jobs:
           make --no-print-directory -j6 \
             BUILD_DIR="build/linux-${{ matrix.layout }}" \
             PACKAGE_LAYOUT="${{ matrix.layout }}" \
-            verify-static verify-package-paths verify-dpkg-runner verify-exec-compat
+            verify-static verify-package-paths verify-dpkg-runner verify-exec-compat \
+            verify-apt-runtime verify-repository-security verify-source-documents \
+            verify-source-commits verify-settings-localization verify-repository-hygiene \
+            verify-extended-state verify-privileged-runtime verify-privileged-client \
+            verify-runtime-snapshot verify-repository-trust-proof verify-runtime-access \
+            verify-capabilities verify-shared-config-lifecycle verify-private-state \
+            verify-keyring-import verify-recovery-plan
 
       - name: Build ${{ matrix.layout }} packages
         shell: bash

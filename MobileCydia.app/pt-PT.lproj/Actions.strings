@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Escolher versão";
+"PACKAGE_PURGE_ACTION" = "Purgar pacote e configuração";
+"PACKAGE_PURGE_EX" = "Remove o pacote e os seus ficheiros de configuração guardados.";
+"PACKAGE_HELD_NOTICE" = "Este pacote está retido. Desative «Ignorar Atualizações» nas definições do pacote antes de o alterar.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Este pacote está marcado como essencial (Essential). O Cydia não o irá remover nem purgar.";
+"PACKAGE_PROTECTED_NOTICE" = "Este pacote está marcado como protegido (Protected). O Cydia não o irá remover nem purgar.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "A versão instalada não está disponível nas fontes atuais. Escolha outra versão disponível.";
+"PACKAGE_PRIORITY" = "Prioridade: %ld";
+"PACKAGE_CANDIDATE" = "Versão candidata";
+"PACKAGE_HOLD_FAILED" = "Não foi possível alterar a retenção do pacote. Volte a carregar e tente novamente.";
+"PACKAGE_HOLD_QUEUE" = "Conclua ou cancele as alterações de pacotes em fila antes de alterar uma retenção.";
+"PACKAGE_HELD_ISSUE" = "%@ está retido. Desative «Ignorar Atualizações» nas definições do pacote antes de o alterar.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ está marcado como essencial (Essential). O Cydia não o irá remover nem purgar.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ está marcado como protegido (Protected). O Cydia não o irá remover nem purgar.";

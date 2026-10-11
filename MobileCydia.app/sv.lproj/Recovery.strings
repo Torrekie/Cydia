@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Berörda installerade paket";
+"RECOVERY_BUSY" = "Vänta tills den aktuella paketåtgärden är klar.";
+"RECOVERY_COMPLETED" = "Paketet togs bort. Den överhoppade städningen kan lämna kvar filer eller tjänster. Originalskripten sparades i den skyddade säkerhetskopian.";
+"RECOVERY_CONFIRM" = "Bekräfta nödborttagning";
+"RECOVERY_CONSEQUENCES" = "Cydia säkerhetskopierar paketets skript och tar sedan bort paketet utan att köra dem. Städningen hoppas över, så filer eller tjänster som skripten har skapat kan finnas kvar. Konfigurationsfiler behålls. En ominstallation kan behövas för att återställa normal funktion.";
+"RECOVERY_DETAILS" = "Detaljer";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Ta bort detta paket utan att köra dess felande skript.";
+"RECOVERY_EMPTY" = "Inga paket med ofullständigt dpkg-tillstånd återstår.";
+"RECOVERY_EXPLANATION" = "Dessa paket har ett ofullständigt dpkg-tillstånd. Välj ett paket för att försöka med en normal reparation.";
+"RECOVERY_FAILED" = "Den normala reparationen slutfördes inte. En ominstallation kan återställa paketet. ”%@” är ett alternativ för nödborttagning.";
+"RECOVERY_NORMAL_FIRST" = "Försök först med normal reparation eller ominstallation. ”%@” blir tillgängligt om den normala reparationen misslyckas.";
+"RECOVERY_PROTECTED" = "Nödborttagning är blockerad eftersom den skulle påverka ett skyddat paket eller ett installerat beroende.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Den installerade versionen finns inte i dina aktuella paketförråd. Uppdatera källorna eller välj normal borttagning.";
+"RECOVERY_REMOVE_FAILED" = "Nödborttagningen misslyckades. Originalskripten återställdes där det var möjligt och den skyddade säkerhetskopian behölls. Läs detaljerna innan du försöker igen.";
+"RECOVERY_REPAIR" = "Försök med normal reparation";
+"RECOVERY_REPAIR_COMPLETE" = "Den normala reparationen är klar. Paketens tillstånd läses in på nytt.";
+"RECOVERY_REPAIR_EXPLANATION" = "Kör paketets vanliga konfigurationsskript för att slutföra installationen.";
+"RECOVERY_STATE_CHANGED" = "Paketets tillstånd har ändrats. Läs in återställningen på nytt och granska paketet igen.";
+"RECOVERY_TITLE" = "Paketåterställning";
+"RECOVERY_UNAVAILABLE" = "Säker återställning är inte tillgänglig. Kontrollera Avancerade inställningar eller försök igen när andra paketåtgärder är klara.";
+"RECOVERY_WORKING" = "Arbetar…";

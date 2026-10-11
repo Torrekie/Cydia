@@ -110,6 +110,12 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 @property(nonatomic) BOOL upgradableValue;
 @property(nonatomic) BOOL ignoredValue;
 @property(nonatomic) BOOL essentialValue;
+@property(nonatomic) BOOL protectedValue;
+@property(nonatomic, strong) NSNumber *canReinstallOverride;
+@property(nonatomic) NSInteger comparisonValue;
+@property(nonatomic) NSInteger priorityValue;
+@property(nonatomic) BOOL candidateValue;
+@property(nonatomic) BOOL selectedInstalledValue;
 @property(nonatomic) bool commercialValue;
 @property(nonatomic) BOOL consoleValue;
 @property(nonatomic, strong) id authorValue;
@@ -153,6 +159,13 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 - (BOOL)upgradableAndEssential:(BOOL)essential { (void)essential; return _upgradableValue; }
 - (BOOL)ignored { return _ignoredValue; }
 - (BOOL)essential { return _essentialValue; }
+- (BOOL)protectedPackage { return _protectedValue; }
+- (BOOL)canReinstall { return _canReinstallOverride != nil ? [_canReinstallOverride boolValue] : _sourceValue != nil; }
+- (BOOL)versionAvailable { return _sourceValue != nil; }
+- (NSInteger)versionComparison { return _comparisonValue; }
+- (NSInteger)versionPriority { return _priorityValue; }
+- (BOOL)policyCandidate { return _candidateValue; }
+- (BOOL)selectedVersionInstalled { return _selectedInstalledValue; }
 - (bool)isCommercial { return _commercialValue; }
 - (BOOL)hasTag:(NSString *)tag {
     return _consoleValue && [tag isEqualToString:@"purpose::console"];
@@ -336,7 +349,7 @@ void TestCompleteQualifiedSnapshotAndOwnership() {
             "legacy source name was not projected");
     Require([legacySource[@"host"] isEqualToString:@"repo.example"],
             "legacy source host was not projected");
-    Require([model.warnings count] == 1, "invalid warning values were not filtered");
+    Require([model.warnings count] == 3, "held and essential notices were not added to filtered warnings");
     Require([model.applications count] == 1, "invalid application values were not filtered");
     RequireString(model.applications[0].bundleIdentifier, @"com.example.runtime",
                   "application identifier changed");
@@ -345,20 +358,11 @@ void TestCompleteQualifiedSnapshotAndOwnership() {
 
     NSArray *expectedKinds(@[
         @(CydiaPackageDetailModifyActionKindClear),
-        @(CydiaPackageDetailModifyActionKindUpgrade),
-        @(CydiaPackageDetailModifyActionKindRemove),
-        @(CydiaPackageDetailModifyActionKindDowngrade),
     ]);
     Require([ActionKinds(model) isEqualToArray:expectedKinds],
-            "legacy modify action ordering changed");
-    RequireString(model.primaryModifyTitleLocalizationKey, @"MODIFY",
-                  "multiple actions did not use Modify");
-    CydiaPackageDetailModifyAction *downgradeAction(model.modifyActions.lastObject);
-    Require([downgradeAction.versions count] == 1, "downgrade choices changed");
-    RequireString(downgradeAction.versions[0].identity, @"runtime:iphoneos-arm64",
-                  "downgrade qualified identity changed");
-    RequireString(downgradeAction.versions[0].version, @"2:0.9",
-                  "downgrade version changed");
+            "held package exposed a mutation action");
+    RequireString(model.primaryModifyTitleLocalizationKey, @"CLEAR",
+                  "held package cannot clear its queued selection");
 
     [(NSMutableString *)package.identityValue appendString:@"-mutated"];
     [(NSMutableString *)package.nameValue appendString:@" Mutated"];
@@ -374,8 +378,6 @@ void TestCompleteQualifiedSnapshotAndOwnership() {
     RequireString(model.source.name, @"Example Repository", "model retained source storage");
     RequireString(model.applications[0].bundleIdentifier, @"com.example.runtime",
                   "model retained application storage");
-    RequireString(downgradeAction.versions[0].version, @"2:0.9",
-                  "model retained downgrade storage");
 }
 
 
@@ -402,7 +404,8 @@ void TestInstallReinstallRemoveAndLocalActions() {
         initWithPackage:(Package *)(id)installed]);
     Require([ActionKinds(reinstall) isEqualToArray:@[
         @(CydiaPackageDetailModifyActionKindReinstall),
-        @(CydiaPackageDetailModifyActionKindRemove)]],
+        @(CydiaPackageDetailModifyActionKindRemove),
+        @(CydiaPackageDetailModifyActionKindPurge)]],
         "installed source package actions changed");
     RequireString(reinstall.primaryModifyTitleLocalizationKey, @"MODIFY",
                   "Reinstall/Remove did not use Modify");
@@ -411,10 +414,46 @@ void TestInstallReinstallRemoveAndLocalActions() {
     local.installedValue = @"1.0";
     CydiaPackageDetailViewModel *remove([[CydiaPackageDetailViewModel alloc]
         initWithPackage:(Package *)(id)local]);
-    Require([ActionKinds(remove) isEqualToArray:@[@(CydiaPackageDetailModifyActionKindRemove)]],
+    Require([ActionKinds(remove) isEqualToArray:@[@(CydiaPackageDetailModifyActionKindRemove),
+        @(CydiaPackageDetailModifyActionKindPurge)]],
             "installed local package exposed repository actions");
-    RequireString(remove.primaryModifyTitleLocalizationKey, @"REMOVE",
-                  "single local Remove title changed");
+    RequireString(remove.primaryModifyTitleLocalizationKey, @"MODIFY",
+                  "local Remove and Purge were not separate actions");
+}
+
+void TestExactVersionActionsAndSafeguards() {
+    FakePackageSource *source([[FakePackageSource alloc] init]);
+    source.nameValue = [@"Repository" mutableCopy];
+    FakePackage *package(BasePackage(@"runtime"));
+    package.sourceValue = source;
+    package.installedValue = @"2:1.0";
+    package.latestValue = @"2:0.9";
+    package.comparisonValue = -1;
+    package.canReinstallOverride = @NO;
+    FakePackage *choice(BasePackage(@"runtime"));
+    choice.latestValue = [@"2:0.9" mutableCopy];
+    choice.priorityValue = 1001;
+    choice.candidateValue = YES;
+    package.downgradesValue = @[choice];
+    CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package]);
+    Require([ActionKinds(model) isEqualToArray:@[@(CydiaPackageDetailModifyActionKindDowngrade),
+        @(CydiaPackageDetailModifyActionKindRemove), @(CydiaPackageDetailModifyActionKindPurge),
+        @(CydiaPackageDetailModifyActionKindVersions)]], "policy downgrade was mislabeled or exposed wrong-version Reinstall");
+    CydiaPackageDetailVersionChoice *version(model.modifyActions.lastObject.versions[0]);
+    Require(version.priority == 1001 && version.candidate && !version.installed,
+        "version pin/candidate/installed status was lost");
+    RequireString(version.architecture, @"iphoneos-arm64", "version architecture was lost");
+    [choice.latestValue appendString:@"-changed"];
+    RequireString(version.version, @"2:0.9", "version choice retained mutable package state");
+    package.protectedValue = YES;
+    model = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    Require([ActionKinds(model) isEqualToArray:@[@(CydiaPackageDetailModifyActionKindDowngrade),
+        @(CydiaPackageDetailModifyActionKindVersions)]], "Protected package exposed Remove or Purge");
+    package.protectedValue = NO;
+    package.essentialValue = YES;
+    model = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    Require([ActionKinds(model) isEqualToArray:@[@(CydiaPackageDetailModifyActionKindDowngrade),
+        @(CydiaPackageDetailModifyActionKindVersions)]], "Essential package exposed Remove or Purge");
 }
 
 
@@ -452,7 +491,7 @@ void TestNullabilityFallbackAndContactPriority() {
             model.rawSection == nil && model.localizedSection == nil,
             "web sentinels leaked into nullable metadata");
     Require(model.displayDescription == nil, "empty descriptions did not normalize to nil");
-    Require([model.warnings count] == 0 && [model.applications count] == 0,
+    Require([model.warnings count] == 1 && [model.applications count] == 0,
             "web sentinels leaked into arrays");
     NSDictionary *legacyValues(model.legacyDepictionSnapshot[@"package"][@"values"]);
     Require(legacyValues[@"md5sum"] == [NSNull null] &&
@@ -483,6 +522,7 @@ int main() {
     @autoreleasepool {
         TestCompleteQualifiedSnapshotAndOwnership();
         TestInstallReinstallRemoveAndLocalActions();
+        TestExactVersionActionsAndSafeguards();
         TestNullabilityFallbackAndContactPriority();
     }
     std::cout << "[verify-package-detail-view-model][ ok ] immutable package snapshot"

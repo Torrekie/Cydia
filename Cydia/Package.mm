@@ -404,9 +404,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
                     }
 
                     if (strncmp(name, "cydia::", 7) == 0) {
-                        if (strcmp(name + 7, "essential") == 0)
-                            essential_ = true;
-                        else if (strcmp(name + 7, "obsolete") == 0)
+                        if (strcmp(name + 7, "obsolete") == 0)
                             obsolete_ = true;
                     }
                 }
@@ -469,13 +467,6 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _profile(Package$initWithHandle$Flags)
             essential_ |= snapshot.state.essential;
             ignored_ = snapshot.state.ignored;
-        _end
-
-        _profile(Package$initWithHandle$Priority)
-            // ignore "essential" tags from non-pinned repos
-            if (essential_ && snapshot.defaultPriority) {
-                essential_ = NO;
-            }
         _end
 
     _end } return self;

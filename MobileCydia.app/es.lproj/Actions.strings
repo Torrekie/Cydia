@@ -1,0 +1,14 @@
+"PACKAGE_VERSIONS" = "Elegir versión";
+"PACKAGE_PURGE_ACTION" = "Purgar paquete y configuración";
+"PACKAGE_PURGE_EX" = "Elimina el paquete y sus archivos de configuración guardados.";
+"PACKAGE_HELD_NOTICE" = "Este paquete está retenido. Desactiva «Ignorar actualizaciones» en los ajustes del paquete antes de modificarlo.";
+"PACKAGE_ESSENTIAL_NOTICE" = "Este paquete está marcado como esencial (Essential). Cydia no lo eliminará ni lo purgará.";
+"PACKAGE_PROTECTED_NOTICE" = "Este paquete está marcado como protegido (Protected). Cydia no lo eliminará ni lo purgará.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "La versión instalada no está disponible en las fuentes actuales. Elige otra versión disponible.";
+"PACKAGE_PRIORITY" = "Prioridad: %ld";
+"PACKAGE_CANDIDATE" = "Versión candidata";
+"PACKAGE_HOLD_FAILED" = "No se pudo cambiar la retención del paquete. Vuelve a cargar la vista e inténtalo de nuevo.";
+"PACKAGE_HOLD_QUEUE" = "Completa o cancela los cambios de paquetes en cola antes de cambiar una retención.";
+"PACKAGE_HELD_ISSUE" = "%@ está retenido. Desactiva «Ignorar actualizaciones» en los ajustes del paquete antes de modificarlo.";
+"PACKAGE_ESSENTIAL_ISSUE" = "%@ está marcado como esencial (Essential). Cydia no lo eliminará ni lo purgará.";
+"PACKAGE_PROTECTED_ISSUE" = "%@ está marcado como protegido (Protected). Cydia no lo eliminará ni lo purgará.";

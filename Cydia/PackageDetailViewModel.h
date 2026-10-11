@@ -27,6 +27,8 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
     CydiaPackageDetailModifyActionKindReinstall,
     CydiaPackageDetailModifyActionKindRemove,
     CydiaPackageDetailModifyActionKindDowngrade,
+    CydiaPackageDetailModifyActionKindPurge,
+    CydiaPackageDetailModifyActionKindVersions,
 };
 
 @interface CydiaPackageDetailSource : NSObject
@@ -57,6 +59,10 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 
 @property(nonatomic, copy, readonly) NSString *identity;
 @property(nonatomic, copy, readonly) NSString *version;
+@property(nonatomic, copy, readonly, nullable) NSString *architecture;
+@property(nonatomic, readonly) NSInteger priority;
+@property(nonatomic, readonly) BOOL candidate;
+@property(nonatomic, readonly) BOOL installed;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
@@ -102,6 +108,7 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 @property(nonatomic, readonly, getter=isUpgradable) BOOL upgradable;
 @property(nonatomic, readonly, getter=isHeld) BOOL held;
 @property(nonatomic, readonly, getter=isEssential) BOOL essential;
+@property(nonatomic, readonly, getter=isProtectedPackage) BOOL protectedPackage;
 @property(nonatomic, readonly, getter=isCommercial) BOOL commercial;
 @property(nonatomic, readonly, getter=isConsolePackage) BOOL consolePackage;
 

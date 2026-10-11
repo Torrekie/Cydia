@@ -5,8 +5,11 @@
 #include "Cydia/PackageDatabasePaths.hpp"
 
 #include <cstdlib>
+#include <cstdio>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace {
 
@@ -96,6 +99,49 @@ int main() {
     Expect(rootless.BootstrapBinaryPath("../du").empty(), "reject bootstrap binary traversal");
     Expect(rootless.BootstrapBSDCommandPath(static_cast<BootstrapBSDCommand>(-1)).empty(),
            "reject unknown BSD command");
+
+    // Both installed variants can remain present after a bootstrap change.
+    // An app/helper's canonical installed identity wins over launcher hints.
+    char pattern[] = "/tmp/cydia-layout-XXXXXX";
+    char *created(mkdtemp(pattern)); Expect(created != NULL, "create isolated layout fixture");
+    const std::string fixture(created);
+    const std::string rooted(fixture + "/rooted-Cydia"), rootlessApp(fixture + "/rootless-Cydia");
+    const std::string rootedHelper(fixture + "/rooted-cydo"), rootlessHelper(fixture + "/rootless-cydo");
+    const std::string unrelated(fixture + "/unrelated-Cydia");
+    for (const auto &file : {rooted, rootlessApp, rootedHelper, rootlessHelper, unrelated}) {
+        FILE *output(fopen(file.c_str(), "wb")); Expect(output != NULL, "create fixture executable");
+        Expect(fclose(output) == 0, "close fixture executable");
+    }
+    const std::vector<CydiaRuntime::InstalledExecutableCandidate> candidates = {
+        {PackageDatabaseLayout::Rootless, rootlessApp}, {PackageDatabaseLayout::Rootless, rootlessHelper},
+        {PackageDatabaseLayout::Rootful, rooted}, {PackageDatabaseLayout::Rootful, rootedHelper}};
+    PackageDatabaseLayout selected(PackageDatabaseLayout::Rootless);
+    setenv("CYDIA_PACKAGE_LAYOUT", "rootless", 1);
+    Expect(CydiaRuntime::ResolveInstalledExecutableLayout(rooted, candidates, &selected) && selected == PackageDatabaseLayout::Rootful,
+           "installed rooted app overrides rootless launcher hint");
+    Expect(CydiaRuntime::ResolveInstalledExecutableLayout(rootedHelper, candidates, &selected) && selected == PackageDatabaseLayout::Rootful,
+           "installed rooted helper identity");
+    setenv("CYDIA_PACKAGE_LAYOUT", "rootful", 1);
+    Expect(CydiaRuntime::ResolveInstalledExecutableLayout(rootlessApp, candidates, &selected) && selected == PackageDatabaseLayout::Rootless,
+           "installed rootless app overrides rooted launcher hint");
+    Expect(CydiaRuntime::ResolveInstalledExecutableLayout(rootlessHelper, candidates, &selected) && selected == PackageDatabaseLayout::Rootless,
+           "installed rootless helper identity");
+    const std::string alias(fixture + "/application-alias");
+    Expect(symlink(rootlessApp.c_str(), alias.c_str()) == 0, "create canonical package alias");
+    Expect(CydiaRuntime::ResolveInstalledExecutableLayout(alias, candidates, &selected) && selected == PackageDatabaseLayout::Rootless,
+           "package aliases select canonical installed identity");
+    Expect(!CydiaRuntime::ResolveInstalledExecutableLayout(unrelated, candidates, &selected), "identical app suffix is not installed identity");
+    Expect(!CydiaRuntime::ResolveInstalledExecutableLayout(fixture + "/missing-Cydia", candidates, &selected), "missing candidates never identify a package");
+    Expect(!CydiaRuntime::ResolveInstalledExecutableLayout(rooted + std::string("\0suffix", 7), candidates, &selected), "reject embedded NUL identity");
+    // The test executable is outside installed paths; its legacy CLI override
+    // remains supported without influencing an identifiable installed app.
+    Expect(PackageDatabasePaths::Detect().layout() == PackageDatabaseLayout::Rootful, "host CLI rooted override remains supported");
+    setenv("CYDIA_PACKAGE_LAYOUT", "rootless", 1);
+    Expect(PackageDatabasePaths::Detect().layout() == PackageDatabaseLayout::Rootless, "host CLI rootless override remains supported");
+    unsetenv("CYDIA_PACKAGE_LAYOUT");
+    unlink(alias.c_str());
+    for (const auto &file : {rooted, rootlessApp, rootedHelper, rootlessHelper, unrelated}) unlink(file.c_str());
+    Expect(rmdir(fixture.c_str()) == 0, "remove isolated layout fixture");
 
     std::cout << "[verify-paths][ ok ] rootful and rootless package paths are explicit" << std::endl;
     return 0;

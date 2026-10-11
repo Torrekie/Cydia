@@ -1,37 +1,5 @@
 #!/bin/bash
-
-shopt -s nullglob
-case ${BASH_SOURCE[0]} in
-    */*) cydia_startup_dir=${BASH_SOURCE[0]%/*} ;;
-    *) cydia_startup_dir=. ;;
-esac
-. "${cydia_startup_dir}/package-paths.sh"
-unset cydia_startup_dir
-export PATH=${CYDIA_BOOTSTRAP_PATH}
-
-if [[ ! -e "${CYDIA_STATE}/firmware.ver" ]]; then
-    cache=
-fi
-
-if ! "${CYDIA_LIBEXEC}/firmware.sh"; then
-    echo "Cydia firmware maintenance failed; skipping AutoInstall" >&2
-    exit 1
-fi
-
-autoinstall=${CYDIA_AUTOINSTALL_DIR:-${CYDIA_PREFIX}/var/root/Media/Cydia/AutoInstall}
-debs=("${autoinstall}"/*.deb)
-if [[ ${#debs[@]} -ne 0 && -f ${debs[0]} ]]; then
-    if "${CYDIA_DPKG}" -i "${debs[@]}" 2>/tmp/dpkg.log 1>&2; then
-        "${CYDIA_BSD_BIN}/rm" -f "${debs[@]}"
-        cache=
-
-        killall -9 Lowtide AppleTV
-    else
-        echo "Cydia AutoInstall failed; preserving packages for retry" >&2
-    fi
-fi
-
-if [[ ${cache+@} ]]; then
-    sbdidlaunch
-    su -c uicache mobile
-fi
+# Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later
+# Compatibility entry point for an older Cydia launch daemon. Package changes
+# now require an explicit native operation and the effective frontend lock.
+exit 0

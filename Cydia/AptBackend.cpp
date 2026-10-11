@@ -20,6 +20,7 @@
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/tagfile.h>
+#include <apt-pkg/version.h>
 
 #include <cstring>
 #include <limits>
@@ -319,6 +320,8 @@ std::vector<PackageHandle> AptBackend::packageHandles() {
     PackageRegistry &registry(*packages_);
     for (pkgCache::PkgIterator package(cache_->PkgBegin()); !package.end(); ++package) {
         pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
+        if (version.end() && package->CurrentState == pkgCache::State::ConfigFiles)
+            version = package.VersionList();
         if (!IsVisiblePackageVersion(package, version))
             continue;
         PackageHandle handle(RegisterPackage(registry, package, version));
@@ -347,6 +350,8 @@ PackageHandle AptBackend::packageHandle(const std::string &name, const std::stri
         return PackageHandle();
 
     pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
+    if (version.end() && !package.end() && package->CurrentState == pkgCache::State::ConfigFiles)
+        version = package.VersionList();
     const std::string::size_type qualifier(name.rfind(':'));
     if (version.end() && qualifier != std::string::npos &&
         name.compare(qualifier + 1, std::string::npos, "any") == 0) {
@@ -372,15 +377,28 @@ std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
     if (entry == NULL)
         return handles;
 
-    for (pkgCache::VerIterator version(entry->package.VersionList()); !version.end(); ++version) {
-        if (version == entry->version)
+    const pkgCache::PkgIterator package(entry->package);
+    const pkgCache::VerIterator selected(entry->version);
+    for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version) {
+        if (version == selected)
             continue;
-        if (!IsVisiblePackageVersion(entry->package, version))
+        if (!IsVisiblePackageVersion(package, version))
             continue;
-        PackageHandle other(RegisterPackage(*packages_, entry->package, version));
+        PackageHandle other(RegisterPackage(*packages_, package, version));
         if (other.valid())
             handles.push_back(other);
     }
+    return handles;
+}
+
+std::vector<PackageHandle> AptBackend::versionHandles(PackageHandle handle) {
+    std::vector<PackageHandle> handles;
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL) return handles;
+    const pkgCache::PkgIterator package(entry->package);
+    for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version)
+        if (IsVisiblePackageVersion(package, version) && version.Downloadable())
+            handles.push_back(RegisterPackage(*packages_, package, version));
     return handles;
 }
 
@@ -477,6 +495,7 @@ CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
         data.selection = name;
 
     data.essential = (package->Flags & pkgCache::Flag::Essential) != 0;
+    data.protectedPackage = (package->Flags & pkgCache::Flag::Important) != 0;
     data.ignored = package->SelectedState == pkgCache::State::Hold;
     data.broken = state.InstBroken();
     data.newInstall = state.NewInstall();
@@ -493,6 +512,15 @@ CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
     pkgCache::VerIterator version(entry->version);
     pkgCache::VerIterator current(package.CurrentVer());
     data.hasCurrent = !current.end();
+    data.versionAvailable = !version.end() && version.Downloadable();
+    data.installedVersionAvailable = !current.end() && current.Downloadable();
+    data.installedVersion = version == current;
+    if (cache_.Policy != NULL && !version.end()) {
+        data.policyCandidate = version == cache_.Policy->GetCandidateVer(package);
+        data.versionPriority = cache_.Policy->GetPriority(version, true);
+    }
+    if (!version.end() && !current.end() && package.Cache()->VS != NULL)
+        data.versionComparison = package.Cache()->VS->CmpVersion(version.VerStr(), current.VerStr());
     data.upgradable = !version.end() && !current.end() && package.Cache()->VS != NULL &&
         IsDpkgVersionUpgrade(*package.Cache()->VS, version.VerStr(), current.VerStr());
 
@@ -510,7 +538,7 @@ CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
         case pkgDepCache::ModeInstall:
             switch (state.Status) {
                 case -1:
-                    data.mode = data.candidateMatchesVersion ? "UPGRADE" : "DOWNGRADE";
+                    data.mode = "DOWNGRADE";
                     break;
                 case 0: data.mode = "INSTALL"; break;
                 case 1: data.mode = "UPGRADE"; break;
@@ -569,10 +597,11 @@ bool DependsOnSubstrate(pkgCache::VerIterator version) {
     return false;
 }
 
-bool IsSpecialRemoval(const std::string &name) {
-    return name.compare(0, 8, "firmware") == 0 ||
-        name.compare(0, 4, "gsc.") == 0 ||
-        name.compare(0, 3, "cy+") == 0;
+void AddActionIssue(TransactionData &result, const std::string &name, const char *kind) {
+    TransactionIssueData issue;
+    issue.package = name;
+    issue.kind = kind;
+    result.issues.push_back(issue);
 }
 
 } // namespace
@@ -598,6 +627,7 @@ TransactionData AptBackend::transactionData() {
         if (state.broken) {
             TransactionIssueData issue;
             issue.package = name;
+            issue.kind = "dependency";
 
             pkgCache::VerIterator planned(cache[entry->package].InstVerIter(cache));
             for (pkgCache::DepIterator dependency(planned.end() ? pkgCache::DepIterator() : planned.DependsList()); !dependency.end(); ) {
@@ -642,30 +672,25 @@ TransactionData AptBackend::transactionData() {
             result.issues.push_back(issue);
         }
 
+        if (state.ignored && (state.hasMode || state.reinstall))
+            AddActionIssue(result, name, "held");
+        if (state.deletePackage && (state.essential || state.protectedPackage))
+            AddActionIssue(result, name, state.essential ? "essential_removal" : "protected_removal");
+
         if (state.newInstall)
             result.installs.push_back(name);
         else if (!state.deletePackage && state.reinstall)
             result.reinstalls.push_back(name);
-        else if (state.upgrade || (state.downgrade && state.candidateMatchesVersion))
+        else if (state.upgrade)
             result.upgrades.push_back(name);
         else if (state.downgrade)
             result.downgrades.push_back(name);
         else if (!state.deletePackage)
             continue;
-        else if (IsSpecialRemoval(name)) {
-            TransactionIssueData issue;
-            TransactionReasonData reason;
-            TransactionClauseData clause;
-            issue.package.clear();
-            reason.relationship = "Conflicts";
-            clause.package = name;
-            clause.reason = "installed";
-            reason.clauses.push_back(clause);
-            issue.reasons.push_back(reason);
-            result.issues.push_back(issue);
-        } else {
+        else {
             result.removesEssential = result.removesEssential || state.essential;
-            result.removes.push_back(name);
+            if (state.mode == "PURGE") result.purges.push_back(name);
+            else result.removes.push_back(name);
         }
 
         result.substrate = result.substrate || DependsOnSubstrate(entry->version);
@@ -693,10 +718,13 @@ void AptBackend::clearSelections() {
     resolver_ = new pkgProblemResolver(cache_);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
-        if (!cache[package].Keep())
-            cache.MarkKeep(package, false);
-        else if ((cache[package].iFlags & pkgDepCache::ReInstall) != 0)
-            cache.SetReInstall(package, false);
+        cache.SetReInstall(package, false);
+        cache[package].iFlags &= ~pkgDepCache::Protected;
+        cache.MarkKeep(package, false);
+        if (cache_.Policy != NULL) cache.SetCandidateVersion(cache_.Policy->GetCandidateVer(package));
+        const std::string key(std::string(package.Name()) + ":" + package.Arch());
+        const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
+        if (original != originalAutoInstalled_.end()) cache.MarkAuto(package, original->second);
     }
 }
 
@@ -713,8 +741,13 @@ bool AptBackend::clearPackage(PackageHandle handle) {
     resolver_->Clear(package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     cache.SetReInstall(package, false);
-    cache.MarkKeep(package, false);
-    return true;
+    cache[package].iFlags &= ~pkgDepCache::Protected;
+    const bool kept(cache.MarkKeep(package, false));
+    if (cache_.Policy != NULL) cache.SetCandidateVersion(cache_.Policy->GetCandidateVer(package));
+    const std::string key(std::string(package.Name()) + ":" + package.Arch());
+    const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
+    if (original != originalAutoInstalled_.end()) cache.MarkAuto(package, original->second);
+    return kept;
 }
 
 bool AptBackend::installPackage(PackageHandle handle) {
@@ -723,30 +756,43 @@ bool AptBackend::installPackage(PackageHandle handle) {
         return false;
     pkgCache::PkgIterator package(entry->package);
     pkgCache::VerIterator version(entry->version);
+    if (package->SelectedState == pkgCache::State::Hold || !version.Downloadable()) return false;
     resolver_->Clear(package);
     resolver_->Protect(package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     cache.SetCandidateVersion(version);
     cache.SetReInstall(package, false);
-    cache.MarkInstall(package, false);
+    if (!cache.MarkInstall(package, false)) return false;
     pkgDepCache::StateCache &state(cache[package]);
-    if (!state.Install())
+    if (!state.Install() && version == package.CurrentVer())
         cache.SetReInstall(package, true);
     return true;
 }
 
-bool AptBackend::removePackage(PackageHandle handle) {
+bool AptBackend::reinstallPackage(PackageHandle handle) {
+    PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
+    if (entry == NULL) return false;
+    pkgCache::PkgIterator package(entry->package);
+    pkgCache::VerIterator installed(package.CurrentVer());
+    if (installed.end() || !installed.Downloadable()) return false;
+    return installPackage(RegisterPackage(*packages_, package, installed));
+}
+
+bool AptBackend::removePackage(PackageHandle handle, bool purge) {
     PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
     if (entry == NULL || resolver_ == NULL || static_cast<pkgDepCache *>(cache_) == NULL)
         return false;
     pkgCache::PkgIterator package(entry->package);
+    if (package->SelectedState == pkgCache::State::Hold ||
+        (package->Flags & (pkgCache::Flag::Essential | pkgCache::Flag::Important)) != 0)
+        return false;
+    if (!purge && package.CurrentVer().end()) return false;
     resolver_->Clear(package);
     resolver_->Remove(package);
     resolver_->Protect(package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     cache.SetReInstall(package, false);
-    cache.MarkDelete(package, true);
-    return true;
+    return cache.MarkDelete(package, purge);
 }
 
 std::vector<SourceHandle> AptBackend::sourceHandles() {

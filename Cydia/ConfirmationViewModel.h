@@ -24,6 +24,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationChangeKind) {
     CydiaConfirmationChangeKindUpgrade,
     CydiaConfirmationChangeKindDowngrade,
     CydiaConfirmationChangeKindRemove,
+    CydiaConfirmationChangeKindPurge,
 };
 
 typedef NS_ENUM(NSUInteger, CydiaConfirmationClauseStatus) {
@@ -124,6 +125,7 @@ typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *p
 
 @property (nonatomic, readonly, strong, nullable) CydiaConfirmationPackageReference *package;
 @property (nonatomic, readonly, copy) NSArray<CydiaConfirmationReason *> *reasons;
+@property (nonatomic, readonly, copy) NSString *kind;
 
 - (instancetype) init NS_UNAVAILABLE;
 + (instancetype) new NS_UNAVAILABLE;
@@ -134,7 +136,7 @@ typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *p
 @interface CydiaConfirmationViewModel : NSObject
 
 /* Only non-empty groups are exposed, in the stable install, reinstall,
-   upgrade, downgrade, remove order used by the native table. */
+   upgrade, downgrade, remove, purge order used by the native table. */
 @property (nonatomic, readonly, copy) NSArray<CydiaConfirmationChangeGroup *> *groups;
 @property (nonatomic, readonly, copy) NSArray<CydiaConfirmationIssue *> *issues;
 @property (nonatomic, readonly) uint64_t downloadingBytes;
@@ -143,9 +145,7 @@ typedef NSString * _Nullable (^CydiaConfirmationPackageNameResolver)(NSString *p
 @property (nonatomic, readonly) BOOL requiresSubstrateRestart;
 @property (nonatomic, readonly) BOOL hasChanges;
 @property (nonatomic, readonly) BOOL hasBlockingIssues;
-/* This intentionally depends only on dependency issues. Essential removal is
-   handled after the user taps Confirm, and an empty legacy transaction was
-   also confirmable once its page finished loading. */
+/* Dependency and package-protection issues block confirmation. */
 @property (nonatomic, readonly) BOOL showsConfirmAction;
 
 - (instancetype) init NS_UNAVAILABLE;

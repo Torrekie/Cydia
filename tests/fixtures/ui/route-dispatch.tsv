@@ -3,6 +3,18 @@ https://example.com/guide	trusted-native	yes	unhandled	yes	no	-	-	-	no
 cydia:home	trusted-native	yes	reject	yes	no	-	-	-	no
 cydia://package	trusted-native	yes	reject	yes	no	-	-	-	no
 cydia://home	trusted-native	yes	allow	yes	no	home	-	-	no
+cydia://home/settings	trusted-native	yes	allow	yes	no	home-guide	-	-	no
+cydia://home/settings	external-url	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings	repository-depiction	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/capabilities	trusted-native	yes	allow	yes	no	home-guide	-	-	no
+cydia://home/settings/advanced	trusted-native	yes	allow	yes	no	home-guide	-	-	no
+cydia://home/settings/capabilities	external-url	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/advanced	external-url	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/capabilities	repository-depiction	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/advanced	repository-depiction	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/key-import	trusted-native	yes	allow	yes	no	home-guide	-	-	no
+cydia://home/settings/key-import	external-url	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/key-import	repository-depiction	yes	reject	yes	no	home-guide	-	-	no
 cydia://home/faq	trusted-native	yes	allow	yes	no	faq	-	-	no
 cydia://home/more-sources	trusted-native	yes	allow	yes	no	more-sources	-	-	no
 cydia://home/more-sources	external-url	yes	reject	yes	no	more-sources	-	-	no
@@ -37,3 +49,7 @@ cydia://url/file:///etc/passwd	trusted-legacy	yes	reject	yes	no	external-open	-	
 cydia://url/https://example.com/automatic	untrusted-web	yes	reject	yes	no	external-open	-	https://example.com/automatic	no
 cydia://home	trusted-legacy	yes	allow	yes	no	home	-	-	no
 cydia://url/https%3A%2F%2Fexample.com%2Fgesture	repository-depiction	yes	allow	yes	no	external-open	-	https://example.com/gesture	no
+cydia://home/settings	trusted-legacy	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/capabilities	trusted-legacy	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/advanced	trusted-legacy	yes	reject	yes	no	home-guide	-	-	no
+cydia://home/settings/key-import	trusted-legacy	yes	reject	yes	no	home-guide	-	-	no

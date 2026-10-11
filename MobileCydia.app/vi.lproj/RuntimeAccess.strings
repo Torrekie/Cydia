@@ -1,0 +1,19 @@
+/* Native package management access check. Copyright (C) 2026 Torrekie. */
+"ACCESS_CHECK_TITLE" = "Kiểm tra quyền truy cập quản lý gói";
+"ACCESS_CHECK_START" = "Chạy kiểm tra";
+"ACCESS_CHECK_EXPLANATION" = "Kiểm tra quyền truy cập được bảo vệ vào trình quản lý gói và giữ khóa của nó trong thời gian ngắn. Không thay đổi gói hoặc định nghĩa kho.";
+"ACCESS_CHECK_RUNNING" = "Đang kiểm tra…";
+"ACCESS_CHECK_PASSED" = "Quyền truy cập quản lý gói hoạt động bình thường.";
+"ACCESS_CHECK_FAILED" = "Không thể hoàn tất kiểm tra.";
+"ACCESS_CHECK_BUSY" = "Một thao tác gói khác đang sử dụng trình quản lý gói. Hãy thử lại sau khi thao tác đó hoàn tất.";
+"ACCESS_CHECK_RUNTIME" = "Cấu hình thực thi được bảo vệ";
+"ACCESS_CHECK_TRUST" = "Trạng thái kho và độ tin cậy";
+"ACCESS_CHECK_LOCK" = "Chủ sở hữu khóa và quyền truy cập độc quyền";
+"ACCESS_CHECK_STATE" = "Trạng thái gói APT được bảo vệ";
+"ACCESS_CHECK_RELEASE" = "Giải phóng khóa và bảo vệ truy cập";
+"ACCESS_CHECK_UNCHANGED" = "Các tệp gói và kho không thay đổi";
+"ACCESS_CHECK_CHANGED" = "Trạng thái gói hoặc kho đã thay đổi trong quá trình kiểm tra. Hãy thử lại khi các trình quản lý gói khác không hoạt động.";
+"ACCESS_CHECK_TIMEOUT" = "Kiểm tra đã hết thời gian chờ. Không có thao tác gói nào được bắt đầu.";
+"ACCESS_CHECK_DETAILS" = "Chi tiết kỹ thuật";
+"ACCESS_CHECK_NOT_RUN" = "Chưa kiểm tra";
+"ACCESS_CHECK_COMPLETE" = "Đã xác minh";

@@ -51,6 +51,38 @@
         <true/>
     </dict>
 
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>OpenPGP Public Key</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array><string>org.openpgp.public-key</string></array>
+        </dict>
+    </array>
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>org.openpgp.public-key</string>
+            <key>UTTypeDescription</key>
+            <string>OpenPGP Public Key</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array><string>asc</string><string>gpg</string><string>pgp</string><string>key</string></array>
+                <key>public.mime-type</key>
+                <array><string>application/pgp-keys</string></array>
+            </dict>
+        </dict>
+    </array>
+
     <key>MinimumOSVersion</key>
     <string>12.0</string>
 

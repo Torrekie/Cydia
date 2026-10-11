@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Etkilenen kurulu paketler";
+"RECOVERY_BUSY" = "Geçerli paket işleminin bitmesini bekleyin.";
+"RECOVERY_COMPLETED" = "Paket kaldırıldı. Temizliğin atlanması bazı dosyaları veya hizmetleri bırakabilir. Özgün betikler korumalı yedekte saklandı.";
+"RECOVERY_CONFIRM" = "Acil Kaldırmayı Onayla";
+"RECOVERY_CONSEQUENCES" = "Cydia bu paketin betiklerini yedekleyecek, ardından betikleri çalıştırmadan paketi kaldıracaktır. Temizlik atlanacağından, bu betiklerin oluşturduğu dosyalar veya hizmetler kalabilir. Yapılandırma dosyaları korunur. Normal davranışı geri yüklemek için yeniden kurulum gerekebilir.";
+"RECOVERY_DETAILS" = "Ayrıntılar";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Bu paketi başarısız olan betiklerini çalıştırmadan kaldırın.";
+"RECOVERY_EMPTY" = "Eksik dpkg durumuna sahip paket kalmadı.";
+"RECOVERY_EXPLANATION" = "Bu paketlerin dpkg durumu eksik. Normal onarımı denemek için bir paket seçin.";
+"RECOVERY_FAILED" = "Normal onarım tamamlanmadı. Yeniden kurulum paketi geri yükleyebilir. “%@” acil kaldırma seçeneğidir.";
+"RECOVERY_NORMAL_FIRST" = "Önce normal onarımı veya yeniden kurulumu deneyin. Normal onarım başarısız olursa “%@” kullanılabilir hale gelir.";
+"RECOVERY_PROTECTED" = "Korumalı bir paketi veya kurulu bir bağımlılığı etkileyeceği için acil kaldırma engellendi.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Kurulu sürüm mevcut depolarınızda yok. Kaynakları yenileyin veya normal kaldırmayı seçin.";
+"RECOVERY_REMOVE_FAILED" = "Acil kaldırma başarısız oldu. Mümkün olan yerlerde özgün betikler geri yüklendi ve korumalı yedek saklandı. Yeniden denemeden önce ayrıntıları inceleyin.";
+"RECOVERY_REPAIR" = "Normal Onarımı Dene";
+"RECOVERY_REPAIR_COMPLETE" = "Normal onarım tamamlandı. Paket durumu yeniden yüklenecek.";
+"RECOVERY_REPAIR_EXPLANATION" = "Kurulumu tamamlamak için bu paketin normal yapılandırma betiklerini çalıştırın.";
+"RECOVERY_STATE_CHANGED" = "Paket durumu değişti. Kurtarmayı yeniden yükleyin ve paketi tekrar inceleyin.";
+"RECOVERY_TITLE" = "Paket Kurtarma";
+"RECOVERY_UNAVAILABLE" = "Güvenli kurtarma kullanılamıyor. Gelişmiş Ayarlar’ı kontrol edin veya diğer paket işlemleri bittikten sonra yeniden deneyin.";
+"RECOVERY_WORKING" = "Çalışıyor…";

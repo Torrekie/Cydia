@@ -46,6 +46,12 @@ bool AptBackend::openCache() {
     return implementation_->openCache();
 }
 
+bool AptBackend::lockForTransaction() { return implementation_->lockForTransaction(); }
+void AptBackend::unlockForTransaction() { implementation_->unlockForTransaction(); }
+std::vector<AutoInstalledDelta> AptBackend::autoInstalledDeltas() {
+    return implementation_->autoInstalledDeltas();
+}
+
 CacheStateSummary AptBackend::cacheState() {
     return implementation_->cacheState();
 }
@@ -98,6 +104,10 @@ std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
     return implementation_->downgradeHandles(handle);
 }
 
+std::vector<PackageHandle> AptBackend::versionHandles(PackageHandle handle) {
+    return implementation_->versionHandles(handle);
+}
+
 PackageSnapshot AptBackend::packageSnapshot(PackageHandle handle) {
     return implementation_->packageSnapshot(handle);
 }
@@ -138,8 +148,12 @@ bool AptBackend::installPackage(PackageHandle handle) {
     return implementation_->installPackage(handle);
 }
 
-bool AptBackend::removePackage(PackageHandle handle) {
-    return implementation_->removePackage(handle);
+bool AptBackend::reinstallPackage(PackageHandle handle) {
+    return implementation_->reinstallPackage(handle);
+}
+
+bool AptBackend::removePackage(PackageHandle handle, bool purge) {
+    return implementation_->removePackage(handle, purge);
 }
 
 std::vector<SourceHandle> AptBackend::sourceHandles() {

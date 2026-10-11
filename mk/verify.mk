@@ -35,7 +35,6 @@ LEGACY_UI_COMPATIBILITY_FORMAT_CONTRACT_SCRIPT := tests/LegacyUICompatibilityFor
 LEGACY_UI_COMPATIBILITY_INVENTORY_CONTRACT_SCRIPT := tests/LegacyUICompatibilityInventoryContractTests.sh
 LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_CONTRACT_SCRIPT := tests/LegacyUICompatibilityRuntimeEvidenceContractTests.sh
 PACKAGE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT := tests/PackageControllerNativeCompatibilityConsumerContractTests.sh
-SOURCE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT := tests/SourceControllerNativeCompatibilityConsumerContractTests.sh
 NATIVE_UI_BINARY_VERIFY_SCRIPT := scripts/verify-native-ui-binary.sh
 BUILD_PROVENANCE_CONTRACT_TEST := tests/BuildProvenanceContractTests.sh
 PACKAGE_ARTIFACT_VERIFY_SCRIPT := scripts/verify-package-artifacts.sh
@@ -60,8 +59,15 @@ UI_COLOR_APPEARANCE_VERIFY_SCRIPT := tests/UIColorAppearanceContractTests.sh
 VERIFY_MAX_SOURCE_LINES ?= 1200
 PACKAGE_PATHS_TEST := $(BUILD_DIR)/tests/PackageDatabasePathsTests
 APT_RUNTIME_TEST := $(BUILD_DIR)/tests/AptRuntimeTests
+REPOSITORY_SECURITY_TEST := $(BUILD_DIR)/tests/RepositorySecurityPolicyTests
+SOURCE_DOCUMENT_TEST := $(BUILD_DIR)/tests/SourceDocumentTests
+SOURCE_COMMIT_TEST := $(BUILD_DIR)/tests/SourceDocumentCommitTests
+EXTENDED_STATE_TEST := $(BUILD_DIR)/tests/ExtendedStateTests
+PRIVILEGED_RUNTIME_TEST := $(BUILD_DIR)/tests/PrivilegedRuntimeTests
+PRIVILEGED_CLIENT_TEST := $(BUILD_DIR)/tests/PrivilegedClientTests
+CAPABILITY_PREVIEW_TEST := $(BUILD_DIR)/tests/CapabilityPreviewTests
+PRIVATE_STATE_DIRECTORY_TEST := $(BUILD_DIR)/tests/PrivateStateDirectoryTests
 LEGACY_SOURCE_HANDOFF_TEST := $(BUILD_DIR)/tests/LegacySourceHandoffTests
-MANAGED_SOURCE_SECTION_TEST := $(BUILD_DIR)/tests/ManagedSourceSectionTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
@@ -77,7 +83,6 @@ LEGACY_UI_COMPATIBILITY_FORMAT_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityF
 LEGACY_UI_COMPATIBILITY_NATIVE_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityNativeCallerTests
 LEGACY_UI_COMPATIBILITY_NATIVE_SNAPSHOT_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityNativeSnapshotTests
 LEGACY_UI_COMPATIBILITY_RUNTIME_EVIDENCE_TEST := $(BUILD_DIR)/tests/LegacyUICompatibilityRuntimeEvidenceTests
-SOURCE_VERIFICATION_REQUEST_POLICY_TEST := $(BUILD_DIR)/tests/SourceVerificationRequestPolicyTests
 UI_ROUTE_DISPATCH_TEST := $(BUILD_DIR)/tests/UIRouteDispatchTests
 UI_RESTORATION_STATE_TEST := $(BUILD_DIR)/tests/RestorationStateTests
 CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
@@ -91,13 +96,13 @@ URL_PROTOCOL_POLICY_TEST := $(BUILD_DIR)/tests/URLProtocolPolicyTests
 HOME_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/HomeViewModelTests
 ERROR_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ErrorViewModelTests
 YIELD_TO_SELECTOR_TEST := $(BUILD_DIR)/tests/YieldToSelectorTests
-ifeq ($(HOST_OS),Linux)
-host_cxx ?= $(or $(HOST_CXX),c++)
-
 .PHONY: verify-repository-hygiene
 verify: verify-repository-hygiene
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
+
+ifeq ($(HOST_OS),Linux)
+host_cxx ?= $(or $(HOST_CXX),c++)
 host_cc ?= $(or $(HOST_CC),cc)
 host_cxx_flags :=
 host_cc_flags :=
@@ -134,7 +139,7 @@ apt_api_candidates := $(filter-out $(APT_SOURCE_DIR)/% SDURLCache/%,$(filter %.m
 .PHONY: verify-regex-arc
 .PHONY: verify-yield-to-selector
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
-.PHONY: verify-native-ui verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch verify-ui-restoration-state verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-inventory verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer verify-source-controller-native-consumer verify-source-verification-request-policy
+.PHONY: verify-native-ui verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch verify-ui-restoration-state verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-inventory verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer
 .PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance verify-confirmation-controller-simulator
 .PHONY: verify-progress-view-model verify-progress-controller
 .PHONY: verify-package-detail-view-model verify-package-depiction-facade verify-package-depiction-policy verify-package-legacy-metadata-policy verify-url-protocol-policy
@@ -159,7 +164,7 @@ apt_api_candidates := $(filter-out $(APT_SOURCE_DIR)/% SDURLCache/%,$(filter %.m
 .PHONY: verify-progress-acquisition-contract
 .PHONY: verify-apt verify-apt-provenance verify-apt-sources verify-apt-config verify-apt-api verify-apt-api-inventory verify-apt-compile verify-apt-sourcelist-mtime
 
-verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-apt-source-isolation verify-apt-sourcelist-mtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-yield-to-selector verify-exec-compat verify-source-verification-request-policy verify-progress-acquisition-contract verify-device-memory-preflight verify-rollback-package-pair verify-native-ui verify-native-ui-binary verify-build-provenance verify-build-provenance-contract verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer verify-source-controller-native-consumer verify-static verify-compile
+verify: verify-apt verify-apt-api verify-apt-compile verify-package-paths verify-package-identity verify-multiarch-fixture verify-dpkg-version-policy verify-apt-runtime verify-apt-source-isolation verify-apt-sourcelist-mtime verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers verify-regex-arc verify-yield-to-selector verify-exec-compat verify-progress-acquisition-contract verify-device-memory-preflight verify-rollback-package-pair verify-native-ui verify-native-ui-binary verify-build-provenance verify-build-provenance-contract verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer verify-static verify-compile
 
 verify-device-transaction-fixture: $(DEVICE_TRANSACTION_FIXTURE_SCRIPT) \
 		tests/fixtures/ui/device-transaction/control \
@@ -266,16 +271,170 @@ verify-dpkg-version-policy: $(DPKG_VERSION_POLICY_TEST)
 	@$<
 
 $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/RepositorySecurityPolicy.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
+		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
+		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedRuntime.hpp \
 		tests/apt-stubs/apt-pkg/aptconfiguration.h \
 		tests/apt-stubs/apt-pkg/configuration.h tests/apt-stubs/apt-pkg/init.h \
 		tests/apt-stubs/apt-pkg/pkgsystem.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Itests/apt-stubs -I. \
-		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/PackageDatabasePaths.cpp -o $@
+		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/RepositorySecurityPolicy.cpp \
+		Cydia/PackageDatabasePaths.cpp Cydia/DpkgRunner.cpp Cydia/PrivilegedRuntime.cpp -o $@
 
 verify-apt-runtime: $(APT_RUNTIME_TEST)
 	@$<
+
+$(REPOSITORY_SECURITY_TEST): tests/RepositorySecurityPolicyTests.cpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/RepositorySecurityPolicy.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/RepositorySecurityPolicyTests.cpp Cydia/RepositorySecurityPolicy.cpp -o $@
+
+$(SOURCE_DOCUMENT_TEST): tests/SourceDocumentTests.cpp Cydia/SourceDocument.cpp \
+		Cydia/SourceDocument.hpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentStore.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/SourceDocumentTests.cpp Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp -o $@
+
+.PHONY: verify-repository-security verify-source-documents verify-settings-localization
+verify: verify-repository-security verify-source-documents verify-settings-localization
+verify-repository-security: $(REPOSITORY_SECURITY_TEST)
+	@$<
+verify-source-documents: $(SOURCE_DOCUMENT_TEST)
+	@$<
+$(SOURCE_COMMIT_TEST): tests/SourceDocumentCommitTests.cpp Cydia/SourceDocumentCommit.cpp \
+		Cydia/SourceDocumentCommit.hpp Cydia/SourceDocument.cpp Cydia/SourceDocument.hpp \
+		Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentStore.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/SourceDocumentCommitTests.cpp Cydia/SourceDocumentCommit.cpp \
+		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp -o $@
+.PHONY: verify-source-commits
+verify: verify-source-commits
+verify-source-commits: $(SOURCE_COMMIT_TEST)
+	@$<
+verify-settings-localization:
+	@python3 tests/SettingsLocalizationTests.py
+	@python3 tests/SourcesLocalizationTests.py
+	@python3 tests/ActionsLocalizationTests.py
+	@python3 tests/RecoveryLocalizationTests.py
+
+$(EXTENDED_STATE_TEST): tests/ExtendedStateTests.cpp Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/ExtendedStateTests.cpp Cydia/ExtendedState.cpp -o $@
+
+$(PRIVILEGED_RUNTIME_TEST): tests/PrivilegedRuntimeTests.cpp Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedRuntime.hpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/PrivilegedRuntimeTests.cpp Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp -o $@
+
+$(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClient.mm \
+		Cydia/PrivilegedClient.h Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedRuntime.hpp \
+		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
+		tests/apt-stubs/apt-pkg/fileutl.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -Itests/apt-stubs -I. \
+		-x c++ tests/PrivilegedClientTests.cpp Cydia/PrivilegedClient.mm Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp -o $@
+
+$(CAPABILITY_PREVIEW_TEST): tests/CapabilityPreviewTests.cpp Cydia/CapabilityPreview.cpp Cydia/CapabilityPreview.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/CapabilityPreviewTests.cpp Cydia/CapabilityPreview.cpp -o $@
+
+$(PRIVATE_STATE_DIRECTORY_TEST): tests/PrivateStateDirectoryTests.cpp \
+		Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/PrivateStateDirectoryTests.cpp -o $@
+
+.PHONY: verify-extended-state verify-privileged-runtime verify-privileged-client verify-capabilities verify-shared-config-lifecycle verify-private-state
+verify: verify-extended-state verify-privileged-runtime verify-privileged-client verify-capabilities verify-shared-config-lifecycle verify-private-state
+verify-extended-state: $(EXTENDED_STATE_TEST)
+	@$<
+verify-privileged-runtime: $(PRIVILEGED_RUNTIME_TEST)
+	@$<
+verify-privileged-client: $(PRIVILEGED_CLIENT_TEST)
+	@$<
+verify-capabilities: $(CAPABILITY_PREVIEW_TEST)
+	@$<
+	@bash tests/FirmwareDiscoveryTests.sh
+	@python3 tests/FirmwareDiscoveryCoverageTests.py
+verify-shared-config-lifecycle:
+	@python3 tests/SharedConfigLifecycleTests.py
+verify-private-state: $(PRIVATE_STATE_DIRECTORY_TEST)
+	@$<
+
+RUNTIME_SNAPSHOT_TEST := $(BUILD_DIR)/tests/RuntimeSnapshotInputsTests
+$(RUNTIME_SNAPSHOT_TEST): tests/RuntimeSnapshotInputsTests.cpp Cydia/RuntimeSnapshotInputs.cpp \
+		Cydia/RuntimeSnapshotInputs.hpp Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++17 -Wall -Wextra -Werror -I. \
+		$(filter %.cpp,$^) -o $@
+.PHONY: verify-runtime-snapshot
+verify: verify-runtime-snapshot
+verify-runtime-snapshot: $(RUNTIME_SNAPSHOT_TEST)
+	@$<
+
+REPOSITORY_TRUST_PROOF_TEST := $(BUILD_DIR)/tests/RepositoryTrustProofTests
+$(REPOSITORY_TRUST_PROOF_TEST): tests/RepositoryTrustProofTests.cpp Cydia/RepositoryTrustProof.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $< -o $@
+.PHONY: verify-repository-trust-proof
+verify: verify-repository-trust-proof
+verify-repository-trust-proof: $(REPOSITORY_TRUST_PROOF_TEST)
+	@$<
+
+RUNTIME_ACCESS_TEST := $(BUILD_DIR)/tests/RuntimeAccessTests
+$(RUNTIME_ACCESS_TEST): tests/RuntimeAccessTests.cpp Cydia/RuntimeAccessController.mm Cydia/RuntimeAccessController.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		-x c++ -DCYDIA_RUNTIME_ACCESS_TEST tests/RuntimeAccessTests.cpp Cydia/RuntimeAccessController.mm -o $@
+.PHONY: verify-runtime-access
+verify: verify-runtime-access
+verify-runtime-access: $(RUNTIME_ACCESS_TEST)
+	@$<
+
+KEYRING_IMPORT_TEST := $(BUILD_DIR)/tests/KeyringImportTests
+RECOVERY_PLAN_TEST := $(BUILD_DIR)/tests/RecoveryPlanTests
+RECOVERY_PRIVILEGED_TEST := $(BUILD_DIR)/tests/RecoveryPrivilegedTests
+
+$(KEYRING_IMPORT_TEST): tests/KeyringImportTests.cpp Cydia/KeyringImport.cpp Cydia/KeyringImport.hpp \
+		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		$(filter %.cpp,$^) -o $@
+
+$(RECOVERY_PLAN_TEST): tests/RecoveryPlanTests.cpp Cydia/RecoveryPlan.cpp Cydia/RecoveryPlan.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/RecoveryPlanTests.cpp Cydia/RecoveryPlan.cpp -o $@
+
+$(RECOVERY_PRIVILEGED_TEST): tests/RecoveryPrivilegedTests.cpp \
+		Cydia/RecoveryPrivileged.cpp Cydia/RecoveryPrivileged.hpp Cydia/RecoveryPlan.cpp Cydia/RecoveryPlan.hpp \
+		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		$(filter %.cpp,$^) -o $@
+
+.PHONY: verify-keyring-import verify-recovery-plan verify-recovery-backups verify-actions-localization
+verify: verify-keyring-import verify-recovery-plan
+verify-keyring-import: $(KEYRING_IMPORT_TEST)
+	@$<
+verify-recovery-plan: $(RECOVERY_PLAN_TEST)
+	@$<
+ifneq ($(HOST_OS),Linux)
+verify: verify-recovery-backups
+verify-recovery-backups: $(RECOVERY_PRIVILEGED_TEST)
+	@$<
+endif
+verify-actions-localization:
+	@python3 tests/ActionsLocalizationTests.py
 
 $(LEGACY_SOURCE_HANDOFF_TEST): tests/LegacySourceHandoffTests.cpp \
 		Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp \
@@ -411,20 +570,6 @@ verify-url-cache: $(URL_CACHE_VERIFY_SCRIPT) \
 	@$(URL_CACHE_VERIFY_SCRIPT)
 
 ifeq ($(HOST_OS),Darwin)
-$(MANAGED_SOURCE_SECTION_TEST): tests/ManagedSourceSectionTests.mm Sources.mm Sources.h \
-		Cydia/AptRuntime.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
-		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
-	@mkdir -p $(dir $@)
-	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
-		tests/ManagedSourceSectionTests.mm Cydia/DpkgRunner.cpp \
-		Cydia/PackageDatabasePaths.cpp -framework Foundation -o $@
-
-.PHONY: verify-managed-source-sections
-verify-managed-source-sections: $(MANAGED_SOURCE_SECTION_TEST)
-	@$<
-
-verify: verify-managed-source-sections
-
 $(UI_ROUTE_CONTEXT_TEST): tests/UIRouteContextTests.mm \
 		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
 		Cydia/ExternalURLPolicy.h Cydia/ExternalURLPolicy.mm \
@@ -641,10 +786,6 @@ verify-package-controller-native-consumer: $(PACKAGE_CONTROLLER_NATIVE_CONSUMER_
 		Cydia/PackageControllers.h Cydia/PackageControllers.mm
 	@$(PACKAGE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT)
 
-verify-source-controller-native-consumer: $(SOURCE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT) \
-		Cydia/SourceControllers.h Cydia/SourceControllers.mm
-	@$(SOURCE_CONTROLLER_NATIVE_CONSUMER_CONTRACT_SCRIPT)
-
 $(UI_ROUTE_DISPATCH_TEST): tests/UIRouteDispatchTests.mm \
 		Cydia/UIRouteDispatch.h Cydia/UIRouteDispatch.mm \
 		Cydia/UIRouteContext.h Cydia/UIRouteContext.mm \
@@ -772,18 +913,6 @@ verify-package-detail-controller-simulator:
 		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageDetailDepictionCell.o" \
 		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageControllers.o" \
 		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/tests/PackageDetailControllerSimulatorCompile.o"
-
-$(SOURCE_VERIFICATION_REQUEST_POLICY_TEST): \
-		tests/SourceVerificationRequestPolicyTests.mm \
-		Cydia/SourceVerificationRequestPolicy.h \
-		Cydia/SourceVerificationRequestPolicy.mm Cydia/SourceControllers.mm
-	@mkdir -p $(dir $@)
-	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
-		tests/SourceVerificationRequestPolicyTests.mm \
-		Cydia/SourceVerificationRequestPolicy.mm -framework Foundation -o $@
-
-verify-source-verification-request-policy: $(SOURCE_VERIFICATION_REQUEST_POLICY_TEST)
-	@$< Cydia/SourceControllers.mm
 
 $(CONFIRMATION_VIEW_MODEL_TEST): tests/ConfirmationViewModelTests.mm \
 		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
@@ -934,9 +1063,6 @@ verify-package-detail-contact:
 
 verify-package-detail-controller-simulator:
 	@echo "[verify] Package detail simulator seam compile requires a Darwin host"
-
-verify-source-verification-request-policy:
-	@echo "[verify] Source verification request policy runtime test requires a Darwin host; iOS compile coverage remains enabled"
 
 verify-confirmation-view-model:
 	@echo "[verify] Confirmation view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"

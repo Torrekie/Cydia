@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Paquetes instalados afectados";
+"RECOVERY_BUSY" = "Espera a que termine la operación de paquetes actual.";
+"RECOVERY_COMPLETED" = "Se ha eliminado el paquete. La limpieza omitida puede dejar archivos o servicios. Sus scripts originales se han conservado en la copia de seguridad protegida.";
+"RECOVERY_CONFIRM" = "Confirmar eliminación de emergencia";
+"RECOVERY_CONSEQUENCES" = "Cydia guardará una copia de los scripts de este paquete y después lo eliminará sin ejecutarlos. Se omitirá la limpieza, por lo que pueden quedar archivos o servicios creados por esos scripts. Se conservarán los archivos de configuración. Puede ser necesario reinstalar para recuperar el funcionamiento normal.";
+"RECOVERY_DETAILS" = "Detalles";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Eliminar este paquete sin ejecutar sus scripts fallidos.";
+"RECOVERY_EMPTY" = "No quedan paquetes con un estado de dpkg incompleto.";
+"RECOVERY_EXPLANATION" = "Estos paquetes tienen un estado de dpkg incompleto. Elige un paquete para intentar una reparación normal.";
+"RECOVERY_FAILED" = "La reparación normal no ha terminado. Reinstalar puede recuperar el paquete. «%@» es una opción de eliminación de emergencia.";
+"RECOVERY_NORMAL_FIRST" = "Intenta primero una reparación normal o una reinstalación. «%@» estará disponible si falla la reparación normal.";
+"RECOVERY_PROTECTED" = "Se ha bloqueado la eliminación de emergencia porque afectaría a un paquete protegido o a una dependencia instalada.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "La versión instalada no está disponible en tus repositorios actuales. Actualiza las fuentes o elige la eliminación normal.";
+"RECOVERY_REMOVE_FAILED" = "La eliminación de emergencia ha fallado. Se han restaurado los scripts originales cuando ha sido posible y se ha conservado la copia protegida. Revisa los detalles antes de intentarlo de nuevo.";
+"RECOVERY_REPAIR" = "Intentar reparación normal";
+"RECOVERY_REPAIR_COMPLETE" = "La reparación normal ha terminado. Se volverá a cargar el estado de los paquetes.";
+"RECOVERY_REPAIR_EXPLANATION" = "Ejecuta los scripts normales de configuración de este paquete para completar la instalación.";
+"RECOVERY_STATE_CHANGED" = "El estado del paquete ha cambiado. Vuelve a cargar la recuperación y revisa el paquete de nuevo.";
+"RECOVERY_TITLE" = "Recuperación de paquetes";
+"RECOVERY_UNAVAILABLE" = "La recuperación segura no está disponible. Comprueba Ajustes avanzados o inténtalo de nuevo cuando terminen otras operaciones de paquetes.";
+"RECOVERY_WORKING" = "Procesando…";

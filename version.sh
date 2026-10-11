@@ -25,8 +25,13 @@ if [[ -n ${CYDIA_VERSION:-} ]]; then
 else
     version=$(git describe --tags --match="v*" "${flags[@]}" 2>/dev/null | \
         sed -e 's@-\([^-]*\)-\([^-]*\)$@+\1.\2@;s@^v@@;s@%@~@g' || true)
-    if [[ -z ${version} ]]; then
-        version="0.0+git.$(git rev-parse --short=12 HEAD)"
+    baseline=${CYDIA_PACKAGE_BASE_VERSION:-1.1.36}
+    if [[ -z ${version} ]] || ! command -v dpkg >/dev/null ||
+        ! dpkg --compare-versions "${version}" ge "${baseline}"; then
+        # A timestamp and mainline count order snapshots; a hash alone does
+        # not. This suffix also sorts after the legacy +<count>.g<hash> and
+        # +git.<hash> snapshot formats.
+        version="${baseline}+snapshot.$(git show -s --format=%ct HEAD).$(git rev-list --count HEAD).$(git rev-parse --short=12 HEAD)"
     fi
 fi
 

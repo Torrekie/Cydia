@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Affected installed packages";
+"RECOVERY_BUSY" = "Wait for the current package operation to finish.";
+"RECOVERY_COMPLETED" = "The package was removed. Skipped cleanup may leave files or services behind. Its original scripts were kept in the protected backup.";
+"RECOVERY_CONFIRM" = "Confirm Emergency Removal";
+"RECOVERY_CONSEQUENCES" = "Cydia will back up this package’s scripts, then remove it without running them. Cleanup will be skipped, so files or services created by those scripts may remain. Configuration files are retained. Reinstall may be needed to restore normal behavior.";
+"RECOVERY_DETAILS" = "Details";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Remove this package without running its failed scripts.";
+"RECOVERY_EMPTY" = "No packages with an incomplete dpkg state remain.";
+"RECOVERY_EXPLANATION" = "These packages have an incomplete dpkg state. Select a package to try a normal repair.";
+"RECOVERY_FAILED" = "Normal repair did not finish. Reinstall may restore the package. %@ is an emergency removal option.";
+"RECOVERY_NORMAL_FIRST" = "Try normal repair or reinstall first. %@ becomes available if normal repair fails.";
+"RECOVERY_PROTECTED" = "Emergency removal is blocked because it would affect a protected package or an installed dependency.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "The installed version is unavailable from your current repositories. Refresh sources or choose normal removal.";
+"RECOVERY_REMOVE_FAILED" = "Emergency removal failed. Original scripts were restored where possible and the protected backup was retained. Review details before trying again.";
+"RECOVERY_REPAIR" = "Try Normal Repair";
+"RECOVERY_REPAIR_COMPLETE" = "Normal repair finished. Package state will be reloaded.";
+"RECOVERY_REPAIR_EXPLANATION" = "Run this package’s normal configuration scripts to complete installation.";
+"RECOVERY_STATE_CHANGED" = "Package state changed. Reload recovery and review the package again.";
+"RECOVERY_TITLE" = "Package Recovery";
+"RECOVERY_UNAVAILABLE" = "Safe recovery is unavailable. Check Advanced Settings or try again after other package operations finish.";
+"RECOVERY_WORKING" = "Working…";

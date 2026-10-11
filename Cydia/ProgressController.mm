@@ -644,7 +644,20 @@ static std::string FileFingerprint(const char *path) {
 
     if (invocation != nil) {
         [invocation yieldToSelector:@selector(invoke)];
-        [self setTitle:@"COMPLETE"];
+        bool succeeded(![[progressModel_ state] containsError]);
+        const char *returnType([[invocation methodSignature] methodReturnType]);
+        if ([[invocation methodSignature] methodReturnLength] == sizeof(bool) &&
+            (strcmp(returnType, @encode(bool)) == 0 || strcmp(returnType, @encode(BOOL)) == 0)) {
+            bool result(false);
+            [invocation getReturnValue:&result];
+            succeeded = succeeded && result;
+        }
+        const CydiaRuntime::TransactionResult result([database_ lastTransactionResult]);
+        const SEL selector([invocation selector]);
+        const bool transaction(selector == @selector(perform_) || selector == @selector(configure));
+        [self setTitle:succeeded ? @"COMPLETE" :
+            transaction && result.outcome == CydiaRuntime::TransactionOutcome::Cancelled ?
+                @"TRANSACTION_CANCELLED" : @"TRANSACTION_FAILED_TITLE"];
     }
 
     if (Finish_ < 4 && notifyconf != FileFingerprint(NotifyConfig_))

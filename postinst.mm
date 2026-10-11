@@ -1,420 +1,180 @@
-#include "CyteKit/UCPlatform.h"
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/FirmwareMarkerPermissions.hpp"
 #include "Cydia/LegacySourceHandoff.hpp"
 #include "Cydia/PackageDatabasePaths.hpp"
-
-#include <dirent.h>
-#include <Foundation/Foundation.h>
-#include <strings.h>
-
-#include <cctype>
+#include "Cydia/PrivateStateDirectory.hpp"
+#include "Cydia/PrivateMetadataMigration.hpp"
+#include <cerrno>
 #include <cstdio>
-#include <fstream>
-#include <map>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
+#include <pwd.h>
 #include <string>
-#include <vector>
-
 #include <sys/stat.h>
-#include <sys/sysctl.h>
-#include <sys/types.h>
-#if defined(__APPLE__)
-#include <sys/stdio.h>
-#endif
 #include <unistd.h>
 
-#include <Menes/ObjectHandle.h>
+#ifndef CYDIA_POSTINST_ROOTLESS
+#define CYDIA_POSTINST_ROOTLESS 0
+#endif
 
-/* Set platform binary flag */
-#include <dlfcn.h>
-#define FLAG_PLATFORMIZE (1 << 1)
-
-void platformize_me() {
-	void* handle = dlopen("/usr/lib/libjailbreak.dylib", RTLD_LAZY);
-	if (!handle) return;
-
-	// Reset errors
-	dlerror();
-	typedef void (*fix_entitle_prt_t)(pid_t pid, uint32_t what);
-	fix_entitle_prt_t ptr = (fix_entitle_prt_t)dlsym(handle, "jb_oneshot_entitle_now");
-
-	const char *dlsym_error = dlerror();
-	if (dlsym_error) return;
-
-	ptr(getpid(), FLAG_PLATFORMIZE);
-}
-
-void Finish(const char *finish) {
-    if (finish == NULL)
+static void RequestUICache() {
+    const char *value(getenv("CYDIA"));
+    if (value == NULL)
         return;
-
-    const char *cydia(getenv("CYDIA"));
-    if (cydia == NULL)
+    char *end(NULL);
+    const long descriptor(strtol(value, &end, 10));
+    if (end == value || (*end != '\0' && *end != ' ') || descriptor < 0 || descriptor > 65535)
         return;
-
-    int fd([[[[NSString stringWithUTF8String:cydia] componentsSeparatedByString:@" "] objectAtIndex:0] intValue]);
-
-    FILE *fout(fdopen(fd, "w"));
-    fprintf(fout, "finish:%s\n", finish);
-    fclose(fout);
-}
-
-void UICache() {
-    const char *cydia(getenv("CYDIA"));
-    if (cydia == NULL)
+    const int copy(dup(static_cast<int>(descriptor)));
+    if (copy == -1)
         return;
-
-    int fd([[[[NSString stringWithUTF8String:cydia] componentsSeparatedByString:@" "] objectAtIndex:0] intValue]);
-
-    FILE *fout(fdopen(fd, "w"));
-    fprintf(fout, "uicache:yes\n");
-    fclose(fout);
+    FILE *output(fdopen(copy, "w"));
+    if (output == NULL) { close(copy); return; }
+    fprintf(output, "uicache:yes\n");
+    fclose(output);
 }
 
-static bool setnsfpn(const char *path) {
-    if (path == NULL)
+static bool FinishSharedConfigHandoff(const char *scriptPath) {
+    if (scriptPath == NULL)
         return false;
-
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const std::string helper(paths.CydiaHelperPath("setnsfpn"));
-    if (helper.empty())
+    const std::string script(scriptPath);
+    const std::string::size_type slash(script.rfind('/'));
+    if (slash == std::string::npos)
         return false;
-
-    CydiaRuntime::Dpkg::Runner runner(helper);
-    return runner.Run({path}).succeeded();
-}
-
-static bool RemoveItem(const char *path) {
-    if (path == NULL)
-        return false;
-    NSString *item([NSString stringWithUTF8String:path]);
-    if (item == nil)
-        return false;
-    NSFileManager *manager([NSFileManager defaultManager]);
-    if (![manager fileExistsAtPath:item])
-        return true;
-    return [manager removeItemAtPath:item error:NULL];
-}
-
-static bool CopyItem(const char *source, const char *destination) {
-    if (source == NULL || destination == NULL)
-        return false;
-    NSString *from([NSString stringWithUTF8String:source]);
-    NSString *to([NSString stringWithUTF8String:destination]);
-    return from != nil && to != nil &&
-        [[NSFileManager defaultManager] copyItemAtPath:from toPath:to error:NULL];
-}
-
-static bool MoveItem(const char *source, const char *destination) {
-    if (source == NULL || destination == NULL)
-        return false;
-    NSString *from([NSString stringWithUTF8String:source]);
-    NSString *to([NSString stringWithUTF8String:destination]);
-    return from != nil && to != nil &&
-        [[NSFileManager defaultManager] moveItemAtPath:from toPath:to error:NULL];
-}
-
-static bool MoveDirectoryContents(const char *source, const char *destination) {
-    if (source == NULL || destination == NULL)
-        return false;
-
-    DIR *directory(opendir(source));
-    if (directory == NULL)
-        return false;
-
-    bool success(true);
-    while (dirent *entry = readdir(directory)) {
-        const char *name(entry->d_name);
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+    const std::string directory(script.substr(0, slash + 1));
+    // dpkg names an installed private control file "package.filename";
+    // incoming control files retain their unprefixed filename.
+    const char *names[] = {"cydia.cydia-shared-config-lifecycle", "cydia-shared-config-lifecycle"};
+    for (const char *name : names) {
+        const std::string helper(directory + name);
+        struct stat metadata;
+        if (lstat(helper.c_str(), &metadata) != 0 || !S_ISREG(metadata.st_mode) ||
+                metadata.st_uid != geteuid() || (metadata.st_mode & 0022) != 0)
             continue;
+        CydiaRuntime::Dpkg::Runner runner(helper);
+        return runner.Run({"--cydia-shared-config-lifecycle", "postinst", "configure"}).succeeded();
+    }
+    fprintf(stderr, "cydia shared configuration: lifecycle helper is unavailable\n");
+    return false;
+}
 
-        std::string from(source);
-        from += '/';
-        from += name;
-        std::string to(destination);
-        to += '/';
-        to += name;
-        if (rename(from.c_str(), to.c_str()) == -1) {
-            success = false;
-            break;
+static int OpenVerifiedPrivateDirectory(const std::string &path, uid_t owner, bool permitFinalAlias = false) {
+    if (path.empty() || path[0] != '/' || path.find("/../") != std::string::npos ||
+            path.find("/./") != std::string::npos || path.find("//") != std::string::npos) {
+        errno = EINVAL; return -1;
+    }
+    for (std::size_t index = 1; index <= path.size(); ++index) {
+        if (index != path.size() && path[index] != '/') continue;
+        struct stat info;
+        if (lstat(path.substr(0, index).c_str(), &info) != 0) return -1;
+        if (S_ISLNK(info.st_mode)) {
+            if (info.st_uid != 0 || (index == path.size() && !permitFinalAlias)) { errno = EPERM; return -1; }
+        } else if (!S_ISDIR(info.st_mode) || (info.st_uid != 0 && info.st_uid != owner) || (info.st_mode & 0022) != 0) {
+            errno = EPERM; return -1;
         }
     }
+    char *resolved(realpath(path.c_str(), NULL));
+    if (resolved == NULL) return -1;
+    const std::string canonical(resolved); free(resolved);
+    for (std::size_t index = 1; index <= canonical.size(); ++index) {
+        if (index != canonical.size() && canonical[index] != '/') continue;
+        struct stat info;
+        if (lstat(canonical.substr(0, index).c_str(), &info) != 0) return -1;
+        if (!S_ISDIR(info.st_mode) || (info.st_uid != 0 && info.st_uid != owner) || (info.st_mode & 0022) != 0) {
+            errno = EPERM; return -1;
+        }
+    }
+    return open(canonical.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+}
 
-    closedir(directory);
+static bool EnsureOwnedPrivateDirectory(const std::string &path, uid_t owner, gid_t group) {
+    const std::string::size_type slash(path.rfind('/'));
+    if (slash == std::string::npos) { errno = EINVAL; return false; }
+    const std::string parent(path.substr(0, slash == 0 ? 1 : slash));
+    const std::string leaf(path.substr(slash + 1));
+    const int directory(OpenVerifiedPrivateDirectory(parent, owner, true));
+    if (directory == -1) return false;
+    const bool success(CydiaRuntime::EnsurePrivateStateDirectoryAt(directory, leaf.c_str(), owner, group));
+    const int error(errno); close(directory); errno = error;
     return success;
 }
 
-static void ChownTree(const char *path, uid_t uid, gid_t gid) {
-    if (path == NULL)
-        return;
-
-    NSString *root([NSString stringWithUTF8String:path]);
-    if (root == nil)
-        return;
-
-    chown(path, uid, gid);
-    NSDirectoryEnumerator *entries([[NSFileManager defaultManager] enumeratorAtPath:root]);
-    for (NSString *relative in entries) {
-        NSString *item([root stringByAppendingPathComponent:relative]);
-        chown([item fileSystemRepresentation], uid, gid);
-    }
-}
-
-enum StashStatus {
-    StashDone,
-    StashFail,
-    StashGood,
-};
-
-static StashStatus MoveStash() {
-    if (CydiaRuntime::PackageDatabasePaths::Current().layout() ==
-        CydiaRuntime::PackageDatabaseLayout::Rootless)
-        return StashGood;
-
-    struct stat stat;
-
-    if (lstat("/var/stash", &stat) == -1)
-        return errno == ENOENT ? StashGood : StashFail;
-    else if (S_ISLNK(stat.st_mode))
-        return StashGood;
-    else if (!S_ISDIR(stat.st_mode))
-        return StashFail;
-
-    if (lstat("/var/db/stash", &stat) == -1) {
-        if (errno == ENOENT)
-            goto move;
-        else return StashFail;
-    } else if (S_ISLNK(stat.st_mode))
-        // XXX: this is fixable
-        return StashFail;
-    else if (!S_ISDIR(stat.st_mode))
-        return StashFail;
-    else {
-        if (!setnsfpn("/var/db/stash"))
-            return StashFail;
-        if (!MoveDirectoryContents("/var/db/stash", "/var/stash"))
-            return StashFail;
-        if (rmdir("/var/db/stash") == -1)
-            return StashFail;
-    } move:
-
-    if (!setnsfpn("/var/stash"))
-        return StashFail;
-
-    if (rename("/var/stash", "/var/db/stash") == -1)
-        return StashFail;
-    if (symlink("/var/db/stash", "/var/stash") != -1)
-        return StashDone;
-    if (rename("/var/db/stash", "/var/stash") != -1)
-        return StashFail;
-
-    fprintf(stderr, "/var/stash misplaced -- DO NOT REBOOT\n");
-    return StashFail;
-}
-
-static bool FixProtections() {
-    const std::string &path(CydiaRuntime::PackageDatabasePaths::Current().PackageLibraryDirectory());
-    mkdir(path.c_str(), 0755);
-    if (!setnsfpn(path.c_str())) {
-        fprintf(stderr, "failed to setnsfpn %s\n", path.c_str());
-        return false;
-    }
-
-    return true;
-}
-
-static void FixPermissions() {
-    DIR *stash(opendir("/var/stash"));
-    if (stash == NULL)
-        return;
-
-    while (dirent *entry = readdir(stash)) {
-        const char *folder(entry->d_name);
-        if (strlen(folder) != 8)
-            continue;
-        if (strncmp(folder, "_.", 2) != 0)
-            continue;
-
-        char path[1024];
-        sprintf(path, "/var/stash/%s", folder);
-
-        struct stat stat;
-        if (lstat(path, &stat) == -1)
-            continue;
-        if (!S_ISDIR(stat.st_mode))
-            continue;
-
-        chmod(path, 0755);
-    }
-
-    closedir(stash);
-}
-
-#define APPLICATIONS "/Applications"
-static bool FixApplications() {
-    char target[1024];
-    ssize_t length(readlink(APPLICATIONS, target, sizeof(target)));
-    if (length == -1)
-        return false;
-
-    if (length >= sizeof(target)) // >= "just in case" (I'm nervous)
-        return false;
-    target[length] = '\0';
-
-    if (strlen(target) != 30)
-        return false;
-    if (memcmp(target, "/var/stash/Applications.", 24) != 0)
-        return false;
-    if (strchr(target + 24, '/') != NULL)
-        return false;
-
-    struct stat stat;
-    if (lstat(target, &stat) == -1)
-        return false;
-    if (!S_ISDIR(stat.st_mode))
-        return false;
-
-    char temp[] = "/var/stash/_.XXXXXX";
-    if (mkdtemp(temp) == NULL)
-        return false;
-
-    if (false) undo: {
-        unlink(temp);
-        return false;
-    }
-
-    if (chmod(temp, 0755) == -1)
-        goto undo;
-
-    char destiny[strlen(temp) + 32];
-    sprintf(destiny, "%s%s", temp, APPLICATIONS);
-
-    if (unlink(APPLICATIONS) == -1)
-        goto undo;
-
-    if (rename(target, destiny) == -1) {
-        if (symlink(target, APPLICATIONS) == -1)
-            fprintf(stderr, "/Applications damaged -- DO NOT REBOOT\n");
-        goto undo;
-    } else {
-        bool success;
-        if (symlink(destiny, APPLICATIONS) != -1)
-            success = true;
-        else {
-            fprintf(stderr, "/var/stash/Applications damaged -- DO NOT REBOOT\n");
-            success = false;
-        }
-
-        // unneccessary, but feels better (I'm nervous)
-        symlink(destiny, target);
-
-        [@APPLICATIONS writeToFile:[NSString stringWithFormat:@"%s.lnk", temp] atomically:YES encoding:NSNonLossyASCIIStringEncoding error:NULL];
-        return success;
-    }
+static bool MigrateMetadata(const std::string &sourceDirectory,
+                            const std::string &destinationDirectory,
+                            uid_t owner, gid_t group) {
+    const int source(OpenVerifiedPrivateDirectory(sourceDirectory, owner));
+    if (source == -1)
+        return errno == ENOENT;
+    const int destination(OpenVerifiedPrivateDirectory(destinationDirectory, owner));
+    if (destination == -1) { close(source); return false; }
+    const bool success(CydiaRuntime::MigratePrivateMetadataAt(source, "metadata.cb0",
+        destination, "metadata.cb0", owner, group));
+    const int error(errno);
+    close(source); close(destination);
+    errno = error;
+    return success;
 }
 
 int main(int argc, const char *argv[]) {
     if (argc < 2)
         return 0;
-    if (strcmp(argv[1], "triggered") == 0)
-        UICache();
+    if (strcmp(argv[1], "triggered") == 0) { RequestUICache(); return 0; }
     if (strcmp(argv[1], "configure") != 0)
         return 0;
 
-    UICache();
-
-    platformize_me();
-
-    @autoreleasepool {
-
-    if (!CydiaRuntime::RestoreLegacySourceHandoff())
+    // An incoming dpkg control script has no installed executable identity.
+    // Its package build variant, rather than database presence or environment
+    // preferences, selects the private payload locations it owns.
+    const auto paths(CydiaRuntime::PackageDatabasePaths::ForLayout(
+#if CYDIA_POSTINST_ROOTLESS
+        CydiaRuntime::PackageDatabaseLayout::Rootless
+#else
+        CydiaRuntime::PackageDatabaseLayout::Rootful
+#endif
+    ));
+    if (!EnsureOwnedPrivateDirectory(paths.CydiaStateDirectory(), 0, 0)) {
+        perror("Cydia private state directory");
         return 1;
+    }
+    if (!CydiaRuntime::RestoreLegacySourceHandoff(paths) || !FinishSharedConfigHandoff(argv[0]))
+        return 1;
+    if (!CydiaRuntime::RepairFirmwareMarkerPermissions(paths.CydiaFirmwareVersionPath().c_str())) {
+        perror("Cydia existing firmware marker permissions");
+        return 1;
+    }
 
-    bool restart(false);
-
-    if (kCFCoreFoundationVersionNumber >= 1000 && kCFCoreFoundationVersionNumber < 1349.56) {
-        if (!FixProtections())
+    const struct passwd *mobile(getpwnam("mobile"));
+    if (mobile == NULL || mobile->pw_dir == NULL || mobile->pw_dir[0] != '/') {
+        fprintf(stderr, "cydia: mobile account home is unavailable; private metadata migration was not performed\n");
+        return 1;
+    }
+    const uid_t owner(mobile->pw_uid);
+    const gid_t group(mobile->pw_gid);
+    const std::string home(mobile->pw_dir);
+    const std::string cache(home + "/Library/Caches/com.saurik.Cydia");
+    const std::string library(home + "/Library/Cydia");
+    if (!EnsureOwnedPrivateDirectory(cache, owner, group) ||
+            !EnsureOwnedPrivateDirectory(library, owner, group)) {
+        perror("Cydia private mobile directories");
+        return 1;
+    }
+    if (!MigrateMetadata(cache, library, owner, group) ||
+            !MigrateMetadata(paths.CydiaStateDirectory(), library, owner, group)) {
+        perror("Cydia private metadata migration");
+        return 1;
+    }
+    // The old root cache is an explicit historical Cydia location. Preserve
+    // every other entry; only the metadata file can move into the mobile leaf.
+    const struct passwd *root(getpwnam("root"));
+    if (root != NULL && root->pw_dir != NULL && root->pw_dir[0] == '/') {
+        const std::string oldCache(std::string(root->pw_dir) + "/Library/Caches/com.saurik.Cydia");
+        if (!MigrateMetadata(oldCache, library, owner, group)) {
+            perror("Cydia legacy private metadata migration");
             return 1;
-        switch (MoveStash()) {
-            case StashDone:
-                restart = true;
-                break;
-            case StashFail:
-                fprintf(stderr, "failed to move stash\n");
-                return 1;
-            case StashGood:
-                break;
         }
     }
-
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-
-    #define OldCache_ "/var/root/Library/Caches/com.saurik.Cydia"
-    // Older atomic firmware-marker writes used mktemp's mode 0600. Repair
-    // that upgrade state before the first mobile-user app launch; do not run
-    // firmware maintenance or manufacture a completion/version marker here.
-    if (!CydiaRuntime::RepairFirmwareMarkerPermissions(paths.CydiaFirmwareVersionPath().c_str())) {
-        perror("Cydia firmware marker permissions");
-        return 1;
-    }
-
-    RemoveItem(OldCache_);
-
-    NSDictionary<NSFileAttributeKey, id> *attributes = @{
-        NSFileOwnerAccountID: @501,
-        NSFileGroupOwnerAccountID: @501
-    };
-    #define NewCache_ "/var/mobile/Library/Caches/com.saurik.Cydia"
-    [[NSFileManager defaultManager] createDirectoryAtPath:@NewCache_
-                              withIntermediateDirectories:YES
-                                               attributes:attributes
-                                                    error:nil
-    ];
-    std::string newCacheLists(NewCache_);
-    newCacheLists += "/lists";
-    if (access(newCacheLists.c_str(), F_OK) != 0 && errno == ENOENT)
-        CopyItem(paths.AptListsDirectory().c_str(), newCacheLists.c_str());
-    ChownTree(NewCache_, 501, 501);
-
-    const std::string oldLibrary(paths.CydiaStateDirectory());
-
-    #define NewLibrary_ "/var/mobile/Library/Cydia"
-    [[NSFileManager defaultManager] createDirectoryAtPath:@NewLibrary_
-                              withIntermediateDirectories:YES
-                                               attributes:attributes
-                                                    error:nil
-    ];
-
-    #define Cytore_ "/metadata.cb0"
-
-    /* The preinst has already preserved any package-owned legacy source file
-     * before dpkg unpacked this version.  Do not create, remove, or rewrite a
-     * sourceparts entry here: the bootstrap maintainer's apt.conf remains the
-     * sole authority shared by Cydia and every other APT frontend. */
-
-    std::string newLibraryMetadata(NewLibrary_);
-    newLibraryMetadata += Cytore_;
-    std::string newCacheMetadata(NewCache_);
-    newCacheMetadata += Cytore_;
-    std::string oldLibraryMetadata(oldLibrary);
-    oldLibraryMetadata += Cytore_;
-    if (access(newLibraryMetadata.c_str(), F_OK) != 0 && errno == ENOENT) {
-        if (access(newCacheMetadata.c_str(), F_OK) == 0)
-            MoveItem(newCacheMetadata.c_str(), newLibraryMetadata.c_str());
-        else if (access(oldLibraryMetadata.c_str(), F_OK) == 0)
-            MoveItem(oldLibraryMetadata.c_str(), newLibraryMetadata.c_str());
-        chown(newLibraryMetadata.c_str(), 501, 501);
-    }
-
-    if (kCFCoreFoundationVersionNumber < 1349.56) {
-        FixPermissions();
-
-        restart |= FixApplications();
-    }
-
-    if (restart)
-        Finish("restart");
-
+    RequestUICache();
     return 0;
-    }
 }

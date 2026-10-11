@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "Dotknięte zainstalowane pakiety";
+"RECOVERY_BUSY" = "Poczekaj na zakończenie bieżącej operacji na pakietach.";
+"RECOVERY_COMPLETED" = "Pakiet został usunięty. Pominięte czyszczenie może pozostawić pliki lub usługi. Oryginalne skrypty zachowano w chronionej kopii zapasowej.";
+"RECOVERY_CONFIRM" = "Potwierdź awaryjne usunięcie";
+"RECOVERY_CONSEQUENCES" = "Cydia wykona kopię zapasową skryptów tego pakietu, a następnie usunie go bez ich uruchamiania. Czyszczenie zostanie pominięte, więc pliki lub usługi utworzone przez skrypty mogą pozostać. Pliki konfiguracyjne zostaną zachowane. Przywrócenie normalnego działania może wymagać ponownej instalacji.";
+"RECOVERY_DETAILS" = "Szczegóły";
+"RECOVERY_EMERGENCY_EXPLANATION" = "Usuń ten pakiet bez uruchamiania skryptów, które zawiodły.";
+"RECOVERY_EMPTY" = "Nie pozostały pakiety z niepełnym stanem dpkg.";
+"RECOVERY_EXPLANATION" = "Te pakiety mają niepełny stan dpkg. Wybierz pakiet, aby spróbować zwykłej naprawy.";
+"RECOVERY_FAILED" = "Zwykła naprawa nie została ukończona. Ponowna instalacja może przywrócić pakiet. „%@” jest opcją awaryjnego usunięcia.";
+"RECOVERY_NORMAL_FIRST" = "Najpierw spróbuj zwykłej naprawy lub ponownej instalacji. „%@” będzie dostępne, jeśli zwykła naprawa się nie powiedzie.";
+"RECOVERY_PROTECTED" = "Awaryjne usunięcie jest zablokowane, ponieważ wpłynęłoby na chroniony pakiet lub zainstalowaną zależność.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Zainstalowana wersja jest niedostępna w bieżących repozytoriach. Odśwież źródła lub wybierz zwykłe usunięcie.";
+"RECOVERY_REMOVE_FAILED" = "Awaryjne usunięcie nie powiodło się. Oryginalne skrypty przywrócono tam, gdzie było to możliwe, a chroniona kopia zapasowa została zachowana. Sprawdź szczegóły przed kolejną próbą.";
+"RECOVERY_REPAIR" = "Spróbuj zwykłej naprawy";
+"RECOVERY_REPAIR_COMPLETE" = "Zwykła naprawa została ukończona. Stan pakietów zostanie wczytany ponownie.";
+"RECOVERY_REPAIR_EXPLANATION" = "Uruchom standardowe skrypty konfiguracji tego pakietu, aby ukończyć instalację.";
+"RECOVERY_STATE_CHANGED" = "Stan pakietu się zmienił. Wczytaj ponownie odzyskiwanie i jeszcze raz sprawdź pakiet.";
+"RECOVERY_TITLE" = "Odzyskiwanie pakietów";
+"RECOVERY_UNAVAILABLE" = "Bezpieczne odzyskiwanie jest niedostępne. Sprawdź ustawienia zaawansowane lub spróbuj ponownie po zakończeniu innych operacji na pakietach.";
+"RECOVERY_WORKING" = "Przetwarzanie…";

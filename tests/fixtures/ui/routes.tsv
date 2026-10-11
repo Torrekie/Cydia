@@ -1,5 +1,9 @@
 # route	kind	trusted-native	external-url	trusted-legacy	repository-depiction	untrusted-web-popup
 cydia://home	home	allow	deny	temporary	deny	deny
+cydia://home/settings	home-guide	allow	deny	deny	deny	deny
+cydia://home/settings/capabilities	home-guide	allow	deny	deny	deny	deny
+cydia://home/settings/advanced	home-guide	allow	deny	deny	deny	deny
+cydia://home/settings/key-import	home-guide	allow	deny	deny	deny	deny
 cydia://home/faq	faq	allow	deny	temporary	deny	deny
 cydia://home/faq/what-is-cydia	faq	allow	deny	temporary	deny	deny
 cydia://home/upgrading-jailbreaking/root	upgrading-guide	allow	deny	temporary	deny	deny

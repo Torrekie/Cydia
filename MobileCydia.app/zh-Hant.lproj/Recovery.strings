@@ -1,0 +1,22 @@
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
+"RECOVERY_AFFECTED" = "受影響的已安裝套件";
+"RECOVERY_BUSY" = "請等待目前的套件操作完成。";
+"RECOVERY_COMPLETED" = "套件已移除。由於略過了清理步驟，可能仍有檔案或服務殘留。其原始指令碼已存放於受保護的備份中。";
+"RECOVERY_CONFIRM" = "確認緊急移除";
+"RECOVERY_CONSEQUENCES" = "Cydia 將備份此套件的指令碼，然後在不執行這些指令碼的情況下移除套件。清理步驟將被略過，因此指令碼建立的檔案或服務可能殘留。設定檔會被保留。可能需要重新安裝才能恢復正常行為。";
+"RECOVERY_DETAILS" = "詳細資訊";
+"RECOVERY_EMERGENCY_EXPLANATION" = "移除此套件，但不執行其失敗的指令碼。";
+"RECOVERY_EMPTY" = "已沒有 dpkg 狀態不完整的套件。";
+"RECOVERY_EXPLANATION" = "這些套件的 dpkg 狀態不完整。請選擇一個套件嘗試正常修復。";
+"RECOVERY_FAILED" = "正常修復未完成。重新安裝可能恢復此套件。「%@」可用於緊急移除。";
+"RECOVERY_NORMAL_FIRST" = "請先嘗試正常修復或重新安裝。如果正常修復失敗，即可使用「%@」。";
+"RECOVERY_PROTECTED" = "緊急移除會影響受保護的套件或已安裝的相依套件，因此已被阻止。";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "目前的來源未提供已安裝的版本。請重新整理來源，或選擇正常移除。";
+"RECOVERY_REMOVE_FAILED" = "緊急移除失敗。已盡可能恢復原始指令碼，並保留受保護的備份。重試前請查看詳細資訊。";
+"RECOVERY_REPAIR" = "嘗試正常修復";
+"RECOVERY_REPAIR_COMPLETE" = "正常修復已完成。套件狀態將重新載入。";
+"RECOVERY_REPAIR_EXPLANATION" = "執行此套件的一般設定指令稿，以完成安裝。";
+"RECOVERY_STATE_CHANGED" = "套件狀態已變更。請重新載入修復頁面並再次檢查此套件。";
+"RECOVERY_TITLE" = "套件修復";
+"RECOVERY_UNAVAILABLE" = "無法安全修復。請檢查進階設定，或等其他套件操作完成後重試。";
+"RECOVERY_WORKING" = "正在處理…";
