@@ -94,8 +94,9 @@ int main() {
         Require(!CommitExtendedState(f.environment, wrong, &error) && error.code == "invalid_extended_state",
             "wire payload cannot select another destination");
         Write(f.environment.dpkgAdmin + "/status", "Package: target\nArchitecture: amd64\nStatus: install ok half-configured\n\n");
-        Require(CommitExtendedState(f.environment, f.Payload(), &error) && Read(f.environment.extendedStates) == f.original,
-            "incomplete package state never receives installed-package flag deltas");
+        Require(!CommitExtendedState(f.environment, f.Payload("1"), &error) && error.code == "invalid_extended_state" &&
+            Read(f.environment.extendedStates) == f.original,
+            "incomplete packages cannot be persisted as automatically installed");
         Require(unlink(f.environment.extendedStates.c_str()) == 0 &&
             symlink((f.environment.dpkgAdmin + "/status").c_str(), f.environment.extendedStates.c_str()) == 0, "create hostile state alias");
         Require(!CommitExtendedState(f.environment, f.Payload(), &error) && error.code == "extended_state_unavailable" &&
