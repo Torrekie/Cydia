@@ -773,6 +773,9 @@ bool AptBackend::installPackage(PackageHandle handle) {
     cache.SetCandidateVersion(version);
     cache.SetReInstall(package, false);
     if (!cache.MarkInstall(package, false)) return false;
+    /* An explicit user request makes an automatic package manual, just as
+     * apt install does. Cancellation restores its original shared flag. */
+    cache.MarkAuto(package, false);
     pkgDepCache::StateCache &state(cache[package]);
     if (!state.Install() && version == package.CurrentVer())
         cache.SetReInstall(package, true);
