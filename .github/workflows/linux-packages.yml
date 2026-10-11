@@ -60,7 +60,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             build-essential ca-certificates curl dpkg-dev git libtinfo5 \
-            perl unzip xz-utils
+            perl ripgrep unzip xz-utils
 
       - name: Restore iOS SDK and toolchain
         id: ios-cache
