@@ -93,6 +93,21 @@ inline bool CanonicalApplicationSigningBlob(const std::string &bytes, std::vecto
     return primary && !directories->empty();
 }
 
+/* CS_OPS_BLOB reports cached allocation size, which can include zero padding
+ * beyond the embedded signature length. Frame that kernel-only representation
+ * before strict parsing; every executable directory remains inside the blob.
+ * File signatures and package pins continue to require exact blob bounds. */
+inline bool CanonicalKernelApplicationSigningBlob(const std::string &bytes,
+                                                  std::vector<std::string> *directories) {
+    directories->clear();
+    if (bytes.size() < 8 || bytes.size() > 1048576) return false;
+    const uint32_t length = ApplicationBigEndian32(bytes, 4);
+    if (length < 8 || length > bytes.size()) return false;
+    for (std::size_t offset = length; offset < bytes.size(); ++offset)
+        if (bytes[offset] != '\0') return false;
+    return CanonicalApplicationSigningBlob(bytes.substr(0, length), directories);
+}
+
 inline bool ApplicationCodeHashesAllowed(const std::set<ApplicationCodeHash> &installed,
                                          const std::set<ApplicationCodeHash> &running) {
     if (running.empty()) return false;

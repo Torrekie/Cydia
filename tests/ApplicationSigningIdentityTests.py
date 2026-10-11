@@ -52,8 +52,20 @@ def parity(data, valid=True):
     return canonical
 
 
+def kernel(data, valid=True):
+    result = subprocess.run([sys.argv[1], '--canonicalize-kernel'], input=data, capture_output=True)
+    assert (result.returncode == 0) == valid, 'kernel signing frame rejection differs'
+    return result.stdout.decode().splitlines() if valid else None
+
+
 original = directory()
 expected = parity(original)
+expected_hex = [value.hex() for value in expected]
+for padding in (0, 1, 7, 4096, 16384):
+    assert kernel(original + bytes(padding)) == expected_hex, 'zero padding changed executable identity'
+for bad in (original + b'X', original + bytes(7) + b'X', original[:-1],
+            b'\0' * 8, original + bytes(1048577)):
+    kernel(bad, False)
 rewritten = bytearray(original)
 put(rewritten, 8, 0x20100)
 offset = identity.be32(rewritten, 16)
@@ -64,7 +76,14 @@ for at in (12, 32, 38, 40, offset - 6 * 32, offset - 4 * 32, offset, len(origina
     changed = bytearray(original)
     changed[at] ^= 1
     assert parity(changed) != expected, 'immutable signature or executable coverage changed'
-parity(blob([(0, original), (0x1000, rewritten)]))
+alternates = blob([(0, original), (0x1000, rewritten)])
+alternate_expected = parity(alternates)
+assert kernel(alternates + bytes(4096)) == [value.hex() for value in alternate_expected]
+foreign = bytearray(original)
+foreign[-1] ^= 1
+foreign_blob = blob([(0, original), (0x1000, foreign)])
+assert kernel(foreign_blob + bytes(7)) != [expected_hex[0], expected_hex[0]], 'padding hid a foreign alternate directory'
+kernel(blob([(0, original)]) + foreign, False)
 parity(blob([(0, original), (5, struct.pack('>II', 0xfade7171, 8))]))
 for entries in ([(0, original), (0, rewritten)], [(0x1000, original)], [(0, original), (42, rewritten)], [(0, struct.pack('>II', 0xfade7171, 8))]):
     parity(blob(entries), False)
@@ -80,6 +99,8 @@ put(bad, 24, 28)
 parity(bad, False)
 for bad in (b'', b'\0' * 8, original[:-1], original + b'\0', b'\0' * 1048577):
     parity(bad, False)
+kernel(blob([(0, original), (42, rewritten)]) + bytes(7), False)
+kernel(blob([(0, original), (0, rewritten)]) + bytes(7), False)
 signed = blob([(0, original)])
 macho = struct.pack('<8I', 0xfeedfacf, 0x100000c, 0, 2, 1, 16, 0, 0)
 macho += struct.pack('<4I', 0x1d, 16, 48, len(signed)) + signed
@@ -96,4 +117,4 @@ fat = struct.pack('>II', 0xcafebabe, 2)
 fat += struct.pack('>5I', 0x100000c, 0, 48, len(macho), 0)
 fat += struct.pack('>5I', 0x100000c, 2, 48 + len(macho), len(macho), 0)
 assert identity.executable_directories(fat + macho + macho) == expected + expected
-print('[application-signing-identity] PASS: signing rewrites, immutable coverage, malformed/decoy directories and generator/runtime parity')
+print('[application-signing-identity] PASS: signing rewrites, immutable coverage, kernel zero padding, malformed/decoy directories and generator/runtime parity')

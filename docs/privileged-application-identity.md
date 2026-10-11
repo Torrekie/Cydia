@@ -12,6 +12,13 @@ CodeDirectories and executable slices.
 The kernel query uses `csops(CS_OPS_BLOB)` (operation 10), which retrieves the
 running executable's cached signing blob rather than trusting a pathname opened
 later. See [Darwin's implementation](https://github.com/apple-oss-distributions/xnu/blob/xnu-7195.81.3/bsd/kern/kern_proc.c).
+The query reports the cached allocation size, which may exceed the embedded
+signature length. Kernel response framing accepts only a bounded allocation
+and zero bytes after that length, then passes the exact embedded signature to
+the strict parser. Nonzero trailing data, incomplete signatures and malformed
+lengths are rejected. This adapter applies only to the kernel query; package
+pin generation and the generic signature parser remain unchanged. See
+[Darwin's cached-blob representation](https://github.com/apple-oss-distributions/xnu/blob/xnu-8019.80.24/bsd/kern/kern_cs.c#L1513-L1531).
 The helper parses every primary and alternate executable CodeDirectory. Each
 must have a valid format, bounds, identifier and nonempty executable-page hash
 coverage; duplicate or overlapping signature slots, missing primary

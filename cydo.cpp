@@ -88,7 +88,7 @@ static bool ReadApplicationProcess(pid_t parent, CydiaRuntime::Privileged::Appli
     std::string blob(length, '\0');
     std::vector<std::string> directories;
     if (csops(parent, 10, &blob[0], blob.size()) != 0 ||
-        !CydiaRuntime::Privileged::CanonicalApplicationSigningBlob(blob, &directories)) {
+        !CydiaRuntime::Privileged::CanonicalKernelApplicationSigningBlob(blob, &directories)) {
         fprintf(stderr, "Cydia kernel signing data is unavailable or invalid.\n"); return false;
     }
     hashes->clear();

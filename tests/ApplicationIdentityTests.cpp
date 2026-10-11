@@ -11,10 +11,13 @@ static void Require(bool value, const char *message) {
     std::cerr << "[application-identity] FAIL: " << message << '\n'; std::exit(1);
 }
 int main(int argc, char **argv) {
-    if (argc == 2 && std::string(argv[1]) == "--canonicalize") {
+    if (argc == 2 && (std::string(argv[1]) == "--canonicalize" ||
+                      std::string(argv[1]) == "--canonicalize-kernel")) {
         const std::string bytes((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
         std::vector<std::string> directories;
-        if (!CanonicalApplicationSigningBlob(bytes, &directories)) return 65;
+        const bool kernel = std::string(argv[1]) == "--canonicalize-kernel";
+        if (!(kernel ? CanonicalKernelApplicationSigningBlob(bytes, &directories) :
+                       CanonicalApplicationSigningBlob(bytes, &directories))) return 65;
         const char digits[] = "0123456789abcdef";
         for (const auto &directory : directories) {
             for (unsigned char byte : directory) std::cout << digits[byte >> 4] << digits[byte & 15];
