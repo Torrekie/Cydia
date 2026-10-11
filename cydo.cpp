@@ -179,6 +179,7 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
     if (*argc < 3 || getpgrp() != getpid()) return false;
     const std::string command(argv[1]);
     if (command != "--cydia-runtime-snapshot" && command != "--cydia-trust-snapshot" &&
+        command != "--cydia-admin-access-review" && command != "--cydia-admin-access-approve" && command != "--cydia-admin-access-revoke" &&
         command != "--cydia-extended-state-read" && command != "--cydia-open-lock") return false;
     const char *value(argv[*argc - 1] + sizeof(prefix) - 1);
     if (*value == '\0' || strlen(value) > 5) return false;
@@ -400,6 +401,21 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
              const CydiaSources::ReaderGroups &callerGroups) {
     Privileged::Error error;
     const std::string command = argc > 1 ? argv[1] : "";
+    // These setup routes require the same pinned application authorization as
+    // all other commands, but must work before database access is enrolled.
+    if (command == "--cydia-admin-access-review" || command == "--cydia-admin-access-approve" ||
+        command == "--cydia-admin-access-revoke") {
+        Privileged::Request request;
+        if (argc != 2 || !Privileged::ReadRequest(STDIN_FILENO, &request, &error)) return Denied(error);
+        if (command == "--cydia-admin-access-approve")
+            return Privileged::ApproveAdminAccess(paths, request.expected, request.payload, &error) ? 0 : Denied(error);
+        if (!request.payload.empty()) return EX_DATAERR;
+        if (command == "--cydia-admin-access-revoke")
+            return Privileged::RevokeAdminAccess(paths, &error) ? 0 : Denied(error);
+        std::string fields;
+        if (!Privileged::ReviewAdminAccess(paths, request.expected, &fields, &error)) return Denied(error);
+        return fwrite(fields.data(), 1, fields.size(), stdout) == fields.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
+    }
     if (command == "--cydia-set-executable") {
         Privileged::Request request;
         std::vector<std::string> fields;

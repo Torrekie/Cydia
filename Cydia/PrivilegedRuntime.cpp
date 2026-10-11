@@ -3,6 +3,7 @@
 #include "Cydia/PrivilegedRuntime.hpp"
 #include "Cydia/SharedStateFile.hpp"
 #include "Cydia/ReadOnlySourceAlias.hpp"
+#include "Cydia/DpkgAdminAccess.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -84,7 +85,7 @@ bool Protected(const struct stat &identity) {
     return identity.st_uid == 0 && (identity.st_mode & (S_IWGRP | S_IWOTH)) == 0;
 }
 
-bool CheckChain(const std::string &path, Error *error, unsigned depth = 0) {
+bool CheckChain(const std::string &path, Error *error, unsigned depth = 0, bool adminAccess = false, bool final = true) {
     if (depth > 40) return Fail(error, "unsafe_path", "Too many privileged path aliases.");
     std::string part;
     for (std::size_t index = 1; index <= path.size(); ++index) {
@@ -103,9 +104,10 @@ bool CheckChain(const std::string &path, Error *error, unsigned depth = 0) {
                 return Fail(error, "unsafe_path", "Cannot inspect a privileged alias target.");
             const std::string value(target.data(), size);
             const std::string destination = value[0] == '/' ? value : Parent(part) + "/" + value;
-            if (!CheckChain(destination, error, depth + 1)) return false;
-        } else if (!Protected(identity)) {
-            return Fail(error, "unsafe_path", "A privileged path is writable by a non-root owner.");
+            if (!CheckChain(destination, error, depth + 1, adminAccess, final && index == path.size())) return false;
+        } else if (!Protected(identity) && !(adminAccess && (!final || index != path.size()) &&
+                   S_ISDIR(identity.st_mode) && AdminAccess::Ancestor(part, identity))) {
+            return Fail(error, "unsafe_path", "A privileged path is writable by a non-root owner: " + part);
         }
     }
     return true;
@@ -180,15 +182,16 @@ bool ReadRequest(int fd, Request *request, Error *error) {
     return ReadBytes(fd, &bytes, error) && ParseRequest(bytes, request, error);
 }
 
-bool ValidateRootOwnedPath(const std::string &path, bool directory,
-                          bool executable, Error *error) {
+static bool ValidatePath(const std::string &path, bool directory,
+                         bool executable, Error *error, bool adminAccess) {
     if (path.empty() || path[0] != '/' || !SafeString(path))
         return Fail(error, "unsafe_path", "Privileged paths must be absolute.");
     char *resolved = realpath(path.c_str(), NULL);
     if (resolved == NULL) return Fail(error, "unsafe_path", "A privileged path is unavailable.");
     const std::string canonical(resolved);
     std::free(resolved);
-    if (!CheckChain(path, error) || !CheckChain(canonical, error)) return false;
+    adminAccess = adminAccess && AdminAccess::Matches(canonical);
+    if (!CheckChain(path, error, 0, adminAccess) || !CheckChain(canonical, error, 0, adminAccess)) return false;
     struct stat identity;
     if (stat(path.c_str(), &identity) != 0 || !Protected(identity) ||
         (directory ? !S_ISDIR(identity.st_mode) : !S_ISREG(identity.st_mode)) ||
@@ -197,20 +200,26 @@ bool ValidateRootOwnedPath(const std::string &path, bool directory,
     return true;
 }
 
-bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent,
-                     Evidence *evidence, Error *error) {
+bool ValidateRootOwnedPath(const std::string &path, bool directory, bool executable, Error *error) {
+    return ValidatePath(path, directory, executable, error, false);
+}
+bool ValidateDpkgAdminPath(const std::string &path, bool directory, Error *error) {
+    return ValidatePath(path, directory, false, error, true);
+}
+static bool Capture(const std::string &path, bool directory, bool allowAbsent,
+                    Evidence *evidence, Error *error, bool adminAccess) {
     if (evidence == NULL) return false;
     *evidence = Evidence();
-    evidence->path = path; evidence->directory = directory;
+    evidence->path = path; evidence->directory = directory; evidence->adminAccess = adminAccess;
     struct stat identity;
     if (lstat(path.c_str(), &identity) != 0) {
         if (errno != ENOENT || !allowAbsent ||
-            !ValidateRootOwnedPath(Parent(path), true, false, error))
+            !ValidatePath(Parent(path), true, false, error, adminAccess))
             return Fail(error, "unsafe_path", "A privileged input is unavailable.");
         evidence->absent = true;
         return true;
     }
-    if (!ValidateRootOwnedPath(path, directory, false, error)) return false;
+    if (!ValidatePath(path, directory, false, error, adminAccess)) return false;
     if (directory) {
         if (stat(path.c_str(), &evidence->identity) != 0) return false;
         DIR *stream = opendir(path.c_str());
@@ -237,11 +246,18 @@ bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent,
     return true;
 }
 
+bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent, Evidence *evidence, Error *error) {
+    return Capture(path, directory, allowAbsent, evidence, error, false);
+}
+bool CaptureAdminEvidence(const std::string &path, bool directory, bool allowAbsent, Evidence *evidence, Error *error) {
+    return Capture(path, directory, allowAbsent, evidence, error, true);
+}
+
 bool CaptureSharedStateEvidence(const std::string &path, bool directory, bool allowAbsent,
                                 Evidence *evidence, Error *error) {
     if (evidence == NULL || directory) return false;
     *evidence = Evidence(); evidence->path = path; evidence->sharedState = true;
-    const int parent(SharedState::OpenParent(path));
+    const int parent(SharedState::OpenParent(path, true));
     if (parent < 0) return Fail(error, "unsafe_path", "Shared package state requires a protected parent directory.");
     bool present;
     const bool safe(SharedState::Read(parent, path.substr(path.find_last_of('/') + 1), &present,
@@ -256,7 +272,7 @@ bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error) {
     for (const Evidence &before : evidence) {
         Evidence now;
         if (before.identityOnly) {
-            if (!CapturePathIdentity(before.path, before.directory, !before.directory, &now, error)) return false;
+            if (!CapturePathIdentity(before.path, before.directory, !before.directory, &now, error, before.adminAccess)) return false;
             const struct stat &a = before.identity, &b = now.identity;
             const bool stable = a.st_dev == b.st_dev && a.st_ino == b.st_ino &&
                 a.st_mode == b.st_mode && a.st_uid == b.st_uid && a.st_gid == b.st_gid;
@@ -267,7 +283,7 @@ bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error) {
         if (before.sourceInput) {
             if (!CaptureSourceEvidenceForReader(before.path, before.directory, before.absent, &now, error,
                                                 before.sourceReaderUID, before.sourceReaderGID, before.sourceReaderGroups)) return false;
-        } else if (!(before.sharedState ? CaptureSharedStateEvidence : CaptureEvidence)(before.path, before.directory, before.absent, &now, error)) return false;
+        } else if (!(before.sharedState ? CaptureSharedStateEvidence : before.adminAccess ? CaptureAdminEvidence : CaptureEvidence)(before.path, before.directory, before.absent, &now, error)) return false;
         if (before.absent != now.absent ||
             (!before.absent && (!SameIdentity(before.identity, now.identity) ||
              before.bytes != now.bytes || before.entries != now.entries || before.sourceDelegation != now.sourceDelegation)))
@@ -304,10 +320,10 @@ bool CaptureSourceEvidenceForReader(const std::string &path, bool directory, boo
 }
 
 bool CapturePathIdentity(const std::string &path, bool directory, bool executable,
-                         Evidence *evidence, Error *error) {
-    if (evidence == NULL || !ValidateRootOwnedPath(path, directory, executable, error)) return false;
+                         Evidence *evidence, Error *error, bool adminAccess) {
+    if (evidence == NULL || !ValidatePath(path, directory, executable, error, adminAccess && !executable)) return false;
     *evidence = Evidence();
-    evidence->path = path; evidence->directory = directory; evidence->identityOnly = true;
+    evidence->path = path; evidence->directory = directory; evidence->identityOnly = true; evidence->adminAccess = adminAccess;
     return stat(path.c_str(), &evidence->identity) == 0 ||
         Fail(error, "unsafe_path", "Cannot inspect privileged path identity.");
 }
@@ -320,7 +336,7 @@ int OpenFrontendLock(const std::string &adminDirectory, const std::string &leaf,
     if (leaf != "lock" && leaf != "lock-frontend") {
         Fail(error, "unsafe_lock", "Invalid package-manager lock purpose."); return -1;
     }
-    if (!ValidateRootOwnedPath(adminDirectory, true, false, error)) return -1;
+    if (!ValidateDpkgAdminPath(adminDirectory, true, error)) return -1;
     const std::string path = adminDirectory + "/" + leaf;
     int fd = open(path.c_str(), O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) { Fail(error, "lock_failed", std::strerror(errno)); return -1; }
@@ -345,14 +361,14 @@ bool FrontendLockOwner(const std::string &adminDirectory, pid_t *owner, Error *e
 }
 
 bool FrontendLock::Acquire(const std::string &adminDirectory, Error *error) {
-    return AcquirePrivate(adminDirectory, "lock-frontend", error);
+    return AcquirePrivate(adminDirectory, "lock-frontend", error, true);
 }
 
-bool FrontendLock::AcquirePrivate(const std::string &adminDirectory, const std::string &leaf, Error *error) {
+bool FrontendLock::AcquirePrivate(const std::string &adminDirectory, const std::string &leaf, Error *error, bool adminAccess) {
     if (held()) return Fail(error, "lock_state", "The frontend lock is already held.");
     if (leaf.empty() || leaf.find('/') != std::string::npos || !SafeString(leaf))
         return Fail(error, "unsafe_lock", "Invalid private lock name.");
-    if (!ValidateRootOwnedPath(adminDirectory, true, false, error)) return false;
+    if (!ValidatePath(adminDirectory, true, false, error, adminAccess)) return false;
     const std::string name = adminDirectory + "/" + leaf;
     int fd = open(name.c_str(), O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) return Fail(error, "lock_failed", std::strerror(errno));

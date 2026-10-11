@@ -83,3 +83,5 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Vernieuw de bronnen om de authenticiteit van de repository voor %@ in deze sessie te controleren.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "In de foutmodus moeten de bronnen bij elke opening van Cydia succesvol worden vernieuwd. Het opnieuw laden van pakketlijsten of wijzigen van het beleid vernieuwt de repository-authenticatie niet.";
+
+"BOOTSTRAP_DATABASE_ACCESS" = "Toegang tot de bootstrapdatabase";

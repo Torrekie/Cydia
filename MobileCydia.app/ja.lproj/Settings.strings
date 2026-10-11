@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "ブートストラップのデータベースアクセス";
 "REPOSITORY_SECURITY" = "リポジトリのセキュリティ";
 "REPOSITORY_SECURITY_EXPLANATION" = "署名を検証できないリポジトリの扱いを選択します。ダウンロードしたファイルの整合性は常に確認されます。";
 "SECURITY_ALLOW" = "許可";

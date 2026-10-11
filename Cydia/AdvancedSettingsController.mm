@@ -3,6 +3,7 @@
 #import "Cydia/Database.h"
 #import "Cydia/SourceControllers.h"
 #import "Cydia/RuntimeAccessController.h"
+#import "Cydia/BootstrapAccessController.h"
 #import "Cydia/UIColor+Cydia.h"
 #import "CyteKit/Localize.h"
 #include "Cydia/AptRuntime.hpp"
@@ -225,7 +226,7 @@ void Message(UIViewController *controller, NSString *message) {
 }
 - (NSArray *)tools { return @[@"dpkg", @"dpkg-query", @"dpkg-deb", @"uicache", @"apt-key", @"gpgv", @"gpg"]; }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 2 : section == 1 ? [[self tools] count] : 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 2 : section == 1 ? [[self tools] count] : 2; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
     return section == 0 ? Text(@"BOOTSTRAP_REPOSITORIES") : section == 1 ? Text(@"EXTERNAL_EXECUTABLES") : nil;
 }
@@ -244,9 +245,10 @@ void Message(UIViewController *controller, NSString *message) {
         cell.textLabel.text = tool; cell.detailTextLabel.text = overrides_[tool];
         cell.accessibilityIdentifier = [@"cydia.settings.executable." stringByAppendingString:tool];
     } else {
-        cell.textLabel.text = [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_TITLE" value:nil table:@"RuntimeAccess"];
+        cell.textLabel.text = path.row == 0 ? Text(@"BOOTSTRAP_DATABASE_ACCESS") :
+            [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_TITLE" value:nil table:@"RuntimeAccess"];
         cell.detailTextLabel.text = nil;
-        cell.accessibilityIdentifier = @"cydia.settings.runtime-access";
+        cell.accessibilityIdentifier = path.row == 0 ? @"cydia.settings.bootstrap-access" : @"cydia.settings.runtime-access";
     }
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
@@ -254,7 +256,9 @@ void Message(UIViewController *controller, NSString *message) {
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     [table deselectRowAtIndexPath:path animated:YES];
     if (path.section == 2) {
-        CydiaRuntimeAccessController *controller([[CydiaRuntimeAccessController alloc] initWithDatabase:database_]);
+        CyteViewController *controller(path.row == 0 ?
+            [[CydiaBootstrapAccessController alloc] initWithDatabase:database_] :
+            [[CydiaRuntimeAccessController alloc] initWithDatabase:database_]);
         controller.delegate = self.delegate;
         [self.navigationController pushViewController:controller animated:YES]; return;
     }

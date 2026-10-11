@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "สิทธิ์เข้าถึงฐานข้อมูลบูตสแตรป";
 "REPOSITORY_SECURITY" = "ความปลอดภัยของคลังแพ็กเกจ";
 "REPOSITORY_SECURITY_EXPLANATION" = "เลือกวิธีที่ Cydia จัดการคลังแพ็กเกจที่ไม่สามารถตรวจสอบลายเซ็นได้ โดยจะตรวจสอบความสมบูรณ์ของไฟล์ที่ดาวน์โหลดเสมอ";
 "SECURITY_ALLOW" = "อนุญาต";

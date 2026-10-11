@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/RuntimeState.hpp"
 #include "Cydia/ApplicationIdentity.hpp"
+#include "Cydia/DpkgAdminAccess.hpp"
+#include "Cydia/SharedStateFile.hpp"
 #include "Cydia/SourceDocumentCommit.hpp"
 #include "Cydia/RuntimeSnapshotInputs.hpp"
 #include <algorithm>
@@ -75,6 +77,70 @@ struct Fixture {
 int main() {
     // fakeroot supplies root ownership semantics without modifying host state.
     Require(geteuid() == 0, "run this isolated privileged-boundary fixture through fakeroot");
+    {
+        namespace Access = CydiaRuntime::AdminAccess;
+        // Use the native build's disposable root, not a sticky /tmp ancestor:
+        // database authority deliberately retains stricter ancestry than data.
+        std::string pattern(std::filesystem::current_path().string() + "/cydia-admin-access.XXXXXX");
+        std::vector<char> name(pattern.begin(), pattern.end()); name.push_back('\0');
+        const char *created(mkdtemp(name.data())); Require(created != NULL, "create enrollment fixture");
+        const std::string root(created), shared(root + "/shared"), admin(shared + "/admin"),
+            alias(root + "/database"), other(shared + "/other");
+        Require(std::filesystem::create_directory(shared) && std::filesystem::create_directory(admin) &&
+                std::filesystem::create_directory(other), "create administration namespace");
+        Require(chown(shared.c_str(), 0, 20) == 0 && chmod(shared.c_str(), 0775) == 0 &&
+                symlink(admin.c_str(), alias.c_str()) == 0, "bootstrap group and root alias");
+        Write(admin + "/status", "Package: test\nStatus: install ok installed\n\n");
+        Write(admin + "/tool", "#!/bin/sh\n", 0755); Write(other + "/state", "neighbor\n");
+        Require(std::filesystem::create_directory(admin + "/updates"), "journal directory");
+        Error error; Access::Review review;
+        Require(Access::Collect(alias, &review) && review.admin == admin && review.ancestors.size() == 1,
+                "review exact independently selected root alias and nonzero writable group");
+        Require(!ValidateDpkgAdminPath(alias, true, &error), "group ancestry is denied before approval");
+        Access::Reset(review.token); Require(Access::Activate(alias), "activate exact explicit approval");
+        Require(ValidateDpkgAdminPath(alias, true, &error), "enrolled database identity passes");
+        Evidence identity, state, journal;
+        Require(CapturePathIdentity(alias, true, false, &identity, &error, true) &&
+                CaptureSharedStateEvidence(alias + "/status", false, false, &state, &error) &&
+                CaptureAdminEvidence(alias + "/updates", true, false, &journal, &error) &&
+                RecheckEvidence({identity, state, journal}, &error), "approved database evidence is rechecked");
+        int lock(OpenFrontendLock(alias, "lock-frontend", &error));
+        Require(lock >= 0, "open approved shared frontend lock"); close(lock);
+        Require(Access::Matches(alias), "normal lock creation does not invalidate folder identity");
+        Require(!ValidateRootOwnedPath(admin + "/tool", false, true, &error) &&
+                !CaptureEvidence(admin + "/status", false, false, &state, &error),
+                "tools and configuration never inherit database approval");
+        int sourceParent(CydiaRuntime::SharedState::OpenParent(admin + "/status"));
+        Require(sourceParent < 0, "generic source writers retain strict ancestry");
+        Require(!CaptureSharedStateEvidence(other + "/state", false, false, &state, &error),
+                "sibling database remains outside approval");
+        Require(chmod(shared.c_str(), 0755) == 0 && !Access::Matches(alias), "permission change invalidates approval");
+        Require(chmod(shared.c_str(), 0775) == 0 && Access::Matches(alias), "original permissions retain same exact token");
+        Require(chown(shared.c_str(), 0, 21) == 0 && !Access::Matches(alias), "group change invalidates approval");
+        Require(chown(shared.c_str(), 0, 20) == 0 && chmod(admin.c_str(), 0775) == 0 &&
+                !Access::Collect(alias, &review), "final writable admin directory cannot be enrolled");
+        Require(chmod(admin.c_str(), 0755) == 0 && chmod(shared.c_str(), 0777) == 0 &&
+                !Access::Collect(alias, &review), "world-writable ancestor cannot be enrolled");
+        Require(chmod(shared.c_str(), 0775) == 0 && chown(shared.c_str(), 501, 20) == 0 &&
+                !Access::Collect(alias, &review), "nonroot ancestor cannot be enrolled");
+        Require(chown(shared.c_str(), 0, 20) == 0, "restore enrolled owner");
+        std::filesystem::rename(shared, root + "/previous");
+        Require(std::filesystem::create_directory(shared) && std::filesystem::create_directory(admin) &&
+                chown(shared.c_str(), 0, 20) == 0 && chmod(shared.c_str(), 0775) == 0 && !Access::Matches(alias),
+                "replacement with identical permissions requires fresh review");
+        std::filesystem::remove_all(shared); std::filesystem::rename(root + "/previous", shared);
+        Require(unlink(alias.c_str()) == 0 &&
+                symlink(other.c_str(), alias.c_str()) == 0 && !Access::Matches(alias), "changed alias requires a fresh review");
+        Access::Reset(); Require(!ValidateDpkgAdminPath(admin, true, &error), "revocation restores strict access");
+        const std::string parentAlias(root + "/namespace");
+        Require(symlink(shared.c_str(), parentAlias.c_str()) == 0 && Access::Collect(parentAlias + "/admin", &review),
+                "review intermediate alias to writable ancestor");
+        Access::Reset(review.token);
+        Require(Access::Activate(parentAlias + "/admin") && ValidateDpkgAdminPath(parentAlias + "/admin", true, &error),
+                "intermediate alias retains ancestor role during strict validation");
+        Access::Reset();
+        std::filesystem::remove_all(root);
+    }
     {
         Fixture f;
         const std::string shared(f.root + "/Applications"), bundle(shared + "/Cydia.app"), app(bundle + "/Cydia");

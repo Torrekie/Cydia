@@ -83,3 +83,5 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Aktualisiere die Quellen, um die Authentizität des Repositorys für %@ in dieser Sitzung zu prüfen.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Im Fehlermodus müssen die Quellen bei jedem Öffnen von Cydia erfolgreich aktualisiert werden. Das Neuladen der Paketlisten oder Ändern der Richtlinie erneuert die Authentifizierung der Repositorys nicht.";
+
+"BOOTSTRAP_DATABASE_ACCESS" = "Zugriff auf die Bootstrap-Datenbank";

@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "Доступ к базе данных bootstrap";
 "REPOSITORY_SECURITY" = "Безопасность репозиториев";
 "REPOSITORY_SECURITY_EXPLANATION" = "Выберите, как Cydia должна обрабатывать репозитории, подписи которых нельзя проверить. Целостность загруженных файлов проверяется всегда.";
 "SECURITY_ALLOW" = "Разрешать";

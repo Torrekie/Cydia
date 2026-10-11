@@ -1,5 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PrivilegedRuntime.hpp"
+#include "Cydia/DpkgAdminAccess.hpp"
+#include "Cydia/SourceDocumentCommit.hpp"
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/error.h>
 #include <cstdlib>
@@ -92,7 +94,7 @@ bool SelectExecutable(const Configuration &configuration, const PackageDatabaseP
     return true;
 }
 
-bool ResolveOptions(const Configuration &configuration, Environment *environment, Error *error) {
+bool ResolveOptions(const Configuration &configuration, Environment *environment, Error *error, bool reviewAdmin) {
     const std::string status = TrimSlash(configuration.FindFile("Dir::State::status"));
     const std::size_t slash = status.rfind('/');
     if (!Absolute(status) || slash == std::string::npos || status.substr(slash + 1) != "status")
@@ -140,9 +142,17 @@ bool ResolveOptions(const Configuration &configuration, Environment *environment
     }
     if (!declaredAdmin.empty() && !SamePath(declaredAdmin, environment->dpkgAdmin))
         return Fail(error, "contradictory_dpkg_admin", "APT and dpkg select different package databases.");
+    AdminAccess::Activate(environment->dpkgAdmin);
+    if (reviewAdmin) {
+        AdminAccess::Review review;
+        if (!AdminAccess::Collect(environment->dpkgAdmin, &review))
+            return Fail(error, "unsafe_admin_directory", "The package database cannot be safely enrolled.");
+    }
     for (const std::string &path : {environment->dpkgRoot, environment->dpkgAdmin}) {
+        const bool admin(path == environment->dpkgAdmin);
+        if (admin && reviewAdmin) continue;
         Evidence identity;
-        if (!CapturePathIdentity(path, true, false, &identity, error)) return false;
+        if (!CapturePathIdentity(path, true, false, &identity, error, admin)) return false;
         environment->evidence.push_back(identity);
     }
     return ValidateDpkgArguments(*environment, options, error);
@@ -151,7 +161,7 @@ bool ResolveOptions(const Configuration &configuration, Environment *environment
 
 bool ResolveCurrentEnvironment(const PackageDatabasePaths &paths,
                               const std::string &aptConfigOverride,
-                              Environment *environment, Error *error) {
+                              Environment *environment, Error *error, bool reviewAdmin) {
     if (environment == NULL) return false;
     *environment = Environment();
     environment->aptConfigOverride = aptConfigOverride;
@@ -181,7 +191,13 @@ bool ResolveCurrentEnvironment(const PackageDatabasePaths &paths,
     Evidence overrides;
     if (!ReadExecutableOverrides(paths, &environment->executableOverrides, &overrides, error)) return false;
     environment->evidence.push_back(overrides);
-    if (!ResolveOptions(configuration, environment, error)) return false;
+    Evidence accessPolicy;
+    if (!CaptureEvidence(paths.CydiaStateDirectory() + "/admin-access.conf", false, true, &accessPolicy, error) ||
+        (!accessPolicy.absent && (accessPolicy.identity.st_nlink != 1 || accessPolicy.bytes.size() > 32768)))
+        return Fail(error, "invalid_admin_access", "The private database access policy is unsafe.");
+    environment->evidence.push_back(accessPolicy);
+    AdminAccess::Reset(accessPolicy.bytes);
+    if (!ResolveOptions(configuration, environment, error, reviewAdmin)) return false;
     environment->extendedStates = configuration.FindFile("Dir::State::extended_states");
     const std::string prefix = paths.layout() == PackageDatabaseLayout::Rootless ? "/var/jb" : "";
     if (!SelectExecutable(configuration, paths, environment, "dpkg", paths.DpkgBinaryPath(), &environment->dpkg, error) ||
@@ -221,6 +237,54 @@ bool ResolveEnvironment(const PackageDatabasePaths &paths,
         if (!SamePath(*claimed[index], *actual[index]))
             return Fail(error, "environment_mismatch", "The reviewed environment does not match protected APT configuration.");
     return true;
+}
+
+namespace {
+bool AccessReview(const PackageDatabasePaths &paths, const ExpectedEnvironment &expected,
+                  Environment *environment, AdminAccess::Review *review, Error *error) {
+    if (!ResolveCurrentEnvironment(paths, expected.aptConfigOverride, environment, error, true) ||
+        !SamePath(expected.dpkgRoot, environment->dpkgRoot) ||
+        !SamePath(expected.dpkgAdmin, environment->dpkgAdmin))
+        return Fail(error, "environment_mismatch", "The reviewed database does not match protected APT configuration.");
+    return AdminAccess::Collect(environment->dpkgAdmin, review) ||
+        Fail(error, "unsafe_admin_directory", "The package database cannot be safely enrolled.");
+}
+bool ReplaceAccessPolicy(const PackageDatabasePaths &paths, const std::string &bytes, Error *error) {
+    const std::string path(paths.CydiaStateDirectory() + "/admin-access.conf");
+    CydiaSources::ProtectedFileSnapshot before;
+    if (!CydiaSources::ReadProtectedFile(path, &before) ||
+        !CydiaSources::ReplaceProtectedFile(path, before, bytes).succeeded())
+        return Fail(error, "admin_access_write_failed", "Cannot update the protected database access policy.");
+    return true;
+}
+}
+bool ReviewAdminAccess(const PackageDatabasePaths &paths, const ExpectedEnvironment &expected,
+                       std::string *fields, Error *error) {
+    Environment environment; AdminAccess::Review review;
+    if (fields == NULL || !AccessReview(paths, expected, &environment, &review, error)) return false;
+    const std::string status(review.ancestors.empty() ? "strict" :
+        review.token == AdminAccess::EnrolledToken() ? "approved" : "pending");
+    *fields = SerializeFields({review.ancestors.empty() ? "" : review.token, review.admin, review.descriptions, status});
+    return true;
+}
+bool ApproveAdminAccess(const PackageDatabasePaths &paths, const ExpectedEnvironment &expected,
+                        const std::string &token, Error *error) {
+    FrontendLock lock;
+    if (!lock.AcquirePrivate(paths.CydiaStateDirectory(), "admin-access.lock", error)) return false;
+    Environment environment; AdminAccess::Review review;
+    if (token.empty() || !AccessReview(paths, expected, &environment, &review, error) ||
+        review.ancestors.empty() || review.token != token || !RecheckEvidence(environment.evidence, error))
+        return Fail(error, "stale_admin_access", "The database access review changed; review it again.");
+    AdminAccess::Review current;
+    if (!AdminAccess::Collect(environment.dpkgAdmin, &current) || current.token != token)
+        return Fail(error, "stale_admin_access", "The database directory changed; review it again.");
+    return ReplaceAccessPolicy(paths, token, error);
+}
+bool RevokeAdminAccess(const PackageDatabasePaths &paths, Error *error) {
+    FrontendLock lock;
+    if (!lock.AcquirePrivate(paths.CydiaStateDirectory(), "admin-access.lock", error) ||
+        !ReplaceAccessPolicy(paths, "", error)) return false;
+    AdminAccess::Reset(); return true;
 }
 } // namespace Privileged
 } // namespace CydiaRuntime

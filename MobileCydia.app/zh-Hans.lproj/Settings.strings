@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "引导环境数据库访问";
 "REPOSITORY_SECURITY" = "软件源安全性";
 "REPOSITORY_SECURITY_EXPLANATION" = "选择 Cydia 如何处理无法验证签名的软件源。下载文件的完整性始终会被检查。";
 "SECURITY_ALLOW" = "允许";

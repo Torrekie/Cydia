@@ -83,3 +83,5 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Actualisez les sources pour vérifier l’authenticité du dépôt de %@ dans cette session.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Le mode Erreur exige une actualisation réussie des sources à chaque ouverture de Cydia. Recharger les listes de paquets ou changer la politique ne renouvelle pas l’authentification des dépôts.";
+
+"BOOTSTRAP_DATABASE_ACCESS" = "Accès à la base de données du bootstrap";

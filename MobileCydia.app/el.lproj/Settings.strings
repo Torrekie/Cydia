@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "Πρόσβαση στη βάση δεδομένων του bootstrap";
 "REPOSITORY_SECURITY" = "Ασφάλεια αποθετηρίων";
 "REPOSITORY_SECURITY_EXPLANATION" = "Επιλέξτε πώς το Cydia χειρίζεται αποθετήρια των οποίων οι υπογραφές δεν μπορούν να επαληθευτούν. Η ακεραιότητα των λήψεων ελέγχεται πάντα.";
 "SECURITY_ALLOW" = "Να επιτρέπονται";

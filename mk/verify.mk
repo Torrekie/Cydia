@@ -356,6 +356,13 @@ verify-extended-state: $(EXTENDED_STATE_TEST)
 	@$<
 verify-privileged-runtime: $(PRIVILEGED_RUNTIME_TEST)
 	@$<
+	@$(ADMIN_PERMISSION_TEST)
+
+ADMIN_PERMISSION_TEST := $(BUILD_DIR)/tests/DpkgAdminPermissionsTests
+$(ADMIN_PERMISSION_TEST): tests/DpkgAdminPermissionsTests.cpp Cydia/DpkgAdminAccess.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $< -o $@
+verify-privileged-runtime: $(ADMIN_PERMISSION_TEST)
 
 APPLICATION_IDENTITY_TEST := $(BUILD_DIR)/tests/ApplicationIdentityTests
 $(APPLICATION_IDENTITY_TEST): tests/ApplicationIdentityTests.cpp Cydia/ApplicationIdentity.hpp Cydia/ApplicationSession.hpp \
@@ -1457,4 +1464,4 @@ verify-native-error-simulator: $(NATIVE_ERROR_SIMULATOR_VERIFY_SCRIPT)
 
 # Every host boundary consuming this policy rebuilds when it changes.
 $(APT_RUNTIME_TEST) $(PRIVILEGED_RUNTIME_TEST) $(PRIVILEGED_CLIENT_TEST) $(APPLICATION_IDENTITY_TEST) \
-$(SOURCE_DOCUMENT_TEST) $(SOURCE_COMMIT_TEST) $(RUNTIME_SNAPSHOT_TEST) $(KEYRING_IMPORT_TEST) $(RECOVERY_PRIVILEGED_TEST): Cydia/SharedStateFile.hpp Cydia/ReadOnlySourceAlias.hpp Cydia/SourceReaderGroups.hpp
+$(SOURCE_DOCUMENT_TEST) $(SOURCE_COMMIT_TEST) $(RUNTIME_SNAPSHOT_TEST) $(KEYRING_IMPORT_TEST) $(RECOVERY_PRIVILEGED_TEST): Cydia/SharedStateFile.hpp Cydia/ReadOnlySourceAlias.hpp Cydia/SourceReaderGroups.hpp Cydia/DpkgAdminAccess.hpp

@@ -51,6 +51,7 @@ struct Evidence {
     bool identityOnly;
     bool sharedState;
     bool sourceInput;
+    bool adminAccess;
     uid_t sourceReaderUID;
     gid_t sourceReaderGID;
     CydiaSources::ReaderGroups sourceReaderGroups;
@@ -80,8 +81,11 @@ struct Environment : ExpectedEnvironment {
  * Symlinks may be used only through protected root-owned aliases. */
 bool ValidateRootOwnedPath(const std::string &path, bool directory,
                           bool executable, Error *error);
+bool ValidateDpkgAdminPath(const std::string &path, bool directory, Error *error);
 bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent,
                      Evidence *evidence, Error *error);
+bool CaptureAdminEvidence(const std::string &path, bool directory, bool allowAbsent,
+                         Evidence *evidence, Error *error);
 bool CaptureSharedStateEvidence(const std::string &path, bool directory, bool allowAbsent,
                                 Evidence *evidence, Error *error);
 bool CaptureSourceEvidence(const std::string &path, bool directory, bool allowAbsent,
@@ -90,7 +94,7 @@ bool CaptureSourceEvidenceForReader(const std::string &path, bool directory, boo
                                     Evidence *evidence, Error *error, uid_t uid, gid_t gid,
                                     const CydiaSources::ReaderGroups &groups = CydiaSources::ReaderGroups());
 bool CapturePathIdentity(const std::string &path, bool directory, bool executable,
-                         Evidence *evidence, Error *error);
+                         Evidence *evidence, Error *error, bool adminAccess = false);
 bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error);
 /* Opens only the trusted admin lock leaf. Ownership is validated after open;
  * the descriptor may be transferred, but no fcntl lock is taken here. */
@@ -105,7 +109,7 @@ class FrontendLock {
     FrontendLock(const FrontendLock &) = delete;
     FrontendLock &operator=(const FrontendLock &) = delete;
     bool Acquire(const std::string &adminDirectory, Error *error);
-    bool AcquirePrivate(const std::string &directory, const std::string &leaf, Error *error);
+    bool AcquirePrivate(const std::string &directory, const std::string &leaf, Error *error, bool adminAccess = false);
     bool held() const;
 };
 
@@ -129,7 +133,12 @@ bool ResolveEnvironment(const PackageDatabasePaths &paths,
                         Environment *environment, Error *error);
 bool ResolveCurrentEnvironment(const PackageDatabasePaths &paths,
                               const std::string &aptConfigOverride,
-                              Environment *environment, Error *error);
+                              Environment *environment, Error *error, bool reviewAdmin = false);
+bool ReviewAdminAccess(const PackageDatabasePaths &paths, const ExpectedEnvironment &expected,
+                       std::string *fields, Error *error);
+bool ApproveAdminAccess(const PackageDatabasePaths &paths, const ExpectedEnvironment &expected,
+                        const std::string &token, Error *error);
+bool RevokeAdminAccess(const PackageDatabasePaths &paths, Error *error);
 bool ValidateDpkgArguments(const Environment &environment,
                            const std::vector<std::string> &arguments,
                            Error *error);

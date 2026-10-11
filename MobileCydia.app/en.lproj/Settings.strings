@@ -83,3 +83,5 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Refresh sources to verify repository authentication for %@ in this session.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Error mode requires a successful source refresh each time Cydia opens. Reloading package lists or changing the policy does not renew repository authentication.";
+
+"BOOTSTRAP_DATABASE_ACCESS" = "Bootstrap Database Access";

@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "الوصول إلى قاعدة بيانات بيئة كسر الحماية";
 "REPOSITORY_SECURITY" = "أمان المستودعات";
 "REPOSITORY_SECURITY_EXPLANATION" = "اختر كيفية تعامل Cydia مع المستودعات التي لا يمكن التحقق من توقيعاتها. يتم التحقق دائمًا من سلامة الملفات المنزّلة.";
 "SECURITY_ALLOW" = "السماح";

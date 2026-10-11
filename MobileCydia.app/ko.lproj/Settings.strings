@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "부트스트랩 데이터베이스 접근";
 "REPOSITORY_SECURITY" = "저장소 보안";
 "REPOSITORY_SECURITY_EXPLANATION" = "서명을 검증할 수 없는 저장소를 Cydia가 처리하는 방식을 선택합니다. 다운로드한 파일의 무결성은 항상 확인합니다.";
 "SECURITY_ALLOW" = "허용";

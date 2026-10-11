@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "Dostęp do bazy danych bootstrapu";
 "REPOSITORY_SECURITY" = "Bezpieczeństwo repozytoriów";
 "REPOSITORY_SECURITY_EXPLANATION" = "Wybierz sposób obsługi repozytoriów, których podpisów Cydia nie może zweryfikować. Integralność pobranych plików jest zawsze sprawdzana.";
 "SECURITY_ALLOW" = "Zezwalaj";

@@ -83,3 +83,5 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Aggiorna le sorgenti per verificare l’autenticità del repository di %@ in questa sessione.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "La modalità Errore richiede un aggiornamento riuscito delle sorgenti a ogni apertura di Cydia. Ricaricare gli elenchi dei pacchetti o cambiare la politica non rinnova l’autenticazione dei repository.";
+
+"BOOTSTRAP_DATABASE_ACCESS" = "Accesso al database del bootstrap";

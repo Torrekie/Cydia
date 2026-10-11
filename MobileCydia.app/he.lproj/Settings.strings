@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "גישה למסד הנתונים של ה־Bootstrap";
 "REPOSITORY_SECURITY" = "אבטחת מאגרים";
 "REPOSITORY_SECURITY_EXPLANATION" = "יש לבחור כיצד Cydia תטפל במאגרים שלא ניתן לאמת את החתימות שלהם. תקינות ההורדות נבדקת תמיד.";
 "SECURITY_ALLOW" = "אפשר";

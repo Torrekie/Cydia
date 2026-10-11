@@ -49,6 +49,13 @@ def main():
         for key, value in table.items():
             assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(access[key].replace("%%", ""))), \
                 f"Access check arguments differ: {bundle.name}/{key}"
+    bootstrap = read_table(ROOT / "MobileCydia.app/en.lproj/BootstrapAccess.strings")
+    for bundle in bundles:
+        table = read_table(bundle / "BootstrapAccess.strings")
+        assert table.keys() == bootstrap.keys(), f"Bootstrap access keys differ in {bundle.name}"
+        for key, value in table.items():
+            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(bootstrap[key].replace("%%", ""))), \
+                f"Bootstrap access arguments differ: {bundle.name}/{key}"
     outcomes = {"TRANSACTION_FAILED_TITLE", "TRANSACTION_CANCELLED"}
     outcome_english = read_table(ROOT / "MobileCydia.app/en.lproj/Localizable.strings", allow_equal=True)
     assert outcomes <= outcome_english.keys(), "Progress outcome titles missing in English"
@@ -62,6 +69,7 @@ def main():
                 f"English progress outcome fallback: {bundle.name}/{key}"
     print(f"[settings-localization] PASS: {len(english)} keys in {len(bundles)} locales")
     print(f"[runtime-access-localization] PASS: {len(access)} keys in {len(bundles)} locales")
+    print(f"[bootstrap-access-localization] PASS: {len(bootstrap)} keys in {len(bundles)} locales")
     print(f"[transaction-outcome-localization] PASS: {len(outcomes)} keys in {len(bundles)} locales")
 
 

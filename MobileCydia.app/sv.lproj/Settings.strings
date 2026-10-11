@@ -83,3 +83,5 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Uppdatera källorna för att verifiera autenticiteten för paketkällan som tillhandahåller %@ i den här sessionen.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Felläget kräver en lyckad uppdatering av källorna varje gång Cydia öppnas. Att läsa in paketlistorna igen eller ändra policyn förnyar inte autentiseringen av paketkällorna.";
+
+"BOOTSTRAP_DATABASE_ACCESS" = "Åtkomst till bootstrapens databas";

@@ -8,6 +8,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "Cydia/DpkgAdminAccess.hpp"
 
 namespace CydiaRuntime { namespace SharedState {
 /* Data-only APT/dpkg inputs may belong to another frontend's user. This
@@ -24,11 +25,12 @@ inline bool SameStat(const struct stat &a, const struct stat &b) {
         a.st_ctim.tv_sec == b.st_ctim.tv_sec && a.st_ctim.tv_nsec == b.st_ctim.tv_nsec;
 #endif
 }
-inline bool Directory(const struct stat &st, bool final) {
+inline bool Directory(const struct stat &st, bool final, const std::string &path = {}, bool adminAccess = false) {
     return S_ISDIR(st.st_mode) && st.st_uid == 0 &&
-        ((st.st_mode & 0022) == 0 || (!final && (st.st_mode & S_ISVTX) != 0));
+        ((st.st_mode & 0022) == 0 || (!final && ((st.st_mode & S_ISVTX) != 0 ||
+         (adminAccess && AdminAccess::Ancestor(path, st)))));
 }
-inline bool AliasChain(const std::string &path, bool final = true, unsigned depth = 0) {
+inline bool AliasChain(const std::string &path, bool final = true, unsigned depth = 0, bool adminAccess = false) {
     if (depth > 40 || path.empty() || path[0] != '/' || path.size() > 4096) return false;
     for (std::size_t index = 1; index <= path.size(); ++index) {
         if (index != path.size() && path[index] != '/') continue;
@@ -36,7 +38,7 @@ inline bool AliasChain(const std::string &path, bool final = true, unsigned dept
         struct stat st;
         if (lstat(part.c_str(), &st) != 0) return false;
         const bool last(final && index == path.size());
-        if (!S_ISLNK(st.st_mode)) { if (!Directory(st, last)) return false; continue; }
+        if (!S_ISLNK(st.st_mode)) { if (!Directory(st, last, part, adminAccess)) return false; continue; }
         if (st.st_uid != 0) return false;
         char target[4097];
         const ssize_t size(readlink(part.c_str(), target, sizeof(target) - 1));
@@ -44,17 +46,18 @@ inline bool AliasChain(const std::string &path, bool final = true, unsigned dept
         const std::string value(target, size);
         const auto slash(part.find_last_of('/'));
         const std::string destination(value[0] == '/' ? value : part.substr(0, slash + 1) + value);
-        if (!AliasChain(destination, last, depth + 1)) return false;
+        if (!AliasChain(destination, last, depth + 1, adminAccess)) return false;
     }
     return true;
 }
-inline int OpenParent(const std::string &path) {
+inline int OpenParent(const std::string &path, bool permitAdminAccess = false) {
     const auto slash(path.find_last_of('/'));
     const std::string leaf(slash == std::string::npos ? "" : path.substr(slash + 1));
     if (path.empty() || path[0] != '/' || path.find('\0') != std::string::npos ||
         leaf.empty() || leaf == "." || leaf == "..") { errno = EINVAL; return -1; }
     const std::string lexical(slash == 0 ? "/" : path.substr(0, slash));
-    if (!AliasChain(lexical)) { errno = EACCES; return -1; }
+    const bool adminAccess(permitAdminAccess && AdminAccess::Matches(lexical));
+    if (!AliasChain(lexical, true, 0, adminAccess)) { errno = EACCES; return -1; }
     char *resolved(realpath(lexical.c_str(), NULL));
     if (resolved == NULL) return -1;
     const std::string canonical(resolved); free(resolved);
@@ -68,7 +71,8 @@ inline int OpenParent(const std::string &path) {
         const int next(openat(parent, component.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
         close(parent); parent = next;
         if (parent < 0) return -1;
-        if (fstat(parent, &st) != 0 || !Directory(st, end == std::string::npos)) {
+        if (fstat(parent, &st) != 0 || !Directory(st, end == std::string::npos,
+                                                canonical.substr(0, end), adminAccess)) {
             close(parent); errno = EACCES; return -1;
         }
         if (end == std::string::npos) break;

@@ -242,7 +242,7 @@ CommitResult ReplaceProtectedFile(const std::string &path, const ProtectedFileSn
 }
 bool ReadSharedStateFile(const std::string &path, ProtectedFileSnapshot *snapshot) {
     if (snapshot == NULL) return false;
-    const FD parent(CydiaRuntime::SharedState::OpenParent(path)); RawFile raw;
+    const FD parent(CydiaRuntime::SharedState::OpenParent(path, true)); RawFile raw;
     if (parent.get() < 0 || !ReadRaw(parent.get(), Leaf(path), 0, &raw, true)) return false;
     snapshot->bytes = raw.bytes;
     snapshot->identity = raw.present ? IdentityOf(raw.st) : FileIdentity();
@@ -250,7 +250,7 @@ bool ReadSharedStateFile(const std::string &path, ProtectedFileSnapshot *snapsho
 }
 CommitResult ReplaceSharedStateFile(const std::string &path, const ProtectedFileSnapshot &expected,
     const std::string &updated) {
-    const FD parent(CydiaRuntime::SharedState::OpenParent(path)); RawFile raw;
+    const FD parent(CydiaRuntime::SharedState::OpenParent(path, true)); RawFile raw;
     if (parent.get() < 0 || !ReadRaw(parent.get(), Leaf(path), 0, &raw, true)) return Result(CommitStatus::UnsafePath, errno);
     if (raw.present != expected.identity.exists || raw.bytes != expected.bytes ||
         (raw.present && !IdentityOf(raw.st).sameVersion(expected.identity))) return Result(CommitStatus::StaleSnapshot);

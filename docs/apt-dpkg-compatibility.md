@@ -121,6 +121,30 @@ the supported external tools (`dpkg`, `dpkg-query`, `dpkg-deb`, `uicache`,
 `apt-key`, `gpgv` and `gpg`) through a protected Cydia-owned configuration file.
 Override targets must pass executable and ownership checks.
 
+Some bootstraps place a protected dpkg database below root-owned directories
+that are writable by an administrator group. Cydia defaults to refusing this
+namespace: group membership, including `wheel`, is not equivalent to UID 0.
+Advanced Settings → Bootstrap Database Access reviews the independently
+configured database and offers explicit approval for its existing writable
+ancestor groups. Approval trusts every member of those groups to alter the
+database and package maintainer scripts. It changes Cydia's access policy,
+without changing bootstrap permissions or account/group membership.
+
+The root-protected `admin-access.conf` records the canonical database, aliases
+and ancestor identities, owners, groups and permission modes. Darwin extended
+ACLs are also bound to the review; ACL entries granting access to additional
+principals cannot be enrolled. Replacing a directory or alias, selecting a
+different database, or changing permissions requires a new review. Ordinary
+lock/journal changes do not invalidate enrollment. Approval applies only to
+the selected administration namespace, shared locks and package-state reads;
+tools, hooks, APT configuration, keyrings, source writers and the private policy
+retain strict ancestry checks. World-writable or non-root-owned ancestors and
+a group-writable final administration directory cannot be enrolled. Revocation
+remains available independently of database resolution and restores strict
+access. Enrollment is an explicit bootstrap trust decision, not protection
+against a malicious member of an approved group or a replacement racing a
+root operation. Existing bootstrap configurations are preserved.
+
 Data-only dpkg status/journal records, APT automatic-package state and accepted
 preference files may retain another frontend's owner or group. Cydia reads
 single-link regular files through protected root-owned parent directories,

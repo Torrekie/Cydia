@@ -1,4 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
+"BOOTSTRAP_DATABASE_ACCESS" = "Bootstrap veritabanı erişimi";
 "REPOSITORY_SECURITY" = "Depo güvenliği";
 "REPOSITORY_SECURITY_EXPLANATION" = "Cydia’nın imzaları doğrulanamayan depoları nasıl işleyeceğini seçin. İndirilen dosyaların bütünlüğü her zaman denetlenir.";
 "SECURITY_ALLOW" = "İzin ver";
