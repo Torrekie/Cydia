@@ -168,7 +168,8 @@ default or custom path, while capability generation retains its reviewed apply
 action. Protected repository selection uses Save/Cancel and confirms discarded
 drafts. Access diagnostics lead with a status and Run Check; individual checks,
 paths and diagnostic output are disclosed separately. Database approval offers
-a direct route to the access check.
+a direct route to the access check. Revocation remains available even when
+strict permissions make a saved approval temporarily inactive.
 
 This structure applies Apple's guidance on
 [infrequently changed settings](https://developer.apple.com/design/human-interface-guidelines/settings),

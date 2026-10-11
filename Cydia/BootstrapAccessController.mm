@@ -217,7 +217,9 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
             dispatch_async(dispatch_get_main_queue(), ^{
                 busy_ = NO; reviewed_ = valid;
                 if (valid) {
-                    review_ = review; revocable_ = review.status != "strict";
+                    // Strict permissions do not clear an inactive saved approval.
+                    // Keep explicit revocation available regardless of applicability.
+                    review_ = review; revocable_ = YES;
                     checkAvailable_ = review.status == "strict" || review.status == "approved";
                     reviewedRequest_ = request; reviewedRequest_.payload = review.token;
                     message_ = nil;
