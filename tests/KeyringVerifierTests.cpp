@@ -4,7 +4,9 @@
 #include "Cydia/DpkgRunner.h"
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -29,6 +31,15 @@ struct Fixture {
         Dpkg::Runner runner(verifier);
         return output ? runner.RunAndCapture(options, output, Keyring::MaximumKeyBytes).succeeded() : runner.Run(options).succeeded();
     }
+    std::vector<std::string> databaseContents() const {
+        std::vector<std::string> contents;
+        for (const char *leaf : {"pubring.kbx", "trustdb.gpg"}) {
+            std::ifstream file(home + '/' + leaf, std::ios::binary);
+            Expect(file.is_open(), "read the original key and trust databases");
+            contents.emplace_back(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        }
+        return contents;
+    }
 };
 }
 int main(int argc, char **argv) {
@@ -43,7 +54,9 @@ int main(int argc, char **argv) {
     Expect(fixture.run({"--export", expected[0]}, &binary), "export binary public key");
     Expect(fixture.run({"--armor", "--export", expected[0]}, &armored), "export armored public key");
     Expect(fixture.run({"--pinentry-mode", "loopback", "--passphrase", "", "--export-secret-keys", expected[0]}, &secret), "export secret fixture for rejection");
-    const std::string trustBefore(listing);
+    // Colon listings contain GnuPG trust-calculation metadata. Compare the
+    // actual databases after fixture setup and before any review instead.
+    const std::vector<std::string> trustBefore(fixture.databaseContents());
     for (const auto &input : {binary, armored}) {
         std::string normalized; std::vector<std::string> fingerprints;
         Expect(Keyring::VerifyPublicKey(fixture.verifier, fixture.root, input, &normalized, &fingerprints, &error), "real GnuPG normalizes binary and armored input");
@@ -58,8 +71,11 @@ int main(int argc, char **argv) {
     Expect(!Keyring::VerifyPublicKey(fixture.verifier, fixture.root, corrupted, &normalized, &fingerprints, &error),
         "real GnuPG rejects corrupted self-signature rather than trusting packet shape");
     Expect(!Keyring::VerifyPublicKey("/nonexistent/verifier", fixture.root, binary, &normalized, &fingerprints, &error), "missing verifier never silently trusts a key");
-    Expect(fixture.run({"--fixed-list-mode", "--with-colons", "--with-fingerprint", "--list-keys"}, &listing) && listing == trustBefore,
+    Expect(fixture.databaseContents() == trustBefore,
         "import review never changes the original key database");
+    Expect(fixture.run({"--fixed-list-mode", "--with-colons", "--with-fingerprint", "--list-keys"}, &listing) &&
+        Keyring::ReadFingerprints(listing, &fingerprints, &error) && fingerprints == expected,
+        "original usable signing identities remain unchanged");
     for (const auto &entry : std::filesystem::directory_iterator(fixture.root))
         Expect(entry.path().filename() == "original", "temporary review homes are removed after success and failure");
     std::cout << "[key-verifier] PASS: real GnuPG normalization and private/corrupt-key rejection\n";
