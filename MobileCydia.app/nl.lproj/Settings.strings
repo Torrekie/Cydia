@@ -25,7 +25,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "De handtekening van %@ is ongeldig of de metadata zijn beschadigd.";
 "ADVANCED_SETTINGS" = "Geavanceerde instellingen";
 "BOOTSTRAP_REPOSITORIES" = "Distributiebronnen";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Selecteer de bronnen die de basisgereedschappen en bibliotheken van je pakketdistributie leveren. Ze zijn beschermd tegen wijzigingen onder Bronnen. Controleer deze selectie hier wanneer je van distributie verandert. Cydia voegt niet automatisch bronnen toe.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Selecteer de officiële bronnen die de basisgereedschappen en bibliotheken van je pakketdistributie leveren. Ze zijn beschermd tegen wijzigingen onder Bronnen. Controleer deze selectie hier wanneer je van distributie verandert. Cydia voegt niet automatisch bronnen toe.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Een beschermde definitie is gewijzigd of verwijderd. Controleer het bronbestand en deselecteer hier de oude verwijzing voordat je opslaat.";
 "BOOTSTRAP_NONE_SELECTED" = "Er zijn geen pakketbronnen geselecteerd. Bevestig om zonder bronbescherming op te slaan.";
 "EXTERNAL_EXECUTABLES" = "Externe uitvoerbare bestanden";

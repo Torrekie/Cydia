@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "發行環境資料庫存取";
 "BOOTSTRAP_ACCESS_REVIEW" = "檢查存取權限";
 "BOOTSTRAP_ACCESS_REVIEWING" = "正在檢查資料庫存取權限…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "預設情況下，Cydia 要求軟體套件資料庫及通往該資料庫的每級目錄都受到保護，不允許非 root 使用者修改。某些套件發行環境允許使用者群組修改上層目錄。";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia 會在安裝時自動設定套件發行環境的資料庫存取，並保留其現有權限。如果發行環境的設定發生變更，請在此頁面檢查存取權限。";
 "BOOTSTRAP_ACCESS_DATABASE" = "軟體套件資料庫";
 "BOOTSTRAP_ACCESS_STATUS" = "存取原則";
 "BOOTSTRAP_ACCESS_STRICT" = "嚴格保護";

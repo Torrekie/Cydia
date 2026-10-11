@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "配布環境のデータベースアクセス";
 "BOOTSTRAP_ACCESS_REVIEW" = "アクセスを確認";
 "BOOTSTRAP_ACCESS_REVIEWING" = "データベースへのアクセスを確認中…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "既定では、Cydia はパッケージデータベースとそこに至るすべてのディレクトリが、root 以外のユーザによる変更から保護されていることを要求します。一部のパッケージ配布環境では、グループが上位ディレクトリを変更できます。";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia はインストール時に、既存のアクセス権を維持したまま、パッケージ配布環境のデータベースへのアクセスを自動設定します。配布環境の設定が変わった場合は、この画面でアクセスを確認してください。";
 "BOOTSTRAP_ACCESS_DATABASE" = "パッケージデータベース";
 "BOOTSTRAP_ACCESS_STATUS" = "アクセスポリシー";
 "BOOTSTRAP_ACCESS_STRICT" = "厳格な保護";

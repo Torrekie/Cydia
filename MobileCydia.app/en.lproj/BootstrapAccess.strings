@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Distribution Database Access";
 "BOOTSTRAP_ACCESS_REVIEW" = "Review Access";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Reviewing database access…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "By default, Cydia requires the package database and every directory leading to it to be protected from non-root changes. Some package distributions allow a group to change an ancestor directory.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia configures access to the package distribution’s database automatically during installation, preserving its existing permissions. Use this page to review access if the distribution’s configuration changes.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Package database";
 "BOOTSTRAP_ACCESS_STATUS" = "Access policy";
 "BOOTSTRAP_ACCESS_STRICT" = "Strict protection";

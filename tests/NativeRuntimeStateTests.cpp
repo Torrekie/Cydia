@@ -2,6 +2,7 @@
 #include "Cydia/RuntimeState.hpp"
 #include "Cydia/ApplicationIdentity.hpp"
 #include "Cydia/DpkgAdminAccess.hpp"
+#include "Cydia/InstalledRuntimePolicy.hpp"
 #include "Cydia/SharedStateFile.hpp"
 #include "Cydia/SourceDocumentCommit.hpp"
 #include "Cydia/RuntimeSnapshotInputs.hpp"
@@ -96,6 +97,108 @@ int main() {
         Error error; Access::Review review;
         Require(Access::Collect(alias, &review) && review.admin == admin && review.ancestors.size() == 1,
                 "review exact independently selected root alias and nonzero writable group");
+        namespace Policy = CydiaRuntime::InstalledPolicy;
+        const std::string privateState(root + "/private"), accessPolicy(privateState + "/admin-access.conf"),
+            sourcePolicy(privateState + "/source-protection");
+        Require(std::filesystem::create_directory(privateState) && chmod(privateState.c_str(), 0755) == 0,
+                "create installer-owned private policy directory");
+        const int policies(open(privateState.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+        Require(policies >= 0, "open installer private policy capability");
+        Require(Policy::InstallerAdminDirectory(alias.c_str(), NULL) == alias &&
+                Policy::InstallerAdminDirectory("relative/admin", "/unused/info/cydia.postinst").empty() &&
+                Policy::InstallerAdminDirectory(NULL, "cydia.postinst").empty(),
+                "installer administrative path must be explicit and absolute");
+        Require(std::filesystem::create_directory(admin + "/info"), "create installed control directory");
+        Write(admin + "/info/cydia.postinst", "#!/bin/sh\n", 0755);
+        Require(Policy::InstallerAdminDirectory(NULL, (alias + "/info/cydia.postinst").c_str()) == alias,
+                "old dpkg control-file fallback retains selected alias namespace");
+        Require(Policy::InitializeAdminAccessAt(policies, "") == Policy::Result::Refused &&
+                access(accessPolicy.c_str(), F_OK) != 0,
+                "missing installer database does not guess a bootstrap directory");
+        Require(Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Created &&
+                Read(accessPolicy) == Access::InstalledToken(review),
+                "root installation automatically binds the actual aliased database and bootstrap group ancestor");
+        Access::Reset(Read(accessPolicy));
+        Require(Access::Activate(alias) && ValidateDpkgAdminPath(alias, true, &error),
+                "installer-created access policy immediately supports the ordinary privileged database boundary");
+        const std::string installedAliasPolicy(Read(accessPolicy));
+        Access::Review canonicalReview;
+        Require(Access::Collect(admin, &canonicalReview) && Access::MatchesEnrollment(canonicalReview) &&
+                Access::Activate(admin) && ValidateDpkgAdminPath(admin, true, &error),
+                "installer alias enrollment accepts the same independently selected canonical database");
+        Access::Reset(Access::InstalledToken(canonicalReview));
+        Require(Access::MatchesEnrollment(review) && Access::Activate(alias) &&
+                ValidateDpkgAdminPath(alias, true, &error),
+                "canonical installer enrollment accepts the same independently selected root-owned APT alias");
+        Require(!Access::Activate(other), "installed enrollment never authorizes a different database");
+        Access::Reset(installedAliasPolicy);
+        Require(Access::Activate(admin), "activate canonical runtime route before installer alias changes");
+        const std::string savedAlias(root + "/saved-database"), extra(root + "/extra-writable");
+        Require(rename(alias.c_str(), savedAlias.c_str()) == 0 && symlink(other.c_str(), alias.c_str()) == 0 &&
+                !Access::Matches(admin) && !Access::Activate(admin),
+                "retargeting the installer alias invalidates both active rechecks and new enrollment activation");
+        Require(unlink(alias.c_str()) == 0 && rename(savedAlias.c_str(), alias.c_str()) == 0 &&
+                Access::Activate(admin), "restored exact installer namespace remains valid");
+        Require(chown(shared.c_str(), 0, 21) == 0 && !Access::Activate(alias) &&
+                chown(shared.c_str(), 0, 20) == 0 && Access::Activate(alias),
+                "changed installer permission token is refused before an equivalent runtime alias is considered");
+        Require(std::filesystem::create_directory(extra) && chown(extra.c_str(), 0, 20) == 0 &&
+                chmod(extra.c_str(), 0775) == 0 && symlink(admin.c_str(), (extra + "/database").c_str()) == 0 &&
+                !Access::Activate(extra + "/database"),
+                "runtime aliases cannot introduce another writable ancestor outside installer approval");
+        Access::Reset("CYDIA-INSTALLED-ADMIN-ACCESS-1\n99999:invalid,");
+        Require(!Access::Activate(alias), "malformed installed enrollment never authorizes a database");
+        Access::Reset();
+        struct stat savedPolicy;
+        Require(lstat(accessPolicy.c_str(), &savedPolicy) == 0 && savedPolicy.st_uid == 0 &&
+                (savedPolicy.st_mode & 07777) == 0644 && savedPolicy.st_nlink == 1,
+                "automatic access metadata is readable by the app, root-writable and singly linked");
+        Require(Policy::InitializeAdminAccessAt(policies, other) == Policy::Result::Preserved &&
+                Read(accessPolicy) == Access::InstalledToken(review),
+                "upgrade preserves an existing enrollment instead of silently changing its database");
+        Write(accessPolicy, "", 0600);
+        Require(Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Preserved &&
+                Read(accessPolicy).empty(), "explicit revocation remains authoritative across package upgrades");
+        Write(accessPolicy, "malformed retained policy\n", 0600);
+        Require(Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Preserved &&
+                Read(accessPolicy) == "malformed retained policy\n", "installer never overwrites invalid existing policy");
+        Require(unlink(accessPolicy.c_str()) == 0 && symlink("source-protection", accessPolicy.c_str()) == 0 &&
+                Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Preserved,
+                "existing policy alias remains untouched and grants no access");
+        Require(unlink(accessPolicy.c_str()) == 0 && chmod(shared.c_str(), 0777) == 0 &&
+                Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Refused &&
+                access(accessPolicy.c_str(), F_OK) != 0 && chmod(shared.c_str(), 0775) == 0,
+                "world-writable bootstrap ancestry is never automatically enrolled or repaired");
+        Require(chown(shared.c_str(), 501, 20) == 0 &&
+                Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Refused &&
+                access(accessPolicy.c_str(), F_OK) != 0 && chown(shared.c_str(), 0, 20) == 0,
+                "caller-owned bootstrap ancestry is never automatically enrolled or repaired");
+        Require(chmod(admin.c_str(), 0775) == 0 &&
+                Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Refused &&
+                access(accessPolicy.c_str(), F_OK) != 0 && chmod(admin.c_str(), 0755) == 0,
+                "group-writable final database remains unsafe even during installation");
+        Require(Policy::InitializeSourceProtectionAt(policies) == Policy::Result::Created,
+                "first install establishes an empty distribution source policy");
+        std::vector<CydiaSources::ProtectionSelector> initialRoles;
+        Require(CydiaSources::ParseProtectionPolicy(Read(sourcePolicy), &initialRoles) && initialRoles.empty(),
+                "empty installed role policy uses the real source-policy serialization");
+        Require(lstat(sourcePolicy.c_str(), &savedPolicy) == 0 && savedPolicy.st_uid == 0 &&
+                (savedPolicy.st_mode & 07777) == 0644 && savedPolicy.st_nlink == 1,
+                "source roles are readable by the native UI and writable only by root");
+        Write(sourcePolicy, "existing distro roles are retained\n", 0600);
+        Require(Policy::InitializeSourceProtectionAt(policies) == Policy::Result::Preserved &&
+                Read(sourcePolicy) == "existing distro roles are retained\n", "installer preserves all preexisting source policy bytes");
+        Require(chmod(privateState.c_str(), 0775) == 0 &&
+                Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Refused &&
+                Policy::InitializeSourceProtectionAt(policies) == Policy::Result::Refused &&
+                chmod(privateState.c_str(), 0755) == 0,
+                "private policy setup refuses a writable destination directory");
+        Require(unlink((privateState + "/admin-access.lock").c_str()) == 0 &&
+                mkfifo((privateState + "/admin-access.lock").c_str(), 0600) == 0 &&
+                Policy::InitializeAdminAccessAt(policies, alias) == Policy::Result::Refused &&
+                fstatat(policies, "admin-access.lock", &savedPolicy, AT_SYMLINK_NOFOLLOW) == 0 && S_ISFIFO(savedPolicy.st_mode),
+                "an unsafe preexisting lock is refused without blocking or replacing its entry");
+        close(policies);
         Require(!ValidateDpkgAdminPath(alias, true, &error), "group ancestry is denied before approval");
         Access::Reset(review.token); Require(Access::Activate(alias), "activate exact explicit approval");
         Require(ValidateDpkgAdminPath(alias, true, &error), "enrolled database identity passes");

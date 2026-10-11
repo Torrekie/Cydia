@@ -70,6 +70,15 @@ void ApplyBootstrapConfiguration(const InitializationOptions &options) {
         _config->Set("Dir::State::extended_states", options.bootstrapExtendedStatesPath);
     _config->Set("Dir::Log", options.logDirectory);
     _config->Set("Dir::Bin::dpkg", options.dpkgPath);
+    /* Embedded APT's compile-time /usr/bin default belongs to a rooted
+     * build. Seed sibling tools from the selected native dpkg location;
+     * apt.conf and protected executable overrides still take precedence. */
+    const auto binSlash(options.nativeDpkgPath.rfind('/'));
+    if (binSlash != std::string::npos) {
+        const std::string bin(options.nativeDpkgPath.substr(0, binSlash + 1));
+        for (const char *tool : {"apt-key", "gpgv", "gpg"})
+            _config->Set((std::string("Dir::Bin::") + tool).c_str(), bin + tool);
+    }
     _config->Set("Dir::dpkg::cputable", JoinPath(options.dpkgDataDirectory, "cputable"));
     _config->Set("Dir::dpkg::tupletable", JoinPath(options.dpkgDataDirectory, "tupletable"));
     _config->Set("Dir::dpkg::triplettable", JoinPath(options.dpkgDataDirectory, "triplettable"));
@@ -382,8 +391,12 @@ void ApplyTrustedExecutableOverrides(const InitializationOptions &options) {
         if (entry.first == "dpkg") gDpkgExecutablePath = entry.second;
         else if (entry.first == "dpkg-query") gDpkgQueryExecutablePath = entry.second;
         else if (entry.first == "dpkg-deb") gDpkgDebExecutablePath = entry.second;
-        else if (entry.first == "apt-key" || entry.first == "gpgv")
+        else if (entry.first == "apt-key" || entry.first == "gpgv" || entry.first == "gpg") {
             _config->Set(("Dir::Bin::" + entry.first).c_str(), entry.second);
+            // apt-key consumes these names, rather than Dir::Bin::gpgv/gpg.
+            if (entry.first != "apt-key")
+                _config->Set(("Apt::Key::" + entry.first + "command").c_str(), entry.second);
+        }
     }
 }
 
@@ -477,10 +490,17 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     _config->Clear("APT::Architectures");
     _config->Clear("DPkg::Options");
     _config->Clear("DPkg::Chroot-Directory");
+    _config->Clear("Apt::Key::gpgvcommand");
+    _config->Clear("Apt::Key::gpgcommand");
     ApplyBootstrapConfiguration(options);
     if (!pkgInitConfig(*_config)) {
         ResetRuntimeState();
         return false;
+    }
+    for (const char *tool : {"gpgv", "gpg"}) {
+        const std::string command("Apt::Key::" + std::string(tool) + "command");
+        const std::string path(_config->Find((std::string("Dir::Bin::") + tool).c_str()));
+        if (!path.empty()) _config->CndSet(command.c_str(), path.c_str());
     }
 
     /* Preserve the maintainer's raw Dir::Etc value through the second pass.
@@ -569,6 +589,16 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     _config->Set("Acquire::Languages", options.languages);
     if (options.maxParallel > 0)
         _config->Set("Acquire::http::MaxParallel", options.maxParallel);
+
+    /* Acquisition helpers inherit the app's environment. Launch services
+     * does not load the distribution's shell profile, while apt-key calls
+     * apt-config and its utilities by name. Use the same loaded tool search
+     * policy as dpkg rather than the host/iOS launch environment. */
+    const std::string executablePath(_config->Find("DPkg::Path", options.dpkgExecutableSearchPath.c_str()));
+    if (setenv("PATH", executablePath.c_str(), 1) != 0) {
+        ResetRuntimeState();
+        return false;
+    }
 
     if (architecture != NULL)
         *architecture = gArchitecture;

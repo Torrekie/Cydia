@@ -26,7 +26,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "Podpis %@ jest nieprawidłowy lub metadane są uszkodzone.";
 "ADVANCED_SETTINGS" = "Ustawienia zaawansowane";
 "BOOTSTRAP_REPOSITORIES" = "Źródła dystrybucji";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Wybierz źródła dostarczające podstawowe narzędzia i biblioteki Twojej dystrybucji pakietów. Są chronione przed zmianami w Źródłach. Sprawdź ten wybór tutaj przy zmianie dystrybucji. Cydia nie dodaje źródeł automatycznie.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Wybierz oficjalne źródła dostarczające podstawowe narzędzia i biblioteki Twojej dystrybucji pakietów. Są chronione przed zmianami w Źródłach. Sprawdź ten wybór tutaj przy zmianie dystrybucji. Cydia nie dodaje źródeł automatycznie.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Chroniona definicja została zmieniona lub usunięta. Sprawdź plik źródła i odznacz tutaj stare odwołanie przed zapisaniem.";
 "BOOTSTRAP_NONE_SELECTED" = "Nie wybrano źródeł. Potwierdź, aby zapisać bez ochrony źródeł.";
 "EXTERNAL_EXECUTABLES" = "Zewnętrzne pliki wykonywalne";

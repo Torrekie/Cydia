@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Dağıtım Veritabanı Erişimi";
 "BOOTSTRAP_ACCESS_REVIEW" = "Erişimi incele";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Veritabanı erişimi inceleniyor…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Varsayılan olarak Cydia, paket veritabanının ve ona giden yoldaki tüm dizinlerin root dışındaki kullanıcıların değişikliklerine karşı korunmasını gerektirir. Bazı paket dağıtım ortamları bir grubun üst dizini değiştirmesine izin verir.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia, kurulum sırasında paket dağıtımının veritabanına erişimi mevcut izinleri koruyarak otomatik olarak yapılandırır. Dağıtımın yapılandırması değişirse erişimi incelemek için bu sayfayı kullanın.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Paket veritabanı";
 "BOOTSTRAP_ACCESS_STATUS" = "Erişim ilkesi";
 "BOOTSTRAP_ACCESS_STRICT" = "Sıkı koruma";

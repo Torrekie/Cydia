@@ -42,6 +42,7 @@ enum {
     GNUTLS_E_AGAIN = -10,
     GNUTLS_E_REHANDSHAKE = -37,
     GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR = -43,
+    GNUTLS_E_UNIMPLEMENTED_FEATURE = -125,
 };
 
 struct cydia_gnutls_credentials { };
@@ -225,7 +226,10 @@ static inline void gnutls_certificate_free_credentials(gnutls_certificate_creden
 static inline int gnutls_certificate_set_x509_system_trust(gnutls_certificate_credentials_t credentials)
 {
     (void)credentials;
-    return 0;
+    /* SecureTransport already evaluates the peer against Apple's system
+     * trust service. APT only distinguishes unavailable (zero) from a
+     * positive result; no exported PEM bundle is required on iOS. */
+    return 1;
 }
 
 static inline int gnutls_certificate_set_x509_trust_file(gnutls_certificate_credentials_t credentials, const char *file, int format)
@@ -233,7 +237,7 @@ static inline int gnutls_certificate_set_x509_trust_file(gnutls_certificate_cred
     (void)credentials;
     (void)file;
     (void)format;
-    return 0;
+    return GNUTLS_E_UNIMPLEMENTED_FEATURE;
 }
 
 static inline int gnutls_certificate_set_x509_key_file(gnutls_certificate_credentials_t credentials, const char *cert, const char *key, int format)
@@ -242,7 +246,7 @@ static inline int gnutls_certificate_set_x509_key_file(gnutls_certificate_creden
     (void)cert;
     (void)key;
     (void)format;
-    return 0;
+    return GNUTLS_E_UNIMPLEMENTED_FEATURE;
 }
 
 static inline int gnutls_certificate_set_x509_crl_file(gnutls_certificate_credentials_t credentials, const char *file, int format)
@@ -250,7 +254,7 @@ static inline int gnutls_certificate_set_x509_crl_file(gnutls_certificate_creden
     (void)credentials;
     (void)file;
     (void)format;
-    return 0;
+    return GNUTLS_E_UNIMPLEMENTED_FEATURE;
 }
 
 static inline void gnutls_certificate_set_verify_flags(gnutls_certificate_credentials_t credentials, unsigned int flags)
@@ -293,7 +297,8 @@ static inline int gnutls_error_is_fatal(int error)
 
 static inline const char *gnutls_strerror(int error)
 {
-    (void)error;
+    if (error == GNUTLS_E_UNIMPLEMENTED_FEATURE)
+        return "Custom CA files, client certificates and revocation lists are not supported by this SecureTransport backend";
     return "SecureTransport error";
 }
 

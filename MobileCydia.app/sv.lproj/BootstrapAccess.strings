@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Åtkomst till distributionens databas";
 "BOOTSTRAP_ACCESS_REVIEW" = "Granska åtkomst";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Granskar databasåtkomst…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Som standard kräver Cydia att paketdatabasen och alla kataloger i sökvägen till den skyddas mot ändringar av andra användare än root. Vissa paketdistributioner tillåter en grupp att ändra en överordnad katalog.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia konfigurerar automatiskt åtkomsten till paketdistributionens databas under installationen och behåller dess befintliga behörigheter. Använd den här sidan för att granska åtkomsten om distributionens konfiguration ändras.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Paketdatabas";
 "BOOTSTRAP_ACCESS_STATUS" = "Åtkomstpolicy";
 "BOOTSTRAP_ACCESS_STRICT" = "Strikt skydd";

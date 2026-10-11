@@ -25,7 +25,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "A assinatura de %@ é inválida ou seus metadados estão corrompidos.";
 "ADVANCED_SETTINGS" = "Ajustes avançados";
 "BOOTSTRAP_REPOSITORIES" = "Fontes da distribuição";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Selecione as fontes que fornecem as ferramentas e bibliotecas essenciais da sua distribuição de pacotes. Elas ficam protegidas contra alterações em Fontes. Revise a seleção aqui ao mudar de distribuição. O Cydia não adiciona fontes automaticamente.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Selecione as fontes oficiais que fornecem as ferramentas e bibliotecas essenciais da sua distribuição de pacotes. Elas ficam protegidas contra alterações em Fontes. Revise a seleção aqui ao mudar de distribuição. O Cydia não adiciona fontes automaticamente.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Uma definição protegida foi alterada ou removida. Revise seu arquivo de fontes e desmarque a referência antiga aqui antes de salvar.";
 "BOOTSTRAP_NONE_SELECTED" = "Nenhuma fonte selecionada. Confirme para salvar sem proteção das fontes.";
 "EXTERNAL_EXECUTABLES" = "Executáveis externos";

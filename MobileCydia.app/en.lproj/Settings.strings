@@ -25,7 +25,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "The signature for %@ is invalid or its metadata is damaged.";
 "ADVANCED_SETTINGS" = "Advanced settings";
 "BOOTSTRAP_REPOSITORIES" = "Distribution Sources";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Select the sources that supply your package distribution’s core tools and libraries. These are protected from changes in Sources. Review this selection here when changing distributions. Cydia does not add sources automatically.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Select the official sources that supply your package distribution’s core tools and libraries. These are protected from changes in Sources. Review this selection here when changing distributions. Cydia does not add sources automatically.";
 "BOOTSTRAP_MISSING_REFERENCE" = "A protected definition was changed or removed. Review its source file, then deselect the old reference here before saving.";
 "BOOTSTRAP_NONE_SELECTED" = "No sources are selected. Confirm to save without source protection.";
 "EXTERNAL_EXECUTABLES" = "External executables";

@@ -35,7 +35,7 @@ $(OBJECT_DIR)/apt64/apt-pkg/tagfile.o: $(tagfile_keys_header)
 $(OBJECT_DIR)/apt64/apt-pkg/deb/deblistparser.o: $(tagfile_keys_header)
 $(tagfile_keys_object): $(tagfile_keys_source) $(tagfile_keys_header)
 
-$(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk .gitmodules apt.h apt-extra/*.h $(APT_TRIEHASH) \
+$(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk mk/exec-compat.mk .gitmodules apt.h apt-extra/*.h apt-extra/gnutls/*.h $(APT_TRIEHASH) \
 	$(APT_CONTRIB_INCLUDE_TARGET) $(APT_DEB_INCLUDE_TARGET) | verify-apt
 	@mkdir -p $(dir $@)
 	@tmp="$@.tmp"; \
@@ -44,8 +44,8 @@ $(APT_PROVENANCE_STAMP): FORCE mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.
 		git -C $(APT_SOURCE_DIR) ls-files --others --exclude-standard | \
 		while IFS= read -r path; do cksum "$(APT_SOURCE_DIR)/$$path"; done; \
 	} | cksum | awk '{ print $$1 ":" $$2 }'); \
-	config_state=$$(cksum mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk \
-		.gitmodules apt.h apt-extra/*.h $(APT_TRIEHASH) | cksum | awk '{ print $$1 ":" $$2 }'); \
+	config_state=$$(cksum mk/apt.mk mk/rules.mk mk/sources.mk mk/toolchain.mk mk/exec-compat.mk \
+		.gitmodules apt.h apt-extra/*.h apt-extra/gnutls/*.h $(APT_TRIEHASH) | cksum | awk '{ print $$1 ":" $$2 }'); \
 	xxhash_commit=$$(git -C $(XXHASH_SOURCE_DIR) rev-parse HEAD 2>/dev/null || echo missing); \
 	toolchain_state=$$(printf '%s\n' \
 		"compiler=$(gxx)" "sdk=$(sdk)" "mac-sdk=$(mac)" \
@@ -108,7 +108,7 @@ $(tagfile_keys_object): $(tagfile_keys_source) $(header) apt.h apt-extra/*.h
 $(OBJECT_DIR)/apt64/%.o: $(APT_SOURCE_DIR)/%.cc $(header) apt.h apt-extra/*.h
 	@mkdir -p $(dir $@)
 	@echo "[cycc] $<"
-	@$(apt64) $(apt_plus) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
+	@$(apt64) $(apt_plus) $(APT_EXEC_COMPAT_FLAGS) -c -o $@ $< -Dmain=main_$(basename $(notdir $@))
 
 $(apt_http_object): $(apt_http_source) $(header)
 	@mkdir -p $(dir $@)
@@ -172,10 +172,11 @@ $(APT_LIBRARY): $(APT_PROVENANCE_STAMP) $(libapt64)
 	@tmp="$@.tmp"; rm -f "$$tmp"; \
 		$(CYAR) -rc "$$tmp" $(filter %.o,$^) && mv -f "$$tmp" "$@"
 
-$(APP_BINARY): $(object) entitlements.xml $(lapt) $(compiler_rt_ios_library) $(BUILD_PROVENANCE_SCRIPT)
+$(APP_BINARY): $(object) entitlements.xml $(lapt) $(EXEC_COMPAT_LIBRARY) $(EXEC_COMPAT_VERIFY_SCRIPT) $(compiler_rt_ios_library) $(BUILD_PROVENANCE_SCRIPT)
 	@mkdir -p $(dir $@) $(ARCHIVE_DIR)
 	@echo "[link] $@"
-	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit)
+	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(EXEC_COMPAT_LIBRARY) $(uikit)
+	@$(EXEC_COMPAT_VERIFY_SCRIPT) binary "$(CYNM)" "$(CYOTOOL)" "$@" app-unstripped
 	@cp -a $@ $(ARCHIVE_DIR)/$(notdir $@)-$(version)_$(shell date +%s)
 	@echo "[strp] $@"
 	@printf '%s\n' "$(version)" | grep -q '~' && echo "skipping..." || $(CYSTRIP) $@
@@ -214,7 +215,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(APT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings -framework CoreFoundation -licucore
 	@$(LDID) -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/SharedConfigHandoff.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/SharedConfigHandoff.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp Cydia/InstalledRuntimePolicy.hpp Cydia/DpkgAdminAccess.hpp Cydia/SharedStateFile.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) $(objc_arc) -DCYDIA_POSTINST_ROOTLESS=$(if $(filter rootless,$(PACKAGE_LAYOUT)),1,0) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link)
 	@$(LDID) -T0 -Sgenent.xml $@

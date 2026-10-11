@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/FirmwareMarkerPermissions.hpp"
+#include "Cydia/InstalledRuntimePolicy.hpp"
 #include "Cydia/LegacySourceHandoff.hpp"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivateStateDirectory.hpp"
@@ -110,6 +111,22 @@ static bool MigrateMetadata(const std::string &sourceDirectory,
     return success;
 }
 
+static void InitializeInstalledRuntimePolicies(const char *controlPath,
+                                              const CydiaRuntime::PackageDatabasePaths &paths) {
+    const int state(OpenVerifiedPrivateDirectory(paths.CydiaStateDirectory(), 0));
+    if (state < 0) {
+        perror("Cydia installed runtime policy directory");
+        return;
+    }
+    namespace Policy = CydiaRuntime::InstalledPolicy;
+    const std::string admin(Policy::InstallerAdminDirectory(getenv("DPKG_ADMINDIR"), controlPath));
+    if (Policy::InitializeAdminAccessAt(state, admin) == Policy::Result::Refused)
+        fprintf(stderr, "cydia: automatic package database access could not be established safely; review Package Database Access in Advanced Settings\n");
+    if (Policy::InitializeSourceProtectionAt(state) == Policy::Result::Refused)
+        perror("Cydia initial distribution source policy");
+    close(state);
+}
+
 int main(int argc, const char *argv[]) {
     if (argc < 2)
         return 0;
@@ -131,6 +148,7 @@ int main(int argc, const char *argv[]) {
         perror("Cydia private state directory");
         return 1;
     }
+    InitializeInstalledRuntimePolicies(argv[0], paths);
     if (!CydiaRuntime::RestoreLegacySourceHandoff(paths)) {
         perror("Cydia legacy source handoff");
         return 1;

@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Truy cập cơ sở dữ liệu phân phối gói";
 "BOOTSTRAP_ACCESS_REVIEW" = "Xem xét quyền truy cập";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Đang xem xét quyền truy cập cơ sở dữ liệu…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Theo mặc định, Cydia yêu cầu cơ sở dữ liệu gói và mọi thư mục trên đường dẫn đến đó phải được bảo vệ khỏi thay đổi của người dùng không phải root. Một số hệ thống phân phối gói cho phép một nhóm thay đổi thư mục cấp trên.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia tự động thiết lập quyền truy cập cơ sở dữ liệu của hệ thống phân phối gói trong quá trình cài đặt, giữ nguyên các quyền hiện có. Sử dụng trang này để xem xét quyền truy cập nếu cấu hình của hệ thống phân phối gói thay đổi.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Cơ sở dữ liệu gói";
 "BOOTSTRAP_ACCESS_STATUS" = "Chính sách truy cập";
 "BOOTSTRAP_ACCESS_STRICT" = "Bảo vệ nghiêm ngặt";

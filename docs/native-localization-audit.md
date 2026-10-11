@@ -206,11 +206,14 @@ New native text uses each locale’s established Sources term for APT package
 installation sources. Package Distribution refers to the package environment
 that supplies package tools, libraries and jailbreak essentials; it does not
 mean the operating system or the device’s boot process. Distribution Sources
-are the administrator-selected sources that supply that environment, protected
+are the administrator-selected official sources that supply that environment, protected
 from ordinary source-page changes. APT’s technical suite/distribution field
 retains its separate meaning.
 
 All 21 locales use this distinction in Settings, source editing and database
 access explanations. Historical package-removal labels remain unchanged;
-source removal uses its own `SOURCE_REMOVE` label so translations such as
+Chinese distinguishes 发行源 / 發行源 from ordinary 软件源 / 來源. Database
+access is configured during package installation; the advanced explanation
+describes subsequent review without making it a first-use requirement.
+Source removal uses its own `SOURCE_REMOVE` label so translations such as
 “uninstall” are not applied to source definitions.

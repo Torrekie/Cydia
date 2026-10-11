@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "文件及行号";
 "SOURCE_NEW_FILE" = "新建源文件";
 "SOURCE_NEW_FILE_EXPLANATION" = "输入以 .list 或 .sources 结尾的新文件名。只有在确认并保存定义后才会创建文件。";
-"SOURCE_PROTECTED" = "只能在高级设置中更改此软件包发行环境软件源。";
-"SOURCE_PROTECTED_OR_REVIEW" = "受保护或尚未确认的软件包发行环境软件源需要在高级设置中处理。编辑前必须能够读取源文件。";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "更改软件源前，请在高级设置中检查受保护的软件包发行环境软件源。";
+"SOURCE_PROTECTED" = "只能在高级设置中更改此发行源。";
+"SOURCE_PROTECTED_OR_REVIEW" = "受保护或尚未确认的发行源需要在高级设置中处理。编辑前必须能够读取软件源文件。";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "更改软件源前，请在高级设置中检查受保护的发行源。";
 "SOURCE_RELOAD_REQUIRED" = "源文件已发生变化。请重新载入软件源并再次确认更改。";
 "SOURCE_REPOSITORIES" = "URI 及发行版";
 "SOURCE_REVIEW_CHANGE" = "确认软件源更改";
@@ -36,8 +36,8 @@
 "SOURCE_URI" = "软件源 URI";
 "SOURCE_WAIT_FOR_OPERATION" = "请等待当前软件包操作完成。";
 "SOURCE_WHOLE_DEFINITION" = "此更改会应用于整个定义，包括其中的所有 URI 和发行版。";
-"SOURCE_BOOTSTRAP_CHANGE" = "此定义作为软件包发行环境的一部分受到保护。保存编辑会保留其保护；删除定义也会删除对应的保护引用。";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "源定义已更改，但无法保存其保护引用。更改其他软件源前，请在高级设置中检查软件包发行环境的软件源。";
+"SOURCE_BOOTSTRAP_CHANGE" = "此定义属于发行源，因而受到保护。保存编辑会保留其保护；删除定义也会删除对应的保护引用。";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "软件源定义已更改，但无法保存其保护引用。更改其他软件源前，请在高级设置中检查发行源保护。";
 "SOURCE_READ_ONLY_ALIAS" = "此软件源是由 Cydia 外部管理的链接。Cydia 可以使用它，但无法编辑或移除其中的软件源定义。";
 
 "SOURCE_REPOSITORY_SETTINGS" = "软件源设置";

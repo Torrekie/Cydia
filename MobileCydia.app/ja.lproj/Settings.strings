@@ -26,7 +26,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "%@ の署名が無効か、メタデータが破損しています。";
 "ADVANCED_SETTINGS" = "詳細設定";
 "BOOTSTRAP_REPOSITORIES" = "配布環境のソース";
-"BOOTSTRAP_REPOSITORIES_HELP" = "パッケージ配布環境のソースのうち、ソース画面での変更から保護するものを選択してください。配布環境を変更するときは、ここで選択を見直してください。Cydia はソースを自動追加しません。";
+"BOOTSTRAP_REPOSITORIES_HELP" = "パッケージ配布環境の公式ソースは、基本的なツールやライブラリを提供します。ソース画面での変更から保護するものを選択し、配布環境を変更するときはここで選択を見直してください。Cydia はソースを自動追加しません。";
 "BOOTSTRAP_MISSING_REFERENCE" = "保護された定義が変更または削除されました。ソースファイルを確認し、保存する前にここで古い参照の選択を解除してください。";
 "BOOTSTRAP_NONE_SELECTED" = "ソースが選択されていません。確認すると、ソースを保護せずに保存します。";
 "EXTERNAL_EXECUTABLES" = "外部実行ファイル";

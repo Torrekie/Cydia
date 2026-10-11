@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Dostęp do bazy danych dystrybucji";
 "BOOTSTRAP_ACCESS_REVIEW" = "Sprawdź dostęp";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Sprawdzanie dostępu do bazy danych…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Domyślnie Cydia wymaga, aby baza danych pakietów i każdy katalog na prowadzącej do niej ścieżce były chronione przed zmianami przez użytkowników innych niż root. Niektóre dystrybucje pakietów pozwalają grupie na zmianę katalogu nadrzędnego.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Podczas instalacji Cydia automatycznie konfiguruje dostęp do bazy danych dystrybucji pakietów, zachowując istniejące uprawnienia. Na tej stronie możesz sprawdzić dostęp, jeśli konfiguracja dystrybucji ulegnie zmianie.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Baza danych pakietów";
 "BOOTSTRAP_ACCESS_STATUS" = "Zasady dostępu";
 "BOOTSTRAP_ACCESS_STRICT" = "Ścisła ochrona";

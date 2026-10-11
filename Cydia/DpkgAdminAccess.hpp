@@ -128,16 +128,57 @@ inline bool Collect(const std::string &path, Review *review) {
 inline std::string &EnrolledToken() { static std::string token; return token; }
 inline Review &Active() { static Review review; return review; }
 inline void Reset(const std::string &token = {}) { EnrolledToken() = token; Active() = Review(); }
+inline const char *InstalledHeader() { return "CYDIA-INSTALLED-ADMIN-ACCESS-1\n"; }
+inline std::string InstalledToken(const Review &review) {
+    std::string bytes(InstalledHeader());
+    Field(&bytes, review.selectedPath); Field(&bytes, review.token);
+    return bytes.size() <= 32768 ? bytes : std::string();
+}
+inline bool InstalledField(const std::string &bytes, std::size_t *offset, std::string *value) {
+    const std::size_t start(*offset), colon(bytes.find(':', start));
+    if (colon == std::string::npos || colon == start || colon - start > 5 ||
+        (bytes[start] == '0' && colon - start != 1)) return false;
+    std::size_t length(0);
+    for (std::size_t index = start; index < colon; ++index) {
+        if (bytes[index] < '0' || bytes[index] > '9') return false;
+        length = length * 10 + bytes[index] - '0';
+        if (length > 32768) return false;
+    }
+    if (length >= bytes.size() - colon - 1) return false;
+    const std::size_t end(colon + 1 + length);
+    if (bytes[end] != ',') return false;
+    value->assign(bytes, colon + 1, length); *offset = end + 1; return true;
+}
+inline bool MatchesEnrollment(const Review &review) {
+    if (review.token.empty() || review.admin.empty()) return false;
+    if (review.token == EnrolledToken()) return true;
+    const std::string &policy(EnrolledToken());
+    const std::size_t header(std::char_traits<char>::length(InstalledHeader()));
+    if (policy.size() > 32768 || policy.compare(0, header, InstalledHeader()) != 0) return false;
+    std::size_t offset(header); std::string selected, token;
+    if (!InstalledField(policy, &offset, &selected) || !InstalledField(policy, &offset, &token) ||
+        offset != policy.size()) return false;
+    Review installed;
+    // Installation authorizes the exact root installer-selected namespace.
+    // APT may use a different root-owned alias for that same database; its
+    // fresh namespace cannot introduce another writable ancestor or database.
+    if (!Collect(selected, &installed) || installed.token != token || installed.admin != review.admin) return false;
+    for (const auto &entry : review.ancestors) {
+        const auto approved(installed.ancestors.find(entry.first));
+        if (approved == installed.ancestors.end() || !Identity(approved->second, entry.second)) return false;
+    }
+    return true;
+}
 inline bool Activate(const std::string &admin) {
     Review review;
     Active() = Review();
-    if (!Collect(admin, &review) || review.ancestors.empty() || review.token != EnrolledToken()) return false;
+    if (!Collect(admin, &review) || review.ancestors.empty() || !MatchesEnrollment(review)) return false;
     Active() = review; return true;
 }
 inline bool Matches(const std::string &path) {
     if (Active().admin.empty()) return false;
     Review now;
-    if (!Collect(Active().selectedPath, &now) || now.token != Active().token) return false;
+    if (!Collect(Active().selectedPath, &now) || now.token != Active().token || !MatchesEnrollment(now)) return false;
     const std::string canonical(Canonical(path));
     return canonical == Active().admin || canonical.compare(0, Active().admin.size() + 1, Active().admin + '/') == 0;
 }

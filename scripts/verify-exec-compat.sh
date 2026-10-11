@@ -92,28 +92,39 @@ case "$mode" in
         pass "$archive contains only the reviewed exec shim objects"
         ;;
     binary)
-        [ "$#" -eq 3 ] || fail "binary expects <nm> <otool> <cydo>"
+        [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || fail "binary expects <nm> <otool> <binary> [app|app-unstripped]"
         nm_tool=$1
         otool_tool=$2
         binary=$3
-        [ -f "$binary" ] || fail "missing cydo binary: $binary"
+        label=${4:-cydo}
+        [ "$label" = cydo ] || [ "$label" = app ] || [ "$label" = app-unstripped ] || fail "unknown binary role: $label"
+        [ -f "$binary" ] || fail "missing $label binary: $binary"
 
         symbols=$("$nm_tool" "$binary")
-        printf '%s\n' "$symbols" | grep -E '[[:space:]][Tt][[:space:]]+_ie_execv$' >/dev/null ||
-            fail "cydo does not define ie_execv"
-        printf '%s\n' "$symbols" | grep -E '[[:space:]][Tt][[:space:]]+_ie_execve$' >/dev/null ||
-            fail "cydo does not define ie_execve"
+        # The app's ordinary package build strips its defined C symbols.
+        # Check definitions immediately after linking, then retain import and
+        # load-command checks for the final stripped application below.
+        if [ "$label" != app ]; then
+            printf '%s\n' "$symbols" | grep -E '[[:space:]][Tt][[:space:]]+_ie_execv$' >/dev/null ||
+                fail "$label does not define ie_execv"
+            printf '%s\n' "$symbols" | grep -E '[[:space:]][Tt][[:space:]]+_ie_execve$' >/dev/null ||
+                fail "$label does not define ie_execve"
+        fi
+        if [ "$label" = app-unstripped ]; then
+            printf '%s\n' "$symbols" | grep -E '[[:space:]][Tt][[:space:]]+_ie_execvp$' >/dev/null ||
+                fail "app does not define ie_execvp for APT child helpers"
+        fi
         undefined_ie=$(printf '%s\n' "$symbols" | awk 'NF >= 2 && $(NF - 1) == "U" && $NF ~ /^_ie_/ { print $NF }')
         [ -z "$undefined_ie" ] ||
-            fail "cydo has undefined libiosexec symbols: $undefined_ie"
+            fail "$label has undefined libiosexec symbols: $undefined_ie"
 
         loads=$("$otool_tool" -L "$binary")
         if printf '%s\n' "$loads" | grep -E 'lib(iosexec|recompat)' >/dev/null; then
-            fail "cydo dynamically loads libiosexec or librecompat"
+            fail "$label dynamically loads libiosexec or librecompat"
         fi
         commands=$("$otool_tool" -l "$binary")
         if printf '%s\n' "$commands" | grep -F 'LC_RPATH' >/dev/null; then
-            fail "cydo unexpectedly contains an LC_RPATH command"
+            fail "$label unexpectedly contains an LC_RPATH command"
         fi
         if ! printf '%s\n' "$commands" | awk '
             $1 == "cmd" && ($2 == "LC_BUILD_VERSION" || $2 == "LC_VERSION_MIN_IPHONEOS") { in_version = 1; next }
@@ -121,9 +132,13 @@ case "$mode" in
             in_version && $1 == "cmd" { in_version = 0 }
             END { exit found ? 0 : 1 }
         '; then
-            fail "cydo does not declare iOS 12.0 as its minimum version"
+            fail "$label does not declare iOS 12.0 as its minimum version"
         fi
-        pass "cydo embeds exec shims with no compatibility dylib or rpath"
+        if [ "$label" = app ]; then
+            pass "stripped app has no unresolved exec shim imports, compatibility dylib or rpath"
+        else
+            pass "$label embeds exec shims with no compatibility dylib or rpath"
+        fi
         ;;
     *)
         echo "usage: $0 {provenance|archive|binary} ..." >&2

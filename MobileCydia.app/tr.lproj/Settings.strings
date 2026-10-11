@@ -26,7 +26,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "%@ imzası geçersiz veya üst verileri bozuk.";
 "ADVANCED_SETTINGS" = "Gelişmiş ayarlar";
 "BOOTSTRAP_REPOSITORIES" = "Dağıtım Kaynakları";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Paket dağıtımınızın temel araçlarını ve kitaplıklarını sağlayan kaynakları seçin. Kaynaklar bölümünde değişiklik yapılmasına karşı korunurlar. Dağıtım değiştirirken seçimi burada gözden geçirin. Cydia kaynakları otomatik olarak eklemez.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Paket dağıtımınızın temel araçlarını ve kitaplıklarını sağlayan resmî kaynakları seçin. Kaynaklar bölümünde değişiklik yapılmasına karşı korunurlar. Dağıtım değiştirirken seçimi burada gözden geçirin. Cydia kaynakları otomatik olarak eklemez.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Korunan bir tanım değiştirilmiş veya kaldırılmış. Kaynak dosyasını gözden geçirin, ardından kaydetmeden önce eski başvurunun seçimini burada kaldırın.";
 "BOOTSTRAP_NONE_SELECTED" = "Hiçbir kaynak seçilmedi. Kaynak koruması olmadan kaydetmek için onaylayın.";
 "EXTERNAL_EXECUTABLES" = "Harici çalıştırılabilir dosyalar";

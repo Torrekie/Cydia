@@ -263,7 +263,7 @@ bool ReviewAdminAccess(const PackageDatabasePaths &paths, const ExpectedEnvironm
     Environment environment; AdminAccess::Review review;
     if (fields == NULL || !AccessReview(paths, expected, &environment, &review, error)) return false;
     const std::string status(review.ancestors.empty() ? "strict" :
-        review.token == AdminAccess::EnrolledToken() ? "approved" : "pending");
+        AdminAccess::MatchesEnrollment(review) ? "approved" : "pending");
     *fields = SerializeFields({review.ancestors.empty() ? "" : review.token, review.admin, review.descriptions, status});
     return true;
 }

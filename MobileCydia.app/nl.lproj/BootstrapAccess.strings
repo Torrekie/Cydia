@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Toegang tot de distributiedatabase";
 "BOOTSTRAP_ACCESS_REVIEW" = "Toegang controleren";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Databasetoegang controleren…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Standaard vereist Cydia dat de pakketdatabase en alle mappen in het pad ernaartoe beschermd zijn tegen wijzigingen door gebruikers die geen root zijn. Sommige pakketdistributies staan een groep toe om een bovenliggende map te wijzigen.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia stelt tijdens de installatie automatisch de toegang tot de database van de pakketdistributie in, met behoud van de bestaande machtigingen. Gebruik deze pagina om de toegang te controleren als de configuratie van de distributie verandert.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Pakketdatabase";
 "BOOTSTRAP_ACCESS_STATUS" = "Toegangsbeleid";
 "BOOTSTRAP_ACCESS_STRICT" = "Strikte bescherming";

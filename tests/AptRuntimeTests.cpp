@@ -12,6 +12,11 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#if defined(__APPLE__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#include "apt-extra/gnutls/gnutls.h"
+#endif
 
 Configuration *_config(NULL);
 pkgSystem *_system(NULL);
@@ -51,6 +56,8 @@ enum class RuntimeFixture {
 };
 RuntimeFixture gRuntimeFixture(RuntimeFixture::Default);
 std::string gFakeDpkgExecutable;
+enum class VerifierFixture { Defaults, NativeSearchPath, ConfiguredPaths, ConfiguredCommands };
+VerifierFixture gVerifierFixture(VerifierFixture::Defaults);
 
 void Fail(const std::string &message) {
     std::cerr << "[verify-apt-runtime][FAIL] " << message << std::endl;
@@ -100,7 +107,7 @@ void ExpectBootstrapConfiguration(const Configuration &configuration, const char
     ExpectValue(configuration, "Dir::dpkg::triplettable",
                 beforeConfig ? JoinPath(options.dpkgDataDirectory, "triplettable") : "/apt-conf-override/triplettable", stage);
     ExpectValue(configuration, "DPkg::Path",
-                beforeConfig ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin", stage);
+                beforeConfig || gVerifierFixture == VerifierFixture::NativeSearchPath ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin", stage);
 }
 
 void ExpectRootDirectory(const Configuration &configuration, const char *stage) {
@@ -181,12 +188,22 @@ void OverrideBootstrapConfiguration(Configuration &configuration) {
     configuration.Set("Dir::dpkg::cputable", "/apt-conf-override/cputable");
     configuration.Set("Dir::dpkg::tupletable", "/apt-conf-override/tupletable");
     configuration.Set("Dir::dpkg::triplettable", "/apt-conf-override/triplettable");
-    configuration.Set("DPkg::Path", "/apt-conf-override/bin");
+    if (gVerifierFixture != VerifierFixture::NativeSearchPath)
+        configuration.Set("DPkg::Path", "/apt-conf-override/bin");
     configuration.Set("APT::Architectures::configured", "iphoneos-foreign-test");
     configuration.Set("Dir::Bin::Methods", "/bootstrap/methods");
     configuration.Set("Dir::State::extended_states", "/bootstrap/extended_states");
     configuration.Set("Dir::Etc::trusted", "bootstrap-trusted.gpg");
     configuration.Set("Dir::Etc::trustedparts", "bootstrap-trusted.gpg.d");
+    if (gVerifierFixture == VerifierFixture::ConfiguredPaths || gVerifierFixture == VerifierFixture::ConfiguredCommands) {
+        configuration.Set("Dir::Bin::apt-key", "/configured-tools/apt-key");
+        configuration.Set("Dir::Bin::gpgv", "/configured-tools/gpgv");
+        configuration.Set("Dir::Bin::gpg", "/configured-tools/gpg");
+        if (gVerifierFixture == VerifierFixture::ConfiguredCommands) {
+            configuration.Set("Apt::Key::gpgvcommand", "/configured-commands/gpgv");
+            configuration.Set("Apt::Key::gpgcommand", "/configured-commands/gpg");
+        }
+    }
     if (gRuntimeFixture == RuntimeFixture::CoherentOptions ||
         gRuntimeFixture == RuntimeFixture::ContradictoryAdmin) {
         configuration.Set("Dir::State::status", "/selected-admin/status");
@@ -391,6 +408,56 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
                ExpectedSourcePartsDirectory() + "/cydia-managed.list",
            std::string(name) + " managed source leaf resolution");
 }
+
+void VerifyVerifierConfiguration(CydiaRuntime::PackageDatabaseLayout layout, VerifierFixture fixture) {
+    const auto paths(CydiaRuntime::PackageDatabasePaths::ForLayout(layout));
+    CydiaAPT::InitializationOptions options(OptionsForLayout(paths));
+    options.nativeDpkgPath = paths.DpkgBinaryPath();
+    Configuration configuration;
+    configuration.Set("Dir::Bin::apt-key", "/stale-layout/apt-key");
+    configuration.Set("Apt::Key::gpgvcommand", "/stale-layout/gpgv");
+    configuration.Set("Apt::Key::gpgcommand", "/stale-layout/gpg");
+    _config = &configuration; _system = NULL;
+    gExpectedOptions = &options; gExpectedLayout = "verifier-tools";
+    gExpectedRootDir = ""; gSourceFixture = SourceFixture::Relative;
+    gRuntimeFixture = RuntimeFixture::Default; gVerifierFixture = fixture;
+    std::string architecture;
+    Expect(CydiaAPT::Initialize(options, &architecture), "verifier configuration remains readable");
+    const auto slash(options.nativeDpkgPath.rfind('/'));
+    const std::string bin(fixture == VerifierFixture::Defaults || fixture == VerifierFixture::NativeSearchPath ?
+        options.nativeDpkgPath.substr(0, slash + 1) : "/configured-tools/");
+    for (const char *tool : {"apt-key", "gpgv", "gpg"})
+        ExpectValue(configuration, (std::string("Dir::Bin::") + tool).c_str(), bin + tool, "verifier defaults and overrides");
+    const std::string commands(fixture == VerifierFixture::ConfiguredCommands ? "/configured-commands/" : bin);
+    ExpectValue(configuration, "Apt::Key::gpgvcommand", commands + "gpgv", "apt-key verifier command");
+    ExpectValue(configuration, "Apt::Key::gpgcommand", commands + "gpg", "apt-key key command");
+    Expect(std::getenv("PATH") != NULL && std::string(std::getenv("PATH")) ==
+        (fixture == VerifierFixture::NativeSearchPath ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin"),
+        "acquisition child PATH follows selected native or explicitly configured tool policy");
+    gVerifierFixture = VerifierFixture::Defaults;
+}
+
+#if defined(__APPLE__)
+void VerifyNativeTLSTrust() {
+    gnutls_certificate_credentials_t credentials(NULL);
+    Expect(gnutls_certificate_allocate_credentials(&credentials) == 0, "native TLS credentials allocated");
+    Expect(gnutls_certificate_set_x509_system_trust(credentials) > 0,
+           "Apple system trust must not report an empty PEM store");
+    Expect(gnutls_certificate_set_x509_trust_file(credentials, "/unused-ca.pem", GNUTLS_X509_FMT_PEM) == GNUTLS_E_UNIMPLEMENTED_FEATURE,
+           "unsupported custom trust must fail explicitly");
+    Expect(gnutls_certificate_set_x509_key_file(credentials, "/unused-client.pem", "/unused-key.pem", GNUTLS_X509_FMT_PEM) == GNUTLS_E_UNIMPLEMENTED_FEATURE,
+           "unsupported client credentials must fail explicitly");
+    Expect(gnutls_certificate_set_x509_crl_file(credentials, "/unused-crl.pem", GNUTLS_X509_FMT_PEM) == GNUTLS_E_UNIMPLEMENTED_FEATURE,
+           "unsupported custom revocation must fail explicitly");
+    gnutls_session_t session(NULL);
+    Expect(gnutls_init(&session, GNUTLS_CLIENT) == 0, "native TLS session allocated");
+    Boolean manualTrust(true);
+    Expect(SSLGetSessionOption(session->context, kSSLSessionOptionBreakOnServerAuth, &manualTrust) == noErr && !manualTrust,
+           "native TLS keeps SecureTransport automatic peer verification enabled");
+    gnutls_deinit(session); gnutls_certificate_free_credentials(credentials);
+}
+#pragma clang diagnostic pop
+#endif
 
 void VerifyCustomEtcRelativeSourceConfiguration() {
     const CydiaRuntime::PackageDatabasePaths paths(
@@ -665,6 +732,15 @@ int main(int argc, char **argv) {
         }
     }
     gFakeDpkgExecutable = argv[0];
+    const char *originalPath(std::getenv("PATH"));
+    const bool hadPath(originalPath != NULL);
+    const std::string savedPath(hadPath ? originalPath : "");
+#if defined(__APPLE__)
+    VerifyNativeTLSTrust();
+#endif
+    for (auto layout : {CydiaRuntime::PackageDatabaseLayout::Rootful, CydiaRuntime::PackageDatabaseLayout::Rootless})
+        for (auto fixture : {VerifierFixture::Defaults, VerifierFixture::NativeSearchPath, VerifierFixture::ConfiguredPaths, VerifierFixture::ConfiguredCommands})
+            VerifyVerifierConfiguration(layout, fixture);
     for (RuntimeFixture fixture : { RuntimeFixture::Default, RuntimeFixture::CoherentOptions,
                                     RuntimeFixture::ContradictoryAdmin, RuntimeFixture::CoherentRoot,
                                     RuntimeFixture::ContradictoryRoot, RuntimeFixture::UnsupportedChroot,
@@ -737,6 +813,8 @@ int main(int argc, char **argv) {
         setenv("DPKG_ROOT", savedRoot.c_str(), 1);
     else
         unsetenv("DPKG_ROOT");
+    if (hadPath) setenv("PATH", savedPath.c_str(), 1);
+    else unsetenv("PATH");
 
     std::cout << "[verify-apt-runtime][ ok ] effective bootstrap paths, dpkg descriptors and architecture discovery"
               << std::endl;

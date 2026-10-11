@@ -25,10 +25,10 @@
 "REPOSITORY_BAD_SIGNATURE" = "%@ 的签名与其内容不匹配。";
 "REPOSITORY_INVALID_SIGNATURE" = "%@ 的签名无效或元数据已损坏。";
 "ADVANCED_SETTINGS" = "高级设置";
-"BOOTSTRAP_REPOSITORIES" = "发行环境软件源";
-"BOOTSTRAP_REPOSITORIES_HELP" = "选择软件包发行环境的软件源，保护它们免于在“软件源”页面中被修改。更换发行环境时，请在这里检查所选软件源。Cydia 不会自动添加软件源。";
-"BOOTSTRAP_MISSING_REFERENCE" = "受保护的定义已被修改或移除。请检查其软件源文件，然后在保存前取消选择这里的旧引用。";
-"BOOTSTRAP_NONE_SELECTED" = "未选择任何软件源。确认后将保存配置，不保护任何软件源。";
+"BOOTSTRAP_REPOSITORIES" = "发行源";
+"BOOTSTRAP_REPOSITORIES_HELP" = "发行源是发行环境随附的官方软件源，提供核心工具和库。选中后，将保护它们免于在“软件源”页面中被修改。更换发行环境时，请在这里检查所选发行源。Cydia 不会自动添加软件源。";
+"BOOTSTRAP_MISSING_REFERENCE" = "受保护的发行源定义已被修改或移除。请检查其软件源文件，然后在保存前取消选择这里的旧引用。";
+"BOOTSTRAP_NONE_SELECTED" = "未选择任何发行源。确认后将保存配置，不保护任何发行源。";
 "EXTERNAL_EXECUTABLES" = "外部可执行文件";
 "EXTERNAL_EXECUTABLES_HELP" = "输入受信任可执行文件的绝对路径。留空则使用软件包发行环境的默认值。重新打开 Cydia 后更改生效。";
 "SOURCE_REVIEW_REQUIRED" = "请在高级设置中检查软件源配置。";

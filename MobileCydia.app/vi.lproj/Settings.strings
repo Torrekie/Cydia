@@ -26,7 +26,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "Chữ ký của %@ không hợp lệ hoặc siêu dữ liệu bị hỏng.";
 "ADVANCED_SETTINGS" = "Cài đặt nâng cao";
 "BOOTSTRAP_REPOSITORIES" = "Nguồn của hệ thống phân phối gói";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Chọn các nguồn của hệ thống phân phối gói cần bảo vệ khỏi thay đổi trong mục Các nguồn. Xem lại lựa chọn ở đây khi thay đổi hệ thống phân phối gói. Cydia không tự động thêm nguồn.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Các nguồn chính thức của hệ thống phân phối gói cung cấp công cụ và thư viện cốt lõi. Chọn chúng để bảo vệ khỏi thay đổi trong mục Các nguồn, và xem lại lựa chọn ở đây khi thay đổi hệ thống phân phối gói. Cydia không tự động thêm nguồn.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Một định nghĩa được bảo vệ đã bị thay đổi hoặc xóa. Xem lại tệp nguồn, rồi bỏ chọn tham chiếu cũ ở đây trước khi lưu.";
 "BOOTSTRAP_NONE_SELECTED" = "Chưa chọn nguồn nào. Xác nhận để lưu mà không bảo vệ nguồn.";
 "EXTERNAL_EXECUTABLES" = "Tệp thực thi bên ngoài";

@@ -25,7 +25,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "Signaturen för %@ är ogiltig eller metadata är skadade.";
 "ADVANCED_SETTINGS" = "Avancerade inställningar";
 "BOOTSTRAP_REPOSITORIES" = "Distributionskällor";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Välj de källor som tillhandahåller paketdistributionens grundläggande verktyg och bibliotek. De skyddas mot ändringar under Källor. Granska valet här när du byter distribution. Cydia lägger inte till källor automatiskt.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Välj de officiella källor som tillhandahåller paketdistributionens grundläggande verktyg och bibliotek. De skyddas mot ändringar under Källor. Granska valet här när du byter distribution. Cydia lägger inte till källor automatiskt.";
 "BOOTSTRAP_MISSING_REFERENCE" = "En skyddad definition har ändrats eller tagits bort. Granska dess källfil och avmarkera den gamla referensen här innan du sparar.";
 "BOOTSTRAP_NONE_SELECTED" = "Inga källor har valts. Bekräfta för att spara utan källskydd.";
 "EXTERNAL_EXECUTABLES" = "Externa körbara filer";

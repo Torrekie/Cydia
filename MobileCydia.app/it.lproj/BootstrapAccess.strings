@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Accesso al database della distribuzione";
 "BOOTSTRAP_ACCESS_REVIEW" = "Verifica accesso";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Verifica dell’accesso al database…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Per impostazione predefinita, Cydia richiede che il database dei pacchetti e tutte le directory che conducono ad esso siano protetti dalle modifiche di utenti diversi da root. Alcune distribuzioni di pacchetti consentono a un gruppo di modificare una directory superiore.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia configura automaticamente l’accesso al database della distribuzione di pacchetti durante l’installazione, mantenendo i permessi esistenti. Usa questa pagina per verificare l’accesso se cambia la configurazione della distribuzione.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Database dei pacchetti";
 "BOOTSTRAP_ACCESS_STATUS" = "Criterio di accesso";
 "BOOTSTRAP_ACCESS_STRICT" = "Protezione rigorosa";

@@ -25,7 +25,7 @@
 "REPOSITORY_INVALID_SIGNATURE" = "La signature de %@ est invalide ou ses métadonnées sont endommagées.";
 "ADVANCED_SETTINGS" = "Réglages avancés";
 "BOOTSTRAP_REPOSITORIES" = "Sources de la distribution";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Sélectionnez les sources qui fournissent les outils et bibliothèques essentiels de votre distribution de paquets. Elles sont protégées contre les modifications dans Sources. Vérifiez cette sélection ici lorsque vous changez de distribution. Cydia n’ajoute pas de sources automatiquement.";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Sélectionnez les sources officielles qui fournissent les outils et bibliothèques essentiels de votre distribution de paquets. Elles sont protégées contre les modifications dans Sources. Vérifiez cette sélection ici lorsque vous changez de distribution. Cydia n’ajoute pas de sources automatiquement.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Une définition protégée a été modifiée ou supprimée. Vérifiez son fichier source, puis désélectionnez ici l’ancienne référence avant d’enregistrer.";
 "BOOTSTRAP_NONE_SELECTED" = "Aucune source n’est sélectionnée. Confirmez pour enregistrer sans protection des sources.";
 "EXTERNAL_EXECUTABLES" = "Exécutables externes";

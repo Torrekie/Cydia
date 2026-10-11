@@ -17,8 +17,9 @@ struct PolicySnapshot {
 
 std::string SerializeProtectionPolicy(const std::vector<ProtectionSelector> &selectors);
 bool ParseProtectionPolicy(const std::string &bytes, std::vector<ProtectionSelector> *selectors);
-/* Missing/invalid role policy never silently removes bootstrap protection.
- * Only an explicit Advanced Settings review may initialize an empty policy. */
+/* The root installer initializes an absent policy with no inferred sources.
+ * Existing invalid policy still requires an explicit Advanced Settings review;
+ * ordinary edits never silently discard protected distribution source roles. */
 PolicySnapshot ReadProtectionPolicy(const std::string &path, uid_t trustedOwner = 0);
 
 enum class CommitKind { EditDocument, SetProtectionPolicy };

@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "Zugriff auf die Distributionsdatenbank";
 "BOOTSTRAP_ACCESS_REVIEW" = "Zugriff prüfen";
 "BOOTSTRAP_ACCESS_REVIEWING" = "Datenbankzugriff wird geprüft…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "Standardmäßig verlangt Cydia, dass die Paketdatenbank und alle Verzeichnisse auf dem Weg dorthin vor Änderungen durch andere Benutzer als root geschützt sind. Einige Paketdistributionen erlauben einer Gruppe, ein übergeordnetes Verzeichnis zu ändern.";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia richtet bei der Installation den Zugriff auf die Datenbank der Paketdistribution automatisch ein und behält deren vorhandene Berechtigungen bei. Auf dieser Seite kannst du den Zugriff prüfen, wenn sich die Konfiguration der Distribution ändert.";
 "BOOTSTRAP_ACCESS_DATABASE" = "Paketdatenbank";
 "BOOTSTRAP_ACCESS_STATUS" = "Zugriffsrichtlinie";
 "BOOTSTRAP_ACCESS_STRICT" = "Strenger Schutz";

@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "檔案與行號";
 "SOURCE_NEW_FILE" = "新增來源檔案";
 "SOURCE_NEW_FILE_EXPLANATION" = "輸入以 .list 或 .sources 結尾的新檔案名稱。只有在確認並儲存定義後才會建立檔案。";
-"SOURCE_PROTECTED" = "只能在進階設定中更改此套件發行環境來源。";
-"SOURCE_PROTECTED_OR_REVIEW" = "受保護或尚未確認的套件發行環境來源需要在進階設定中處理。編輯前必須能夠讀取來源檔案。";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "更改來源前，請在進階設定中檢查受保護的套件發行環境來源。";
+"SOURCE_PROTECTED" = "只能在進階設定中更改此發行源。";
+"SOURCE_PROTECTED_OR_REVIEW" = "受保護或尚未確認的發行源需要在進階設定中處理。編輯前必須能夠讀取來源檔案。";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "更改來源前，請在進階設定中檢查受保護的發行源。";
 "SOURCE_RELOAD_REQUIRED" = "來源檔案已變更。請重新載入來源並再次確認更改。";
 "SOURCE_REPOSITORIES" = "URI 與發行版";
 "SOURCE_REVIEW_CHANGE" = "確認來源更改";
@@ -36,8 +36,8 @@
 "SOURCE_URI" = "來源 URI";
 "SOURCE_WAIT_FOR_OPERATION" = "請等待目前的套件操作完成。";
 "SOURCE_WHOLE_DEFINITION" = "此更改會套用至整個定義，包括其中的所有 URI 與發行版。";
-"SOURCE_BOOTSTRAP_CHANGE" = "此定義作為套件發行環境的一部分受到保護。儲存編輯會保留其保護；刪除定義也會刪除對應的保護參照。";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "來源定義已變更，但無法儲存其保護參照。變更其他來源前，請在進階設定中檢查套件發行環境的來源。";
+"SOURCE_BOOTSTRAP_CHANGE" = "此定義屬於發行源，因而受到保護。儲存編輯會保留其保護；刪除定義也會刪除對應的保護參照。";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "來源定義已變更，但無法儲存其保護參照。變更其他來源前，請在進階設定中檢查發行源保護。";
 "SOURCE_READ_ONLY_ALIAS" = "此來源是由 Cydia 外部管理的連結。Cydia 可以使用它，但無法編輯或移除其中的來源定義。";
 
 "SOURCE_REPOSITORY_SETTINGS" = "來源設定";

@@ -121,17 +121,24 @@ the supported external tools (`dpkg`, `dpkg-query`, `dpkg-deb`, `uicache`,
 `apt-key`, `gpgv` and `gpg`) through a protected Cydia-owned configuration file.
 Override targets must pass executable and ownership checks.
 
-Some bootstraps place a protected dpkg database below root-owned directories
-that are writable by an administrator group. Cydia defaults to refusing this
-namespace: group membership, including `wheel`, is not equivalent to UID 0.
-Advanced Settings → Bootstrap Database Access reviews the independently
-configured database and offers explicit approval for its existing writable
-ancestor groups. Approval trusts every member of those groups to alter the
-database and package maintainer scripts. It changes Cydia's access policy,
-without changing bootstrap permissions or account/group membership.
+Some package distributions place a protected dpkg database below root-owned
+directories that are writable by an administrator group. During installation,
+the root maintscript initializes Cydia's private database-access policy from
+`DPKG_ADMINDIR`, or the verified installed control-file location on older dpkg.
+Normal first use needs no manual Settings approval. The setup accepts existing
+root-owned, non-world-writable ancestor groups and binds their exact namespace
+and permissions, without changing bootstrap permissions or group membership.
+It creates policies only when absent, preserving existing approvals, explicit
+revocation and administrator configuration. An unsafe database produces an
+installer diagnostic and remains unavailable for privileged operations.
+Advanced Settings → Distribution Database Access provides status, review and
+revocation when subsequent configuration changes need troubleshooting.
 
-The root-protected `admin-access.conf` records the canonical database, aliases
-and ancestor identities, owners, groups and permission modes. Darwin extended
+The root-protected `admin-access.conf` records the installer-selected path,
+canonical database and ancestor identities, owners, groups and permission
+modes. An independently protected APT alias may resolve to the identical
+database without adding writable ancestry. Both the installer route and the
+current runtime namespace are rechecked for every operation. Darwin extended
 ACLs are also bound to the review; ACL entries granting access to additional
 principals cannot be enrolled. Replacing a directory or alias, selecting a
 different database, or changing permissions requires a new review. Ordinary
@@ -141,7 +148,8 @@ tools, hooks, APT configuration, keyrings, source writers and the private policy
 retain strict ancestry checks. World-writable or non-root-owned ancestors and
 a group-writable final administration directory cannot be enrolled. Revocation
 remains available independently of database resolution and restores strict
-access. Enrollment is an explicit bootstrap trust decision, not protection
+access. Installation-time enrollment inherits the distribution installer’s trust in
+these administrator groups; explicit review is also available. It is not protection
 against a malicious member of an approved group or a replacement racing a
 root operation. Existing bootstrap configurations are preserved.
 
@@ -278,3 +286,22 @@ behavior cannot be established by the host fixtures; select the rooted or
 rootless installation and form factor required by the change. Record actual
 observations separately from source-level conclusions, without treating a
 full device matrix as a prerequisite for every compatibility edit.
+
+## Embedded APT helper execution and TLS
+
+Verifier defaults follow the selected native dpkg executable directory;
+protected APT configuration and Advanced Settings overrides take precedence.
+The embedded APT processes use the existing static script-execution fallback
+and the loaded `DPkg::Path`, so rootless interpreters and command dependencies
+remain discoverable. No compatibility dylib or shell wrapper is installed.
+
+The iOS HTTPS backend uses SecureTransport’s automatic system trust. Custom
+`CaInfo`, client-certificate and CRL files are currently unsupported and fail
+explicitly, instead of appearing to load while being ignored. Signature policy
+remains independent of TLS: Allow/Warning can accept unsigned repositories
+while normal HTTPS certificate validation remains enabled.
+
+The maintscript also initializes an absent source-protection policy with an
+empty selection. No official distribution source is inferred. Existing
+selections and invalid policies remain untouched; editing through delegated
+source-file links retains its separate read-only boundary.

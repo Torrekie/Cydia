@@ -1,7 +1,7 @@
 "BOOTSTRAP_ACCESS_TITLE" = "发行环境数据库访问";
 "BOOTSTRAP_ACCESS_REVIEW" = "检查访问权限";
 "BOOTSTRAP_ACCESS_REVIEWING" = "正在检查数据库访问权限…";
-"BOOTSTRAP_ACCESS_EXPLANATION" = "默认情况下，Cydia 要求软件包数据库及通往该数据库的每级目录都受到保护，不允许非 root 用户修改。某些软件包发行环境允许用户组修改上级目录。";
+"BOOTSTRAP_ACCESS_EXPLANATION" = "Cydia 会在安装时自动配置软件包发行环境的数据库访问，并保留其现有权限。如果发行环境的配置发生变化，请在此页面检查访问权限。";
 "BOOTSTRAP_ACCESS_DATABASE" = "软件包数据库";
 "BOOTSTRAP_ACCESS_STATUS" = "访问策略";
 "BOOTSTRAP_ACCESS_STRICT" = "严格保护";

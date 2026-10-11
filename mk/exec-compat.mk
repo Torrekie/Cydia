@@ -1,13 +1,14 @@
 # Copyright (C) 2026 Torrekie
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Curated static exec compatibility for cydo.
+# Curated static exec compatibility for cydo and embedded APT child helpers.
 #
 # Keep this source manifest intentionally small.  Cydia needs libiosexec's
 # execv fallback for iOS script execution, but does not need the dylib, account
 # database shims, posix_spawn wrappers, or librecompat's broader libc surface.
 
 EXEC_COMPAT_SOURCE_DIR := libiosexec
+EXEC_COMPAT_VERIFY_SCRIPT := scripts/verify-exec-compat.sh
 EXEC_COMPAT_SOURCE_URL := https://github.com/Remorix/libiosexec.git
 EXEC_COMPAT_SOURCE_COMMIT := 9953dfb10a92415301dbb9cf2f79e4a01591c708
 EXEC_COMPAT_LICENSE := LICENSE
@@ -67,6 +68,14 @@ EXEC_COMPAT_INPUTS := \
 	$(EXEC_COMPAT_SOURCE_DIR)/$(EXEC_COMPAT_LICENSE) \
 	$(EXEC_COMPAT_SOURCE_DIR)/$(EXEC_COMPAT_COPYRIGHT)
 EXEC_COMPAT_OBJECTS := $(patsubst %.c,$(EXEC_COMPAT_OBJECT_DIR)/%.o,$(EXEC_COMPAT_SOURCE_NAMES))
+# Scope API redirection to APT's process-execution code. Including the full
+# libiosexec public header would also redirect accounts, spawn and system APIs
+# which are deliberately outside this static source manifest.
+APT_EXEC_COMPAT_OBJECTS := \
+    $(OBJECT_DIR)/apt64/apt-pkg/contrib/gpgv.o \
+    $(OBJECT_DIR)/apt64/apt-pkg/contrib/fileutl.o \
+    $(OBJECT_DIR)/apt64/apt-pkg/acquire-worker.o
+$(APT_EXEC_COMPAT_OBJECTS): APT_EXEC_COMPAT_FLAGS := -Dexecv=ie_execv -Dexecvp=ie_execvp
 EXEC_COMPAT_COMPILE_FLAGS := \
 	-I$(EXEC_COMPAT_GENERATED_DIR) \
 	-I$(EXEC_COMPAT_SOURCE_DIR) \

@@ -271,6 +271,7 @@ verify-dpkg-version-policy: $(DPKG_VERSION_POLICY_TEST)
 	@$<
 
 $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \
+        apt-extra/gnutls/gnutls.h \
 		Cydia/RepositorySecurityPolicy.cpp Cydia/RepositorySecurityPolicy.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
 		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
@@ -281,7 +282,8 @@ $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRun
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Itests/apt-stubs -I. \
 		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/RepositorySecurityPolicy.cpp \
-		Cydia/PackageDatabasePaths.cpp Cydia/DpkgRunner.cpp Cydia/PrivilegedRuntime.cpp -o $@
+		Cydia/PackageDatabasePaths.cpp Cydia/DpkgRunner.cpp Cydia/PrivilegedRuntime.cpp \
+		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation) -o $@
 
 verify-apt-runtime: $(APT_RUNTIME_TEST)
 	@$<
@@ -1237,10 +1239,11 @@ verify-exec-compat-archive: $(EXEC_COMPAT_VERIFY_SCRIPT) $(EXEC_COMPAT_LIBRARY)
 verify-exec-compat-parser: $(EXEC_COMPAT_PARSER_TEST) Library/firmware.sh
 	@$(EXEC_COMPAT_PARSER_TEST) Library/firmware.sh "$(if $(filter 1,$(EXEC_COMPAT_PREFIXED_ROOT)),$(PACKAGE_PREFIX),)/bin/bash"
 
-verify-exec-compat-binary: $(EXEC_COMPAT_VERIFY_SCRIPT) $(CYDO_BINARY)
+verify-exec-compat-binary: $(EXEC_COMPAT_VERIFY_SCRIPT) $(CYDO_BINARY) $(APP_BINARY)
 	@test -n "$(CYNM)" || { echo "CYNM is required" >&2; exit 2; }
 	@test -n "$(CYOTOOL)" || { echo "CYOTOOL is required" >&2; exit 2; }
 	@$(EXEC_COMPAT_VERIFY_SCRIPT) binary "$(CYNM)" "$(CYOTOOL)" "$(CYDO_BINARY)"
+	@$(EXEC_COMPAT_VERIFY_SCRIPT) binary "$(CYNM)" "$(CYOTOOL)" "$(APP_BINARY)" app
 
 verify-apt: verify-apt-provenance verify-apt-sources verify-apt-config
 
