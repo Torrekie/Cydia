@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/SourceDocumentStore.hpp"
+#include "Cydia/ReadOnlySourceAlias.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -93,8 +94,23 @@ int OpenDirectory(const std::string &path, std::string *canonical, int *error) {
     return descriptor;
 }
 void ReadAt(StoreSnapshot *result, int directory, const std::string &canonicalDirectory,
-            const std::string &path, Format format, std::size_t maximumBytes) {
+            const std::string &path, Format format, std::size_t maximumBytes, bool readOnlyAliases = false,
+            uid_t readerUID = getuid(), gid_t readerGID = getgid(), const ReaderGroups &readerGroups = ReaderGroups()) {
     const std::string leaf(Leaf(path));
+    struct stat aliasBefore;
+    const bool alias(fstatat(directory, leaf.c_str(), &aliasBefore, AT_SYMLINK_NOFOLLOW) == 0 && S_ISLNK(aliasBefore.st_mode));
+    if (alias && readOnlyAliases) {
+        StoredDocument stored; struct stat target; std::string bytes;
+        if (!ReadOnlyAlias::Read(path, &bytes, &target, &stored.canonicalPath, readerUID, readerGID, NULL, readerGroups)) {
+            Diagnostic(result, StoreError::UnsafeFile, path, errno, "Cannot safely read delegated source data"); return;
+        }
+        if (bytes.size() > maximumBytes) {
+            Diagnostic(result, StoreError::TooLarge, path, 0, "Source file exceeds the reader limit"); return;
+        }
+        stored.document = ParseDocument(path, format, bytes); stored.identity = Identity(target); stored.readOnly = true;
+        if (!stored.document.valid()) Diagnostic(result, StoreError::InvalidDocument, path, 0, "Source document is malformed or ambiguous");
+        result->documents.push_back(stored); return;
+    }
     const Descriptor descriptor(openat(directory, leaf.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
     if (descriptor.get() < 0) {
         Diagnostic(result, errno == ELOOP ? StoreError::UnsafeFile : StoreError::ReadFailed,
@@ -158,7 +174,8 @@ bool FileIdentity::sameVersion(const FileIdentity &other) const {
         changedSeconds == other.changedSeconds && changedNanoseconds == other.changedNanoseconds));
 }
 
-StoreSnapshot ReadDocument(const std::string &path, Format format, std::size_t maximumBytes) {
+StoreSnapshot ReadDocument(const std::string &path, Format format, std::size_t maximumBytes, bool readOnlyAliases,
+                           uid_t readerUID, gid_t readerGID, const ReaderGroups &readerGroups) {
     StoreSnapshot result;
     if (!ValidPath(path) || Disabled(path)) {
         Diagnostic(&result, StoreError::InvalidPath, path, 0, "Source file must have an explicit absolute path"); return result;
@@ -168,14 +185,15 @@ StoreSnapshot ReadDocument(const std::string &path, Format format, std::size_t m
     if (directory.get() < 0) {
         Diagnostic(&result, StoreError::ReadFailed, path, error, "Cannot open source file's parent directory"); return result;
     }
-    ReadAt(&result, directory.get(), canonical, path, format, maximumBytes);
+    ReadAt(&result, directory.get(), canonical, path, format, maximumBytes, readOnlyAliases, readerUID, readerGID, readerGroups);
     return result;
 }
 
 StoreSnapshot ReadEffectiveDocuments(const EffectiveLocations &locations, std::size_t maximumBytes, std::size_t maximumFiles) {
     StoreSnapshot result;
     if (!Disabled(locations.mainFile)) {
-        const StoreSnapshot main(ReadDocument(locations.mainFile, FileFormat(locations.mainFile), maximumBytes));
+        const StoreSnapshot main(ReadDocument(locations.mainFile, FileFormat(locations.mainFile), maximumBytes, true,
+                                              locations.readerUID, locations.readerGID, locations.readerGroups));
         // APT accepts an absent main file; a malformed or unsafe file remains
         // an error, including when sourceparts is otherwise available.
         if (!(main.documents.empty() && main.diagnostics.size() == 1 &&
@@ -220,7 +238,8 @@ StoreSnapshot ReadEffectiveDocuments(const EffectiveLocations &locations, std::s
     if (names.size() + result.documents.size() <= maximumFiles) for (const std::string &name : names) {
         const std::string path(Join(parts, name));
         if (path == locations.mainFile) continue; // One physical input, not an implicit duplicate.
-        ReadAt(&result, dirfd(directory), canonical, path, FileFormat(path), maximumBytes);
+        ReadAt(&result, dirfd(directory), canonical, path, FileFormat(path), maximumBytes, true,
+               locations.readerUID, locations.readerGID, locations.readerGroups);
     }
     if (fstat(dirfd(directory), &after) < 0 || !Identity(before).sameVersion(Identity(after)))
         Diagnostic(&result, StoreError::ChangedDuringRead, parts, 0, "Sourceparts membership changed while being read");
@@ -264,6 +283,9 @@ StorePlan PlanStoredMutation(const EffectiveLocations &locations, const StoredDo
     }
     if (!found && mutation.kind != EditKind::AppendDefinition && mutation.kind != EditKind::ReplaceDocument) {
         result.edit = Refused(expected.document, EditStatus::InvalidMutation, "Only an explicit addition/import can create a source file"); return result;
+    }
+    if (found && result.target.readOnly) {
+        Diagnostic(&result.fresh, StoreError::UnsafeFile, expected.document.path, 0, "Source aliases are read-only"); return result;
     }
     if (found && result.target.identity.links != 1) {
         Diagnostic(&result.fresh, StoreError::UnsafeFile, expected.document.path, 0, "Hard-linked source file requires explicit ownership review"); return result;

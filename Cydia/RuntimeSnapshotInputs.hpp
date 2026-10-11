@@ -10,7 +10,8 @@ typedef bool (*SnapshotCapture)(const std::string &, bool, bool, Evidence *, Err
 bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
                           std::vector<Evidence> *inputs, Error *error,
                           SnapshotCapture capture = CaptureEvidence,
-                          SnapshotCapture sharedCapture = CaptureSharedStateEvidence);
+                          SnapshotCapture sharedCapture = CaptureSharedStateEvidence,
+                          SnapshotCapture sourceCapture = CaptureSourceEvidence);
 std::string SerializeSnapshotEvidence(const Evidence &evidence);
 } }
 #endif

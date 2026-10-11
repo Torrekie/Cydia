@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PrivilegedRuntime.hpp"
 #include "Cydia/SharedStateFile.hpp"
+#include "Cydia/ReadOnlySourceAlias.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -9,6 +10,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits>
+#include <sstream>
 #include <unistd.h>
 
 namespace CydiaRuntime {
@@ -262,14 +264,43 @@ bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error) {
                 return Fail(error, "stale_environment", "Privileged executable or directory changed; review it again.");
             continue;
         }
-        const auto capture(before.sharedState ? CaptureSharedStateEvidence : CaptureEvidence);
-        if (!capture(before.path, before.directory, before.absent, &now, error)) return false;
+        if (before.sourceInput) {
+            if (!CaptureSourceEvidenceForReader(before.path, before.directory, before.absent, &now, error,
+                                                before.sourceReaderUID, before.sourceReaderGID, before.sourceReaderGroups)) return false;
+        } else if (!(before.sharedState ? CaptureSharedStateEvidence : CaptureEvidence)(before.path, before.directory, before.absent, &now, error)) return false;
         if (before.absent != now.absent ||
             (!before.absent && (!SameIdentity(before.identity, now.identity) ||
-             before.bytes != now.bytes || before.entries != now.entries)))
+             before.bytes != now.bytes || before.entries != now.entries || before.sourceDelegation != now.sourceDelegation)))
             return Fail(error, "stale_environment", "Privileged configuration changed; review it again.");
     }
     return true;
+}
+
+bool CaptureSourceEvidence(const std::string &path, bool directory, bool allowAbsent,
+                           Evidence *evidence, Error *error) {
+    return CaptureSourceEvidenceForReader(path, directory, allowAbsent, evidence, error, getuid(), getgid());
+}
+bool CaptureSourceEvidenceForReader(const std::string &path, bool directory, bool allowAbsent,
+                                    Evidence *evidence, Error *error, uid_t uid, gid_t gid, const CydiaSources::ReaderGroups &groups) {
+    if (evidence == NULL || directory) return false;
+    struct stat leaf;
+    if (lstat(path.c_str(), &leaf) == 0 && S_ISLNK(leaf.st_mode)) {
+        *evidence = Evidence(); evidence->path = path;
+        std::string canonical; struct stat alias;
+        if (!CydiaSources::ReadOnlyAlias::Read(path, &evidence->bytes, &evidence->identity, &canonical, uid, gid, &alias, groups))
+            return Fail(error, "unsafe_source_alias", "Cannot safely read the delegated source data.");
+        std::ostringstream identity;
+        identity << alias.st_dev << ' ' << alias.st_ino << ' ' << alias.st_uid << ' ' << alias.st_gid << ' '
+            << alias.st_mode << ' ' << alias.st_size << ' ' << alias.st_nlink << ' ';
+#ifdef __APPLE__
+        identity << alias.st_mtimespec.tv_sec << ' ' << alias.st_mtimespec.tv_nsec << ' ' << alias.st_ctimespec.tv_sec << ' ' << alias.st_ctimespec.tv_nsec;
+#else
+        identity << alias.st_mtim.tv_sec << ' ' << alias.st_mtim.tv_nsec << ' ' << alias.st_ctim.tv_sec << ' ' << alias.st_ctim.tv_nsec;
+#endif
+        evidence->sourceDelegation = SerializeFields({canonical, identity.str()});
+    } else if (!CaptureEvidence(path, false, allowAbsent, evidence, error)) return false;
+    evidence->sourceInput = true; evidence->sourceReaderUID = uid; evidence->sourceReaderGID = gid;
+    evidence->sourceReaderGroups = groups; return true;
 }
 
 bool CapturePathIdentity(const std::string &path, bool directory, bool executable,

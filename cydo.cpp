@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <grp.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <mach-o/dyld.h>
@@ -395,7 +396,8 @@ bool LegacyCommand(const CydiaRuntime::PackageDatabasePaths &paths,
     return false;
 }
 
-int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int argc, char *argv[]) {
+int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int argc, char *argv[], uid_t callerUID, gid_t callerGID,
+             const CydiaSources::ReaderGroups &callerGroups) {
     Privileged::Error error;
     const std::string command = argc > 1 ? argv[1] : "";
     if (command == "--cydia-set-executable") {
@@ -426,6 +428,8 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         if (!Privileged::ResolveCurrentEnvironment(paths, configuration == NULL ? "" : configuration, &environment, &error)) return Denied(error);
     }
     SanitizeEnvironment(paths);
+    environment.sourceReaderUID = callerUID; environment.sourceReaderGID = callerGID;
+    environment.sourceReaderGroups = callerGroups;
     if (snapshot || trustSnapshot) {
         std::string token;
         if (argc != 2 || !request.payload.empty()) return EX_DATAERR;
@@ -527,7 +531,8 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
                     commit.access != CydiaSources::Access::Ordinary || commit.initializePolicy) return EX_NOPERM;
                 commit.access = CydiaSources::Access::Ordinary;
             } else commit.access = CydiaSources::Access::AdvancedSettings;
-            const CydiaSources::EffectiveLocations locations{environment.sourceList, environment.sourceParts};
+            const CydiaSources::EffectiveLocations locations{environment.sourceList, environment.sourceParts,
+                                                             environment.sourceReaderUID, environment.sourceReaderGID, environment.sourceReaderGroups};
             const std::string policy(paths.CydiaStateDirectory() + "/source-protection");
             const auto result = command == "--cydia-source-advanced" && commit.kind == CydiaSources::CommitKind::EditDocument ?
                 CydiaSources::CommitSourceRequestWithProtectionRefresh(locations, policy, commit) :
@@ -577,6 +582,9 @@ int main(int argc, char *argv[]) {
     Privileged::Error error;
     if (!InstalledPaths(&paths, &self) || !Privileged::ValidateRootOwnedPath(self, false, true, &error)) return Denied(error);
     const uid_t callerUID = getuid();
+    const gid_t callerGID = getgid();
+    const CydiaSources::ReaderGroups callerGroups;
+    if (!callerGroups.valid) return EX_NOPERM;
     const bool rootCaller = callerUID == 0;
     const std::string dummy(paths.CydiaHelperPath("cydo.dummy"));
 
@@ -584,10 +592,11 @@ int main(int argc, char *argv[]) {
     /* The platform fix may change real uid before the launchd fallback
      * re-execs this helper. Preserve the original caller identity so that
      * a mobile caller cannot become a root diagnostics caller on retry. */
-    if (!rootCaller && setreuid(callerUID, 0) != 0) return EX_NOPERM;
+    if (!rootCaller && (setregid(callerGID, 0) != 0 || setreuid(callerUID, 0) != 0)) return EX_NOPERM;
+    if (!rootCaller && setgroups(callerGroups.values.size(), callerGroups.values.empty() ? NULL : callerGroups.values.data()) != 0) return EX_NOPERM;
     if (rootCaller) {
         if (setgid(0) != 0 || setuid(0) != 0) return EX_NOPERM;
-        return Dispatch(paths, getppid(), argc, argv);
+        return Dispatch(paths, getppid(), argc, argv, callerUID, callerGID, callerGroups);
     }
     auto request(launch_data_new_string(LAUNCH_KEY_GETJOBS));
     auto response(launch_msg(request));
@@ -713,5 +722,5 @@ int main(int argc, char *argv[]) {
 
     launch_data_free(response);
     if (setgid(0) != 0 || setuid(0) != 0) return EX_NOPERM;
-    return Dispatch(paths, parent, argc, argv);
+    return Dispatch(paths, parent, argc, argv, callerUID, callerGID, callerGroups);
 }

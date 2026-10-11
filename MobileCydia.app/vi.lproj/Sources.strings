@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Thay đổi này áp dụng cho toàn bộ định nghĩa, bao gồm mọi URI và bộ phân phối trong đó.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Định nghĩa này được bảo vệ vì là một phần của môi trường bootstrap. Lưu chỉnh sửa sẽ giữ nguyên sự bảo vệ; xóa định nghĩa cũng sẽ xóa các tham chiếu bảo vệ của nó.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Định nghĩa nguồn đã thay đổi, nhưng không thể lưu các tham chiếu bảo vệ. Hãy xem lại các kho bootstrap trong Cài đặt nâng cao trước khi thay đổi thêm nguồn.";
+"SOURCE_READ_ONLY_ALIAS" = "Nguồn này là một liên kết được quản lý bên ngoài Cydia. Cydia có thể sử dụng nguồn này, nhưng không thể sửa hoặc xóa các định nghĩa của nó.";

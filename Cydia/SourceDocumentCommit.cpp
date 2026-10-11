@@ -81,6 +81,7 @@ bool SafeDirectory(const struct stat &st, uid_t owner) {
 }
 int TrustedParent(const std::string &path, uid_t owner) {
     if (!Text(path) || path[0] != '/' || Leaf(path).empty() || Leaf(path) == "." || Leaf(path) == "..") return -1;
+    if (owner == 0) return CydiaRuntime::SharedState::OpenParent(path);
     char *resolved(realpath(Parent(path).c_str(), NULL));
     if (resolved == NULL) return -1;
     const std::string canonical(resolved); free(resolved);

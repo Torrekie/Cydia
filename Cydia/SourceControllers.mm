@@ -19,6 +19,8 @@
 #include <QuartzCore/QuartzCore.h>
 #include <objc/runtime.h>
 #include <algorithm>
+#include <cerrno>
+#include <sys/stat.h>
 
 static NSString *SourceUI(NSString *key) {
     return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Sources"];
@@ -374,6 +376,7 @@ static NSString *DefinitionSummary(CydiaSourceDefinition *row) {
 }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
     if (section == 1 && browsable_.count == 0) return SourceUI(@"SOURCE_INDEX_UNAVAILABLE");
+    if (section == 2 && [row_ snapshot].readOnly) return SourceUI(@"SOURCE_READ_ONLY_ALIAS");
     if (section == 2 && !CydiaSourceDefinitionCanEdit(row_, access_)) return SourceUI(@"SOURCE_PROTECTED_OR_REVIEW");
     return nil;
 }
@@ -743,6 +746,7 @@ static NSString *DefinitionSummary(CydiaSourceDefinition *row) {
     BOOL hasMain(NO);
     for (const auto &document : snapshot.documents) {
         hasMain = hasMain || document.document.path == locations.mainFile;
+        if (document.readOnly || document.identity.links != 1) continue;
         const auto expected(document);
         [chooser addAction:[UIAlertAction actionWithTitle:[NSString stringWithUTF8String:document.document.path.c_str()] style:UIAlertActionStyleDefault handler:^(UIAlertAction *) { [self editDestination:expected draft:draft]; }]];
     }
@@ -767,8 +771,9 @@ static NSString *DefinitionSummary(CydiaSourceDefinition *row) {
         const std::string path(directory + "/" + ([name UTF8String] ?: ""));
         if ([name rangeOfString:@"/"].location != NSNotFound || !CydiaSources::IsEffectiveDestination(locations, path)) { SourceMessage(self, SourceUI(@"SOURCE_FILENAME_INVALID")); return; }
         auto expected(CydiaSources::NewDocument(path, [name hasSuffix:@".sources"] ? CydiaSources::Format::Deb822 : CydiaSources::Format::OneLine));
-        const auto current(CydiaSources::ReadDocument(path, expected.document.format));
-        if (!current.documents.empty()) { SourceMessage(self, SourceUI(@"SOURCE_FILE_EXISTS")); return; }
+        struct stat existing;
+        if (lstat(path.c_str(), &existing) == 0) { SourceMessage(self, SourceUI(@"SOURCE_FILE_EXISTS")); return; }
+        if (errno != ENOENT) { SourceMessage(self, SourceUI(@"SOURCE_FILE_UNAVAILABLE")); return; }
         [self editDestination:expected draft:draft];
     }]];
     [self presentViewController:alert animated:YES completion:nil];

@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Ändringen gäller hela definitionen, inklusive alla URI:er och sviter i den.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Den här definitionen skyddas som en del av din bootstrap-miljö. När en ändring sparas behålls skyddet; om definitionen tas bort tas även dess skyddsreferenser bort.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Källdefinitionen har ändrats, men dess skyddsreferenser kunde inte sparas. Granska bootstrap-förråden i Avancerade inställningar innan du ändrar fler källor.";
+"SOURCE_READ_ONLY_ALIAS" = "Den här källan är en länk som hanteras utanför Cydia. Cydia kan använda den, men kan inte redigera eller ta bort dess definitioner.";

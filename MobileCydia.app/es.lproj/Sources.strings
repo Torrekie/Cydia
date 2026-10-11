@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Este cambio afecta a toda la definición, incluidos todos sus URI y distribuciones.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Esta definición está protegida como parte de tu entorno bootstrap. Guardar un cambio conserva su protección; eliminarla también elimina sus referencias de protección.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "La definición de la fuente cambió, pero no se pudieron guardar sus referencias de protección. Revisa los repositorios del bootstrap en Ajustes avanzados antes de cambiar más fuentes.";
+"SOURCE_READ_ONLY_ALIAS" = "Esta fuente es un enlace que se gestiona fuera de Cydia. Cydia puede usarla, pero no puede editar ni eliminar sus definiciones.";

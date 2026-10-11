@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "This change applies to the entire definition, including every URI and suite in it.";
 "SOURCE_BOOTSTRAP_CHANGE" = "This definition is protected as part of your bootstrap. Saving an edit preserves its protection; removing it also removes its protection references.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "The source definition changed, but its protection references could not be saved. Review bootstrap repositories in Advanced Settings before changing more sources.";
+"SOURCE_READ_ONLY_ALIAS" = "This source is a link managed outside Cydia. Cydia can use it, but cannot edit or remove its definitions.";

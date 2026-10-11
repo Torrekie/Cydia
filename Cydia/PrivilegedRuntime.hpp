@@ -4,6 +4,7 @@
 #define Cydia_PrivilegedRuntime_HPP
 
 #include "Cydia/PackageDatabasePaths.hpp"
+#include "Cydia/SourceReaderGroups.hpp"
 #include <map>
 #include <string>
 #include <vector>
@@ -49,11 +50,19 @@ struct Evidence {
     bool absent;
     bool identityOnly;
     bool sharedState;
+    bool sourceInput;
+    uid_t sourceReaderUID;
+    gid_t sourceReaderGID;
+    CydiaSources::ReaderGroups sourceReaderGroups;
+    std::string sourceDelegation;
     std::string bytes;
     std::vector<std::string> entries;
 };
 
 struct Environment : ExpectedEnvironment {
+    uid_t sourceReaderUID;
+    gid_t sourceReaderGID;
+    CydiaSources::ReaderGroups sourceReaderGroups;
     std::string extendedStates;
     // Protected APT configuration selects these; they are never wire claims.
     std::string preferences;
@@ -64,6 +73,7 @@ struct Environment : ExpectedEnvironment {
     std::vector<std::string> trustedDpkgHooks; // Canonical hooks recovered solely from protected DPkg::Options.
     std::vector<Evidence> evidence;
     std::map<std::string, std::string> executableOverrides;
+    Environment() : sourceReaderUID(0), sourceReaderGID(0) {}
 };
 
 /* Validates the complete canonical parent chain as well as the leaf.
@@ -74,6 +84,11 @@ bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent,
                      Evidence *evidence, Error *error);
 bool CaptureSharedStateEvidence(const std::string &path, bool directory, bool allowAbsent,
                                 Evidence *evidence, Error *error);
+bool CaptureSourceEvidence(const std::string &path, bool directory, bool allowAbsent,
+                           Evidence *evidence, Error *error);
+bool CaptureSourceEvidenceForReader(const std::string &path, bool directory, bool allowAbsent,
+                                    Evidence *evidence, Error *error, uid_t uid, gid_t gid,
+                                    const CydiaSources::ReaderGroups &groups = CydiaSources::ReaderGroups());
 bool CapturePathIdentity(const std::string &path, bool directory, bool executable,
                          Evidence *evidence, Error *error);
 bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error);

@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Ta zmiana obejmuje całą definicję, w tym wszystkie zawarte w niej URI i wydania.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Ta definicja jest chroniona jako część środowiska bootstrap. Zapisanie zmiany zachowuje ochronę; usunięcie definicji usuwa również jej odwołania ochrony.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Definicja źródła została zmieniona, ale nie udało się zapisać jej odwołań ochrony. Przejrzyj repozytoria środowiska bootstrap w ustawieniach zaawansowanych przed zmianą kolejnych źródeł.";
+"SOURCE_READ_ONLY_ALIAS" = "To źródło jest dowiązaniem zarządzanym poza aplikacją Cydia. Cydia może z niego korzystać, ale nie może edytować ani usuwać jego definicji.";

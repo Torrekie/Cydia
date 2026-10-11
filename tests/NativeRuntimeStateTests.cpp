@@ -2,6 +2,10 @@
 #include "Cydia/RuntimeState.hpp"
 #include "Cydia/ApplicationIdentity.hpp"
 #include "Cydia/SourceDocumentCommit.hpp"
+#include "Cydia/RuntimeSnapshotInputs.hpp"
+#include <algorithm>
+#include <cerrno>
+#include <dirent.h>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -23,6 +27,20 @@ std::string Read(const std::string &path) {
     std::ifstream file(path, std::ios::binary);
     Require(file.good(), "read fixture");
     return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+}
+bool FixtureCapture(const std::string &path, bool directory, bool absent, Evidence *input, Error *) {
+    *input = Evidence(); input->path = path; input->directory = directory;
+    if (lstat(path.c_str(), &input->identity) != 0) { input->absent = errno == ENOENT; return input->absent && absent; }
+    if (!directory) { input->bytes = Read(path); return S_ISREG(input->identity.st_mode); }
+    DIR *stream(opendir(path.c_str())); if (stream == NULL) return false;
+    while (struct dirent *entry = readdir(stream))
+        if (std::string(entry->d_name) != "." && std::string(entry->d_name) != "..") input->entries.push_back(entry->d_name);
+    closedir(stream); std::sort(input->entries.begin(), input->entries.end()); return true;
+}
+bool FixtureSourceCapture(const std::string &path, bool directory, bool absent, Evidence *input, Error *error) {
+    struct stat leaf;
+    if (lstat(path.c_str(), &leaf) == 0 && S_ISLNK(leaf.st_mode)) return CaptureSourceEvidence(path, directory, absent, input, error);
+    return FixtureCapture(path, directory, absent, input, error);
 }
 struct Fixture {
     std::string root, status, original;
@@ -71,6 +89,55 @@ int main() {
             !InspectApplicationExecutable(app, &identity), "writable app executable is rejected");
         Require(chmod(app.c_str(), 0755) == 0 && chown(app.c_str(), 501, 501) == 0 &&
             !InspectApplicationExecutable(app, &identity), "non-root app executable is rejected");
+    }
+    {
+        Fixture f; Error error;
+        const std::string sources(f.root + "/sources"), cache(f.root + "/cache"), alias(sources + "/bootstrap.list"),
+            target(cache + "/provider.sources"), local(sources + "/user.list"), policy(f.root + "/source-policy");
+        Require(std::filesystem::create_directory(sources) && std::filesystem::create_directory(cache), "create delegated-source fixture");
+        Require(chown(cache.c_str(), 501, 501) == 0 && chmod(cache.c_str(), 0700) == 0, "private external frontend cache");
+        const std::string delegated("deb https://bootstrap.invalid/ stable main\n");
+        Write(target, delegated); Require(chown(target.c_str(), 501, 501) == 0 && symlink(target.c_str(), alias.c_str()) == 0,
+            "root-owned source alias delegates user-owned data");
+        Write(local, "deb https://user.invalid/ stable main\n");
+        CydiaSources::ProtectedFileSnapshot protectedSource;
+        const std::string untrustedParent(f.root + "/untrusted-sourceparts");
+        Require(CydiaSources::ReadProtectedFile(local, &protectedSource) &&
+            symlink(sources.c_str(), untrustedParent.c_str()) == 0 && lchown(untrustedParent.c_str(), 501, 501) == 0,
+            "create untrusted lexical source-parent alias");
+        Require(CydiaSources::ReplaceProtectedFile(untrustedParent + "/user.list", protectedSource, "changed\n").status ==
+            CydiaSources::CommitStatus::UnsafePath && Read(local) == protectedSource.bytes,
+            "root source writer refuses untrusted lexical aliases before replacement");
+        const CydiaSources::EffectiveLocations locations{alias, sources};
+        const auto snapshot(CydiaSources::ReadEffectiveDocuments(locations));
+        Require(snapshot.ready() && snapshot.documents.size() == 2 && snapshot.documents[0].readOnly &&
+            snapshot.documents[0].document.format == CydiaSources::Format::OneLine && snapshot.documents[0].document.bytes == delegated,
+            "delegated source uses lexical APT format and remains visible read-only");
+        CydiaSources::Mutation remove(CydiaSources::EditKind::RemoveDefinition); remove.ordinal = 0;
+        Require(!CydiaSources::PlanStoredMutation(locations, snapshot.documents[0], remove).ready() &&
+            !CydiaSources::PlanStoredMutation(locations, snapshot.documents[0], remove, {}, CydiaSources::Access::AdvancedSettings).ready(),
+            "ordinary and advanced planners refuse edit-through aliases");
+        Require(CydiaSources::PlanStoredMutation(locations, snapshot.documents[1], remove).ready(), "alias does not block unrelated source edits");
+        const std::string emptyPolicy(CydiaSources::SerializeProtectionPolicy({})); Write(policy, emptyPolicy);
+        CydiaSources::CommitRequest request; request.expected = snapshot.documents[1]; request.mutation = remove; request.expectedPolicy = emptyPolicy;
+        Require(CydiaSources::CommitSourceRequest(locations, policy, request).succeeded() && Read(target) == delegated,
+            "unrelated source commit preserves delegation and target bytes");
+        Evidence evidence;
+        Require(CaptureSourceEvidence(alias, false, false, &evidence, &error) && evidence.sourceInput &&
+            !evidence.sourceDelegation.empty() && RecheckEvidence({evidence}, &error), "snapshot binds protected delegation and target");
+        CydiaSources::ReaderGroups invalidGroups; invalidGroups.valid = false; Evidence denied;
+        Require(!CaptureSourceEvidenceForReader(alias, false, false, &denied, &error, getuid(), getgid(), invalidGroups),
+            "uncaptured supplementary credentials deny delegated source reads");
+        f.environment.sourceList = alias; f.environment.sourceParts = sources; f.environment.preferencesParts = sources;
+        std::vector<Evidence> inputs;
+        Require(CaptureSnapshotInputs(f.environment, SnapshotScope::PackageState, &inputs, &error,
+            FixtureCapture, CaptureSharedStateEvidence, FixtureSourceCapture), "source/pin overlap preserves per-entry source policy");
+        Require(unlink(alias.c_str()) == 0 && symlink(target.c_str(), alias.c_str()) == 0 &&
+            !RecheckEvidence({evidence}, &error), "same-target alias replacement invalidates earlier review");
+        Require(chmod(target.c_str(), 0600) == 0 && !CaptureSourceEvidence(alias, false, false, &evidence, &error),
+            "non-public delegated target is refused");
+        Require(chmod(target.c_str(), 0644) == 0 && lchown(alias.c_str(), 501, 501) == 0 &&
+            !CaptureSourceEvidence(alias, false, false, &evidence, &error), "user-owned source delegation is refused");
     }
     {
         Fixture f; Error error; std::string bytes;

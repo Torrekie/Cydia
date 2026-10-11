@@ -39,7 +39,7 @@ void Write(const std::string &path, const std::string &bytes) {
 }
 std::vector<Evidence> Capture(const Environment &environment, SnapshotScope scope) {
     std::vector<Evidence> inputs; Error error;
-    const bool captured(CaptureSnapshotInputs(environment, scope, &inputs, &error, FixtureCapture, FixtureCapture));
+    const bool captured(CaptureSnapshotInputs(environment, scope, &inputs, &error, FixtureCapture, FixtureCapture, FixtureCapture));
     if (!captured) std::cerr << error.code << ": " << error.message << '\n';
     assert(captured); return inputs;
 }

@@ -3,8 +3,10 @@
 #define Cydia_SourceDocumentStore_HPP
 
 #include "Cydia/SourceDocument.hpp"
+#include "Cydia/SourceReaderGroups.hpp"
 
 #include <cstdint>
+#include <unistd.h>
 
 namespace CydiaSources {
 
@@ -13,6 +15,12 @@ namespace CydiaSources {
 struct EffectiveLocations {
     std::string mainFile;
     std::string partsDirectory;
+    uid_t readerUID;
+    gid_t readerGID;
+    ReaderGroups readerGroups;
+    EffectiveLocations(const std::string &main = "", const std::string &parts = "",
+                       uid_t uid = getuid(), gid_t gid = getgid(), const ReaderGroups &groups = ReaderGroups()) :
+        mainFile(main), partsDirectory(parts), readerUID(uid), readerGID(gid), readerGroups(groups) {}
 };
 
 struct FileIdentity {
@@ -27,7 +35,9 @@ struct FileIdentity {
 struct StoredDocument {
     Document document;
     FileIdentity identity;
-    std::string canonicalPath;   // Resolved parent plus the non-symlink leaf.
+    std::string canonicalPath;   // Resolved path, including the target of a read-only alias.
+    bool readOnly;
+    StoredDocument() : readOnly(false) {}
 };
 
 enum class StoreError {
@@ -48,13 +58,17 @@ struct StoreSnapshot {
     bool ready() const { return diagnostics.empty(); }
 };
 
-/* Readers reject symlink/nonregular leaves. Parent paths are canonicalized so
+/* Direct reads reject symlink/nonregular leaves by default. Effective snapshots
+ * include protected root-owned leaf aliases as read-only documents. Parent paths are canonicalized so
  * legitimate bootstrap aliases such as /etc or a selected rootless mount do
  * not become layout assumptions. This is not a privileged path authorization.
  * The root writer must independently validate trusted directory ownership,
  * reopen its directory capabilities and recheck identities/bytes at commit. */
 StoreSnapshot ReadDocument(const std::string &path, Format format,
-                           std::size_t maximumBytes = 4 * 1024 * 1024);
+                           std::size_t maximumBytes = 4 * 1024 * 1024,
+                           bool readOnlyAliases = false,
+                           uid_t readerUID = getuid(), gid_t readerGID = getgid(),
+                           const ReaderGroups &readerGroups = ReaderGroups());
 StoreSnapshot ReadEffectiveDocuments(const EffectiveLocations &locations,
                                     std::size_t maximumBytes = 4 * 1024 * 1024,
                                     std::size_t maximumFiles = 4096);

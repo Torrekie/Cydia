@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "此更改會套用至整個定義，包括其中的所有 URI 與發行版。";
 "SOURCE_BOOTSTRAP_CHANGE" = "此定義作為引導環境的一部分受到保護。儲存編輯會保留其保護；刪除定義也會刪除對應的保護參照。";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "來源定義已變更，但無法儲存其保護參照。變更其他軟體來源前，請在進階設定中檢查引導環境的軟體來源。";
+"SOURCE_READ_ONLY_ALIAS" = "此套件來源是由 Cydia 外部管理的連結。Cydia 可以使用它，但無法編輯或移除其中的套件來源定義。";

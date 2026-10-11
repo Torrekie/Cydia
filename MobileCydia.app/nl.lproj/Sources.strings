@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Deze wijziging geldt voor de volledige definitie, inclusief alle URI’s en suites daarin.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Deze definitie is beschermd als onderdeel van je bootstrap. Het opslaan van een wijziging behoudt de bescherming; verwijderen wist ook de bijbehorende beschermingsverwijzingen.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "De brondefinitie is gewijzigd, maar de beschermingsverwijzingen konden niet worden opgeslagen. Controleer de bootstrap-pakketbronnen in Geavanceerde instellingen voordat je meer bronnen wijzigt.";
+"SOURCE_READ_ONLY_ALIAS" = "Deze bron is een koppeling die buiten Cydia wordt beheerd. Cydia kan deze gebruiken, maar de definities ervan niet bewerken of verwijderen.";

@@ -20,7 +20,7 @@ bool HashSnapshot(const Environment &environment, SnapshotScope scope, std::stri
     std::vector<Evidence> inputs;
     if (!CaptureSnapshotInputs(environment, scope, &inputs, error) || !RecheckEvidence(inputs, error)) return false;
     Hashes hash(Hashes::SHA256SUM);
-    const std::string domain(scope == SnapshotScope::PackageState ? "CYDIA-PACKAGE-SNAPSHOT-3" : "CYDIA-TRUST-SNAPSHOT-2");
+    const std::string domain(scope == SnapshotScope::PackageState ? "CYDIA-PACKAGE-SNAPSHOT-4" : "CYDIA-TRUST-SNAPSHOT-3");
     if (!hash.Add(domain.data(), domain.size())) return Fail(error, "snapshot_failed", "Cannot hash the package-manager snapshot.");
     for (const auto &input : inputs) {
         const std::string frame(SerializeSnapshotEvidence(input));

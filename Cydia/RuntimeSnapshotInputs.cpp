@@ -41,24 +41,28 @@ void SignedByFiles(const CydiaSources::Definition &definition, CydiaSources::For
 }
 }
 bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
-                          std::vector<Evidence> *inputs, Error *error, SnapshotCapture capture, SnapshotCapture sharedCapture) {
-    if (inputs == NULL || capture == NULL || sharedCapture == NULL) return false;
+                          std::vector<Evidence> *inputs, Error *error, SnapshotCapture capture, SnapshotCapture sharedCapture, SnapshotCapture sourceCapture) {
+    if (inputs == NULL || capture == NULL || sharedCapture == NULL || sourceCapture == NULL) return false;
     *inputs = environment.evidence;
     std::set<std::pair<std::string, bool> > seen;
     for (const auto &input : *inputs) if (!input.identityOnly) seen.insert({input.path, input.directory});
-    const auto add = [&](const std::string &path, bool directory, bool absent, bool sharedState = false) {
+    const auto add = [&](const std::string &path, bool directory, bool absent, bool sharedState = false, bool sourceInput = false) {
         if (path.empty() || path == "/dev/null") return true;
         if (!seen.insert({path, directory}).second) {
             // Overlapping configured roles retain the stricter policy. A pin
             // path must never downgrade a keyring or hook configuration input.
             for (auto &existing : *inputs)
-                if (existing.path == path && existing.directory == directory && existing.sharedState && !sharedState)
+                if (existing.path == path && existing.directory == directory && (existing.sharedState || existing.sourceInput) &&
+                    (existing.sharedState != sharedState || existing.sourceInput != sourceInput))
                     return capture(path, directory, absent, &existing, error);
             return true;
         }
         Evidence input;
-        if (!(sharedState ? sharedCapture : capture)(path, directory, absent, &input, error)) return false;
-        input.sharedState = sharedState;
+        if (sourceInput && sourceCapture == CaptureSourceEvidence) {
+            if (!CaptureSourceEvidenceForReader(path, directory, absent, &input, error,
+                                               environment.sourceReaderUID, environment.sourceReaderGID, environment.sourceReaderGroups)) return false;
+        } else if (!(sourceInput ? sourceCapture : sharedState ? sharedCapture : capture)(path, directory, absent, &input, error)) return false;
+        input.sharedState = sharedState; input.sourceInput = sourceInput;
         inputs->push_back(input); return true;
     };
     if (scope == SnapshotScope::PackageState &&
@@ -67,7 +71,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
          !add(environment.extendedStates, false, true, true) ||
          !add(environment.preferences, false, true, true) ||
          !add(environment.preferencesParts, true, true))) return false;
-    if (!add(environment.sourceList, false, true) || !add(environment.sourceParts, true, true) ||
+    if (!add(environment.sourceList, false, true, false, true) || !add(environment.sourceParts, true, true) ||
         !add(environment.trusted, false, true) || !add(environment.trustedParts, true, true)) return false;
     // Directory evidence includes membership, so additions, deletions and
     // renames invalidate review even when existing documents stay unchanged.
@@ -76,23 +80,25 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
         const bool journal = scope == SnapshotScope::PackageState && input.path == environment.dpkgAdmin + "/updates";
         const bool pins = scope == SnapshotScope::PackageState && input.path == environment.preferencesParts;
         const bool keys = input.path == environment.trustedParts;
+        const bool sources = input.path == environment.sourceParts;
         for (const auto &entry : input.entries) {
             const bool key = keys && (Suffix(entry, ".gpg") || Suffix(entry, ".asc"));
-            if ((journal || (pins && PinName(entry)) || key) &&
-                !add(input.path + '/' + entry, false, false, (journal || pins) && !key)) return false;
+            const bool pin = pins && PinName(entry);
+            const bool source = sources && CydiaSources::IsEffectiveDestination({environment.sourceList, environment.sourceParts}, input.path + '/' + entry);
+            if ((journal || pin || key || source) &&
+                !add(input.path + '/' + entry, false, false, (journal || pin) && !key && !source, source && !key && !journal && !pin)) return false;
         }
     }
-    const auto sources(CydiaSources::ReadEffectiveDocuments({environment.sourceList, environment.sourceParts}));
-    if (!sources.ready()) return Fail(error, "source_snapshot_failed", "Cannot read the actual APT source configuration.");
     std::set<std::string> scopedKeys;
-    for (const auto &stored : sources.documents) {
-        if (!add(stored.document.path, false, false)) return false;
-        const auto captured = std::find_if(inputs->begin(), inputs->end(), [&](const Evidence &input) {
-            return !input.directory && input.path == stored.document.path;
-        });
-        if (captured == inputs->end() || captured->bytes != stored.document.bytes)
-            return Fail(error, "stale_environment", "The source configuration changed while being read.");
-        for (const auto &definition : stored.document.definitions) SignedByFiles(definition, stored.document.format, &scopedKeys);
+    std::size_t count = 0;
+    for (const auto &input : *inputs) {
+        if (input.directory || input.absent || !CydiaSources::IsEffectiveDestination({environment.sourceList, environment.sourceParts}, input.path)) continue;
+        if (++count > 4096 || input.bytes.size() > 4 * 1024 * 1024)
+            return Fail(error, "source_snapshot_failed", "The source configuration exceeds the reader limits.");
+        const auto format(Suffix(input.path, ".sources") ? CydiaSources::Format::Deb822 : CydiaSources::Format::OneLine);
+        const auto document(CydiaSources::ParseDocument(input.path, format, input.bytes));
+        if (!document.valid()) return Fail(error, "source_snapshot_failed", "The source configuration is malformed or ambiguous.");
+        for (const auto &definition : document.definitions) SignedByFiles(definition, format, &scopedKeys);
     }
     for (const auto &path : scopedKeys) if (!add(path, false, true)) return false;
     return true;
@@ -100,7 +106,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
 std::string SerializeSnapshotEvidence(const Evidence &evidence) {
     const auto &st(evidence.identity);
     std::ostringstream identity;
-    identity << evidence.absent << ' ' << evidence.directory << ' ' << evidence.sharedState << ' ' << st.st_dev << ' ' << st.st_ino << ' '
+    identity << evidence.absent << ' ' << evidence.directory << ' ' << evidence.sharedState << ' ' << evidence.sourceInput << ' ' << st.st_dev << ' ' << st.st_ino << ' '
         << st.st_uid << ' ' << st.st_gid << ' ' << st.st_mode << ' ';
     // Lock-file creation changes admin/root directory metadata without changing
     // their canonical identity. Mutable state is captured separately.
@@ -114,6 +120,10 @@ std::string SerializeSnapshotEvidence(const Evidence &evidence) {
             << st.st_ctim.tv_sec << ' ' << st.st_ctim.tv_nsec;
 #endif
     }
-    return SerializeFields({evidence.path, identity.str(), evidence.bytes, SerializeFields(evidence.entries)});
+    std::vector<std::string> groups;
+    for (const auto group : evidence.sourceReaderGroups.values) groups.push_back(std::to_string(group));
+    return SerializeFields({evidence.path, identity.str(), evidence.bytes, SerializeFields(evidence.entries),
+                            evidence.sourceDelegation, std::to_string(evidence.sourceReaderUID), std::to_string(evidence.sourceReaderGID),
+                            evidence.sourceReaderGroups.valid ? "1" : "0", SerializeFields(groups)});
 }
 } }

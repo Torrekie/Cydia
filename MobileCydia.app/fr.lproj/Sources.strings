@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Cette modification s’applique à la définition entière, y compris à tous ses URI et suites.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Cette définition est protégée en tant que composante de votre bootstrap. Enregistrer une modification conserve sa protection ; la supprimer retire aussi ses références de protection.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "La définition de la source a été modifiée, mais ses références de protection n’ont pas pu être enregistrées. Vérifiez les dépôts du bootstrap dans les réglages avancés avant de modifier d’autres sources.";
+"SOURCE_READ_ONLY_ALIAS" = "Cette source est un lien géré en dehors de Cydia. Cydia peut l’utiliser, mais ne peut ni modifier ni supprimer ses définitions.";

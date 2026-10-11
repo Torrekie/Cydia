@@ -128,6 +128,16 @@ state check. An uncooperative writer can still race between the final check and
 replacement. This data policy does not authorize APT hooks, executable paths,
 trust keyrings or Cydia's private configuration; those retain strict checks.
 
+Protected root-owned source-file aliases may delegate repository data to an
+external frontend's publicly readable cache, including a user-owned cache.
+The reader verifies access under the original caller's UID/GID and exact
+supplementary group list, including
+directory traversal and ACLs, and binds the alias, canonical target and bytes
+to the review snapshot. These files are read-only in Cydia: their definitions
+remain visible and usable for bootstrap protection, while other regular
+source files remain editable. Cydia does not replace the link or edit through
+it. Unsafe or malformed delegated inputs still block mutation review.
+
 `make verify-package-paths`, `verify-apt-runtime` and
 `verify-apt-source-isolation` cover installation defaults and runtime
 configuration independently.

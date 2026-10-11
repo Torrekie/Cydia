@@ -42,3 +42,4 @@
 "SOURCE_WHOLE_DEFINITION" = "Bu değişiklik, içerdiği tüm URI’ler ve dağıtımlar dahil olmak üzere tanımın tamamına uygulanır.";
 "SOURCE_BOOTSTRAP_CHANGE" = "Bu tanım, bootstrap ortamınızın bir parçası olarak korunmaktadır. Bir düzenlemeyi kaydetmek korumayı sürdürür; tanımı kaldırmak koruma başvurularını da kaldırır.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Kaynak tanımı değiştirildi ancak koruma başvuruları kaydedilemedi. Başka kaynakları değiştirmeden önce Gelişmiş Ayarlar’dan bootstrap depolarını inceleyin.";
+"SOURCE_READ_ONLY_ALIAS" = "Bu kaynak, Cydia dışında yönetilen bir bağlantıdır. Cydia bu kaynağı kullanabilir, ancak kaynak tanımlarını düzenleyemez veya kaldıramaz.";
