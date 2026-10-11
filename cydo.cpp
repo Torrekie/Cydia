@@ -81,9 +81,13 @@ static bool ReadApplicationProcess(pid_t parent, CydiaRuntime::Privileged::Appli
     struct kinfo_proc info = {}; size_t size = sizeof(info);
     int processMib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, parent};
     struct timeval boot = {}; size_t bootSize = sizeof(boot); int bootMib[] = {CTL_KERN, KERN_BOOTTIME};
-    if (sysctl(processMib, 4, &info, &size, NULL, 0) != 0 || size != sizeof(info) || info.kp_proc.p_pid != parent ||
-        sysctl(bootMib, 2, &boot, &bootSize, NULL, 0) != 0 || bootSize != sizeof(boot)) {
+    if (sysctl(processMib, 4, &info, &size, NULL, 0) != 0 ||
+        sysctl(bootMib, 2, &boot, &bootSize, NULL, 0) != 0) {
         fprintf(stderr, "Cydia kernel process-identity query failed: %s\n", strerror(errno)); return false;
+    }
+    if (size != sizeof(info) || info.kp_proc.p_pid != parent || info.kp_proc.p_starttime.tv_sec <= 0 ||
+        bootSize != sizeof(boot) || boot.tv_sec <= 0) {
+        fprintf(stderr, "Cydia kernel process identity is incomplete or changed.\n"); return false;
     }
     std::string hex; const char digits[] = "0123456789abcdef";
     for (unsigned char byte : *hash) { hex += digits[byte >> 4]; hex += digits[byte & 15]; }
