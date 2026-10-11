@@ -118,7 +118,7 @@ require_path() {
 }
 
 require_path "$cydia_paths" "${prefix:+$prefix/}Applications/Cydia.app/Cydia"
-require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/application.cdhashes"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/application.identities"
 for asset in cydia7.png facebook.png twitter.png featured.png themes.png account.png; do
     require_path "$cydia_paths" \
         "${prefix:+$prefix/}Applications/Cydia.app/Home/$asset"
@@ -171,11 +171,22 @@ mkdir -p "$control_directory" "$data_directory"
 dpkg-deb -e "$cydia" "$control_directory"
 dpkg-deb -x "$cydia" "$data_directory"
 
-python3 - "$data_directory/${prefix:+$prefix/}usr/libexec/cydia/application.cdhashes" <<'PY'
-import pathlib, re, sys
+python3 - "$data_directory/${prefix:+$prefix/}usr/libexec/cydia/application.identities" \
+    "$data_directory/${prefix:+$prefix/}Applications/Cydia.app/Cydia" \
+    "$(dirname "$0")/write-application-identity.py" <<'PY'
+import hashlib, importlib.util, pathlib, re, sys
 data = pathlib.Path(sys.argv[1]).read_bytes()
-if not data or len(data) > 4096 or not re.fullmatch(rb'(?:[0-9a-f]{40}\n)+', data):
+header = b'CYDIA-APPLICATION-IDENTITY-1\n'
+if len(data) > 4096 or not data.startswith(header) or not re.fullmatch(rb'(?:[0-9a-f]{40}\n)+', data[len(header):]):
     sys.exit('[verify-package][FAIL] invalid application code identity')
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location('application_identity', sys.argv[3])
+identity = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(identity)
+hashes = {hashlib.sha256(value).hexdigest()[:40] for value in identity.executable_directories(pathlib.Path(sys.argv[2]).read_bytes())}
+expected = header + ''.join(value + '\n' for value in sorted(hashes)).encode('ascii')
+if data != expected:
+    sys.exit('[verify-package][FAIL] application identity does not match final executable')
 PY
 
 bigboss_source_icon=$data_directory/${prefix:+$prefix/}Applications/Cydia.app/Sources/apt.bigboss.us.com.png

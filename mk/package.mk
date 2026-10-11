@@ -36,7 +36,7 @@ $(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_
 	@echo "[sign] Cydia.app"
 	@$(LDID) -T0 -Sentitlements.xml $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
 	@python3 scripts/write-application-identity.py "$(LDID)" \
-		"$(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Cydia" "$(CYDIA_STAGE_ROOT)/usr/libexec/cydia/application.cdhashes"
+		"$(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Cydia" "$(CYDIA_STAGE_ROOT)/usr/libexec/cydia/application.identities"
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Sources
 

@@ -367,6 +367,7 @@ $(APPLICATION_IDENTITY_TEST): tests/ApplicationIdentityTests.cpp Cydia/Applicati
 verify: verify-application-identity
 verify-application-identity: $(APPLICATION_IDENTITY_TEST)
 	@$<
+	@python3 tests/ApplicationSigningIdentityTests.py $(APPLICATION_IDENTITY_TEST)
 
 TRANSACTION_OUTCOME_POLICY_TEST := $(BUILD_DIR)/tests/TransactionOutcomePolicyTests
 $(TRANSACTION_OUTCOME_POLICY_TEST): tests/TransactionOutcomePolicyTests.cpp Cydia/TransactionOutcomePolicy.hpp \

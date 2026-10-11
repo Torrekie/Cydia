@@ -48,7 +48,10 @@
 #include <climits>
 #include <csignal>
 #include <chrono>
+#include <algorithm>
 #include <sys/sysctl.h>
+#include <arpa/inet.h>
+#include <CommonCrypto/CommonDigest.h>
 
 #include "Cydia/LaunchServices.h"
 
@@ -61,8 +64,8 @@
 struct timeval _ltv;
 bool _itv;
 extern char **environ;
-// Darwin's kernel returns the running executable's CodeDirectory hash, rather
-// than re-opening its launchd pathname (which a shared parent can rename).
+// Query the running executable's cached signing blob, independent of a later
+// pathname lookup. Jailbreak loaders may rewrite entitlement metadata.
 extern "C" int csops(pid_t, unsigned int, void *, size_t);
 
 static bool CurrentApplicationAuthorized_ = false;
@@ -73,10 +76,26 @@ static uint64_t ApplicationSessionClock() {
 }
 
 static bool ReadApplicationProcess(pid_t parent, CydiaRuntime::Privileged::ApplicationProcessIdentity *identity,
-                                   CydiaRuntime::Privileged::ApplicationCodeHash *hash) {
+                                   std::set<CydiaRuntime::Privileged::ApplicationCodeHash> *hashes) {
     if (parent <= 1 || getppid() != parent) return false;
-    if (csops(parent, 5 /* CS_OPS_CDHASH */, hash->data(), hash->size()) != 0) {
+    uint32_t header[2] = {};
+    const int probe = csops(parent, 10 /* CS_OPS_BLOB */, header, sizeof(header));
+    const uint32_t length = ntohl(header[1]);
+    if ((probe != 0 && errno != ERANGE) || length < 8 || length > 1048576) {
         fprintf(stderr, "Cydia kernel code-identity query failed: %s\n", strerror(errno)); return false;
+    }
+    std::string blob(length, '\0');
+    std::vector<std::string> directories;
+    if (csops(parent, 10, &blob[0], blob.size()) != 0 ||
+        !CydiaRuntime::Privileged::CanonicalApplicationSigningBlob(blob, &directories)) {
+        fprintf(stderr, "Cydia kernel signing data is unavailable or invalid.\n"); return false;
+    }
+    hashes->clear();
+    for (const auto &directory : directories) {
+        unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+        CC_SHA256(directory.data(), static_cast<CC_LONG>(directory.size()), digest);
+        CydiaRuntime::Privileged::ApplicationCodeHash hash;
+        std::copy(digest, digest + hash.size(), hash.begin()); hashes->insert(hash);
     }
     struct kinfo_proc info = {}; size_t size = sizeof(info);
     int processMib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, parent};
@@ -90,7 +109,8 @@ static bool ReadApplicationProcess(pid_t parent, CydiaRuntime::Privileged::Appli
         fprintf(stderr, "Cydia kernel process identity is incomplete or changed.\n"); return false;
     }
     std::string hex; const char digits[] = "0123456789abcdef";
-    for (unsigned char byte : *hash) { hex += digits[byte >> 4]; hex += digits[byte & 15]; }
+    for (const auto &hash : *hashes)
+        for (unsigned char byte : hash) { hex += digits[byte >> 4]; hex += digits[byte & 15]; }
     *identity = {std::to_string(parent), std::to_string(boot.tv_sec) + "." + std::to_string(boot.tv_usec),
         std::to_string(info.kp_proc.p_starttime.tv_sec) + "." + std::to_string(info.kp_proc.p_starttime.tv_usec), hex};
     return getppid() == parent;
@@ -618,16 +638,16 @@ int main(int argc, char *argv[]) {
 
     Privileged::Evidence applicationIdentity;
     std::set<Privileged::ApplicationCodeHash> codeHashes;
-    Privileged::ApplicationCodeHash runningHash;
+    std::set<Privileged::ApplicationCodeHash> runningHashes;
     struct stat correct;
-    if (!Privileged::CaptureEvidence(paths.CydiaHelperPath("application.cdhashes"), false, false, &applicationIdentity, &error) ||
+    if (!Privileged::CaptureEvidence(paths.CydiaHelperPath("application.identities"), false, false, &applicationIdentity, &error) ||
         !Privileged::ParseApplicationCodeHashes(applicationIdentity.bytes, &codeHashes) ||
         !Privileged::InspectApplicationExecutable(paths.CydiaApplicationPath(), &correct) ||
-        !ReadApplicationProcess(parent, &ApplicationProcess_, &runningHash)) {
+        !ReadApplicationProcess(parent, &ApplicationProcess_, &runningHashes)) {
         fprintf(stderr, "Cydia application identity could not be verified.\n");
         return EX_NOPERM;
     }
-    CurrentApplicationAuthorized_ = codeHashes.count(runningHash) != 0;
+    CurrentApplicationAuthorized_ = Privileged::ApplicationCodeHashesAllowed(codeHashes, runningHashes);
     if (!CurrentApplicationAuthorized_ && !ContinueApplicationSession(paths, parent, ApplicationProcess_)) {
         fprintf(stderr, "Cydia's running signature does not match its package. Reopen Cydia after upgrading it.\n");
         return EX_NOPERM;
@@ -684,7 +704,7 @@ int main(int argc, char *argv[]) {
     });
 
     Privileged::ApplicationProcessIdentity checkedProcess;
-    if (!cydia || !ReadApplicationProcess(parent, &checkedProcess, &runningHash) || !(checkedProcess == ApplicationProcess_) ||
+    if (!cydia || !ReadApplicationProcess(parent, &checkedProcess, &runningHashes) || !(checkedProcess == ApplicationProcess_) ||
         (!CurrentApplicationAuthorized_ && !ContinueApplicationSession(paths, parent, checkedProcess)) ||
         !Privileged::RecheckEvidence({applicationIdentity}, &error)) {
         fprintf(stderr, "none shall pass\n");
