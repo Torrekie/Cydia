@@ -29,6 +29,10 @@ Cydia/ICU-LICENSE; the Torrekie notice covers only the compatibility wrapper.
 APT 2.7.9 cache hashing uses the pinned xxHash 0.8.2 header-only source; its
 BSD 2-Clause notice is retained in xxhash/LICENSE and copied into the package
 as XXHASH-LICENSE.
+Linux cross-builds link the copied Apple compiler-rt iOS builtins archive in
+vendor/compiler-rt. Its LLVM Apache 2.0 license and LLVM exceptions are retained
+in vendor/compiler-rt/LICENSE.TXT and copied as COMPILER-RT-LICENSE. Archive
+origin, architecture and checksum are recorded in vendor/compiler-rt/README.md.
 SDURLCache remains Copyright (c) 2010 Olivier Poitrey and is distributed under
 the license in SDURLCache/LICENCE.  Narrow Apple platform declarations in the
 compatibility wrappers retain their underlying platform provenance; the

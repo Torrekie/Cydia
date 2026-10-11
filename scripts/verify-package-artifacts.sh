@@ -132,6 +132,7 @@ require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/SDURLCache-L
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/APT-COPYING"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/APT-COPYING.GPL"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/XXHASH-LICENSE"
+require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/COMPILER-RT-LICENSE"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/LIBIOSEXEC-LICENSE"
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/share/doc/cydia/LIBIOSEXEC-COPYRIGHT"
 grep -E "^${prefix:+$prefix/}Applications/Cydia[.]app/[^/]+[.]lproj/Localizable[.]strings$" \

@@ -170,6 +170,13 @@ lapt += $(APT_LIBRARY)
 libs += -licucore
 libs += -lxml2
 
+ifeq ($(HOST_OS),Linux)
+# The pinned cross compiler omits the Darwin availability runtime used by
+# @available. Link the copied Apple compiler-rt archive; see its provenance.
+compiler_rt_ios_library := vendor/compiler-rt/libclang_rt.ios.a
+libs += $(compiler_rt_ios_library)
+endif
+
 uikit :=
 uikit += -framework UIKit
 

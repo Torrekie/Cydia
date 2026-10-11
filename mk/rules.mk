@@ -172,7 +172,7 @@ $(APT_LIBRARY): $(APT_PROVENANCE_STAMP) $(libapt64)
 	@tmp="$@.tmp"; rm -f "$$tmp"; \
 		$(CYAR) -rc "$$tmp" $(filter %.o,$^) && mv -f "$$tmp" "$@"
 
-$(APP_BINARY): $(object) entitlements.xml $(lapt) $(BUILD_PROVENANCE_SCRIPT)
+$(APP_BINARY): $(object) entitlements.xml $(lapt) $(compiler_rt_ios_library) $(BUILD_PROVENANCE_SCRIPT)
 	@mkdir -p $(dir $@) $(ARCHIVE_DIR)
 	@echo "[link] $@"
 	@$(cycc) -o $@ $(filter %.o,$^) $(link) $(libs) $(uikit)
