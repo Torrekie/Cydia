@@ -26,6 +26,7 @@ insertpackage 'unstable' 'held-target' 'amd64' '3'
 insertpackage 'unstable' 'essential-target' 'amd64' '2' 'Essential: yes'
 insertpackage 'unstable' 'protected-target' 'amd64' '2' 'Protected: yes'
 insertpackage 'unstable' 'missing-reinstall' 'amd64' '3'
+insertpackage 'unstable' 'virtual-consumer' 'amd64' '1' 'Depends: unprovided-virtual'
 mkdir -p rootdir/var/lib/apt
 cat >rootdir/var/lib/apt/extended_states <<'EOF'
 Package: target
@@ -40,3 +41,6 @@ Pin-Priority: 1001
 EOF
 setupaptarchive
 testsuccess runapt "$ACTION_DRIVER"
+if [ "$EXIT_CODE" -ne 0 ] && command -v gdb >/dev/null 2>&1; then
+    runapt gdb --batch -ex run -ex 'bt 12' --args "$ACTION_DRIVER" || true
+fi

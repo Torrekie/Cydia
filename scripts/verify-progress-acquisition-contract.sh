@@ -53,4 +53,8 @@ grep -A3 '^- (void) cancel {' "$controller" |
     grep -Fq '[progressModel_ requestCancellation];' ||
     fail "native Cancel no longer reaches the progress model"
 
+if grep -Fq 'CyteIsReachable("cydia.saurik.com")' "$root/Cydia/TabBarController.mm" "$root/Cydia/Application+Lifecycle.mm"; then
+    fail "repository refresh must not depend on the central Cydia service"
+fi
+
 echo "[verify-progress-acquisition][ ok ] cancellation stops acquisition before a balanced exit"

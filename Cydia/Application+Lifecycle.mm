@@ -276,8 +276,7 @@ typedef enum {
     }
 
     if (interval <= -(15*60)) {
-        if (CyteIsReachable("cydia.saurik.com"))
-            [tabbar_ beginUpdate];
+        [tabbar_ beginUpdate];
     }
 
     if ([database_ delocked])

@@ -31,7 +31,7 @@ def main():
                "Cydia/AptVersionPolicy.cpp", "Cydia/PackageIdentity.cpp",
                "Cydia/RepositorySecurityPolicy.cpp"]
     command = shlex.split(os.environ.get("CXX", "c++")) + [
-        "-std=c++17", "-Wall", "-Wextra", "-I" + str(project),
+        "-std=c++17", "-g", "-Wall", "-Wextra", "-I" + str(project),
         "-I" + str(build / "include"),
         "-I" + str(project / "apt64"),
     ] + [str(project / source) for source in sources] + inputs + [

@@ -144,9 +144,11 @@ bool AptBackend::openCache() {
     originalAutoInstalled_.clear();
     if (!cache_.Open(&progress, false)) return false;
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
-    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package)
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
+        if (package.Name() == NULL || package.Arch() == NULL) continue;
         originalAutoInstalled_[std::string(package.Name()) + ':' + package.Arch()] =
             (cache[package].Flags & pkgCache::Flag::Auto) != 0;
+    }
     return true;
 }
 
@@ -169,6 +171,7 @@ std::vector<AutoInstalledDelta> AptBackend::autoInstalledDeltas() {
     if (static_cast<pkgDepCache *>(cache_) == NULL) return result;
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
     for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
+        if (package.Name() == NULL || package.Arch() == NULL) continue;
         const std::string key(std::string(package.Name()) + ':' + package.Arch());
         const bool automatic(!cache[package].Delete() &&
                              (cache[package].Flags & pkgCache::Flag::Auto) != 0);

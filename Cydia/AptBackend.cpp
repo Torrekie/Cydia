@@ -722,6 +722,7 @@ void AptBackend::clearSelections() {
         cache[package].iFlags &= ~pkgDepCache::Protected;
         cache.MarkKeep(package, false);
         if (cache_.Policy != NULL) cache.SetCandidateVersion(cache_.Policy->GetCandidateVer(package));
+        if (package.Name() == NULL || package.Arch() == NULL) continue;
         const std::string key(std::string(package.Name()) + ":" + package.Arch());
         const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
         if (original != originalAutoInstalled_.end()) cache.MarkAuto(package, original->second);
@@ -744,6 +745,7 @@ bool AptBackend::clearPackage(PackageHandle handle) {
     cache[package].iFlags &= ~pkgDepCache::Protected;
     const bool kept(cache.MarkKeep(package, false));
     if (cache_.Policy != NULL) cache.SetCandidateVersion(cache_.Policy->GetCandidateVer(package));
+    if (package.Name() == NULL || package.Arch() == NULL) return kept;
     const std::string key(std::string(package.Name()) + ":" + package.Arch());
     const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
     if (original != originalAutoInstalled_.end()) cache.MarkAuto(package, original->second);
