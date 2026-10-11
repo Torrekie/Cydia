@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Definições avançadas";
-"SOURCE_BROWSE_PACKAGES" = "Explorar pacotes";
 "SOURCE_CHOOSE_FILE" = "Escolher ficheiro de fontes";
 "SOURCE_COMPONENTS" = "Componentes (opcionais)";
 "SOURCE_CONTINUE" = "Continuar";
 "SOURCE_DEFINITION" = "Definição de fonte";
-"SOURCE_DEFINITIONS" = "Definições de fontes";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Estas entradas provêm dos ficheiros APT reais, incluindo os repositórios desativados. Abra uma entrada para verificar o ficheiro e as opções.";
 "SOURCE_DEFINITION_INVALID" = "Introduza uma definição de fonte APT válida. Os repositórios não planos precisam de componentes; as distribuições terminadas em / não podem ter componentes.";
 "SOURCE_DESTINATION_EXPLANATION" = "Escolha o ficheiro APT que irá conter esta definição.";
 "SOURCE_DISABLE" = "Desativar";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Erros nos ficheiros de fontes";
 "SOURCE_FILE_EXISTS" = "Este ficheiro já existe. Escolha-o na lista de ficheiros de fontes.";
 "SOURCE_FILE_UNAVAILABLE" = "Não foi possível ler este ficheiro de fontes em segurança ou contém uma definição inválida.";
-"SOURCE_INDEX_UNAVAILABLE" = "Não há um índice de pacotes disponível para esta definição. Pode estar desativada ou à espera de uma atualização bem-sucedida.";
 "SOURCE_LOCATION" = "Ficheiro e linha";
 "SOURCE_NEW_FILE" = "Novo ficheiro de fontes";
 "SOURCE_NEW_FILE_EXPLANATION" = "Introduza um novo nome de ficheiro terminado em .list ou .sources. O ficheiro só será criado depois de verificar e guardar a definição.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Esta definição está protegida como parte do seu bootstrap. Guardar uma alteração mantém a proteção; removê-la elimina também as respetivas referências de proteção.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "A definição da fonte foi alterada, mas não foi possível guardar as referências de proteção. Reveja os repositórios do bootstrap nas definições avançadas antes de alterar mais fontes.";
 "SOURCE_READ_ONLY_ALIAS" = "Esta fonte é uma ligação gerida fora do Cydia. O Cydia pode utilizá-la, mas não pode editar nem remover as suas definições.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Definições dos repositórios";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Definições avançadas dos repositórios";
+"SOURCE_DEFINITION_DETAILS" = "Detalhes da definição";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Este repositório tem mais de uma definição de fonte. Escolha a definição a remover.";
+"SOURCE_DELETE_UNAVAILABLE" = "Não é possível remover este repositório aqui. Reveja as suas definições de fontes nas Definições.";

@@ -85,3 +85,27 @@
 "REPOSITORY_SECURITY_REFRESH_EX" = "Im Fehlermodus müssen die Quellen bei jedem Öffnen von Cydia erfolgreich aktualisiert werden. Das Neuladen der Paketlisten oder Ändern der Richtlinie erneuert die Authentifizierung der Repositorys nicht.";
 
 "BOOTSTRAP_DATABASE_ACCESS" = "Zugriff auf die Bootstrap-Datenbank";
+
+"REPOSITORY_SETTINGS" = "Paketquelleneinstellungen";
+"REPOSITORY_SETTINGS_HELP" = "Paketquellen aktivieren und ihre Konfiguration bearbeiten.";
+"ADVANCED_SETTINGS_HELP" = "Bootstrap-Kompatibilität und Fehlerbehebung.";
+"BOOTSTRAP_DEFAULT" = "Bootstrap-Vorgabe";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Die gespeicherten Pfade konnten nicht gelesen werden. Prüfe deine Bootstrap-Konfiguration.";
+"TOOL_CUSTOM_PATH" = "Benutzerdefinierter Pfad";
+"TOOL_USE_DEFAULT" = "Bootstrap-Vorgabe verwenden";
+"TOOL_PATH_HELP" = "Verwende die Bootstrap-Vorgabe oder gib den vollständigen Pfad eines vertrauenswürdigen Programms ein. Öffne Cydia nach dem Speichern erneut.";
+"BOOTSTRAP_CONFIGURATION" = "Bootstrap-Konfiguration";
+"PROTECTED_REPOSITORY_SETTINGS" = "Einstellungen geschützter Paketquellen";
+"COMPATIBILITY" = "Kompatibilität";
+"DIAGNOSTICS" = "Fehlerbehebung";
+"SETTINGS_SAVE" = "Speichern";
+"DISCARD_SETTINGS_TITLE" = "Änderungen verwerfen?";
+"DISCARD_SETTINGS_MESSAGE" = "Deine Änderungen wurden noch nicht gespeichert.";
+"DISCARD_SETTINGS_ACTION" = "Änderungen verwerfen";
+"KEY_IMPORT_NO_SOURCES" = "Füge unter Quellen eine Paketquelle hinzu, bevor du ihren Schlüssel importierst.";
+"KEY_IMPORT_ACTION" = "Importieren";
+"KEY_IMPORT_REVIEW_ACTION" = "Prüfen";
+"KEY_IMPORT_NO_FILE" = "Keine Schlüsseldatei ausgewählt.";
+
+"KEY_IMPORT_SOURCE_CHANGED" = "Die Paketquelle hat sich geändert. Wähle sie erneut aus und prüfe den Schlüssel.";
+"KEY_IMPORT_PARTIAL" = "Der Schlüssel wurde gespeichert, aber die Paketquellenkonfiguration konnte nicht aktualisiert werden. Prüfe die Paketquelleneinstellungen, bevor du es erneut versuchst.";

@@ -13,8 +13,6 @@
 @interface SourcesController : CyteViewController
 
 - (id) initWithDatabase:(Database *)database;
-// Only the explicit native Advanced Settings entry point enables this mode.
-- (id) initWithDatabase:(Database *)database advancedAccess:(BOOL)advancedAccess;
 - (void) showAddSourcePrompt;
 - (void) showAddSourceDefinitionPrompt:(NSString *)definition;
 // Compatibility entry points no longer install a built-in repository catalogue.
@@ -23,6 +21,12 @@
 - (void) updateButtonsForEditingStatusAnimated:(BOOL)animated;
 - (NSDictionary *) cydiaNativeCompatibilitySourceSessionDiagnosticWithDelegate:(id)delegate;
 
+@end
+
+@interface CydiaRepositorySettingsController : CyteViewController
+// Protected definitions remain editable only through explicit Advanced Settings.
+- (id) initWithDatabase:(Database *)database advancedAccess:(BOOL)advancedAccess;
+- (void) showAddSourceDefinitionPrompt:(NSString *)definition;
 @end
 
 #endif//Cydia_SourceControllers_H

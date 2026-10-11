@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "פרטים טכניים";
 "ACCESS_CHECK_NOT_RUN" = "לא נבדק";
 "ACCESS_CHECK_COMPLETE" = "אומת";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "לא אומת";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "פלט אבחון";

@@ -133,6 +133,7 @@ struct AccessResult {
     bool timedOut = false;
     bool changed = false;
     std::vector<bool> checked = std::vector<bool>(6, false);
+    std::vector<bool> attempted = std::vector<bool>(6, false);
     std::string details;
 };
 void HelperDetails(AccessResult &result, const char *step, const CydiaRuntime::PrivilegedClient::Result &call) {
@@ -153,11 +154,13 @@ AccessResult CheckAccess() {
     const auto run = [&](const char *command, std::size_t limit = 8 * 1024 * 1024) {
         return Client::Run(helper, command, request, limit, 4000);
     };
+    result.attempted[0] = true;
     const auto runtimeBefore(run("--cydia-runtime-snapshot", 65536));
     if (!runtimeBefore.succeeded() || !Access::ValidSnapshotToken(runtimeBefore.output.data(), runtimeBefore.output.size())) {
         HelperDetails(result, "runtime snapshot", runtimeBefore); return result;
     }
     result.checked[0] = true;
+    result.attempted[1] = true;
     const auto trustBefore(run("--cydia-trust-snapshot", 65536));
     if (!trustBefore.succeeded() || !Access::ValidSnapshotToken(trustBefore.output.data(), trustBefore.output.size())) {
         HelperDetails(result, "trust snapshot", trustBefore); return result;
@@ -165,6 +168,7 @@ AccessResult CheckAccess() {
     result.checked[1] = true;
     // Do not open and later close another descriptor if this process already
     // owns the POSIX lock: closing any descriptor would release that lock.
+    result.attempted[2] = true;
     const auto initialRead(run("--cydia-extended-state-read"));
     if (initialRead.succeeded()) { result.busy = true; return result; }
     if (!RejectedWithoutLock(initialRead)) {
@@ -188,12 +192,14 @@ AccessResult CheckAccess() {
             if (!held.passed) result.details = "lock ownership/exclusion: " + std::to_string(held.errorNumber) + "\n";
             else {
                 result.checked[2] = true;
+                result.attempted[3] = true;
                 const auto firstRead(run("--cydia-extended-state-read"));
                 const auto secondRead(firstRead.succeeded() ? run("--cydia-extended-state-read") : firstRead);
                 if (!firstRead.succeeded() || !secondRead.succeeded() || firstRead.output != secondRead.output) {
                     HelperDetails(result, "locked state read", firstRead.succeeded() ? secondRead : firstRead);
                 } else {
                     result.checked[3] = true;
+                    result.attempted[4] = true;
                     const auto released(Access::CheckLockDescriptor(descriptor, getpid(), true));
                     result.busy = released.busy; result.timedOut = released.errorNumber == ETIMEDOUT;
                     if (!released.passed) result.details = "lock release: " + std::to_string(released.errorNumber) + "\n";
@@ -210,6 +216,7 @@ AccessResult CheckAccess() {
         _error->RevertToStack();
         Client::SetLockBridgeTimeoutMilliseconds(previousTimeout);
     }
+    result.attempted[5] = true;
     const auto runtimeAfter(run("--cydia-runtime-snapshot", 65536));
     const auto trustAfter(run("--cydia-trust-snapshot", 65536));
     if (!runtimeAfter.succeeded() || !trustAfter.succeeded()) {
@@ -222,7 +229,86 @@ AccessResult CheckAccess() {
     for (bool checked : result.checked) result.passed = result.passed && checked;
     return result;
 }
+UITableViewCell *AccessCell(UITableView *table) {
+    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
+    cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    cell.textLabel.adjustsFontForContentSizeCategory = cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
+    cell.textLabel.numberOfLines = cell.detailTextLabel.numberOfLines = 0;
+    cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:table.traitCollection];
+    cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:table.traitCollection];
+    cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:table.traitCollection];
+    cell.tintColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent traitCollection:table.traitCollection];
+    return cell;
 }
+}
+
+@interface CydiaRuntimeAccessDetailsController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+- (instancetype)initWithResult:(const AccessResult &)result;
+@end
+@implementation CydiaRuntimeAccessDetailsController {
+    UITableView *table_;
+    AccessResult result_;
+}
+- (instancetype)initWithResult:(const AccessResult &)result {
+    if ((self = [super init]) != nil) result_ = result;
+    return self;
+}
+- (void)loadView {
+    table_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
+    table_.dataSource = self; table_.delegate = self;
+    table_.rowHeight = UITableViewAutomaticDimension; table_.estimatedRowHeight = 64;
+    table_.accessibilityIdentifier = @"cydia.settings.runtime-access.details";
+    self.view = table_;
+}
+- (void)viewDidLoad {
+    [super viewDidLoad]; self.navigationItem.title = AccessText(@"ACCESS_CHECK_DETAILS");
+    [self applyAppearance];
+}
+- (void)applyAppearance {
+    table_.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection];
+    table_.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator traitCollection:self.traitCollection];
+    [table_ reloadData];
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previous) ||
+        ![self.traitCollection.preferredContentSizeCategory isEqual:previous.preferredContentSizeCategory]) [self applyAppearance];
+}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return result_.details.empty() ? 1 : 2; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 6 : 1; }
+- (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell(AccessCell(table));
+    if (path.section == 0) {
+        NSArray *keys(@[@"ACCESS_CHECK_RUNTIME", @"ACCESS_CHECK_TRUST", @"ACCESS_CHECK_LOCK", @"ACCESS_CHECK_STATE", @"ACCESS_CHECK_RELEASE", @"ACCESS_CHECK_UNCHANGED"]);
+        cell.textLabel.text = AccessText(keys[path.row]);
+        cell.detailTextLabel.text = AccessText(result_.checked[path.row] ? @"ACCESS_CHECK_COMPLETE" :
+            result_.attempted[path.row] ? @"ACCESS_CHECK_NOT_VERIFIED" : @"ACCESS_CHECK_NOT_RUN");
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.accessibilityTraits = UIAccessibilityTraitStaticText;
+        cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.settings.runtime-access.step.%ld", (long)path.row];
+        if (result_.checked[path.row]) cell.accessoryType = UITableViewCellAccessoryCheckmark;
+    } else {
+        cell.textLabel.text = AccessText(@"ACCESS_CHECK_DIAGNOSTIC_OUTPUT");
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.accessibilityTraits = UIAccessibilityTraitButton;
+        cell.accessibilityIdentifier = @"cydia.settings.runtime-access.output";
+    }
+    return cell;
+}
+- (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    [table deselectRowAtIndexPath:path animated:YES];
+    if (path.section != 1) return;
+    UIViewController *details([[UIViewController alloc] init]);
+    details.navigationItem.title = AccessText(@"ACCESS_CHECK_DIAGNOSTIC_OUTPUT");
+    UITextView *text([[UITextView alloc] init]); text.editable = NO;
+    text.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; text.adjustsFontForContentSizeCategory = YES;
+    text.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleBackground traitCollection:self.traitCollection];
+    text.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+    text.text = AccessString(result_.details); details.view = text;
+    [self.navigationController pushViewController:details animated:YES];
+}
+@end
 
 @interface CydiaRuntimeAccessController () <UITableViewDataSource, UITableViewDelegate>
 @end
@@ -230,6 +316,7 @@ AccessResult CheckAccess() {
     Database *database_;
     UITableView *table_;
     BOOL busy_;
+    BOOL completed_;
     NSString *message_;
     AccessResult result_;
 }
@@ -246,49 +333,57 @@ AccessResult CheckAccess() {
 }
 - (void)viewDidLoad {
     [super viewDidLoad]; self.navigationItem.title = AccessText(@"ACCESS_CHECK_TITLE");
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:AccessText(@"ACCESS_CHECK_START")
-        style:UIBarButtonItemStyleDone target:self action:@selector(runCheck)];
+    [self applyAppearance];
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 6 : result_.details.empty() ? 0 : 1;
+- (void)applyAppearance {
+    table_.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection];
+    table_.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator traitCollection:self.traitCollection];
+    [table_ reloadData];
 }
-- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
-    return section == 0 ? [AccessText(@"ACCESS_CHECK_EXPLANATION") stringByAppendingFormat:@"\n\n%@", message_ ?: @""] : nil;
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    if (CydiaColorAppearanceDidChange(self.traitCollection, previous) ||
+        ![self.traitCollection.preferredContentSizeCategory isEqual:previous.preferredContentSizeCategory]) [self applyAppearance];
 }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return completed_ ? 2 : 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 2 : 1; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
-    cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-    cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    cell.textLabel.adjustsFontForContentSizeCategory = cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
-    cell.textLabel.numberOfLines = cell.detailTextLabel.numberOfLines = 0;
-    cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:cell.traitCollection];
-    cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:cell.traitCollection];
-    cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:cell.traitCollection];
-    if (path.section == 0) {
-        NSArray *keys(@[@"ACCESS_CHECK_RUNTIME", @"ACCESS_CHECK_TRUST", @"ACCESS_CHECK_LOCK", @"ACCESS_CHECK_STATE", @"ACCESS_CHECK_RELEASE", @"ACCESS_CHECK_UNCHANGED"]);
-        cell.textLabel.text = AccessText(keys[path.row]);
-        cell.detailTextLabel.text = AccessText(result_.checked[path.row] ? @"ACCESS_CHECK_COMPLETE" : @"ACCESS_CHECK_NOT_RUN");
+    UITableViewCell *cell(AccessCell(table));
+    if (path.section == 0 && path.row == 0) {
+        cell.textLabel.text = message_ ?: AccessText(@"ACCESS_CHECK_NOT_RUN");
+        cell.detailTextLabel.text = AccessText(@"ACCESS_CHECK_EXPLANATION");
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
-        if (result_.checked[path.row]) cell.accessoryType = UITableViewCellAccessoryCheckmark;
+        cell.accessibilityTraits = UIAccessibilityTraitStaticText;
+        cell.accessibilityIdentifier = @"cydia.settings.runtime-access.summary";
+        if (busy_) {
+            UIActivityIndicatorView *spinner([[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray]);
+            spinner.color = cell.textLabel.textColor; [spinner startAnimating]; cell.accessoryView = spinner;
+        } else if (completed_ && result_.passed) cell.accessoryType = UITableViewCellAccessoryCheckmark;
+    } else if (path.section == 0) {
+        cell.textLabel.text = AccessText(@"ACCESS_CHECK_START");
+        cell.textLabel.textColor = busy_ ? [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection] : cell.tintColor;
+        cell.selectionStyle = busy_ ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault;
+        cell.accessibilityTraits = UIAccessibilityTraitButton | (busy_ ? UIAccessibilityTraitNotEnabled : 0);
+        cell.accessibilityIdentifier = @"cydia.settings.runtime-access.run";
     } else {
-        cell.textLabel.text = AccessText(@"ACCESS_CHECK_DETAILS"); cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.textLabel.text = AccessText(@"ACCESS_CHECK_DETAILS");
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.accessibilityTraits = UIAccessibilityTraitButton;
+        cell.accessibilityIdentifier = @"cydia.settings.runtime-access.show-details";
     }
     return cell;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     [table deselectRowAtIndexPath:path animated:YES];
-    if (path.section != 1) return;
-    UIViewController *details([[UIViewController alloc] init]); details.navigationItem.title = AccessText(@"ACCESS_CHECK_DETAILS");
-    UITextView *text([[UITextView alloc] init]); text.editable = NO;
-    text.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; text.adjustsFontForContentSizeCategory = YES;
-    text.text = AccessString(result_.details); details.view = text;
+    if (path.section == 0 && path.row == 1) { [self runCheck]; return; }
+    if (path.section != 1 || busy_ || !completed_) return;
+    CydiaRuntimeAccessDetailsController *details([[CydiaRuntimeAccessDetailsController alloc] initWithResult:result_]);
     [self.navigationController pushViewController:details animated:YES];
 }
 - (void)runCheck {
     if (busy_) return;
-    busy_ = YES; message_ = AccessText(@"ACCESS_CHECK_RUNNING"); result_ = AccessResult();
-    self.navigationItem.rightBarButtonItem.enabled = NO; [table_ reloadData];
+    busy_ = YES; completed_ = NO; message_ = AccessText(@"ACCESS_CHECK_RUNNING"); result_ = AccessResult();
+    [table_ reloadData];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         AccessResult result;
         if (![database_ beginSettingsChange]) result.busy = true;
@@ -297,7 +392,7 @@ AccessResult CheckAccess() {
             @finally { [database_ endSettingsChange]; }
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            result_ = result; busy_ = NO; self.navigationItem.rightBarButtonItem.enabled = YES;
+            result_ = result; busy_ = NO; completed_ = YES;
             NSString *key(result.passed ? @"ACCESS_CHECK_PASSED" : result.changed ? @"ACCESS_CHECK_CHANGED" :
                 result.busy ? @"ACCESS_CHECK_BUSY" : result.timedOut ? @"ACCESS_CHECK_TIMEOUT" : @"ACCESS_CHECK_FAILED");
             message_ = AccessText(key); [table_ reloadData];

@@ -85,3 +85,27 @@
 "REPOSITORY_SECURITY_REFRESH_EX" = "Le mode Erreur exige une actualisation réussie des sources à chaque ouverture de Cydia. Recharger les listes de paquets ou changer la politique ne renouvelle pas l’authentification des dépôts.";
 
 "BOOTSTRAP_DATABASE_ACCESS" = "Accès à la base de données du bootstrap";
+
+"REPOSITORY_SETTINGS" = "Réglages des dépôts";
+"REPOSITORY_SETTINGS_HELP" = "Activez les dépôts et modifiez leur configuration.";
+"ADVANCED_SETTINGS_HELP" = "Compatibilité du bootstrap et dépannage.";
+"BOOTSTRAP_DEFAULT" = "Valeur par défaut du bootstrap";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Les chemins enregistrés n’ont pas pu être lus. Vérifiez la configuration de votre bootstrap.";
+"TOOL_CUSTOM_PATH" = "Chemin personnalisé";
+"TOOL_USE_DEFAULT" = "Utiliser la valeur par défaut du bootstrap";
+"TOOL_PATH_HELP" = "Utilisez la valeur par défaut du bootstrap ou saisissez le chemin complet d’un exécutable de confiance. Rouvrez Cydia après l’enregistrement.";
+"BOOTSTRAP_CONFIGURATION" = "Configuration du bootstrap";
+"PROTECTED_REPOSITORY_SETTINGS" = "Réglages des dépôts protégés";
+"COMPATIBILITY" = "Compatibilité";
+"DIAGNOSTICS" = "Dépannage";
+"SETTINGS_SAVE" = "Enregistrer";
+"DISCARD_SETTINGS_TITLE" = "Abandonner les modifications ?";
+"DISCARD_SETTINGS_MESSAGE" = "Vos modifications n’ont pas été enregistrées.";
+"DISCARD_SETTINGS_ACTION" = "Abandonner les modifications";
+"KEY_IMPORT_NO_SOURCES" = "Ajoutez un dépôt dans Sources avant d’importer sa clé.";
+"KEY_IMPORT_ACTION" = "Importer";
+"KEY_IMPORT_REVIEW_ACTION" = "Examiner";
+"KEY_IMPORT_NO_FILE" = "Aucun fichier de clé sélectionné.";
+
+"KEY_IMPORT_SOURCE_CHANGED" = "Le dépôt a changé. Sélectionnez-le de nouveau et examinez la clé.";
+"KEY_IMPORT_PARTIAL" = "La clé a été enregistrée, mais la configuration de son dépôt n’a pas pu être mise à jour. Vérifiez les réglages du dépôt avant de réessayer.";

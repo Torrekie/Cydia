@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "יש לרענן את המקורות כדי לאמת את מקוריות המאגר המספק את %@ בהפעלה זו.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "מצב שגיאה מחייב רענון מוצלח של המקורות בכל פתיחה של Cydia. טעינה מחדש של רשימות החבילות או שינוי המדיניות אינם מחדשים את אימות המאגרים.";
+
+"REPOSITORY_SETTINGS" = "הגדרות המאגרים";
+"REPOSITORY_SETTINGS_HELP" = "הפעילו מאגרים וערכו את ההגדרות שלהם.";
+"ADVANCED_SETTINGS_HELP" = "תאימות ל־Bootstrap ופתרון בעיות.";
+"BOOTSTRAP_DEFAULT" = "ברירת המחדל של ה־Bootstrap";
+"TOOL_OVERRIDES_UNAVAILABLE" = "לא ניתן לקרוא את הנתיבים השמורים. בדקו את תצורת ה־Bootstrap.";
+"TOOL_CUSTOM_PATH" = "נתיב מותאם אישית";
+"TOOL_USE_DEFAULT" = "שימוש בברירת המחדל של ה־Bootstrap";
+"TOOL_PATH_HELP" = "השתמשו בברירת המחדל של ה־Bootstrap, או הזינו את הנתיב המלא לקובץ הפעלה מהימן. פתחו מחדש את Cydia לאחר השמירה.";
+"BOOTSTRAP_CONFIGURATION" = "תצורת ה־Bootstrap";
+"PROTECTED_REPOSITORY_SETTINGS" = "הגדרות המאגרים המוגנים";
+"COMPATIBILITY" = "תאימות";
+"DIAGNOSTICS" = "פתרון בעיות";
+"SETTINGS_SAVE" = "שמירה";
+"DISCARD_SETTINGS_TITLE" = "לבטל את השינויים?";
+"DISCARD_SETTINGS_MESSAGE" = "השינויים שלכם לא נשמרו.";
+"DISCARD_SETTINGS_ACTION" = "ביטול השינויים";
+"KEY_IMPORT_NO_SOURCES" = "הוסיפו מאגר במסך המקורות לפני ייבוא המפתח שלו.";
+"KEY_IMPORT_ACTION" = "ייבוא";
+"KEY_IMPORT_REVIEW_ACTION" = "בדיקה";
+"KEY_IMPORT_NO_FILE" = "לא נבחר קובץ מפתח.";
+"KEY_IMPORT_SOURCE_CHANGED" = "המאגר השתנה. בחרו בו שוב ובדקו את המפתח.";
+"KEY_IMPORT_PARTIAL" = "המפתח נשמר, אך לא ניתן לעדכן את תצורת המאגר שלו. בדקו את הגדרות המאגרים לפני שתנסו שוב.";

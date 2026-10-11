@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Ustawienia zaawansowane";
-"SOURCE_BROWSE_PACKAGES" = "Przeglądaj pakiety";
 "SOURCE_CHOOSE_FILE" = "Wybierz plik źródeł";
 "SOURCE_COMPONENTS" = "Komponenty (opcjonalne)";
 "SOURCE_CONTINUE" = "Dalej";
 "SOURCE_DEFINITION" = "Definicja źródła";
-"SOURCE_DEFINITIONS" = "Definicje źródeł";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Te wpisy pochodzą z rzeczywistych plików APT, w tym z wyłączonych repozytoriów. Otwórz wpis, aby sprawdzić jego plik i opcje.";
 "SOURCE_DEFINITION_INVALID" = "Wprowadź jedną poprawną definicję źródła APT. Repozytoria inne niż płaskie wymagają komponentów; wydania kończące się na / nie mogą ich zawierać.";
 "SOURCE_DESTINATION_EXPLANATION" = "Wybierz plik APT, który będzie zawierał tę definicję.";
 "SOURCE_DISABLE" = "Wyłącz";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Błędy plików źródeł";
 "SOURCE_FILE_EXISTS" = "Ten plik już istnieje. Wybierz go z listy plików źródeł.";
 "SOURCE_FILE_UNAVAILABLE" = "Nie można bezpiecznie odczytać tego pliku źródeł lub zawiera on niepoprawną definicję.";
-"SOURCE_INDEX_UNAVAILABLE" = "Brak dostępnego indeksu pakietów dla tej definicji. Może być wyłączona lub oczekiwać na pomyślne odświeżenie.";
 "SOURCE_LOCATION" = "Plik i wiersz";
 "SOURCE_NEW_FILE" = "Nowy plik źródeł";
 "SOURCE_NEW_FILE_EXPLANATION" = "Wprowadź nową nazwę pliku zakończoną na .list lub .sources. Plik zostanie utworzony dopiero po sprawdzeniu i zapisaniu definicji.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Ta definicja jest chroniona jako część środowiska bootstrap. Zapisanie zmiany zachowuje ochronę; usunięcie definicji usuwa również jej odwołania ochrony.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Definicja źródła została zmieniona, ale nie udało się zapisać jej odwołań ochrony. Przejrzyj repozytoria środowiska bootstrap w ustawieniach zaawansowanych przed zmianą kolejnych źródeł.";
 "SOURCE_READ_ONLY_ALIAS" = "To źródło jest dowiązaniem zarządzanym poza aplikacją Cydia. Cydia może z niego korzystać, ale nie może edytować ani usuwać jego definicji.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Ustawienia repozytoriów";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Zaawansowane ustawienia repozytoriów";
+"SOURCE_DEFINITION_DETAILS" = "Szczegóły definicji";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "To repozytorium ma więcej niż jedną definicję źródła. Wybierz definicję do usunięcia.";
+"SOURCE_DELETE_UNAVAILABLE" = "Nie można tutaj usunąć tego repozytorium. Sprawdź jego definicje źródeł w Ustawieniach.";

@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Làm mới nguồn để xác minh tính xác thực của kho cung cấp %@ trong phiên này.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Chế độ Lỗi yêu cầu làm mới nguồn thành công mỗi lần mở Cydia. Tải lại danh sách gói hoặc thay đổi chính sách không gia hạn việc xác thực kho.";
+
+"REPOSITORY_SETTINGS" = "Cài đặt kho";
+"REPOSITORY_SETTINGS_HELP" = "Bật kho và chỉnh sửa cấu hình.";
+"ADVANCED_SETTINGS_HELP" = "Tương thích bootstrap và khắc phục sự cố.";
+"BOOTSTRAP_DEFAULT" = "Mặc định của bootstrap";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Không đọc được đường dẫn đã lưu. Hãy kiểm tra cấu hình bootstrap.";
+"TOOL_CUSTOM_PATH" = "Đường dẫn tùy chỉnh";
+"TOOL_USE_DEFAULT" = "Dùng mặc định của bootstrap";
+"TOOL_PATH_HELP" = "Dùng mặc định của bootstrap hoặc nhập đường dẫn đầy đủ đến tệp thực thi đáng tin cậy. Mở lại Cydia sau khi lưu.";
+"BOOTSTRAP_CONFIGURATION" = "Cấu hình bootstrap";
+"PROTECTED_REPOSITORY_SETTINGS" = "Cài đặt kho được bảo vệ";
+"COMPATIBILITY" = "Tương thích";
+"DIAGNOSTICS" = "Khắc phục sự cố";
+"SETTINGS_SAVE" = "Lưu";
+"DISCARD_SETTINGS_TITLE" = "Hủy thay đổi?";
+"DISCARD_SETTINGS_MESSAGE" = "Các thay đổi chưa được lưu.";
+"DISCARD_SETTINGS_ACTION" = "Hủy thay đổi";
+"KEY_IMPORT_NO_SOURCES" = "Thêm một kho trong Nguồn trước khi nhập khóa của kho đó.";
+"KEY_IMPORT_ACTION" = "Nhập";
+"KEY_IMPORT_REVIEW_ACTION" = "Xem lại";
+"KEY_IMPORT_NO_FILE" = "Chưa chọn tệp khóa.";
+"KEY_IMPORT_SOURCE_CHANGED" = "Kho đã thay đổi. Hãy chọn lại và kiểm tra khóa.";
+"KEY_IMPORT_PARTIAL" = "Khóa đã được lưu nhưng không cập nhật được cấu hình kho. Hãy kiểm tra cài đặt kho trước khi thử lại.";

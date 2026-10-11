@@ -116,6 +116,17 @@ class FrontendLock {
 /* Root-owned private authority. Native preferences may cache the display,
  * but cannot select a privileged executable. An empty path clears a purpose. */
 std::string ExecutableOverridesPath(const PackageDatabasePaths &paths);
+/* Settings may show and repair saved paths after a tool disappears. These
+ * readers validate only the protected configuration and its syntax; their
+ * returned paths are display data, never executable authority. */
+bool ReadExecutableOverrideSettings(const PackageDatabasePaths &paths,
+                             std::map<std::string, std::string> *overrides,
+                             Evidence *evidence, Error *error);
+bool ReadExecutableOverrideSettingsFromPath(const std::string &path,
+                             std::map<std::string, std::string> *overrides,
+                             Evidence *evidence, Error *error);
+/* Execution readers additionally require every saved target to remain a
+ * protected root-owned executable. */
 bool ReadExecutableOverrides(const PackageDatabasePaths &paths,
                              std::map<std::string, std::string> *overrides,
                              Evidence *evidence, Error *error);

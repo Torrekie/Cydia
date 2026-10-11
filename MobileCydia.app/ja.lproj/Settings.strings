@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "ソースを更新して、このセッションで%@を提供するリポジトリの認証を確認してください。";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "エラーモードでは、Cydiaを開くたびにソースの更新を正常に完了する必要があります。パッケージ一覧の再読み込みやポリシーの変更では、リポジトリの認証は更新されません。";
+
+"REPOSITORY_SETTINGS" = "リポジトリ設定";
+"REPOSITORY_SETTINGS_HELP" = "リポジトリの有効化と設定の編集を行います。";
+"ADVANCED_SETTINGS_HELP" = "ブートストラップの互換性と問題の解決。";
+"BOOTSTRAP_DEFAULT" = "ブートストラップのデフォルト";
+"TOOL_OVERRIDES_UNAVAILABLE" = "保存されたパスを読み込めません。ブートストラップの設定を確認してください。";
+"TOOL_CUSTOM_PATH" = "カスタムパス";
+"TOOL_USE_DEFAULT" = "ブートストラップのデフォルトを使用";
+"TOOL_PATH_HELP" = "ブートストラップのデフォルトを使うか、信頼できる実行ファイルの絶対パスを入力してください。保存後にCydiaを開き直してください。";
+"BOOTSTRAP_CONFIGURATION" = "ブートストラップ設定";
+"PROTECTED_REPOSITORY_SETTINGS" = "保護されたリポジトリの設定";
+"COMPATIBILITY" = "互換性";
+"DIAGNOSTICS" = "問題の解決";
+"SETTINGS_SAVE" = "保存";
+"DISCARD_SETTINGS_TITLE" = "変更を破棄しますか？";
+"DISCARD_SETTINGS_MESSAGE" = "変更は保存されていません。";
+"DISCARD_SETTINGS_ACTION" = "変更を破棄";
+"KEY_IMPORT_NO_SOURCES" = "鍵をインポートする前に「ソース」でリポジトリを追加してください。";
+"KEY_IMPORT_ACTION" = "インポート";
+"KEY_IMPORT_REVIEW_ACTION" = "確認";
+"KEY_IMPORT_NO_FILE" = "鍵ファイルが選択されていません。";
+"KEY_IMPORT_SOURCE_CHANGED" = "リポジトリが変更されました。選択し直して鍵を確認してください。";
+"KEY_IMPORT_PARTIAL" = "鍵は保存されましたが、リポジトリ設定を更新できませんでした。再試行する前にリポジトリ設定を確認してください。";

@@ -20,6 +20,15 @@ static NSString *KeyString(const std::string &bytes) {
         [[NSString alloc] initWithBytes:bytes.data() length:bytes.size() encoding:NSISOLatin1StringEncoding];
 }
 static std::string KeyBytes(NSString *text) { return text.UTF8String ? text.UTF8String : ""; }
+static NSString *KeySourceSummary(CydiaSourceDefinition *source) {
+    NSMutableArray *uris([NSMutableArray array]);
+    for (NSString *uri in source.uris) {
+        NSURLComponents *url([NSURLComponents componentsWithString:uri]);
+        if (url != nil) { url.user = nil; url.password = nil; }
+        [uris addObject:url.string ?: uri];
+    }
+    return [NSString stringWithFormat:@"%@\n%@", [uris componentsJoinedByString:@"\n"], [source.suites componentsJoinedByString:@" · "]];
+}
 static NSData *BoundedKey(NSURL *url) {
     if (!url.isFileURL) return nil;
     const BOOL scoped([url startAccessingSecurityScopedResource]);
@@ -82,7 +91,9 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 }
 - (NSURL *)navigationURL { return [NSURL URLWithString:@"cydia://home/settings/key-import"]; }
 - (void)loadView {
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
+    UITableViewStyle style(UITableViewStyleGrouped);
+    if (@available(iOS 13.0, *)) style = UITableViewStyleInsetGrouped;
+    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:style];
     self.table.dataSource = self; self.table.delegate = self; self.table.rowHeight = UITableViewAutomaticDimension;
     self.table.estimatedRowHeight = 88; self.table.accessibilityIdentifier = @"cydia.settings.key-import"; self.view = self.table;
 }
@@ -95,6 +106,18 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     if (self.initialURL) { NSURL *url(self.initialURL); self.initialURL = nil; [self stageURL:url]; }
+}
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    if (self.busy) return;
+    CydiaSourceDefinition *selected(self.selectedSource); self.sources = CydiaReadSourceDefinitions(); self.selectedSource = nil;
+    for (CydiaSourceDefinition *source in self.sources)
+        if ([source.filePath isEqual:selected.filePath] && source.ordinal == selected.ordinal &&
+            [source.original isEqual:selected.original] && CydiaSourceDefinitionCanEdit(source, CydiaSources::Access::AdvancedSettings)) {
+            self.selectedSource = source; break;
+        }
+    if (selected != nil && self.selectedSource == nil) [self clearReview];
+    [self updateControls];
 }
 - (void)applyAppearance {
     self.table.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection];
@@ -113,7 +136,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 }
 - (void)updateControls {
     self.reviewButton.enabled = !self.busy && !_input.bytes.empty() && self.selectedSource != nil;
-    self.reviewButton.title = KeyText(self.reviewed ? @"KEY_IMPORT" : @"KEY_IMPORT_REVIEW");
+    self.reviewButton.title = KeyText(self.reviewed ? @"KEY_IMPORT_ACTION" : @"KEY_IMPORT_REVIEW_ACTION");
     self.table.userInteractionEnabled = !self.busy; [self.table reloadData];
 }
 - (void)clearReview { self.reviewed = NO; _input.token.clear(); _review = Keys::Review(); [self updateControls]; }
@@ -140,11 +163,20 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 - (void)choosePackage {
     if (![self available]) return;
     UIAlertController *alert([UIAlertController alertControllerWithTitle:KeyText(@"KEY_IMPORT_PACKAGE") message:KeyText(@"KEY_IMPORT_PACKAGE_PROMPT") preferredStyle:UIAlertControllerStyleAlert]);
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo;
+        [field addTarget:self action:@selector(packageNameChanged:) forControlEvents:UIControlEventEditingChanged];
+    }];
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        [self loadPackage:alert.textFields.firstObject.text ?: @""];
-    }]]; [self presentViewController:alert animated:YES completion:nil];
+    UIAlertAction *choose([UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [self loadPackage:[alert.textFields.firstObject.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] ?: @""];
+    }]); choose.enabled = NO; [alert addAction:choose];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+- (void)packageNameChanged:(UITextField *)field {
+    if ([self.presentedViewController isKindOfClass:[UIAlertController class]])
+        ((UIAlertController *)self.presentedViewController).actions.lastObject.enabled =
+            [field.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].length != 0;
 }
 - (void)loadPackage:(NSString *)package {
     self.busy = YES; [self updateControls];
@@ -223,7 +255,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 }
 - (void)confirmImport {
     NSString *fingerprints(KeyString([&]() { std::string value; for (const auto &f : _review.fingerprints) value += f + '\n'; return value; }()));
-    NSString *scope([NSString stringWithFormat:KeyText(@"KEY_IMPORT_BINDING"), self.selectedSource.original, KeyString(_review.source.mutation.contents)]);
+    NSString *scope(KeySourceSummary(self.selectedSource));
     UIAlertController *alert([UIAlertController alertControllerWithTitle:KeyText(@"KEY_IMPORT") message:[NSString stringWithFormat:@"%@\n\n%@\n%@", KeyText(@"KEY_IMPORT_CONFIRM"), fingerprints, scope] preferredStyle:UIAlertControllerStyleAlert]);
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:KeyText(@"KEY_IMPORT") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self applyImport]; }]];
@@ -250,7 +282,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.reviewed ? 3 : 2; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 3 : section == 1 ? self.sources.count : _review.fingerprints.size() + 1;
+    return section == 0 ? 3 : section == 1 ? MAX(self.sources.count, 1) : _review.fingerprints.size() + 1;
 }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
     return KeyText(section == 0 ? @"KEY_IMPORT" : section == 1 ? @"KEY_IMPORT_SELECT_SOURCE" : @"KEY_IMPORT_FINGERPRINTS");
@@ -262,20 +294,34 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     cell.textLabel.adjustsFontForContentSizeCategory = YES; cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
     cell.textLabel.numberOfLines = 0; cell.detailTextLabel.numberOfLines = 0; cell.detailTextLabel.text = nil;
+    cell.textLabel.enabled = YES; cell.accessoryView = nil;
     cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
     cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
     cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection];
     cell.accessoryType = UITableViewCellAccessoryNone; cell.selectionStyle = UITableViewCellSelectionStyleNone;
     cell.accessibilityTraits = UIAccessibilityTraitStaticText;
     if (path.section == 0) {
-        if (path.row == 0) cell.textLabel.text = self.fileName ? [NSString stringWithFormat:KeyText(@"KEY_IMPORT_SELECTED"), self.fileName] : KeyText(@"KEY_IMPORT_PUBLIC_ONLY");
+        if (path.row == 0) {
+            cell.textLabel.text = self.busy ? UCLocalize("LOADING") : self.fileName ?
+                [NSString stringWithFormat:KeyText(@"KEY_IMPORT_SELECTED"), self.fileName] : KeyText(@"KEY_IMPORT_NO_FILE");
+            if (self.busy) {
+                UIActivityIndicatorView *spinner([[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray]);
+                spinner.color = cell.textLabel.textColor; [spinner startAnimating]; cell.accessoryView = spinner;
+            } else cell.accessoryView = nil;
+        }
         else { cell.textLabel.text = KeyText(path.row == 1 ? @"KEY_IMPORT_CHOOSE_FILE" : @"KEY_IMPORT_PACKAGE"); cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; cell.accessibilityTraits = UIAccessibilityTraitButton; }
         cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.settings.key-import.input.%ld", (long)path.row];
     } else if (path.section == 1) {
-        CydiaSourceDefinition *source(self.sources[path.row]); cell.textLabel.text = [source.uris componentsJoinedByString:@"\n"];
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@: %lu\n%@", [source.suites componentsJoinedByString:@" · "], source.filePath, (unsigned long)source.lineNumber, source.original];
+        cell.accessoryView = nil;
+        if (self.sources.count == 0) { cell.textLabel.text = KeyText(@"KEY_IMPORT_NO_SOURCES"); return cell; }
+        CydiaSourceDefinition *source(self.sources[path.row]); cell.textLabel.text = KeySourceSummary(source);
+        const BOOL editable(CydiaSourceDefinitionCanEdit(source, CydiaSources::Access::AdvancedSettings));
+        cell.textLabel.enabled = editable;
+        if (!editable) cell.detailTextLabel.text = [[NSBundle mainBundle] localizedStringForKey:
+            [source snapshot].readOnly ? @"SOURCE_READ_ONLY_ALIAS" : @"SOURCE_PROTECTED_OR_REVIEW" value:nil table:@"Sources"];
         cell.accessoryType = source == self.selectedSource ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-        cell.selectionStyle = UITableViewCellSelectionStyleDefault; cell.accessibilityTraits = UIAccessibilityTraitButton | (source == self.selectedSource ? UIAccessibilityTraitSelected : 0);
+        cell.selectionStyle = editable ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
+        cell.accessibilityTraits = UIAccessibilityTraitButton | (editable ? 0 : UIAccessibilityTraitNotEnabled) | (source == self.selectedSource ? UIAccessibilityTraitSelected : 0);
         cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.settings.key-import.source.%ld", (long)path.row];
     } else {
         if ((std::size_t)path.row < _review.fingerprints.size()) cell.textLabel.text = KeyString(_review.fingerprints[path.row]);
@@ -288,14 +334,34 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     [table deselectRowAtIndexPath:path animated:YES]; if (![self available]) return;
     if (path.section == 0 && path.row == 1) [self chooseFile];
     else if (path.section == 0 && path.row == 2) [self choosePackage];
-    else if (path.section == 1) { self.selectedSource = self.sources[path.row]; [self clearReview]; }
+    else if (path.section == 1 && self.sources.count != 0 &&
+        CydiaSourceDefinitionCanEdit(self.sources[path.row], CydiaSources::Access::AdvancedSettings)) {
+        self.selectedSource = self.sources[path.row]; [self clearReview];
+    }
 }
 - (void)showFailure:(const Client::Result &)result {
     NSString *message(KeyText(@"KEY_IMPORT_FAILED"));
     if (result.error.find("key_verifier_unavailable") != std::string::npos) message = KeyText(@"KEY_IMPORT_VERIFIER");
     else if (result.error.find("key_source_policy_review_required") != std::string::npos) message = KeyText(@"KEY_IMPORT_POLICY_REVIEW");
-    if (!result.error.empty()) message = [message stringByAppendingFormat:@"\n\n%@", KeyString(result.error)];
-    [self showMessage:message];
+    else if (result.error.find("key_source_review_required") != std::string::npos) message = KeyText(@"SOURCE_REVIEW_REQUIRED");
+    else if (result.error.find("key_source_commit_failed") != std::string::npos) message = KeyText(@"KEY_IMPORT_PARTIAL");
+    else if (result.error.find("stale_key_source") != std::string::npos || result.error.find("stale_key_review") != std::string::npos)
+        message = KeyText(@"KEY_IMPORT_SOURCE_CHANGED");
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:KeyText(@"KEY_IMPORT") message:message preferredStyle:UIAlertControllerStyleAlert]);
+    if (!result.error.empty()) {
+        NSString *details(KeyString(result.error));
+        NSString *title([[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_DETAILS" value:nil table:@"RuntimeAccess"]);
+        [alert addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+            UIViewController *controller([[UIViewController alloc] init]); controller.navigationItem.title = title;
+            UITextView *view([[UITextView alloc] init]); view.editable = NO;
+            view.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; view.adjustsFontForContentSizeCategory = YES;
+            view.text = details; view.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleBackground traitCollection:self.traitCollection];
+            view.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+            controller.view = view; [self.navigationController pushViewController:controller animated:YES];
+        }]];
+    }
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)showMessage:(NSString *)message {
     UIAlertController *alert([UIAlertController alertControllerWithTitle:KeyText(@"KEY_IMPORT") message:message preferredStyle:UIAlertControllerStyleAlert]);

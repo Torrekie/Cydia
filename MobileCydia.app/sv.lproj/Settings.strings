@@ -85,3 +85,26 @@
 "REPOSITORY_SECURITY_REFRESH_EX" = "Felläget kräver en lyckad uppdatering av källorna varje gång Cydia öppnas. Att läsa in paketlistorna igen eller ändra policyn förnyar inte autentiseringen av paketkällorna.";
 
 "BOOTSTRAP_DATABASE_ACCESS" = "Åtkomst till bootstrapens databas";
+
+"REPOSITORY_SETTINGS" = "Förrådsinställningar";
+"REPOSITORY_SETTINGS_HELP" = "Aktivera förråd och ändra deras konfiguration.";
+"ADVANCED_SETTINGS_HELP" = "Bootstrap-kompatibilitet och felsökning.";
+"BOOTSTRAP_DEFAULT" = "Bootstrapens standard";
+"TOOL_OVERRIDES_UNAVAILABLE" = "De sparade sökvägarna kunde inte läsas. Granska bootstrapens konfiguration.";
+"TOOL_CUSTOM_PATH" = "Egen sökväg";
+"TOOL_USE_DEFAULT" = "Använd bootstrapens standard";
+"TOOL_PATH_HELP" = "Använd bootstrapens standard eller ange hela sökvägen till en betrodd körbar fil. Öppna Cydia igen efter att du sparat.";
+"BOOTSTRAP_CONFIGURATION" = "Bootstrap-konfiguration";
+"PROTECTED_REPOSITORY_SETTINGS" = "Inställningar för skyddade förråd";
+"COMPATIBILITY" = "Kompatibilitet";
+"DIAGNOSTICS" = "Felsökning";
+"SETTINGS_SAVE" = "Spara";
+"DISCARD_SETTINGS_TITLE" = "Kasta ändringarna?";
+"DISCARD_SETTINGS_MESSAGE" = "Dina ändringar har inte sparats.";
+"DISCARD_SETTINGS_ACTION" = "Kasta ändringar";
+"KEY_IMPORT_NO_SOURCES" = "Lägg till ett förråd i Källor innan du importerar dess nyckel.";
+"KEY_IMPORT_ACTION" = "Importera";
+"KEY_IMPORT_REVIEW_ACTION" = "Granska";
+"KEY_IMPORT_NO_FILE" = "Ingen nyckelfil vald.";
+"KEY_IMPORT_SOURCE_CHANGED" = "Förrådet har ändrats. Välj det igen och granska nyckeln.";
+"KEY_IMPORT_PARTIAL" = "Nyckeln sparades, men förrådets konfiguration kunde inte uppdateras. Granska förrådsinställningarna innan du försöker igen.";

@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "הגדרות מתקדמות";
-"SOURCE_BROWSE_PACKAGES" = "עיון בחבילות";
 "SOURCE_CHOOSE_FILE" = "בחירת קובץ מקורות";
 "SOURCE_COMPONENTS" = "רכיבים (לא חובה)";
 "SOURCE_CONTINUE" = "המשך";
 "SOURCE_DEFINITION" = "הגדרת מקור";
-"SOURCE_DEFINITIONS" = "הגדרות מקורות";
-"SOURCE_DEFINITIONS_EXPLANATION" = "רשומות אלו מגיעות מקובצי APT בפועל, כולל מאגרים מושבתים. פתחו רשומה כדי לבדוק את הקובץ ואת האפשרויות שלה.";
 "SOURCE_DEFINITION_INVALID" = "הזינו הגדרת מקור APT תקינה אחת. מאגרים שאינם שטוחים דורשים רכיבים; לסדרות הפצה המסתיימות ב־/ אסור להוסיף רכיבים.";
 "SOURCE_DESTINATION_EXPLANATION" = "בחרו את קובץ APT שיכיל הגדרה זו.";
 "SOURCE_DISABLE" = "השבתה";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "שגיאות בקובצי מקורות";
 "SOURCE_FILE_EXISTS" = "קובץ זה כבר קיים. בחרו בו מרשימת קובצי המקורות.";
 "SOURCE_FILE_UNAVAILABLE" = "לא ניתן לקרוא בבטחה קובץ מקורות זה, או שהוא מכיל הגדרה לא תקינה.";
-"SOURCE_INDEX_UNAVAILABLE" = "אין אינדקס חבילות זמין להגדרה זו. ייתכן שהיא מושבתת או ממתינה לרענון מוצלח.";
 "SOURCE_LOCATION" = "קובץ ומספר שורה";
 "SOURCE_NEW_FILE" = "קובץ מקורות חדש";
 "SOURCE_NEW_FILE_EXPLANATION" = "הזינו שם קובץ חדש המסתיים ב־.list או ב־.sources. הקובץ ייווצר רק לאחר בדיקת ההגדרה ושמירתה.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "הגדרה זו מוגנת כחלק מסביבת האתחול שלך. שמירת שינוי שומרת על ההגנה שלה; הסרתה מסירה גם את הפניות ההגנה שלה.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "הגדרת המקור השתנתה, אך לא ניתן היה לשמור את הפניות ההגנה שלה. יש לבדוק את מאגרי סביבת האתחול בהגדרות המתקדמות לפני שינוי מקורות נוספים.";
 "SOURCE_READ_ONLY_ALIAS" = "מקור זה הוא קישור המנוהל מחוץ ל־Cydia. ניתן להשתמש בו ב־Cydia, אך לא לערוך או להסיר את הגדרותיו.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "הגדרות המאגרים";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "הגדרות מאגרים מתקדמות";
+"SOURCE_DEFINITION_DETAILS" = "פרטי ההגדרה";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "למאגר זה יש יותר מהגדרת מקור אחת. בחרו את ההגדרה להסרה.";
+"SOURCE_DELETE_UNAVAILABLE" = "לא ניתן להסיר מאגר זה כאן. בדקו את הגדרות המקורות שלו בהגדרות.";

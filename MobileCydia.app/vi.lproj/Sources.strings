@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Cài đặt nâng cao";
-"SOURCE_BROWSE_PACKAGES" = "Duyệt gói";
 "SOURCE_CHOOSE_FILE" = "Chọn tệp nguồn";
 "SOURCE_COMPONENTS" = "Thành phần (không bắt buộc)";
 "SOURCE_CONTINUE" = "Tiếp tục";
 "SOURCE_DEFINITION" = "Định nghĩa nguồn";
-"SOURCE_DEFINITIONS" = "Các định nghĩa nguồn";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Các mục này lấy từ tệp APT thực tế, kể cả kho đã tắt. Mở một mục để xem tệp và các tùy chọn.";
 "SOURCE_DEFINITION_INVALID" = "Nhập một định nghĩa nguồn APT hợp lệ. Kho không có cấu trúc phẳng cần thành phần; bộ phân phối kết thúc bằng / không được có thành phần.";
 "SOURCE_DESTINATION_EXPLANATION" = "Chọn tệp APT sẽ chứa định nghĩa này.";
 "SOURCE_DISABLE" = "Tắt";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Lỗi tệp nguồn";
 "SOURCE_FILE_EXISTS" = "Tệp này đã tồn tại. Hãy chọn tệp từ danh sách tệp nguồn.";
 "SOURCE_FILE_UNAVAILABLE" = "Không thể đọc tệp nguồn này một cách an toàn hoặc tệp chứa định nghĩa không hợp lệ.";
-"SOURCE_INDEX_UNAVAILABLE" = "Chưa có chỉ mục gói cho định nghĩa này. Nguồn có thể đã tắt hoặc chưa làm mới thành công.";
 "SOURCE_LOCATION" = "Tệp và số dòng";
 "SOURCE_NEW_FILE" = "Tệp nguồn mới";
 "SOURCE_NEW_FILE_EXPLANATION" = "Nhập tên tệp mới kết thúc bằng .list hoặc .sources. Tệp chỉ được tạo sau khi bạn xem xét và lưu định nghĩa.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Định nghĩa này được bảo vệ vì là một phần của môi trường bootstrap. Lưu chỉnh sửa sẽ giữ nguyên sự bảo vệ; xóa định nghĩa cũng sẽ xóa các tham chiếu bảo vệ của nó.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Định nghĩa nguồn đã thay đổi, nhưng không thể lưu các tham chiếu bảo vệ. Hãy xem lại các kho bootstrap trong Cài đặt nâng cao trước khi thay đổi thêm nguồn.";
 "SOURCE_READ_ONLY_ALIAS" = "Nguồn này là một liên kết được quản lý bên ngoài Cydia. Cydia có thể sử dụng nguồn này, nhưng không thể sửa hoặc xóa các định nghĩa của nó.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Cài đặt kho";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Cài đặt kho nâng cao";
+"SOURCE_DEFINITION_DETAILS" = "Chi tiết định nghĩa";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Kho này có nhiều định nghĩa nguồn. Hãy chọn định nghĩa cần xóa.";
+"SOURCE_DELETE_UNAVAILABLE" = "Không thể xóa kho này tại đây. Hãy kiểm tra các định nghĩa nguồn trong Cài đặt.";

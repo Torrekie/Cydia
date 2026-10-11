@@ -142,6 +142,70 @@ int main() {
         std::filesystem::remove_all(root);
     }
     {
+        std::string pattern(std::filesystem::current_path().string() + "/cydia-executable-settings.XXXXXX");
+        std::vector<char> name(pattern.begin(), pattern.end()); name.push_back('\0');
+        const char *created(mkdtemp(name.data())); Require(created != NULL, "create executable settings fixture");
+        const std::string root(created), oldTool(root + "/old-dpkg"), newTool(root + "/new-dpkg"),
+            unsafeTool(root + "/unsafe-dpkg");
+        auto paths(CydiaRuntime::PackageDatabasePaths::ForLayout(CydiaRuntime::PackageDatabaseLayout::Rootful));
+        // Redirect only this test-owned value's private state directory. The
+        // production layout and every real bootstrap path remain untouched.
+        const_cast<std::string &>(paths.CydiaStateDirectory()) = root;
+        Write(oldTool, "#!/bin/sh\n", 0755); Write(newTool, "#!/bin/sh\n", 0755);
+        Write(unsafeTool, "#!/bin/sh\n", 0777);
+        std::map<std::string, std::string> saved; Evidence evidence; Error error;
+        Require(ReadExecutableOverrideSettings(paths, &saved, &evidence, &error) && saved.empty() && evidence.absent,
+                "absent private configuration means no saved overrides");
+        Require(WriteExecutableOverride(paths, "dpkg", oldTool, &error) && unlink(oldTool.c_str()) == 0,
+                "save then remove a previously trusted executable");
+        Require(ReadExecutableOverrideSettings(paths, &saved, &evidence, &error) && saved["dpkg"] == oldTool,
+                "settings still display a removed executable path");
+        Require(!ReadExecutableOverrides(paths, &saved, &evidence, &error) && saved.empty(),
+                "execution never accepts a missing saved executable");
+        const std::string before(Read(ExecutableOverridesPath(paths)));
+        Require(!WriteExecutableOverride(paths, "unknown-purpose", newTool, &error) &&
+                !WriteExecutableOverride(paths, "dpkg", unsafeTool, &error) &&
+                Read(ExecutableOverridesPath(paths)) == before,
+                "recovery cannot save an unknown purpose or unsafe new executable");
+        Require(WriteExecutableOverride(paths, "dpkg", "", &error) &&
+                ReadExecutableOverrides(paths, &saved, &evidence, &error) && saved.empty(),
+                "explicit reset clears a missing old executable without resolving it");
+        Write(oldTool, "#!/bin/sh\n", 0755);
+        Require(WriteExecutableOverride(paths, "dpkg", oldTool, &error) && chmod(oldTool.c_str(), 0777) == 0,
+                "saved executable becomes unsafe after selection");
+        Require(ReadExecutableOverrideSettings(paths, &saved, &evidence, &error) && saved["dpkg"] == oldTool &&
+                !ReadExecutableOverrides(paths, &saved, &evidence, &error),
+                "unsafe old target remains visible only as settings data");
+        Require(WriteExecutableOverride(paths, "dpkg", newTool, &error) &&
+                ReadExecutableOverrides(paths, &saved, &evidence, &error) && saved["dpkg"] == newTool,
+                "trusted replacement repairs an unsafe old executable");
+        Require(chmod(oldTool.c_str(), 0755) == 0 && WriteExecutableOverride(paths, "gpg", oldTool, &error) &&
+                unlink(oldTool.c_str()) == 0 && WriteExecutableOverride(paths, "dpkg", "", &error),
+                "one setting can be reset while another saved executable is missing");
+        Require(ReadExecutableOverrideSettings(paths, &saved, &evidence, &error) && saved.size() == 1 &&
+                saved["gpg"] == oldTool && !ReadExecutableOverrides(paths, &saved, &evidence, &error),
+                "unrelated obsolete settings are preserved and still block execution");
+        Require(WriteExecutableOverride(paths, "gpg", "", &error) &&
+                ReadExecutableOverrides(paths, &saved, &evidence, &error) && saved.empty(),
+                "every obsolete setting can be explicitly cleared");
+        for (const auto &fields : {std::vector<std::string>{"unknown-purpose", newTool},
+                                  std::vector<std::string>{"dpkg", "relative"},
+                                  std::vector<std::string>{"dpkg", ""},
+                                  std::vector<std::string>{"dpkg", newTool, "dpkg", newTool}}) {
+            const std::string malformed("CYDIA-EXECUTABLES-1\n" + SerializeFields(fields));
+            Write(ExecutableOverridesPath(paths), malformed);
+            Require(!ReadExecutableOverrideSettings(paths, &saved, &evidence, &error) && saved.empty() &&
+                    !WriteExecutableOverride(paths, "dpkg", "", &error) &&
+                    Read(ExecutableOverridesPath(paths)) == malformed,
+                    "metadata recovery refuses malformed private authority without rewriting it");
+        }
+        Write(ExecutableOverridesPath(paths), "CYDIA-EXECUTABLES-1\n", 0666);
+        Require(!ReadExecutableOverrideSettings(paths, &saved, &evidence, &error) &&
+                !WriteExecutableOverride(paths, "dpkg", "", &error),
+                "metadata recovery never accepts writable private configuration");
+        std::filesystem::remove_all(root);
+    }
+    {
         Fixture f;
         const std::string shared(f.root + "/Applications"), bundle(shared + "/Cydia.app"), app(bundle + "/Cydia");
         Require(std::filesystem::create_directory(shared) && std::filesystem::create_directory(bundle), "create shared app fixture");

@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Chi tiết kỹ thuật";
 "ACCESS_CHECK_NOT_RUN" = "Chưa kiểm tra";
 "ACCESS_CHECK_COMPLETE" = "Đã xác minh";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Không xác minh được";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Dữ liệu chẩn đoán";

@@ -180,6 +180,7 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
     const std::string command(argv[1]);
     if (command != "--cydia-runtime-snapshot" && command != "--cydia-trust-snapshot" &&
         command != "--cydia-admin-access-review" && command != "--cydia-admin-access-approve" && command != "--cydia-admin-access-revoke" &&
+        command != "--cydia-set-executable" &&
         command != "--cydia-extended-state-read" && command != "--cydia-open-lock") return false;
     const char *value(argv[*argc - 1] + sizeof(prefix) - 1);
     if (*value == '\0' || strlen(value) > 5) return false;
@@ -417,6 +418,9 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         return fwrite(fields.data(), 1, fields.size(), stdout) == fields.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
     }
     if (command == "--cydia-set-executable") {
+        // Only private configuration changes here. A missing old executable
+        // must not prevent resetting it; execution routes still resolve and
+        // strictly validate the complete current environment below.
         Privileged::Request request;
         std::vector<std::string> fields;
         if (argc != 2 || !Privileged::ReadRequest(STDIN_FILENO, &request, &error) ||

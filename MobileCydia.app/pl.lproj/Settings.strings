@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Odśwież źródła, aby zweryfikować autentyczność repozytorium udostępniającego %@ w tej sesji.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Tryb Błąd wymaga udanego odświeżenia źródeł przy każdym uruchomieniu aplikacji Cydia. Ponowne wczytanie list pakietów lub zmiana zasad nie odnawia uwierzytelnienia repozytoriów.";
+
+"REPOSITORY_SETTINGS" = "Ustawienia repozytoriów";
+"REPOSITORY_SETTINGS_HELP" = "Włącz repozytoria i edytuj ich konfigurację.";
+"ADVANCED_SETTINGS_HELP" = "Zgodność bootstrapu i rozwiązywanie problemów.";
+"BOOTSTRAP_DEFAULT" = "Domyślne ustawienie bootstrapu";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Nie można odczytać zapisanych ścieżek. Sprawdź konfigurację bootstrapu.";
+"TOOL_CUSTOM_PATH" = "Własna ścieżka";
+"TOOL_USE_DEFAULT" = "Użyj ustawienia domyślnego bootstrapu";
+"TOOL_PATH_HELP" = "Użyj ustawienia domyślnego bootstrapu lub podaj pełną ścieżkę do zaufanego pliku wykonywalnego. Po zapisaniu otwórz Cydię ponownie.";
+"BOOTSTRAP_CONFIGURATION" = "Konfiguracja bootstrapu";
+"PROTECTED_REPOSITORY_SETTINGS" = "Ustawienia chronionych repozytoriów";
+"COMPATIBILITY" = "Zgodność";
+"DIAGNOSTICS" = "Rozwiązywanie problemów";
+"SETTINGS_SAVE" = "Zapisz";
+"DISCARD_SETTINGS_TITLE" = "Odrzucić zmiany?";
+"DISCARD_SETTINGS_MESSAGE" = "Twoje zmiany nie zostały zapisane.";
+"DISCARD_SETTINGS_ACTION" = "Odrzuć zmiany";
+"KEY_IMPORT_NO_SOURCES" = "Dodaj repozytorium w sekcji Źródła przed zaimportowaniem jego klucza.";
+"KEY_IMPORT_ACTION" = "Importuj";
+"KEY_IMPORT_REVIEW_ACTION" = "Sprawdź";
+"KEY_IMPORT_NO_FILE" = "Nie wybrano pliku klucza.";
+"KEY_IMPORT_SOURCE_CHANGED" = "Repozytorium zostało zmienione. Wybierz je ponownie i sprawdź klucz.";
+"KEY_IMPORT_PARTIAL" = "Klucz został zapisany, ale nie można zaktualizować konfiguracji jego repozytorium. Sprawdź ustawienia repozytoriów przed ponowną próbą.";

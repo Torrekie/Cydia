@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Technische details";
 "ACCESS_CHECK_NOT_RUN" = "Niet gecontroleerd";
 "ACCESS_CHECK_COMPLETE" = "Geverifieerd";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Kon niet worden gecontroleerd";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Diagnose-uitvoer";

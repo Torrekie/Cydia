@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Bu oturumda %@ sağlayan deponun kimliğini doğrulamak için kaynakları yenileyin.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "Hata modu, Cydia her açıldığında kaynakların başarıyla yenilenmesini gerektirir. Paket listelerini yeniden yüklemek veya ilkeyi değiştirmek depoların kimlik doğrulamasını yenilemez.";
+
+"REPOSITORY_SETTINGS" = "Depo Ayarları";
+"REPOSITORY_SETTINGS_HELP" = "Depoları etkinleştirin ve yapılandırmalarını düzenleyin.";
+"ADVANCED_SETTINGS_HELP" = "Bootstrap uyumluluğu ve sorun giderme.";
+"BOOTSTRAP_DEFAULT" = "Bootstrap Varsayılanı";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Kaydedilen yollar okunamadı. Bootstrap yapılandırmasını gözden geçirin.";
+"TOOL_CUSTOM_PATH" = "Özel Yol";
+"TOOL_USE_DEFAULT" = "Bootstrap Varsayılanını Kullan";
+"TOOL_PATH_HELP" = "Bootstrap varsayılanını kullanın veya güvenilir bir çalıştırılabilir dosyanın tam yolunu girin. Kaydettikten sonra Cydia’yı yeniden açın.";
+"BOOTSTRAP_CONFIGURATION" = "Bootstrap Yapılandırması";
+"PROTECTED_REPOSITORY_SETTINGS" = "Korumalı Depo Ayarları";
+"COMPATIBILITY" = "Uyumluluk";
+"DIAGNOSTICS" = "Sorun Giderme";
+"SETTINGS_SAVE" = "Kaydet";
+"DISCARD_SETTINGS_TITLE" = "Değişiklikler silinsin mi?";
+"DISCARD_SETTINGS_MESSAGE" = "Değişiklikleriniz kaydedilmedi.";
+"DISCARD_SETTINGS_ACTION" = "Değişiklikleri Sil";
+"KEY_IMPORT_NO_SOURCES" = "Anahtarını içe aktarmadan önce Kaynaklar’a bir depo ekleyin.";
+"KEY_IMPORT_ACTION" = "İçe Aktar";
+"KEY_IMPORT_REVIEW_ACTION" = "İncele";
+"KEY_IMPORT_NO_FILE" = "Anahtar dosyası seçilmedi.";
+"KEY_IMPORT_SOURCE_CHANGED" = "Depo değişti. Yeniden seçin ve anahtarı inceleyin.";
+"KEY_IMPORT_PARTIAL" = "Anahtar kaydedildi ancak depo yapılandırması güncellenemedi. Yeniden denemeden önce depo ayarlarını gözden geçirin.";

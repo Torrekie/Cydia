@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "请刷新软件源，以在本次会话中验证提供 %@ 的软件源的身份。";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "错误模式要求每次打开 Cydia 后成功刷新软件源。重新载入软件包列表或更改策略不会重新验证软件源的身份。";
+
+"REPOSITORY_SETTINGS" = "软件源设置";
+"REPOSITORY_SETTINGS_HELP" = "启用软件源并编辑其配置。";
+"ADVANCED_SETTINGS_HELP" = "引导环境兼容性与故障排查。";
+"BOOTSTRAP_DEFAULT" = "引导环境默认值";
+"TOOL_OVERRIDES_UNAVAILABLE" = "无法读取已保存的路径。请检查引导环境配置。";
+"TOOL_CUSTOM_PATH" = "自定义路径";
+"TOOL_USE_DEFAULT" = "使用引导环境默认值";
+"TOOL_PATH_HELP" = "使用引导环境默认值，或输入可信可执行文件的完整路径。保存后请重新打开 Cydia。";
+"BOOTSTRAP_CONFIGURATION" = "引导环境配置";
+"PROTECTED_REPOSITORY_SETTINGS" = "受保护软件源设置";
+"COMPATIBILITY" = "兼容性";
+"DIAGNOSTICS" = "故障排查";
+"SETTINGS_SAVE" = "保存";
+"DISCARD_SETTINGS_TITLE" = "放弃更改？";
+"DISCARD_SETTINGS_MESSAGE" = "更改尚未保存。";
+"DISCARD_SETTINGS_ACTION" = "放弃更改";
+"KEY_IMPORT_NO_SOURCES" = "导入密钥前，请先在“软件源”中添加对应的软件源。";
+"KEY_IMPORT_ACTION" = "导入";
+"KEY_IMPORT_REVIEW_ACTION" = "检查";
+"KEY_IMPORT_NO_FILE" = "尚未选择密钥文件。";
+"KEY_IMPORT_SOURCE_CHANGED" = "软件源已更改。请重新选择并检查密钥。";
+"KEY_IMPORT_PARTIAL" = "密钥已保存，但无法更新软件源配置。重试前请检查软件源设置。";

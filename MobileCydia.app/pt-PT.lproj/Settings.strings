@@ -85,3 +85,26 @@
 "REPOSITORY_SECURITY_REFRESH_EX" = "O modo Erro exige uma atualização bem-sucedida das fontes sempre que o Cydia é aberto. Recarregar as listas de pacotes ou alterar a política não renova a autenticação dos repositórios.";
 
 "BOOTSTRAP_DATABASE_ACCESS" = "Acesso à base de dados do bootstrap";
+
+"REPOSITORY_SETTINGS" = "Definições dos repositórios";
+"REPOSITORY_SETTINGS_HELP" = "Ative repositórios e edite a sua configuração.";
+"ADVANCED_SETTINGS_HELP" = "Compatibilidade do bootstrap e resolução de problemas.";
+"BOOTSTRAP_DEFAULT" = "Predefinição do bootstrap";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Não foi possível ler os caminhos guardados. Reveja a configuração do bootstrap.";
+"TOOL_CUSTOM_PATH" = "Caminho personalizado";
+"TOOL_USE_DEFAULT" = "Usar predefinição do bootstrap";
+"TOOL_PATH_HELP" = "Utilize a predefinição do bootstrap ou introduza o caminho completo de um executável fidedigno. Reabra o Cydia depois de guardar.";
+"BOOTSTRAP_CONFIGURATION" = "Configuração do bootstrap";
+"PROTECTED_REPOSITORY_SETTINGS" = "Definições dos repositórios protegidos";
+"COMPATIBILITY" = "Compatibilidade";
+"DIAGNOSTICS" = "Resolução de problemas";
+"SETTINGS_SAVE" = "Guardar";
+"DISCARD_SETTINGS_TITLE" = "Descartar alterações?";
+"DISCARD_SETTINGS_MESSAGE" = "As suas alterações não foram guardadas.";
+"DISCARD_SETTINGS_ACTION" = "Descartar alterações";
+"KEY_IMPORT_NO_SOURCES" = "Adicione um repositório em Fontes antes de importar a respetiva chave.";
+"KEY_IMPORT_ACTION" = "Importar";
+"KEY_IMPORT_REVIEW_ACTION" = "Rever";
+"KEY_IMPORT_NO_FILE" = "Nenhum ficheiro de chave selecionado.";
+"KEY_IMPORT_SOURCE_CHANGED" = "O repositório foi alterado. Selecione-o novamente e reveja a chave.";
+"KEY_IMPORT_PARTIAL" = "A chave foi guardada, mas não foi possível atualizar a configuração do respetivo repositório. Reveja as definições dos repositórios antes de tentar novamente.";

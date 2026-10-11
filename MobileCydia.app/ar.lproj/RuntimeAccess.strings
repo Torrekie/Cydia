@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "التفاصيل التقنية";
 "ACCESS_CHECK_NOT_RUN" = "لم يتم التحقق";
 "ACCESS_CHECK_COMPLETE" = "تم التحقق";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "تعذّر التحقق";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "مخرجات التشخيص";

@@ -44,7 +44,9 @@ static NSString *CapabilityReason(const std::string &reason) {
 }
 - (NSURL *)navigationURL { return [NSURL URLWithString:@"cydia://home/settings/capabilities"]; }
 - (void)loadView {
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
+    UITableViewStyle style(UITableViewStyleGrouped);
+    if (@available(iOS 13.0, *)) style = UITableViewStyleInsetGrouped;
+    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:style];
     self.table.dataSource = self;
     self.table.delegate = self;
     self.table.rowHeight = UITableViewAutomaticDimension;
@@ -173,9 +175,9 @@ static NSString *CapabilityReason(const std::string &reason) {
         }
     });
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.ready ? 3 : 1; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.ready ? 4 : 1; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    if (section == 0) return 1;
+    if (section == 0 || section == 3) return 1;
     return section == 1 ? MAX((NSInteger)_preview.changes.size(), 1) : MAX((NSInteger)_preview.preserved.size(), 1);
 }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
@@ -184,8 +186,6 @@ static NSString *CapabilityReason(const std::string &reason) {
     return nil;
 }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
-    if (section == 0 && self.ready) return [NSString stringWithFormat:CapabilityText(@"CAPABILITIES_ENVIRONMENT"),
-        CapabilityString(_preview.adminDirectory), CapabilityString(_preview.rootDirectory)];
     return nil;
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -201,6 +201,7 @@ static NSString *CapabilityReason(const std::string &reason) {
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     cell.accessibilityTraits = UIAccessibilityTraitStaticText;
     cell.detailTextLabel.text = nil;
+    cell.accessoryType = UITableViewCellAccessoryNone;
     if (path.section == 0) {
         cell.textLabel.text = self.status ?: CapabilityText(@"CAPABILITIES_REVIEW");
         cell.detailTextLabel.text = CapabilityText(@"CAPABILITIES_EXPLANATION");
@@ -212,6 +213,12 @@ static NSString *CapabilityReason(const std::string &reason) {
         return cell;
     }
     cell.accessoryView = nil;
+    if (path.section == 3) {
+        cell.textLabel.text = [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_DETAILS" value:nil table:@"RuntimeAccess"];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        cell.accessibilityTraits = UIAccessibilityTraitButton; cell.accessibilityIdentifier = @"cydia.settings.capabilities.details";
+        return cell;
+    }
     const auto &rows = path.section == 1 ? _preview.changes : _preview.preserved;
     if (rows.empty()) {
         cell.textLabel.text = CapabilityText(path.section == 1 ? @"CAPABILITIES_NO_CHANGES" : @"CAPABILITIES_NONE");
@@ -225,10 +232,27 @@ static NSString *CapabilityReason(const std::string &reason) {
     } else {
         NSString *identity([NSString stringWithFormat:CapabilityText(@"CAPABILITY_PROVIDER"), CapabilityString(candidate.providerPackage),
             CapabilityString(candidate.providerArchitecture), CapabilityString(candidate.providerVersion)]);
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@\n%@", CapabilityReason(candidate.reason), identity, CapabilityString(candidate.providerStatus)];
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@", CapabilityReason(candidate.reason), identity];
     }
     cell.accessibilityIdentifier = [@"cydia.settings.capabilities.package." stringByAppendingString:cell.textLabel.text];
     return cell;
+}
+- (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    [table deselectRowAtIndexPath:path animated:YES]; if (path.section != 3 || !self.ready) return;
+    NSMutableString *text([[NSString stringWithFormat:CapabilityText(@"CAPABILITIES_ENVIRONMENT"),
+        CapabilityString(_preview.adminDirectory), CapabilityString(_preview.rootDirectory)] mutableCopy]);
+    for (const auto &candidate : _preview.preserved) {
+        [text appendFormat:@"\n\n%@\n%@\n%@", CapabilityString(candidate.package),
+            [NSString stringWithFormat:CapabilityText(@"CAPABILITY_PROVIDER"), CapabilityString(candidate.providerPackage),
+                CapabilityString(candidate.providerArchitecture), CapabilityString(candidate.providerVersion)], CapabilityString(candidate.providerStatus)];
+    }
+    UIViewController *controller([[UIViewController alloc] init]);
+    controller.navigationItem.title = [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_DETAILS" value:nil table:@"RuntimeAccess"];
+    UITextView *view([[UITextView alloc] init]); view.editable = NO; view.text = text;
+    view.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; view.adjustsFontForContentSizeCategory = YES;
+    view.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleBackground traitCollection:self.traitCollection];
+    view.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+    controller.view = view; [self.navigationController pushViewController:controller animated:YES];
 }
 - (void)showMessage:(NSString *)message {
     UIAlertController *alert([UIAlertController alertControllerWithTitle:CapabilityText(@"CAPABILITIES") message:message preferredStyle:UIAlertControllerStyleAlert]);

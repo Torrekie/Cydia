@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "고급 설정";
-"SOURCE_BROWSE_PACKAGES" = "패키지 둘러보기";
 "SOURCE_CHOOSE_FILE" = "소스 파일 선택";
 "SOURCE_COMPONENTS" = "구성 요소(선택 사항)";
 "SOURCE_CONTINUE" = "계속";
 "SOURCE_DEFINITION" = "소스 정의";
-"SOURCE_DEFINITIONS" = "소스 정의";
-"SOURCE_DEFINITIONS_EXPLANATION" = "실제 APT 파일의 항목이며 비활성화된 저장소도 포함됩니다. 항목을 열어 파일과 옵션을 확인할 수 있습니다.";
 "SOURCE_DEFINITION_INVALID" = "유효한 APT 소스 정의를 하나 입력하세요. 평면형이 아닌 저장소에는 구성 요소가 필요하며, /로 끝나는 배포판 경로에는 구성 요소를 지정할 수 없습니다.";
 "SOURCE_DESTINATION_EXPLANATION" = "이 정의를 저장할 APT 파일을 선택하세요.";
 "SOURCE_DISABLE" = "비활성화";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "소스 파일 오류";
 "SOURCE_FILE_EXISTS" = "이 파일은 이미 있습니다. 소스 파일 목록에서 선택하세요.";
 "SOURCE_FILE_UNAVAILABLE" = "이 소스 파일을 안전하게 읽을 수 없거나 잘못된 정의가 포함되어 있습니다.";
-"SOURCE_INDEX_UNAVAILABLE" = "이 정의에 사용할 수 있는 패키지 색인이 없습니다. 비활성화되어 있거나 새로 고침이 완료되지 않았을 수 있습니다.";
 "SOURCE_LOCATION" = "파일 및 줄 번호";
 "SOURCE_NEW_FILE" = "새 소스 파일";
 "SOURCE_NEW_FILE_EXPLANATION" = ".list 또는 .sources로 끝나는 새 파일명을 입력하세요. 정의를 검토하고 저장한 후에만 파일이 생성됩니다.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "이 정의는 부트스트랩의 일부로 보호됩니다. 편집 내용을 저장해도 보호는 유지되며, 정의를 제거하면 해당 보호 참조도 제거됩니다.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "소스 정의가 변경되었지만 보호 참조를 저장하지 못했습니다. 다른 소스를 변경하기 전에 고급 설정에서 부트스트랩 저장소를 검토하세요.";
 "SOURCE_READ_ONLY_ALIAS" = "이 소스는 Cydia 외부에서 관리하는 링크입니다. Cydia에서 사용할 수 있지만 소스 정의를 편집하거나 제거할 수는 없습니다.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "저장소 설정";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "고급 저장소 설정";
+"SOURCE_DEFINITION_DETAILS" = "정의 상세 정보";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "이 저장소에는 소스 정의가 여러 개 있습니다. 제거할 정의를 선택하세요.";
+"SOURCE_DELETE_UNAVAILABLE" = "여기서는 이 저장소를 제거할 수 없습니다. 설정에서 소스 정의를 확인하세요.";

@@ -401,22 +401,43 @@ bool ReadExecutableOverrides(const PackageDatabasePaths &paths,
 bool ReadExecutableOverridesFromPath(const std::string &path,
                              std::map<std::string, std::string> *overrides,
                              Evidence *evidence, Error *error) {
+    if (!ReadExecutableOverrideSettingsFromPath(path, overrides, evidence, error)) return false;
+    for (const auto &entry : *overrides)
+        if (!ValidateRootOwnedPath(entry.second, false, true, error)) {
+            overrides->clear();
+            return Fail(error, "invalid_overrides", "Invalid private executable override.");
+        }
+    return true;
+}
+
+bool ReadExecutableOverrideSettings(const PackageDatabasePaths &paths,
+                             std::map<std::string, std::string> *overrides,
+                             Evidence *evidence, Error *error) {
+    return ReadExecutableOverrideSettingsFromPath(ExecutableOverridesPath(paths), overrides, evidence, error);
+}
+
+bool ReadExecutableOverrideSettingsFromPath(const std::string &path,
+                             std::map<std::string, std::string> *overrides,
+                             Evidence *evidence, Error *error) {
     if (overrides == NULL || evidence == NULL) return false;
     overrides->clear();
     if (!CaptureEvidence(path, false, true, evidence, error)) return false;
     if (evidence->absent) return true;
     if (evidence->bytes.compare(0, sizeof(overridesHeader) - 1, overridesHeader) != 0)
         return Fail(error, "invalid_overrides", "Unsupported private executable configuration.");
+    std::map<std::string, std::string> saved;
     std::size_t offset = sizeof(overridesHeader) - 1;
     while (offset != evidence->bytes.size()) {
         std::string purpose, path;
         if (!ParseOne(evidence->bytes, &offset, &purpose, error) ||
             !ParseOne(evidence->bytes, &offset, &path, error) ||
-            !AllowedPurpose(purpose) || overrides->count(purpose) != 0 ||
-            !ValidateRootOwnedPath(path, false, true, error))
+            !AllowedPurpose(purpose) || saved.count(purpose) != 0 ||
+            path.empty() || path[0] != '/' || !SafeString(path))
             return Fail(error, "invalid_overrides", "Invalid private executable override.");
-        (*overrides)[purpose] = path;
+        saved[purpose] = path;
     }
+    if (!RecheckEvidence({*evidence}, error)) return false;
+    *overrides = saved;
     return true;
 }
 
@@ -432,7 +453,7 @@ bool WriteExecutableOverride(const PackageDatabasePaths &paths,
     if (!configurationLock.AcquirePrivate(lockDirectory, "runtime.conf.lock", error)) return false;
     std::map<std::string, std::string> overrides;
     Evidence before;
-    if (!ReadExecutableOverrides(paths, &overrides, &before, error)) return false;
+    if (!ReadExecutableOverrideSettings(paths, &overrides, &before, error)) return false;
     if (path.empty()) overrides.erase(purpose); else overrides[purpose] = path;
     std::vector<std::string> fields;
     for (const auto &entry : overrides) { fields.push_back(entry.first); fields.push_back(entry.second); }

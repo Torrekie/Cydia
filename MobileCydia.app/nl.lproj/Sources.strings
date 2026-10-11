@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Geavanceerde instellingen";
-"SOURCE_BROWSE_PACKAGES" = "Pakketten bekijken";
 "SOURCE_CHOOSE_FILE" = "Bronbestand kiezen";
 "SOURCE_COMPONENTS" = "Componenten (optioneel)";
 "SOURCE_CONTINUE" = "Doorgaan";
 "SOURCE_DEFINITION" = "Brondefinitie";
-"SOURCE_DEFINITIONS" = "Brondefinities";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Deze vermeldingen komen uit de daadwerkelijke APT-bestanden, inclusief uitgeschakelde pakketbronnen. Open een vermelding om het bestand en de opties te bekijken.";
 "SOURCE_DEFINITION_INVALID" = "Voer één geldige APT-brondefinitie in. Niet-vlakke pakketbronnen vereisen componenten; suites die eindigen op / mogen deze niet hebben.";
 "SOURCE_DESTINATION_EXPLANATION" = "Kies het APT-bestand waarin deze definitie wordt opgeslagen.";
 "SOURCE_DISABLE" = "Uitschakelen";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Fouten in bronbestanden";
 "SOURCE_FILE_EXISTS" = "Dit bestand bestaat al. Kies het uit de lijst met bronbestanden.";
 "SOURCE_FILE_UNAVAILABLE" = "Dit bronbestand kan niet veilig worden gelezen of bevat een ongeldige definitie.";
-"SOURCE_INDEX_UNAVAILABLE" = "Er is geen pakketindex beschikbaar voor deze definitie. De bron is mogelijk uitgeschakeld of nog niet succesvol vernieuwd.";
 "SOURCE_LOCATION" = "Bestand en regel";
 "SOURCE_NEW_FILE" = "Nieuw bronbestand";
 "SOURCE_NEW_FILE_EXPLANATION" = "Voer een nieuwe bestandsnaam in die eindigt op .list of .sources. Het bestand wordt pas aangemaakt nadat je de definitie hebt gecontroleerd en opgeslagen.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Deze definitie is beschermd als onderdeel van je bootstrap. Het opslaan van een wijziging behoudt de bescherming; verwijderen wist ook de bijbehorende beschermingsverwijzingen.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "De brondefinitie is gewijzigd, maar de beschermingsverwijzingen konden niet worden opgeslagen. Controleer de bootstrap-pakketbronnen in Geavanceerde instellingen voordat je meer bronnen wijzigt.";
 "SOURCE_READ_ONLY_ALIAS" = "Deze bron is een koppeling die buiten Cydia wordt beheerd. Cydia kan deze gebruiken, maar de definities ervan niet bewerken of verwijderen.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Instellingen voor pakketbronnen";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Geavanceerde instellingen voor pakketbronnen";
+"SOURCE_DEFINITION_DETAILS" = "Details van de definitie";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Deze pakketbron heeft meer dan één brondefinitie. Kies de definitie die je wilt verwijderen.";
+"SOURCE_DELETE_UNAVAILABLE" = "Deze pakketbron kan hier niet worden verwijderd. Controleer de brondefinities in Instellingen.";

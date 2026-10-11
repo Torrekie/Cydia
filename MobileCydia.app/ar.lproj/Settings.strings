@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "حدّث المصادر للتحقق من أصالة المستودع الذي يوفر %@ في هذه الجلسة.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "يتطلب وضع الخطأ تحديث المصادر بنجاح في كل مرة يفتح فيها Cydia. لا تؤدي إعادة تحميل قوائم الحزم أو تغيير السياسة إلى تجديد مصادقة المستودعات.";
+
+"REPOSITORY_SETTINGS" = "إعدادات المستودعات";
+"REPOSITORY_SETTINGS_HELP" = "فعّل المستودعات وعدّل إعداداتها.";
+"ADVANCED_SETTINGS_HELP" = "التوافق مع بيئة كسر الحماية واستكشاف الأخطاء وإصلاحها.";
+"BOOTSTRAP_DEFAULT" = "القيمة الافتراضية لبيئة كسر الحماية";
+"TOOL_OVERRIDES_UNAVAILABLE" = "تعذّرت قراءة المسارات المحفوظة. راجع إعدادات بيئة كسر الحماية.";
+"TOOL_CUSTOM_PATH" = "مسار مخصص";
+"TOOL_USE_DEFAULT" = "استخدام القيمة الافتراضية لبيئة كسر الحماية";
+"TOOL_PATH_HELP" = "استخدم القيمة الافتراضية لبيئة كسر الحماية، أو أدخل المسار الكامل لبرنامج تنفيذي موثوق. أعد فتح Cydia بعد الحفظ.";
+"BOOTSTRAP_CONFIGURATION" = "إعدادات بيئة كسر الحماية";
+"PROTECTED_REPOSITORY_SETTINGS" = "إعدادات المستودعات المحمية";
+"COMPATIBILITY" = "التوافق";
+"DIAGNOSTICS" = "استكشاف الأخطاء وإصلاحها";
+"SETTINGS_SAVE" = "حفظ";
+"DISCARD_SETTINGS_TITLE" = "تجاهل التغييرات؟";
+"DISCARD_SETTINGS_MESSAGE" = "لم تُحفظ تغييراتك.";
+"DISCARD_SETTINGS_ACTION" = "تجاهل التغييرات";
+"KEY_IMPORT_NO_SOURCES" = "أضف مستودعًا في صفحة المصادر قبل استيراد مفتاحه.";
+"KEY_IMPORT_ACTION" = "استيراد";
+"KEY_IMPORT_REVIEW_ACTION" = "مراجعة";
+"KEY_IMPORT_NO_FILE" = "لم يتم اختيار ملف مفتاح.";
+"KEY_IMPORT_SOURCE_CHANGED" = "تغيّر المستودع. اختره مجددًا وراجع المفتاح.";
+"KEY_IMPORT_PARTIAL" = "تم حفظ المفتاح، لكن تعذّر تحديث إعدادات مستودعه. راجع إعدادات المستودعات قبل المحاولة مرة أخرى.";

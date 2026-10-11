@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Réglages avancés";
-"SOURCE_BROWSE_PACKAGES" = "Parcourir les paquets";
 "SOURCE_CHOOSE_FILE" = "Choisir le fichier de sources";
 "SOURCE_COMPONENTS" = "Composants (facultatifs)";
 "SOURCE_CONTINUE" = "Continuer";
 "SOURCE_DEFINITION" = "Définition de source";
-"SOURCE_DEFINITIONS" = "Définitions de sources";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Ces entrées proviennent des fichiers APT réels, y compris les dépôts désactivés. Ouvrez une entrée pour vérifier son fichier et ses options.";
 "SOURCE_DEFINITION_INVALID" = "Saisissez une définition de source APT valide. Les dépôts non plats nécessitent des composants ; les suites se terminant par / ne doivent pas en avoir.";
 "SOURCE_DESTINATION_EXPLANATION" = "Choisissez le fichier APT qui contiendra cette définition.";
 "SOURCE_DISABLE" = "Désactiver";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Erreurs des fichiers de sources";
 "SOURCE_FILE_EXISTS" = "Ce fichier existe déjà. Choisissez-le dans la liste des fichiers de sources.";
 "SOURCE_FILE_UNAVAILABLE" = "Ce fichier de sources ne peut pas être lu en toute sécurité ou contient une définition non valide.";
-"SOURCE_INDEX_UNAVAILABLE" = "Aucun index de paquets n’est disponible pour cette définition. Elle est peut-être désactivée ou en attente d’une actualisation réussie.";
 "SOURCE_LOCATION" = "Fichier et ligne";
 "SOURCE_NEW_FILE" = "Nouveau fichier de sources";
 "SOURCE_NEW_FILE_EXPLANATION" = "Saisissez un nouveau nom de fichier se terminant par .list ou .sources. Le fichier sera créé après vérification et enregistrement de la définition.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Cette définition est protégée en tant que composante de votre bootstrap. Enregistrer une modification conserve sa protection ; la supprimer retire aussi ses références de protection.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "La définition de la source a été modifiée, mais ses références de protection n’ont pas pu être enregistrées. Vérifiez les dépôts du bootstrap dans les réglages avancés avant de modifier d’autres sources.";
 "SOURCE_READ_ONLY_ALIAS" = "Cette source est un lien géré en dehors de Cydia. Cydia peut l’utiliser, mais ne peut ni modifier ni supprimer ses définitions.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Réglages des dépôts";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Réglages avancés des dépôts";
+"SOURCE_DEFINITION_DETAILS" = "Détails de la définition";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Ce dépôt possède plusieurs définitions de source. Choisissez la définition à supprimer.";
+"SOURCE_DELETE_UNAVAILABLE" = "Ce dépôt ne peut pas être supprimé ici. Examinez ses définitions de source dans Réglages.";

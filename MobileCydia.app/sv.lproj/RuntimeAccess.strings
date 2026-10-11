@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Tekniska detaljer";
 "ACCESS_CHECK_NOT_RUN" = "Inte kontrollerat";
 "ACCESS_CHECK_COMPLETE" = "Verifierat";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Kunde inte verifieras";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Diagnostikutdata";

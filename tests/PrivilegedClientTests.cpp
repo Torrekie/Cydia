@@ -24,6 +24,7 @@ std::string query("/synthetic/bin/dpkg-query");
 std::string deb("/synthetic/bin/dpkg-deb");
 std::string sources("/synthetic/etc/apt/sources.list");
 std::string parts("/synthetic/etc/apt/sources.list.d");
+unsigned environmentReads = 0;
 void Expect(bool condition, const char *message) {
     if (!condition) {
         std::cerr << "[verify-privileged-client][FAIL] " << message << '\n';
@@ -62,6 +63,15 @@ int Helper(int argc, char **argv) {
     if (command == "--cydia-signal") { raise(SIGTERM); return 23; }
     if (command == "--cydia-echo")
         return WriteAll(STDOUT_FILENO, request.payload) && WriteAll(STDERR_FILENO, "diagnostic") ? 0 : 24;
+    if (command == "--cydia-set-executable") {
+        const auto &expected(request.expected);
+        if (!expected.aptConfigOverride.empty() || !expected.dpkgRoot.empty() || !expected.dpkgAdmin.empty() ||
+            !expected.dpkg.empty() || !expected.dpkgQuery.empty() || !expected.dpkgDeb.empty() ||
+            !expected.sourceList.empty() || !expected.sourceParts.empty()) return 28;
+        std::vector<std::string> fields;
+        return CydiaRuntime::Privileged::ParseFields(request.payload, 2, &fields, &error) &&
+            WriteAll(STDOUT_FILENO, request.payload) ? 0 : 29;
+    }
     if (command == "--cydia-open-lock" && argc == 3) {
         if (request.expected.sourceList == "hang") for (;;) pause();
         int fd = open(request.expected.dpkgAdmin.c_str(), O_RDWR);
@@ -93,7 +103,7 @@ void SetLockFileOpener(LockFileOpener selected, void *context) {
 }
 namespace CydiaAPT {
 const std::string &AptConfigOverride() { return empty; }
-const std::string &DpkgRootDirectory() { return root; }
+const std::string &DpkgRootDirectory() { ++environmentReads; return root; }
 const std::string &DpkgAdminDirectory() { return admin; }
 const std::string &DpkgExecutablePath() { return executable; }
 const std::string &DpkgQueryExecutablePath() { return query; }
@@ -114,6 +124,17 @@ int main(int argc, char **argv) {
     int seed = mkstemp(writable.data());
     Expect(seed >= 0, "create lock fixture"); close(seed); admin = writable.data();
     using namespace CydiaRuntime;
+    const std::string settingsPayload(Privileged::SerializeFields({"dpkg", ""}));
+    Privileged::Request settings = PrivilegedClient::PrivateSettingsRequest(settingsPayload);
+    Expect(settings.payload == settingsPayload && settings.expected.dpkg.empty() && environmentReads == 0,
+           "private settings request does not resolve selected tools or APT state");
+    PrivilegedClient::Result settingsResult = PrivilegedClient::RunPrivateSettingsCommand(
+        "--cydia-set-executable", settingsPayload);
+    Expect(settingsResult.succeeded() && settingsResult.output == settingsPayload && environmentReads == 0,
+           "private executable reset sends only its payload without runtime expectations");
+    settingsResult = PrivilegedClient::RunPrivateSettingsCommand("--cydia-recovery-configure", settingsPayload);
+    Expect(!settingsResult.succeeded() && settingsResult.launchError == EINVAL && environmentReads == 0,
+           "private settings client cannot bypass runtime resolution for package actions");
     Privileged::Request request = PrivilegedClient::RuntimeRequest("hello\nworld");
     Expect(request.expected.dpkgQuery == query && request.expected.dpkgDeb == deb,
            "shared expected descriptor");

@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Impostazioni avanzate";
-"SOURCE_BROWSE_PACKAGES" = "Sfoglia pacchetti";
 "SOURCE_CHOOSE_FILE" = "Scegli file delle sorgenti";
 "SOURCE_COMPONENTS" = "Componenti (facoltativi)";
 "SOURCE_CONTINUE" = "Continua";
 "SOURCE_DEFINITION" = "Definizione della sorgente";
-"SOURCE_DEFINITIONS" = "Definizioni delle sorgenti";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Queste voci provengono dai file APT effettivi, inclusi i repository disabilitati. Apri una voce per esaminare il file e le opzioni.";
 "SOURCE_DEFINITION_INVALID" = "Inserisci una definizione di sorgente APT valida. I repository non piatti richiedono componenti; le suite che terminano con / non devono averne.";
 "SOURCE_DESTINATION_EXPLANATION" = "Scegli il file APT che conterrà questa definizione.";
 "SOURCE_DISABLE" = "Disabilita";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Errori dei file delle sorgenti";
 "SOURCE_FILE_EXISTS" = "Questo file esiste già. Sceglilo dall’elenco dei file delle sorgenti.";
 "SOURCE_FILE_UNAVAILABLE" = "Impossibile leggere questo file delle sorgenti in modo sicuro oppure contiene una definizione non valida.";
-"SOURCE_INDEX_UNAVAILABLE" = "Non è disponibile un indice dei pacchetti per questa definizione. Potrebbe essere disabilitata o in attesa di un aggiornamento riuscito.";
 "SOURCE_LOCATION" = "File e riga";
 "SOURCE_NEW_FILE" = "Nuovo file delle sorgenti";
 "SOURCE_NEW_FILE_EXPLANATION" = "Inserisci un nuovo nome di file che termini con .list o .sources. Il file verrà creato solo dopo aver esaminato e salvato la definizione.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Questa definizione è protetta come parte del tuo bootstrap. Salvare una modifica mantiene la protezione; rimuoverla elimina anche i suoi riferimenti di protezione.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "La definizione della sorgente è stata modificata, ma non è stato possibile salvare i suoi riferimenti di protezione. Controlla i repository del bootstrap nelle impostazioni avanzate prima di modificare altre sorgenti.";
 "SOURCE_READ_ONLY_ALIAS" = "Questa sorgente è un collegamento gestito al di fuori di Cydia. Cydia può utilizzarla, ma non può modificarne o rimuoverne le definizioni.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Impostazioni dei repository";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Impostazioni avanzate dei repository";
+"SOURCE_DEFINITION_DETAILS" = "Dettagli della definizione";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Questo repository ha più di una definizione di sorgente. Scegli la definizione da rimuovere.";
+"SOURCE_DELETE_UNAVAILABLE" = "Questo repository non può essere rimosso qui. Esamina le sue definizioni di sorgente nelle Impostazioni.";

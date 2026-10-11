@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "Обновите источники, чтобы проверить подлинность репозитория, предоставляющего %@, в этом сеансе.";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "В режиме «Ошибка» необходимо успешно обновлять источники при каждом открытии Cydia. Повторная загрузка списков пакетов или изменение политики не возобновляет проверку подлинности репозиториев.";
+
+"REPOSITORY_SETTINGS" = "Настройки репозиториев";
+"REPOSITORY_SETTINGS_HELP" = "Включение репозиториев и изменение их конфигурации.";
+"ADVANCED_SETTINGS_HELP" = "Совместимость bootstrap и устранение неполадок.";
+"BOOTSTRAP_DEFAULT" = "По умолчанию для bootstrap";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Не удалось прочитать сохранённые пути. Проверьте конфигурацию bootstrap.";
+"TOOL_CUSTOM_PATH" = "Свой путь";
+"TOOL_USE_DEFAULT" = "Использовать путь bootstrap по умолчанию";
+"TOOL_PATH_HELP" = "Используйте путь bootstrap по умолчанию или укажите полный путь к доверенному исполняемому файлу. После сохранения откройте Cydia заново.";
+"BOOTSTRAP_CONFIGURATION" = "Конфигурация bootstrap";
+"PROTECTED_REPOSITORY_SETTINGS" = "Настройки защищённых репозиториев";
+"COMPATIBILITY" = "Совместимость";
+"DIAGNOSTICS" = "Устранение неполадок";
+"SETTINGS_SAVE" = "Сохранить";
+"DISCARD_SETTINGS_TITLE" = "Отменить изменения?";
+"DISCARD_SETTINGS_MESSAGE" = "Изменения не сохранены.";
+"DISCARD_SETTINGS_ACTION" = "Отменить изменения";
+"KEY_IMPORT_NO_SOURCES" = "Перед импортом ключа добавьте репозиторий в разделе «Источники».";
+"KEY_IMPORT_ACTION" = "Импортировать";
+"KEY_IMPORT_REVIEW_ACTION" = "Проверить";
+"KEY_IMPORT_NO_FILE" = "Файл ключа не выбран.";
+"KEY_IMPORT_SOURCE_CHANGED" = "Репозиторий изменился. Выберите его заново и проверьте ключ.";
+"KEY_IMPORT_PARTIAL" = "Ключ сохранён, но конфигурацию репозитория обновить не удалось. Проверьте настройки репозитория перед повторной попыткой.";

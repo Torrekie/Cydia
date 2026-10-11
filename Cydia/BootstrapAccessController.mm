@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/BootstrapAccessController.h"
 #import "Cydia/Database.h"
+#import "Cydia/RuntimeAccessController.h"
 #import "Cydia/UIColor+Cydia.h"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/PrivilegedClient.h"
@@ -11,6 +12,9 @@
 namespace {
 NSString *AccessText(NSString *key) {
     return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"BootstrapAccess"];
+}
+NSString *RuntimeAccessText(NSString *key) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"RuntimeAccess"];
 }
 NSString *AccessString(const std::string &bytes) {
     return [[NSString alloc] initWithBytes:bytes.data() length:bytes.size() encoding:NSUTF8StringEncoding];
@@ -57,6 +61,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
     BOOL busy_;
     BOOL reviewed_;
     BOOL revocable_;
+    BOOL checkAvailable_;
     NSString *message_;
     std::string details_;
     Review review_;
@@ -100,7 +105,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return reviewed_ || !review_.admin.empty() ? 2 : 0;
     if (section == 1) return review_.descriptions.empty() ? 0 : 1;
-    if (section == 2) return ([self canApprove] ? 1 : 0) + (revocable_ ? 1 : 0);
+    if (section == 2) return ([self canApprove] ? 1 : 0) + (checkAvailable_ ? 1 : 0) + (revocable_ ? 1 : 0);
     return details_.empty() ? 0 : 1;
 }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
@@ -118,6 +123,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
         [NSString stringWithFormat:@"%@\n\n%@", AccessText(@"BOOTSTRAP_ACCESS_WARNING"), AccessText(@"BOOTSTRAP_ACCESS_SCOPE")] : nil;
 }
 - (BOOL)canApprove { return reviewed_ && review_.status == "pending" && !review_.token.empty(); }
+- (BOOL)isCheckRow:(NSInteger)row { return checkAvailable_ && row == ([self canApprove] ? 1 : 0); }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
     cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
@@ -134,12 +140,16 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
         cell.detailTextLabel.text = path.row == 0 ? AccessString(review_.admin) : AccessText(StatusKey(review_.status));
     } else if (path.section == 1) cell.textLabel.text = AccessString(review_.descriptions);
     else if (path.section == 2) {
-        const BOOL revoke(![self canApprove] || path.row != 0);
-        cell.textLabel.text = AccessText(revoke ? @"BOOTSTRAP_ACCESS_REVOKE" : @"BOOTSTRAP_ACCESS_ALLOW");
+        const BOOL check([self isCheckRow:path.row]);
+        const BOOL revoke(!check && (![self canApprove] || path.row != 0));
+        cell.textLabel.text = check ? RuntimeAccessText(@"ACCESS_CHECK_TITLE") :
+            AccessText(revoke ? @"BOOTSTRAP_ACCESS_REVOKE" : @"BOOTSTRAP_ACCESS_ALLOW");
+        if (check) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.textLabel.textColor = busy_ ? [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection] : cell.tintColor;
         cell.selectionStyle = busy_ ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault;
         cell.accessibilityTraits = busy_ ? UIAccessibilityTraitButton | UIAccessibilityTraitNotEnabled : UIAccessibilityTraitButton;
-        cell.accessibilityIdentifier = revoke ? @"cydia.settings.bootstrap-access.revoke" : @"cydia.settings.bootstrap-access.allow";
+        cell.accessibilityIdentifier = check ? @"cydia.settings.bootstrap-access.check" :
+            revoke ? @"cydia.settings.bootstrap-access.revoke" : @"cydia.settings.bootstrap-access.allow";
     } else {
         cell.textLabel.text = AccessText(@"BOOTSTRAP_ACCESS_DETAILS");
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -151,6 +161,11 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
     [table deselectRowAtIndexPath:path animated:YES];
     if (path.section == 3) { [self showDetails]; return; }
     if (path.section != 2 || busy_) return;
+    if ([self isCheckRow:path.row]) {
+        CydiaRuntimeAccessController *controller([[CydiaRuntimeAccessController alloc] initWithDatabase:database_]);
+        controller.delegate = self.delegate;
+        [self.navigationController pushViewController:controller animated:YES]; return;
+    }
     if (![self canApprove] || path.row != 0) { if (revocable_) [self confirmRevoke]; return; }
     const CydiaRuntime::Privileged::Request request(reviewedRequest_);
     NSString *message([NSString stringWithFormat:@"%@\n\n%@\n\n%@", AccessText(@"BOOTSTRAP_ACCESS_CONFIRM"),
@@ -183,7 +198,8 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
 }
 - (void)loadReview {
     if (busy_) return;
-    busy_ = YES; reviewed_ = NO; message_ = AccessText(@"BOOTSTRAP_ACCESS_REVIEWING"); details_.clear(); [self updateControls];
+    busy_ = YES; reviewed_ = NO; checkAvailable_ = NO;
+    message_ = AccessText(@"BOOTSTRAP_ACCESS_REVIEWING"); details_.clear(); [self updateControls];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
             namespace Client = CydiaRuntime::PrivilegedClient;
@@ -202,6 +218,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
                 busy_ = NO; reviewed_ = valid;
                 if (valid) {
                     review_ = review; revocable_ = review.status != "strict";
+                    checkAvailable_ = review.status == "strict" || review.status == "approved";
                     reviewedRequest_ = request; reviewedRequest_.payload = review.token;
                     message_ = nil;
                 } else {
@@ -222,7 +239,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
 - (void)applyRequest:(const CydiaRuntime::Privileged::Request &)request revoke:(BOOL)revoke {
     if (busy_) return;
     const CydiaRuntime::Privileged::Request copy(request);
-    busy_ = YES; reviewed_ = NO; details_.clear(); [self updateControls];
+    busy_ = YES; reviewed_ = NO; checkAvailable_ = NO; details_.clear(); [self updateControls];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
             namespace Client = CydiaRuntime::PrivilegedClient;
@@ -241,6 +258,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
                 const BOOL saved(acquired && result.succeeded());
                 if (saved) {
                     revocable_ = !revoke; review_.status = revoke ? "pending" : "approved";
+                    checkAvailable_ = !revoke;
                     message_ = AccessText(revoke ? @"BOOTSTRAP_ACCESS_REVOKED" : @"BOOTSTRAP_ACCESS_SAVED");
                 } else {
                     message_ = AccessText(!acquired ? @"BOOTSTRAP_ACCESS_BUSY" : result.launchError == ETIMEDOUT ? @"BOOTSTRAP_ACCESS_TIMEOUT" : @"BOOTSTRAP_ACCESS_FAILED");

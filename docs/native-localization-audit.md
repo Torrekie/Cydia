@@ -119,11 +119,11 @@ Brazilian/European Portuguese and Simplified/Traditional Chinese resources.
 
 | Table | Entries per locale | Native consumers and provenance |
 | --- | --- | --- |
-| `Settings.strings` | 80 | Settings and Advanced Settings; repository Allow/Warning/Error policy; user-selected bootstrap protection; executable overrides; capability review; public-key import; repository/download diagnostics; transaction failures; bootstrap database access navigation. These explanations and review states were introduced with the optional APT frontend. |
-| `Sources.strings` | 44 | The native editor for actual `.list` lines and `.sources` stanzas, destination files, enable/disable actions, complete-definition review, bootstrap protection, read-only delegated definitions and conflicts. This new file-oriented workflow takes actual APT source files as its authority. |
+| `Settings.strings` | 102 | Settings and Advanced Settings; repository Allow/Warning/Error policy; user-selected bootstrap protection; executable overrides; capability review; public-key import; repository/download diagnostics; transaction failures; bootstrap database access navigation; explicit default/custom tool selection and save/discard states. These explanations and review states were introduced with the optional APT frontend. |
+| `Sources.strings` | 45 | Repository Settings for actual `.list` lines and `.sources` stanzas, destination files, enable/disable actions, complete-definition review, bootstrap protection, read-only delegated definitions and conflicts. The Sources tab retains direct package browsing; configuration details live in Settings. Four labels from the retired definition-first browsing route are removed. |
 | `Actions.strings` | 14 | Native package version selection, priority/candidate information, purge, hold handling, Essential/Protected safeguards and unavailable installed-version reinstall. These labels explain the expanded APT/dpkg actions. |
 | `Recovery.strings` | 21 | Native incomplete-package recovery, normal repair, emergency-removal review, retained script backups and failure states. This is new guidance around the retained historical Forcibly Clear action. |
-| `RuntimeAccess.strings` | 18 | The explicit package-management access check in Advanced Settings, its six checks, contention, changed-state and timeout results, and technical-details navigation. This diagnostic view is newly authored. |
+| `RuntimeAccess.strings` | 20 | The explicit package-management access check in Advanced Settings, its six checks, contention, changed-state and timeout results, and technical-details navigation. Unsuccessful attempted checks and skipped checks have distinct labels; raw diagnostic output has a separate page. This diagnostic view is newly authored. |
 | `BootstrapAccess.strings` | 24 | Native review of the selected package database and group-writable ancestor directories, explicit Allow and Revoke actions, trust explanations, changed-access and failure states. This optional approval preserves existing bootstrap permissions. |
 | `InfoPlist.strings` | 2 | Localized OpenPGP public-key document-type labels for file sharing and Open in Cydia. Both `CFBundleTypeName` and the declared `OpenPGP Public Key` label are provided. |
 
@@ -152,6 +152,32 @@ ordinary native controls retain UIKit's language-direction behavior. Action and
 selection accessibility traits distinguish controls from static review text.
 These implementation properties support long translations, RTL and VoiceOver;
 they are separate from an observed accessibility or visual acceptance session.
+
+## Settings and Sources navigation
+
+Sources keeps the familiar All Sources and named repository list, icons and
+refresh indicators, direct package browsing, Refresh/Cancel, Edit/Done,
+Add URL and swipe deletion. Exact source-file, bootstrap-protection and stale
+state checks still apply to edits; an ambiguous definition requires a choice.
+
+Settings groups Repository Settings, Repository Security and key import.
+Repository Security shows its current value and opens a three-choice list.
+Advanced Settings groups bootstrap configuration, compatibility and
+troubleshooting. External tools have a separate page with an explicit bootstrap
+default or custom path, while capability generation retains its reviewed apply
+action. Protected repository selection uses Save/Cancel and confirms discarded
+drafts. Access diagnostics lead with a status and Run Check; individual checks,
+paths and diagnostic output are disclosed separately. Database approval offers
+a direct route to the access check.
+
+This structure applies Apple's guidance on
+[infrequently changed settings](https://developer.apple.com/design/human-interface-guidelines/settings),
+[succinct hierarchical lists](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables),
+and [concise, purposeful alerts](https://developer.apple.com/design/human-interface-guidelines/alerts).
+Routine repository browsing and Add/Delete remain in their familiar context;
+repository configuration uses the Settings hierarchy. Grouped native tables,
+Dynamic Type and platform navigation retain the iOS 12 minimum, with inset
+grouped lists where supported.
 
 ## Verification
 

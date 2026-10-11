@@ -85,3 +85,26 @@
 "REPOSITORY_SECURITY_REFRESH_EX" = "Error mode requires a successful source refresh each time Cydia opens. Reloading package lists or changing the policy does not renew repository authentication.";
 
 "BOOTSTRAP_DATABASE_ACCESS" = "Bootstrap Database Access";
+
+"REPOSITORY_SETTINGS" = "Repository Settings";
+"REPOSITORY_SETTINGS_HELP" = "Enable repositories and edit their configuration.";
+"ADVANCED_SETTINGS_HELP" = "Bootstrap compatibility and troubleshooting.";
+"BOOTSTRAP_DEFAULT" = "Bootstrap Default";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Saved paths could not be read. Review your bootstrap configuration.";
+"TOOL_CUSTOM_PATH" = "Custom Path";
+"TOOL_USE_DEFAULT" = "Use Bootstrap Default";
+"TOOL_PATH_HELP" = "Use your bootstrap’s default, or enter a trusted executable’s full path. Reopen Cydia after saving.";
+"BOOTSTRAP_CONFIGURATION" = "Bootstrap Configuration";
+"PROTECTED_REPOSITORY_SETTINGS" = "Protected Repository Settings";
+"COMPATIBILITY" = "Compatibility";
+"DIAGNOSTICS" = "Troubleshooting";
+"SETTINGS_SAVE" = "Save";
+"DISCARD_SETTINGS_TITLE" = "Discard changes?";
+"DISCARD_SETTINGS_MESSAGE" = "Your changes have not been saved.";
+"DISCARD_SETTINGS_ACTION" = "Discard Changes";
+"KEY_IMPORT_NO_SOURCES" = "Add a repository in Sources before importing its key.";
+"KEY_IMPORT_ACTION" = "Import";
+"KEY_IMPORT_REVIEW_ACTION" = "Review";
+"KEY_IMPORT_NO_FILE" = "No key file selected.";
+"KEY_IMPORT_SOURCE_CHANGED" = "The repository changed. Select it again and review the key.";
+"KEY_IMPORT_PARTIAL" = "The key was saved, but its repository configuration could not be updated. Review repository settings before trying again.";

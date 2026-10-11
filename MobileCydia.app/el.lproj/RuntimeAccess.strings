@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Τεχνικές λεπτομέρειες";
 "ACCESS_CHECK_NOT_RUN" = "Δεν ελέγχθηκε";
 "ACCESS_CHECK_COMPLETE" = "Επαληθεύτηκε";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Δεν επαληθεύτηκε";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Διαγνωστική έξοδος";

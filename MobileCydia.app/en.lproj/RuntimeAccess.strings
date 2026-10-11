@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Technical Details";
 "ACCESS_CHECK_NOT_RUN" = "Not checked";
 "ACCESS_CHECK_COMPLETE" = "Verified";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Not verified";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Diagnostic output";

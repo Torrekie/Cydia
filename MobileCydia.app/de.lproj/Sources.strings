@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Erweiterte Einstellungen";
-"SOURCE_BROWSE_PACKAGES" = "Pakete anzeigen";
 "SOURCE_CHOOSE_FILE" = "Quelldatei auswählen";
 "SOURCE_COMPONENTS" = "Komponenten (optional)";
 "SOURCE_CONTINUE" = "Weiter";
 "SOURCE_DEFINITION" = "Quellendefinition";
-"SOURCE_DEFINITIONS" = "Quellendefinitionen";
-"SOURCE_DEFINITIONS_EXPLANATION" = "Diese Einträge stammen aus den tatsächlichen APT-Dateien, einschließlich deaktivierter Paketquellen. Öffne einen Eintrag, um seine Datei und Optionen zu prüfen.";
 "SOURCE_DEFINITION_INVALID" = "Gib eine gültige APT-Quellendefinition ein. Nicht flache Paketquellen benötigen Komponenten; bei Suites mit abschließendem / sind keine zulässig.";
 "SOURCE_DESTINATION_EXPLANATION" = "Wähle die APT-Datei, in der diese Definition gespeichert wird.";
 "SOURCE_DISABLE" = "Deaktivieren";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "Fehler in Quelldateien";
 "SOURCE_FILE_EXISTS" = "Diese Datei existiert bereits. Wähle sie aus der Liste der Quelldateien.";
 "SOURCE_FILE_UNAVAILABLE" = "Diese Quelldatei konnte nicht sicher gelesen werden oder enthält eine ungültige Definition.";
-"SOURCE_INDEX_UNAVAILABLE" = "Für diese Definition ist kein Paketindex verfügbar. Sie ist möglicherweise deaktiviert oder wurde noch nicht erfolgreich aktualisiert.";
 "SOURCE_LOCATION" = "Datei und Zeile";
 "SOURCE_NEW_FILE" = "Neue Quelldatei";
 "SOURCE_NEW_FILE_EXPLANATION" = "Gib einen neuen Dateinamen mit der Endung .list oder .sources ein. Die Datei wird erst nach dem Prüfen und Speichern der Definition erstellt.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "Diese Definition ist als Teil deiner Bootstrap-Umgebung geschützt. Beim Speichern einer Änderung bleibt der Schutz erhalten; beim Entfernen werden auch ihre Schutzverweise entfernt.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "Die Quelldefinition wurde geändert, aber ihre Schutzverweise konnten nicht gespeichert werden. Prüfe die Bootstrap-Paketquellen in den erweiterten Einstellungen, bevor du weitere Quellen änderst.";
 "SOURCE_READ_ONLY_ALIAS" = "Diese Quelle ist eine Verknüpfung, die außerhalb von Cydia verwaltet wird. Cydia kann sie verwenden, aber ihre Definitionen nicht bearbeiten oder entfernen.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "Paketquelleneinstellungen";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Erweiterte Paketquelleneinstellungen";
+"SOURCE_DEFINITION_DETAILS" = "Details zur Definition";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Diese Paketquelle hat mehrere Quellendefinitionen. Wähle die Definition aus, die entfernt werden soll.";
+"SOURCE_DELETE_UNAVAILABLE" = "Diese Paketquelle kann hier nicht entfernt werden. Prüfe ihre Quellendefinitionen in den Einstellungen.";

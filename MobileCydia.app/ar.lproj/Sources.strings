@@ -1,12 +1,9 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "الإعدادات المتقدمة";
-"SOURCE_BROWSE_PACKAGES" = "تصفح الحزم";
 "SOURCE_CHOOSE_FILE" = "اختيار ملف المصادر";
 "SOURCE_COMPONENTS" = "المكوّنات (اختياري)";
 "SOURCE_CONTINUE" = "متابعة";
 "SOURCE_DEFINITION" = "تعريف المصدر";
-"SOURCE_DEFINITIONS" = "تعريفات المصادر";
-"SOURCE_DEFINITIONS_EXPLANATION" = "تأتي هذه الإدخالات من ملفات APT الفعلية، بما فيها المستودعات المعطّلة. افتح إدخالاً لمراجعة ملفه وخياراته.";
 "SOURCE_DEFINITION_INVALID" = "أدخل تعريف مصدر APT صالحاً واحداً. تحتاج المستودعات غير المسطّحة إلى مكوّنات، أما مجموعات التوزيع التي تنتهي بـ / فلا يجوز أن تحتوي على مكوّنات.";
 "SOURCE_DESTINATION_EXPLANATION" = "اختر ملف APT الذي سيحتوي على هذا التعريف.";
 "SOURCE_DISABLE" = "تعطيل";
@@ -23,7 +20,6 @@
 "SOURCE_FILE_ERRORS" = "أخطاء ملفات المصادر";
 "SOURCE_FILE_EXISTS" = "هذا الملف موجود بالفعل. اختره من قائمة ملفات المصادر.";
 "SOURCE_FILE_UNAVAILABLE" = "تعذّرت قراءة ملف المصادر هذا بأمان، أو أنه يحتوي على تعريف غير صالح.";
-"SOURCE_INDEX_UNAVAILABLE" = "لا يتوفر فهرس حزم لهذا التعريف. قد يكون معطّلاً أو بانتظار تحديث ناجح.";
 "SOURCE_LOCATION" = "الملف ورقم السطر";
 "SOURCE_NEW_FILE" = "ملف مصادر جديد";
 "SOURCE_NEW_FILE_EXPLANATION" = "أدخل اسم ملف جديد ينتهي بـ .list أو .sources. لن يُنشأ الملف إلا بعد مراجعة التعريف وحفظه.";
@@ -43,3 +39,9 @@
 "SOURCE_BOOTSTRAP_CHANGE" = "هذا التعريف محمي باعتباره جزءًا من بيئة التمهيد لديك. يحافظ حفظ التعديل على حمايته؛ أما إزالته فتزيل أيضًا مراجع حمايته.";
 "SOURCE_POLICY_SAVE_INCOMPLETE" = "تغيّر تعريف المصدر، لكن تعذّر حفظ مراجع حمايته. راجع مستودعات بيئة التمهيد في الإعدادات المتقدمة قبل تغيير المزيد من المصادر.";
 "SOURCE_READ_ONLY_ALIAS" = "هذا المصدر رابط تتم إدارته خارج Cydia. يمكن لـ Cydia استخدامه، لكن لا يمكنه تعديل تعريفاته أو إزالتها.";
+
+"SOURCE_REPOSITORY_SETTINGS" = "إعدادات المستودعات";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "إعدادات المستودعات المتقدمة";
+"SOURCE_DEFINITION_DETAILS" = "تفاصيل التعريف";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "لهذا المستودع أكثر من تعريف مصدر. اختر التعريف الذي تريد إزالته.";
+"SOURCE_DELETE_UNAVAILABLE" = "لا يمكن إزالة هذا المستودع هنا. راجع تعريفات مصادره في الإعدادات.";

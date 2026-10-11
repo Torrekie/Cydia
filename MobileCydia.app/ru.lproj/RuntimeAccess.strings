@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Технические сведения";
 "ACCESS_CHECK_NOT_RUN" = "Не проверено";
 "ACCESS_CHECK_COMPLETE" = "Проверено";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Не удалось проверить";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Диагностические данные";

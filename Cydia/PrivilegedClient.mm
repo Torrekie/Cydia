@@ -264,6 +264,12 @@ Privileged::Request RuntimeRequest(const std::string &payload) {
     return request;
 }
 
+Privileged::Request PrivateSettingsRequest(const std::string &payload) {
+    Privileged::Request request;
+    request.payload = payload;
+    return request;
+}
+
 Result Run(const std::string &helperPath, const std::string &command,
            const Privileged::Request &request, std::size_t captureLimit, unsigned timeoutMilliseconds) {
     if (command.compare(0, 8, "--cydia-") != 0 || command.find_first_of("\r\n") != std::string::npos)
@@ -275,6 +281,13 @@ Result RunNativeCommand(const std::string &command, const std::string &payload,
                        std::size_t captureLimit, unsigned timeoutMilliseconds) {
     return Run(CydiaAPT::PrivilegedHelperPath(), command, RuntimeRequest(payload), captureLimit,
         timeoutMilliseconds);
+}
+
+Result RunPrivateSettingsCommand(const std::string &command, const std::string &payload,
+                                std::size_t captureLimit, unsigned timeoutMilliseconds) {
+    if (command != "--cydia-set-executable") return Failed(EINVAL);
+    return Run(CydiaAPT::PrivilegedHelperPath(), command, PrivateSettingsRequest(payload),
+               captureLimit, timeoutMilliseconds);
 }
 
 int OpenLock(const std::string &helperPath, const Privileged::Request &request,

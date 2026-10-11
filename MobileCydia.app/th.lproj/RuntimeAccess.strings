@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "รายละเอียดทางเทคนิค";
 "ACCESS_CHECK_NOT_RUN" = "ยังไม่ได้ตรวจสอบ";
 "ACCESS_CHECK_COMPLETE" = "ตรวจสอบแล้ว";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "ตรวจสอบยืนยันไม่ได้";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "ผลการวินิจฉัย";

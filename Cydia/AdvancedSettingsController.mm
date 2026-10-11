@@ -4,6 +4,7 @@
 #import "Cydia/SourceControllers.h"
 #import "Cydia/RuntimeAccessController.h"
 #import "Cydia/BootstrapAccessController.h"
+#import "Cydia/CapabilityController.h"
 #import "Cydia/UIColor+Cydia.h"
 #import "CyteKit/Localize.h"
 #include "Cydia/AptRuntime.hpp"
@@ -49,6 +50,23 @@ void Message(UIViewController *controller, NSString *message) {
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
     [controller presentViewController:alert animated:YES completion:nil];
 }
+UITableView *GroupedTable(id<UITableViewDataSource, UITableViewDelegate> controller) {
+    UITableViewStyle style(UITableViewStyleGrouped);
+    if (@available(iOS 13.0, *)) style = UITableViewStyleInsetGrouped;
+    UITableView *table([[UITableView alloc] initWithFrame:CGRectZero style:style]);
+    table.dataSource = controller; table.delegate = controller;
+    table.rowHeight = UITableViewAutomaticDimension; table.estimatedRowHeight = 64;
+    table.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:table.traitCollection];
+    table.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator traitCollection:table.traitCollection];
+    return table;
+}
+void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UITraitCollection *previous) {
+    if (!CydiaColorAppearanceDidChange(traits, previous) &&
+        [traits.preferredContentSizeCategory isEqual:previous.preferredContentSizeCategory]) return;
+    table.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:traits];
+    table.separatorColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator traitCollection:traits];
+    [table reloadData];
+}
 }
 
 @interface CydiaBootstrapRepositoriesController : CyteViewController <UITableViewDataSource, UITableViewDelegate>
@@ -63,22 +81,26 @@ void Message(UIViewController *controller, NSString *message) {
     std::vector<CydiaSources::Definition> definitions_;
     std::vector<CydiaSources::ProtectionSelector> orphans_;
     std::vector<bool> selected_, retained_;
+    std::vector<bool> initialSelected_, initialRetained_;
+    BOOL saving_;
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous]; RefreshGroupedAppearance(table_, self.traitCollection, previous);
 }
 - (instancetype)initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) database_ = database;
     return self;
 }
 - (void)loadView {
-    table_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
-    table_.dataSource = self; table_.delegate = self;
-    table_.rowHeight = UITableViewAutomaticDimension; table_.estimatedRowHeight = 72;
+    table_ = GroupedTable(self);
     table_.accessibilityIdentifier = @"cydia.settings.bootstrap-repositories";
     self.view = table_;
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.navigationItem.title = Text(@"BOOTSTRAP_REPOSITORIES");
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:UCLocalize("DONE") style:UIBarButtonItemStyleDone target:self action:@selector(reviewSave)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:Text(@"SETTINGS_SAVE") style:UIBarButtonItemStyleDone target:self action:@selector(reviewSave)];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:UCLocalize("CANCEL") style:UIBarButtonItemStylePlain target:self action:@selector(cancelEditing)];
     [self reloadSources];
 }
 - (void)reloadSources {
@@ -97,7 +119,8 @@ void Message(UIViewController *controller, NSString *message) {
             }
         if (!found) { orphans_.push_back(selector); retained_.push_back(true); }
     }
-    self.navigationItem.rightBarButtonItem.enabled = snapshot_.ready() && CydiaAPT::MutationEnvironmentValid();
+    initialSelected_ = selected_; initialRetained_ = retained_;
+    [self updateSave];
     [table_ reloadData];
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return orphans_.empty() ? 1 : 2; }
@@ -121,14 +144,16 @@ void Message(UIViewController *controller, NSString *message) {
         NSMutableArray *uris([NSMutableArray array]);
         for (const std::string &uri : definition.uris) [uris addObject:DisplayURI(uri)];
         cell.textLabel.text = [uris componentsJoinedByString:@"\n"];
-        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@", String(definition.path), String(definition.original)];
+        NSMutableArray *suites([NSMutableArray array]);
+        for (const auto &suite : definition.suites) [suites addObject:String(suite)];
+        cell.detailTextLabel.text = [suites componentsJoinedByString:@" · "];
         selected = selected_[path.row];
     } else {
         const auto &selector(orphans_[path.row]);
         NSMutableArray *uris([NSMutableArray array]);
         for (const std::string &uri : selector.uris) [uris addObject:DisplayURI(uri)];
         cell.textLabel.text = [uris componentsJoinedByString:@"\n"];
-        cell.detailTextLabel.text = String(selector.originPath);
+        cell.detailTextLabel.text = Text(@"SOURCE_REVIEW_REQUIRED");
         selected = retained_[path.row];
     }
     cell.accessoryType = selected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
@@ -139,7 +164,25 @@ void Message(UIViewController *controller, NSString *message) {
     [table deselectRowAtIndexPath:path animated:YES];
     if (path.section == 0) selected_[path.row] = !selected_[path.row];
     else retained_[path.row] = !retained_[path.row];
+    [self updateSave];
     [table reloadRowsAtIndexPaths:@[path] withRowAnimation:UITableViewRowAnimationNone];
+}
+- (BOOL)hasChanges { return selected_ != initialSelected_ || retained_ != initialRetained_; }
+- (void)updateSave {
+    self.navigationItem.rightBarButtonItem.enabled = !saving_ && snapshot_.ready() &&
+        CydiaAPT::MutationEnvironmentValid() && ([self hasChanges] || !policy_.valid);
+    self.navigationItem.leftBarButtonItem.enabled = !saving_;
+}
+- (void)cancelEditing {
+    if (saving_) return;
+    if (![self hasChanges]) { [self dismissViewControllerAnimated:YES completion:nil]; return; }
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:Text(@"DISCARD_SETTINGS_TITLE")
+        message:Text(@"DISCARD_SETTINGS_MESSAGE") preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:Text(@"DISCARD_SETTINGS_ACTION") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *) {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)reviewSave {
     if (!snapshot_.ready()) { Message(self, Text(@"SOURCE_REVIEW_REQUIRED")); return; }
@@ -174,12 +217,12 @@ void Message(UIViewController *controller, NSString *message) {
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)savePayload:(const std::string &)payload {
-    table_.userInteractionEnabled = NO; self.navigationItem.rightBarButtonItem.enabled = NO;
+    saving_ = YES; table_.userInteractionEnabled = NO; [self updateSave];
     const std::string copy(payload);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         if (![database_ beginSettingsChange]) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                table_.userInteractionEnabled = YES; [self reloadSources]; Message(self, Text(@"SETTINGS_WAIT_FOR_OPERATION"));
+                saving_ = NO; table_.userInteractionEnabled = YES; [self updateSave]; Message(self, Text(@"SETTINGS_WAIT_FOR_OPERATION"));
             });
             return;
         }
@@ -187,10 +230,160 @@ void Message(UIViewController *controller, NSString *message) {
         @try { result = CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-source-advanced", copy); }
         @finally { [database_ endSettingsChange]; }
         dispatch_async(dispatch_get_main_queue(), ^{
-            table_.userInteractionEnabled = YES; [self reloadSources];
-            Message(self, Text(result.succeeded() ? @"SETTINGS_SAVED" : @"SOURCE_SAVE_FAILED"));
+            saving_ = NO; table_.userInteractionEnabled = YES;
+            if (result.succeeded()) [self dismissViewControllerAnimated:YES completion:nil];
+            else { [self updateSave]; Message(self, Text(@"SOURCE_SAVE_FAILED")); }
         });
     });
+}
+@end
+
+@interface CydiaExecutablePathController : CyteViewController <UITableViewDataSource, UITableViewDelegate>
+- (instancetype)initWithDatabase:(Database *)database tool:(NSString *)tool path:(NSString *)path;
+@end
+@implementation CydiaExecutablePathController {
+    Database *database_;
+    NSString *tool_, *savedPath_;
+    UITableView *table_;
+    UITextField *field_;
+    UISwitch *useDefault_;
+    BOOL saving_;
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous]; RefreshGroupedAppearance(table_, self.traitCollection, previous);
+}
+- (instancetype)initWithDatabase:(Database *)database tool:(NSString *)tool path:(NSString *)path {
+    if ((self = [super init]) != nil) { database_ = database; tool_ = [tool copy]; savedPath_ = [path copy] ?: @""; }
+    return self;
+}
+- (void)loadView {
+    table_ = GroupedTable(self); self.view = table_;
+    useDefault_ = [[UISwitch alloc] init]; useDefault_.on = savedPath_.length == 0;
+    [useDefault_ addTarget:self action:@selector(defaultChanged:) forControlEvents:UIControlEventValueChanged];
+    field_ = [[UITextField alloc] init]; field_.text = savedPath_; field_.placeholder = @"/";
+    field_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; field_.adjustsFontForContentSizeCategory = YES;
+    field_.autocorrectionType = UITextAutocorrectionTypeNo; field_.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    field_.smartQuotesType = UITextSmartQuotesTypeNo; field_.smartDashesType = UITextSmartDashesTypeNo;
+    field_.clearButtonMode = UITextFieldViewModeWhileEditing;
+    field_.accessibilityLabel = Text(@"TOOL_CUSTOM_PATH"); field_.accessibilityIdentifier = @"cydia.settings.executable.path";
+    [field_ addTarget:self action:@selector(updateSave) forControlEvents:UIControlEventEditingChanged];
+}
+- (void)viewDidLoad {
+    [super viewDidLoad]; self.navigationItem.title = tool_;
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:Text(@"SETTINGS_SAVE")
+        style:UIBarButtonItemStyleDone target:self action:@selector(savePath)];
+    [self updateSave];
+}
+- (NSString *)selectedPath {
+    return useDefault_.on ? @"" : [field_.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+- (void)updateSave {
+    NSString *path([self selectedPath]);
+    self.navigationItem.rightBarButtonItem.enabled = !saving_ && (useDefault_.on || [path hasPrefix:@"/"]) && ![path isEqual:savedPath_];
+}
+- (void)defaultChanged:(UISwitch *)sender { [field_ resignFirstResponder]; [table_ reloadData]; [self updateSave]; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 || !useDefault_.on ? 1 : 0; }
+- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return section == 1 && !useDefault_.on ? Text(@"TOOL_CUSTOM_PATH") : nil; }
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section { return section == 1 ? Text(@"TOOL_PATH_HELP") : nil; }
+- (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil]);
+    cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    if (path.section == 0) {
+        cell.textLabel.text = Text(@"TOOL_USE_DEFAULT"); cell.textLabel.numberOfLines = 0;
+        cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; cell.textLabel.adjustsFontForContentSizeCategory = YES;
+        cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+        cell.accessoryView = useDefault_;
+    } else {
+        field_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+        field_.translatesAutoresizingMaskIntoConstraints = NO; [cell.contentView addSubview:field_];
+        [NSLayoutConstraint activateConstraints:@[
+            [field_.leadingAnchor constraintEqualToAnchor:cell.contentView.layoutMarginsGuide.leadingAnchor],
+            [field_.trailingAnchor constraintEqualToAnchor:cell.contentView.layoutMarginsGuide.trailingAnchor],
+            [field_.topAnchor constraintEqualToAnchor:cell.contentView.topAnchor constant:10],
+            [field_.bottomAnchor constraintEqualToAnchor:cell.contentView.bottomAnchor constant:-10],
+            [field_.heightAnchor constraintGreaterThanOrEqualToConstant:34]]];
+    }
+    return cell;
+}
+- (void)savePath {
+    if (!self.navigationItem.rightBarButtonItem.enabled) return;
+    [field_ resignFirstResponder]; saving_ = YES; table_.userInteractionEnabled = NO; [self updateSave];
+    const std::string payload(CydiaRuntime::Privileged::SerializeFields({[tool_ UTF8String], [[self selectedPath] UTF8String]}));
+    __weak UINavigationController *reviewedNavigation(self.navigationController);
+    NSArray *stack(self.navigationController.viewControllers);
+    __weak UIViewController *reviewedParent(stack.count >= 2 ? stack[stack.count - 2] : nil);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        CydiaRuntime::PrivilegedClient::Result result;
+        const BOOL acquired([database_ beginSettingsChange]);
+        if (acquired) {
+            @try { result = CydiaRuntime::PrivilegedClient::RunPrivateSettingsCommand("--cydia-set-executable", payload); }
+            @finally { [database_ endSettingsChange]; }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            saving_ = NO; table_.userInteractionEnabled = YES; [self updateSave];
+            UINavigationController *navigation(reviewedNavigation); UIViewController *parent(reviewedParent);
+            if (navigation.topViewController != self || self.viewIfLoaded.window == nil || self.presentedViewController != nil) return;
+            if (!acquired || !result.succeeded()) { Message(self, Text(acquired ? @"SETTINGS_SAVE_FAILED" : @"SETTINGS_WAIT_FOR_OPERATION")); return; }
+            NSArray *current(navigation.viewControllers);
+            if (current.count < 2 || current[current.count - 2] != parent) return;
+            [navigation popViewControllerAnimated:YES];
+            void (^notify)(void) = ^{
+                if (navigation.topViewController == parent && parent.viewIfLoaded.window != nil && parent.presentedViewController == nil)
+                    Message(parent, Text(@"SETTING_RESTART_REQUIRED"));
+            };
+            if (navigation.transitionCoordinator != nil)
+                [navigation.transitionCoordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) { notify(); }];
+            else dispatch_async(dispatch_get_main_queue(), notify);
+        });
+    });
+}
+@end
+
+@interface CydiaExternalToolsController : CyteViewController <UITableViewDataSource, UITableViewDelegate>
+- (instancetype)initWithDatabase:(Database *)database;
+@end
+@implementation CydiaExternalToolsController {
+    Database *database_;
+    UITableView *table_;
+    NSDictionary *overrides_;
+    BOOL available_;
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous]; RefreshGroupedAppearance(table_, self.traitCollection, previous);
+}
+- (instancetype)initWithDatabase:(Database *)database { if ((self = [super init]) != nil) database_ = database; return self; }
+- (void)loadView { table_ = GroupedTable(self); table_.accessibilityIdentifier = @"cydia.settings.external-tools"; self.view = table_; }
+- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = Text(@"EXTERNAL_EXECUTABLES"); }
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    std::map<std::string, std::string> overrides;
+    CydiaRuntime::Privileged::Evidence evidence; CydiaRuntime::Privileged::Error error;
+    const auto &paths(CydiaRuntime::PackageDatabasePaths::Current());
+    NSMutableDictionary *values([NSMutableDictionary dictionary]);
+    available_ = CydiaRuntime::Privileged::ReadExecutableOverrideSettings(paths, &overrides, &evidence, &error);
+    if (available_) for (const auto &value : overrides) values[String(value.first)] = String(value.second);
+    overrides_ = values; [table_ reloadData];
+}
+- (NSArray *)tools { return @[@"dpkg", @"dpkg-query", @"dpkg-deb", @"uicache", @"apt-key", @"gpgv", @"gpg"]; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return [[self tools] count]; }
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section { return Text(available_ ? @"TOOL_PATH_HELP" : @"TOOL_OVERRIDES_UNAVAILABLE"); }
+- (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell(Cell(table)); NSString *tool([self tools][path.row]);
+    cell.textLabel.text = tool;
+    cell.detailTextLabel.text = available_ ? (overrides_[tool] ?: Text(@"BOOTSTRAP_DEFAULT")) : Text(@"TOOL_OVERRIDES_UNAVAILABLE");
+    cell.accessoryType = available_ ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
+    cell.selectionStyle = available_ ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
+    cell.accessibilityIdentifier = [@"cydia.settings.executable." stringByAppendingString:tool];
+    return cell;
+}
+- (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    [table deselectRowAtIndexPath:path animated:YES]; if (!available_) return;
+    NSString *tool([self tools][path.row]);
+    CydiaExecutablePathController *controller([[CydiaExecutablePathController alloc] initWithDatabase:database_ tool:tool path:overrides_[tool]]);
+    controller.delegate = self.delegate; [self.navigationController pushViewController:controller animated:YES];
 }
 @end
 
@@ -199,105 +392,49 @@ void Message(UIViewController *controller, NSString *message) {
 @implementation CydiaAdvancedSettingsController {
     Database *database_;
     UITableView *table_;
-    NSDictionary *overrides_;
 }
-- (instancetype)initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) database_ = database;
-    return self;
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous]; RefreshGroupedAppearance(table_, self.traitCollection, previous);
 }
-- (void)loadView {
-    table_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
-    table_.dataSource = self; table_.delegate = self;
-    table_.rowHeight = UITableViewAutomaticDimension; table_.estimatedRowHeight = 72;
-    table_.accessibilityIdentifier = @"cydia.settings.advanced";
-    self.view = table_;
-}
+- (instancetype)initWithDatabase:(Database *)database { if ((self = [super init]) != nil) database_ = database; return self; }
+- (void)loadView { table_ = GroupedTable(self); table_.accessibilityIdentifier = @"cydia.settings.advanced"; self.view = table_; }
 - (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = Text(@"ADVANCED_SETTINGS"); }
-- (void)viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-    std::map<std::string, std::string> overrides;
-    CydiaRuntime::Privileged::Evidence evidence; CydiaRuntime::Privileged::Error error;
-    const auto &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    NSMutableDictionary *values([NSMutableDictionary dictionary]);
-    if (CydiaRuntime::Privileged::ReadExecutableOverrides(paths, &overrides, &evidence, &error))
-        for (const auto &value : overrides) values[String(value.first)] = String(value.second);
-    overrides_ = values;
-    [table_ reloadData];
-}
-- (NSArray *)tools { return @[@"dpkg", @"dpkg-query", @"dpkg-deb", @"uicache", @"apt-key", @"gpgv", @"gpg"]; }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 2 : section == 1 ? [[self tools] count] : 2; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 3 : section == 1 ? 2 : 1; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
-    return section == 0 ? Text(@"BOOTSTRAP_REPOSITORIES") : section == 1 ? Text(@"EXTERNAL_EXECUTABLES") : nil;
+    return Text(@[@"BOOTSTRAP_CONFIGURATION", @"COMPATIBILITY", @"DIAGNOSTICS"][section]);
 }
-- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
-    if (section == 2) return nil;
-    return Text(section == 0 ? @"BOOTSTRAP_REPOSITORIES_HELP" : @"EXTERNAL_EXECUTABLES_HELP");
-}
+- (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section { return nil; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell(Cell(table));
     if (path.section == 0) {
-        cell.textLabel.text = path.row == 0 ? Text(@"BOOTSTRAP_REPOSITORIES") : UCLocalize("SOURCES");
-        cell.detailTextLabel.text = nil;
-        cell.accessibilityIdentifier = path.row == 0 ? @"cydia.settings.bootstrap" : @"cydia.settings.advanced-sources";
+        cell.textLabel.text = Text(@[@"BOOTSTRAP_REPOSITORIES", @"PROTECTED_REPOSITORY_SETTINGS", @"BOOTSTRAP_DATABASE_ACCESS"][path.row]);
+        cell.accessibilityIdentifier = @[@"cydia.settings.bootstrap", @"cydia.settings.advanced-sources", @"cydia.settings.bootstrap-access"][path.row];
     } else if (path.section == 1) {
-        NSString *tool([self tools][path.row]);
-        cell.textLabel.text = tool; cell.detailTextLabel.text = overrides_[tool];
-        cell.accessibilityIdentifier = [@"cydia.settings.executable." stringByAppendingString:tool];
+        cell.textLabel.text = Text(path.row == 0 ? @"CAPABILITIES" : @"EXTERNAL_EXECUTABLES");
+        cell.accessibilityIdentifier = path.row == 0 ? @"cydia.settings.capabilities" : @"cydia.settings.external-tools";
     } else {
-        cell.textLabel.text = path.row == 0 ? Text(@"BOOTSTRAP_DATABASE_ACCESS") :
-            [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_TITLE" value:nil table:@"RuntimeAccess"];
-        cell.detailTextLabel.text = nil;
-        cell.accessibilityIdentifier = path.row == 0 ? @"cydia.settings.bootstrap-access" : @"cydia.settings.runtime-access";
+        cell.textLabel.text = [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_TITLE" value:nil table:@"RuntimeAccess"];
+        cell.accessibilityIdentifier = @"cydia.settings.runtime-access";
     }
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.detailTextLabel.text = nil; cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
-    [table deselectRowAtIndexPath:path animated:YES];
-    if (path.section == 2) {
-        CyteViewController *controller(path.row == 0 ?
-            [[CydiaBootstrapAccessController alloc] initWithDatabase:database_] :
-            [[CydiaRuntimeAccessController alloc] initWithDatabase:database_]);
-        controller.delegate = self.delegate;
-        [self.navigationController pushViewController:controller animated:YES]; return;
+    [table deselectRowAtIndexPath:path animated:YES]; CyteViewController *controller;
+    if (path.section == 0 && path.row == 0) {
+        controller = [[CydiaBootstrapRepositoriesController alloc] initWithDatabase:database_]; controller.delegate = self.delegate;
+        UINavigationController *navigation([[UINavigationController alloc] initWithRootViewController:controller]);
+        navigation.modalPresentationStyle = UIModalPresentationFormSheet;
+        if (@available(iOS 13.0, *)) navigation.modalInPresentation = YES;
+        [self presentViewController:navigation animated:YES completion:nil]; return;
     }
-    if (path.section == 0) {
-        CyteViewController *controller(path.row == 0 ?
-            [[CydiaBootstrapRepositoriesController alloc] initWithDatabase:database_] :
-            [[SourcesController alloc] initWithDatabase:database_ advancedAccess:YES]);
-        controller.delegate = self.delegate;
-        [self.navigationController pushViewController:controller animated:YES]; return;
-    }
-    NSString *tool([self tools][path.row]);
-    UIAlertController *alert([UIAlertController alertControllerWithTitle:tool message:Text(@"EXTERNAL_EXECUTABLES_HELP") preferredStyle:UIAlertControllerStyleAlert]);
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
-        field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo;
-        field.text = overrides_[tool]; field.placeholder = @"/";
-    }];
-    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CONFIRM") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        const std::string purpose([tool UTF8String]);
-        const std::string path([alert.textFields.firstObject.text UTF8String] ?: "");
-        [self saveExecutable:purpose path:path];
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
-}
-- (void)saveExecutable:(const std::string &)purpose path:(const std::string &)path {
-    table_.userInteractionEnabled = NO;
-    const std::string payload(CydiaRuntime::Privileged::SerializeFields({purpose, path}));
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        if (![database_ beginSettingsChange]) {
-            dispatch_async(dispatch_get_main_queue(), ^{ table_.userInteractionEnabled = YES; Message(self, Text(@"SETTINGS_WAIT_FOR_OPERATION")); }); return;
-        }
-        CydiaRuntime::PrivilegedClient::Result result;
-        @try { result = CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-set-executable", payload); }
-        @finally { [database_ endSettingsChange]; }
-        dispatch_async(dispatch_get_main_queue(), ^{
-            table_.userInteractionEnabled = YES;
-            Message(self, Text(result.succeeded() ? @"SETTING_RESTART_REQUIRED" : @"SETTINGS_SAVE_FAILED"));
-            [self viewWillAppear:NO];
-        });
-    });
+    if (path.section == 0) controller = path.row == 1 ?
+        [[CydiaRepositorySettingsController alloc] initWithDatabase:database_ advancedAccess:YES] :
+        [[CydiaBootstrapAccessController alloc] initWithDatabase:database_];
+    else if (path.section == 1) controller = path.row == 0 ?
+        [[CydiaCapabilityController alloc] initWithDatabase:database_] : [[CydiaExternalToolsController alloc] initWithDatabase:database_];
+    else controller = [[CydiaRuntimeAccessController alloc] initWithDatabase:database_];
+    controller.delegate = self.delegate; [self.navigationController pushViewController:controller animated:YES];
 }
 @end

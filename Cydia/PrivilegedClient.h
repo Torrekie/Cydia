@@ -24,6 +24,9 @@ struct Result {
  * is the frontend's expectation, never privileged path authority. */
 Privileged::ExpectedEnvironment CurrentExpectedEnvironment();
 Privileged::Request RuntimeRequest(const std::string &payload);
+/* Private setup writes do not depend on a working APT/tool environment.
+ * The helper still authenticates Cydia and derives its private state path. */
+Privileged::Request PrivateSettingsRequest(const std::string &payload);
 Result Run(const std::string &helperPath, const std::string &command,
            const Privileged::Request &request,
            std::size_t captureLimit = 8 * 1024 * 1024,
@@ -31,6 +34,10 @@ Result Run(const std::string &helperPath, const std::string &command,
 Result RunNativeCommand(const std::string &command, const std::string &payload,
                        std::size_t captureLimit = 8 * 1024 * 1024,
                        unsigned timeoutMilliseconds = 0);
+/* Only the private executable setting route is accepted here. */
+Result RunPrivateSettingsCommand(const std::string &command, const std::string &payload,
+                       std::size_t captureLimit = 8 * 1024 * 1024,
+                       unsigned timeoutMilliseconds = 4000);
 
 /* Returns a safely opened descriptor, without taking a lock. The frontend
  * must acquire its own fcntl lock; APT's GetLock callback does this normally. */

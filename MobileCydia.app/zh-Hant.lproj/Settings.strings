@@ -84,3 +84,26 @@
 "ARCHIVE_TRUST_REFRESH_REQUIRED" = "請重新整理軟體來源，以在本次工作階段中驗證提供 %@ 的軟體來源身分。";
 
 "REPOSITORY_SECURITY_REFRESH_EX" = "錯誤模式要求每次開啟 Cydia 後成功重新整理軟體來源。重新載入軟體套件列表或變更原則不會重新驗證軟體來源身分。";
+
+"REPOSITORY_SETTINGS" = "套件庫設定";
+"REPOSITORY_SETTINGS_HELP" = "啟用套件庫並編輯其設定。";
+"ADVANCED_SETTINGS_HELP" = "引導環境相容性與疑難排解。";
+"BOOTSTRAP_DEFAULT" = "引導環境預設值";
+"TOOL_OVERRIDES_UNAVAILABLE" = "無法讀取已儲存的路徑。請檢查引導環境設定。";
+"TOOL_CUSTOM_PATH" = "自訂路徑";
+"TOOL_USE_DEFAULT" = "使用引導環境預設值";
+"TOOL_PATH_HELP" = "使用引導環境預設值，或輸入可信執行檔的完整路徑。儲存後請重新開啟 Cydia。";
+"BOOTSTRAP_CONFIGURATION" = "引導環境設定";
+"PROTECTED_REPOSITORY_SETTINGS" = "受保護套件庫設定";
+"COMPATIBILITY" = "相容性";
+"DIAGNOSTICS" = "疑難排解";
+"SETTINGS_SAVE" = "儲存";
+"DISCARD_SETTINGS_TITLE" = "放棄更改？";
+"DISCARD_SETTINGS_MESSAGE" = "更改尚未儲存。";
+"DISCARD_SETTINGS_ACTION" = "放棄更改";
+"KEY_IMPORT_NO_SOURCES" = "匯入金鑰前，請先在「來源」中加入對應的套件庫。";
+"KEY_IMPORT_ACTION" = "匯入";
+"KEY_IMPORT_REVIEW_ACTION" = "檢查";
+"KEY_IMPORT_NO_FILE" = "尚未選取金鑰檔案。";
+"KEY_IMPORT_SOURCE_CHANGED" = "套件庫已更改。請重新選取並檢查金鑰。";
+"KEY_IMPORT_PARTIAL" = "金鑰已儲存，但無法更新套件庫設定。重試前請檢查套件庫設定。";

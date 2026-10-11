@@ -17,3 +17,6 @@
 "ACCESS_CHECK_DETAILS" = "Teknik ayrıntılar";
 "ACCESS_CHECK_NOT_RUN" = "Denetlenmedi";
 "ACCESS_CHECK_COMPLETE" = "Doğrulandı";
+
+"ACCESS_CHECK_NOT_VERIFIED" = "Doğrulanamadı";
+"ACCESS_CHECK_DIAGNOSTIC_OUTPUT" = "Tanılama Çıktısı";

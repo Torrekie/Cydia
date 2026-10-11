@@ -85,3 +85,27 @@
 "REPOSITORY_SECURITY_REFRESH_EX" = "In de foutmodus moeten de bronnen bij elke opening van Cydia succesvol worden vernieuwd. Het opnieuw laden van pakketlijsten of wijzigen van het beleid vernieuwt de repository-authenticatie niet.";
 
 "BOOTSTRAP_DATABASE_ACCESS" = "Toegang tot de bootstrapdatabase";
+
+"REPOSITORY_SETTINGS" = "Instellingen voor pakketbronnen";
+"REPOSITORY_SETTINGS_HELP" = "Schakel pakketbronnen in en bewerk hun configuratie.";
+"ADVANCED_SETTINGS_HELP" = "Bootstrapcompatibiliteit en problemen oplossen.";
+"BOOTSTRAP_DEFAULT" = "Bootstrap-standaard";
+"TOOL_OVERRIDES_UNAVAILABLE" = "De opgeslagen paden konden niet worden gelezen. Controleer je bootstrapconfiguratie.";
+"TOOL_CUSTOM_PATH" = "Aangepast pad";
+"TOOL_USE_DEFAULT" = "Bootstrap-standaard gebruiken";
+"TOOL_PATH_HELP" = "Gebruik de bootstrap-standaard of voer het volledige pad naar een vertrouwd uitvoerbaar bestand in. Open Cydia opnieuw na het opslaan.";
+"BOOTSTRAP_CONFIGURATION" = "Bootstrapconfiguratie";
+"PROTECTED_REPOSITORY_SETTINGS" = "Instellingen voor beschermde pakketbronnen";
+"COMPATIBILITY" = "Compatibiliteit";
+"DIAGNOSTICS" = "Problemen oplossen";
+"SETTINGS_SAVE" = "Opslaan";
+"DISCARD_SETTINGS_TITLE" = "Wijzigingen verwerpen?";
+"DISCARD_SETTINGS_MESSAGE" = "Je wijzigingen zijn niet opgeslagen.";
+"DISCARD_SETTINGS_ACTION" = "Wijzigingen verwerpen";
+"KEY_IMPORT_NO_SOURCES" = "Voeg onder Bronnen een pakketbron toe voordat je de sleutel ervan importeert.";
+"KEY_IMPORT_ACTION" = "Importeren";
+"KEY_IMPORT_REVIEW_ACTION" = "Controleren";
+"KEY_IMPORT_NO_FILE" = "Geen sleutelbestand geselecteerd.";
+
+"KEY_IMPORT_SOURCE_CHANGED" = "De pakketbron is gewijzigd. Selecteer deze opnieuw en controleer de sleutel.";
+"KEY_IMPORT_PARTIAL" = "De sleutel is opgeslagen, maar de configuratie van de bijbehorende pakketbron kon niet worden bijgewerkt. Controleer de instellingen van de pakketbron voordat je het opnieuw probeert.";
