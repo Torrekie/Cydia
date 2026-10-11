@@ -117,6 +117,17 @@ the supported external tools (`dpkg`, `dpkg-query`, `dpkg-deb`, `uicache`,
 `apt-key`, `gpgv` and `gpg`) through a protected Cydia-owned configuration file.
 Override targets must pass executable and ownership checks.
 
+Data-only dpkg status/journal records, APT automatic-package state and accepted
+preference files may retain another frontend's owner or group. Cydia reads
+single-link regular files through protected root-owned parent directories,
+refuses symlink leaves, set-id or world-writable files, and binds snapshot
+evidence to both the descriptor and pathname. State changes invalidate review.
+Automatic/manual flag writes preserve the existing owner, group, ordinary
+permissions, ACLs and attributes, under the shared frontend lock and a stale
+state check. An uncooperative writer can still race between the final check and
+replacement. This data policy does not authorize APT hooks, executable paths,
+trust keyrings or Cydia's private configuration; those retain strict checks.
+
 `make verify-package-paths`, `verify-apt-runtime` and
 `verify-apt-source-isolation` cover installation defaults and runtime
 configuration independently.

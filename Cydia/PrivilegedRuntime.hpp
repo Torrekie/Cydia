@@ -48,6 +48,7 @@ struct Evidence {
     bool directory;
     bool absent;
     bool identityOnly;
+    bool sharedState;
     std::string bytes;
     std::vector<std::string> entries;
 };
@@ -71,6 +72,8 @@ bool ValidateRootOwnedPath(const std::string &path, bool directory,
                           bool executable, Error *error);
 bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent,
                      Evidence *evidence, Error *error);
+bool CaptureSharedStateEvidence(const std::string &path, bool directory, bool allowAbsent,
+                                Evidence *evidence, Error *error);
 bool CapturePathIdentity(const std::string &path, bool directory, bool executable,
                          Evidence *evidence, Error *error);
 bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error);

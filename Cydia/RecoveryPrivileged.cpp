@@ -122,7 +122,9 @@ bool Backup(const std::string &state, const Snapshot &snapshot, std::string *pat
 }
 bool Recheck(const Snapshot &snapshot, const Privileged::Environment &environment, uid_t owner) {
     CydiaSources::ProtectedFileSnapshot file;
-    if (PendingUpdates(environment.dpkgAdmin, owner) || !CydiaSources::ReadProtectedFile(environment.dpkgAdmin + "/status", &file, owner) ||
+    if (PendingUpdates(environment.dpkgAdmin, owner) ||
+        !(owner == 0 ? CydiaSources::ReadSharedStateFile(environment.dpkgAdmin + "/status", &file) :
+                       CydiaSources::ReadProtectedFile(environment.dpkgAdmin + "/status", &file, owner)) ||
         !file.identity.sameVersion(snapshot.status.identity) || file.bytes != snapshot.status.bytes) return false;
     for (const auto &script : snapshot.scripts) {
         if (!CydiaSources::ReadProtectedFile(script.path, &file, owner) ||
@@ -154,7 +156,10 @@ bool Prepare(const Privileged::Environment &environment, const std::string &iden
     if (snapshot == NULL || !ValidPackageIdentity(identity) || PendingUpdates(environment.dpkgAdmin, owner))
         return Fail(error, "recovery_state_unavailable", "The dpkg state requires ordinary recovery before a targeted emergency action.");
     Snapshot result;
-    if (!CydiaSources::ReadProtectedFile(environment.dpkgAdmin + "/status", &result.status, owner) || !result.status.identity.exists)
+    // Non-root principals are an explicit host-fixture seam. Device callers
+    // always use root-protected parents and the data-only status leaf policy.
+    if (!(owner == 0 ? CydiaSources::ReadSharedStateFile(environment.dpkgAdmin + "/status", &result.status) :
+                      CydiaSources::ReadProtectedFile(environment.dpkgAdmin + "/status", &result.status, owner)) || !result.status.identity.exists)
         return Fail(error, "recovery_state_unavailable", "Cannot read the active protected dpkg status database.");
     result.review.analysis = AnalyzeStatus(result.status.bytes, identity, nativeArchitecture);
     if (result.review.analysis.reason == "unavailable") return Fail(error, "recovery_state_unavailable", "Cannot determine this package's actual dpkg state and dependency impact.");

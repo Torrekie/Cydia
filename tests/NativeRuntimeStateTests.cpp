@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/RuntimeState.hpp"
 #include "Cydia/ApplicationIdentity.hpp"
+#include "Cydia/SourceDocumentCommit.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -70,6 +71,56 @@ int main() {
             !InspectApplicationExecutable(app, &identity), "writable app executable is rejected");
         Require(chmod(app.c_str(), 0755) == 0 && chown(app.c_str(), 501, 501) == 0 &&
             !InspectApplicationExecutable(app, &identity), "non-root app executable is rejected");
+    }
+    {
+        Fixture f; Error error; std::string bytes;
+        Require(chown(f.environment.extendedStates.c_str(), 501, 20) == 0 &&
+            chmod(f.environment.extendedStates.c_str(), 0664) == 0 &&
+            chown((f.environment.dpkgAdmin + "/status").c_str(), 502, 20) == 0, "external frontend state ownership");
+        Require(ReadExtendedState(f.environment, &bytes, &error) && bytes == f.original,
+            "read user-owned data without changing bootstrap metadata");
+        const std::string alias(f.root + "/bootstrap");
+        Require(symlink(f.root.c_str(), alias.c_str()) == 0, "create bootstrap parent alias");
+        const std::string actual(f.environment.extendedStates);
+        f.environment.extendedStates = alias + "/extended_states";
+        Require(ReadExtendedState(f.environment, &bytes, &error), "root-owned bootstrap parent alias remains usable");
+        Require(lchown(alias.c_str(), 501, 20) == 0 && !ReadExtendedState(f.environment, &bytes, &error),
+            "user-owned parent alias cannot select protected state");
+        f.environment.extendedStates = actual;
+        Evidence state;
+        Require(CaptureSharedStateEvidence(f.environment.extendedStates, false, false, &state, &error) &&
+            state.sharedState && RecheckEvidence({state}, &error), "state evidence reuses data-only policy");
+        CydiaSources::ProtectedFileSnapshot strict;
+        Require(!CydiaSources::ReadProtectedFile(f.environment.extendedStates, &strict),
+            "user-owned data never satisfies protected configuration policy");
+        const std::string preference(f.root + "/external.pref");
+        Write(preference, "Package: target\nPin: version 1\nPin-Priority: 700\n");
+        Require(chown(preference.c_str(), 503, 20) == 0 &&
+            CaptureSharedStateEvidence(preference, false, false, &state, &error) && RecheckEvidence({state}, &error),
+            "user-owned package preferences retain snapshot evidence");
+        Require(CommitExtendedState(f.environment, f.Payload(), &error), "commit external frontend manual flag");
+        struct stat st;
+        Require(stat(f.environment.extendedStates.c_str(), &st) == 0 && st.st_uid == 501 && st.st_gid == 20 &&
+            (st.st_mode & 0777) == 0664 && Read(f.environment.extendedStates).find("X-Extra: unchanged") != std::string::npos,
+            "preserve external owner, group, mode and unrelated state");
+        Write(preference, "Package: replacement\n");
+        Require(!RecheckEvidence({state}, &error) && error.code == "stale_environment", "changed data invalidates review");
+        Require(chmod(f.root.c_str(), 0775) == 0 && !ReadExtendedState(f.environment, &bytes, &error),
+            "group-writable state parent is refused");
+        Require(chmod(f.root.c_str(), 01777) == 0 && !ReadExtendedState(f.environment, &bytes, &error),
+            "sticky state parent is refused");
+        Require(chmod(f.root.c_str(), 0700) == 0 && chown(f.root.c_str(), 501, 20) == 0 &&
+            !ReadExtendedState(f.environment, &bytes, &error), "user-owned parent is refused");
+        Require(chown(f.root.c_str(), 0, 0) == 0, "restore disposable parent");
+    }
+    {
+        Fixture f; Error error; std::string bytes;
+        Require(link(f.environment.extendedStates.c_str(), (f.root + "/alias").c_str()) == 0 &&
+            !ReadExtendedState(f.environment, &bytes, &error), "hard-linked state is refused");
+        Require(unlink((f.root + "/alias").c_str()) == 0 && chmod(f.environment.extendedStates.c_str(), 0666) == 0 &&
+            !ReadExtendedState(f.environment, &bytes, &error), "world-writable state is refused");
+        Require(chmod(f.environment.extendedStates.c_str(), 04644) == 0 &&
+            !ReadExtendedState(f.environment, &bytes, &error), "set-id state is refused");
     }
     {
         Fixture f; Error error; std::string bytes;

@@ -57,6 +57,12 @@ struct ProtectedFileSnapshot {
 bool ReadProtectedFile(const std::string &path, ProtectedFileSnapshot *snapshot, uid_t trustedOwner = 0);
 CommitResult ReplaceProtectedFile(const std::string &path, const ProtectedFileSnapshot &expected,
     const std::string &updated, uid_t trustedOwner = 0);
+/* Only independently resolved data-only APT/dpkg state may use this policy.
+ * The parent remains root-protected; the ordinary leaf owner/group/mode are
+ * retained on atomic replacement. Callers hold the shared frontend lock. */
+bool ReadSharedStateFile(const std::string &path, ProtectedFileSnapshot *snapshot);
+CommitResult ReplaceSharedStateFile(const std::string &path, const ProtectedFileSnapshot &expected,
+    const std::string &updated);
 
 /* The caller authenticates the native action, independently resolves these
  * locations/policy path from trusted configuration, holds the APT frontend

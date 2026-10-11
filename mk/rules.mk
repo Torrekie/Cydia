@@ -202,6 +202,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/PrivilegedRuntime.hpp Cydia/ApplicationIdentity.hpp Cydia/ApplicationSession.hpp \
 		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
 		Cydia/SourceDocument.hpp Cydia/SourceDocumentStore.hpp Cydia/SourceDocumentCommit.hpp \
+		Cydia/SharedStateFile.hpp \
 		Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp Cydia/RuntimeState.cpp Cydia/RuntimeState.hpp \
 		Cydia/RuntimeSnapshotInputs.cpp Cydia/RuntimeSnapshotInputs.hpp \
 		Cydia/KeyringImport.cpp Cydia/KeyringImportPrivileged.cpp Cydia/KeyringImport.hpp \

@@ -39,7 +39,7 @@ void Write(const std::string &path, const std::string &bytes) {
 }
 std::vector<Evidence> Capture(const Environment &environment, SnapshotScope scope) {
     std::vector<Evidence> inputs; Error error;
-    const bool captured(CaptureSnapshotInputs(environment, scope, &inputs, &error, FixtureCapture));
+    const bool captured(CaptureSnapshotInputs(environment, scope, &inputs, &error, FixtureCapture, FixtureCapture));
     if (!captured) std::cerr << error.code << ": " << error.message << '\n';
     assert(captured); return inputs;
 }
@@ -88,6 +88,19 @@ int main() {
     environment.evidence.push_back(config);
     auto state = Capture(environment, SnapshotScope::PackageState);
     auto trust = Capture(environment, SnapshotScope::RepositoryTrust);
+    assert(Find(state, environment.dpkgAdmin + "/status")->sharedState && Find(state, environment.extendedStates)->sharedState);
+    assert(Find(state, environment.preferences)->sharedState && Find(state, root + "/pins/plain")->sharedState);
+    assert(!Find(state, environment.trusted)->sharedState && !Find(state, scopedA)->sharedState &&
+           !Find(state, root + "/apt.conf")->sharedState && !Find(state, environment.preferencesParts)->sharedState);
+    const auto savedTrusted(environment.trusted);
+    environment.trusted = environment.preferences;
+    assert(!Find(Capture(environment, SnapshotScope::PackageState), environment.preferences)->sharedState);
+    environment.trusted = savedTrusted;
+    const auto savedParts(environment.trustedParts);
+    environment.trustedParts = environment.preferencesParts;
+    Write(root + "/pins/overlap.asc", "trusted-key-in-shared-parts");
+    assert(!Find(Capture(environment, SnapshotScope::PackageState), root + "/pins/overlap.asc")->sharedState);
+    environment.trustedParts = savedParts;
     assert(Find(state, environment.preferences) && Find(state, root + "/pins/plain") && Find(state, root + "/pins/architecture:arm64.pref"));
     assert(!Find(state, root + "/pins/ignored.bak") && !Find(state, root + "/keys/ignored.txt"));
     assert(Find(trust, root + "/keys/.hidden.asc") && Find(trust, scopedA) && Find(trust, scopedB));

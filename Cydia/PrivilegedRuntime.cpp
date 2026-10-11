@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PrivilegedRuntime.hpp"
+#include "Cydia/SharedStateFile.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -234,6 +235,21 @@ bool CaptureEvidence(const std::string &path, bool directory, bool allowAbsent,
     return true;
 }
 
+bool CaptureSharedStateEvidence(const std::string &path, bool directory, bool allowAbsent,
+                                Evidence *evidence, Error *error) {
+    if (evidence == NULL || directory) return false;
+    *evidence = Evidence(); evidence->path = path; evidence->sharedState = true;
+    const int parent(SharedState::OpenParent(path));
+    if (parent < 0) return Fail(error, "unsafe_path", "Shared package state requires a protected parent directory.");
+    bool present;
+    const bool safe(SharedState::Read(parent, path.substr(path.find_last_of('/') + 1), &present,
+                                    &evidence->bytes, &evidence->identity));
+    close(parent);
+    if (!safe || (!present && !allowAbsent))
+        return Fail(error, "unsafe_path", "Shared package state has an unsafe or unavailable file.");
+    evidence->absent = !present; return true;
+}
+
 bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error) {
     for (const Evidence &before : evidence) {
         Evidence now;
@@ -246,7 +262,8 @@ bool RecheckEvidence(const std::vector<Evidence> &evidence, Error *error) {
                 return Fail(error, "stale_environment", "Privileged executable or directory changed; review it again.");
             continue;
         }
-        if (!CaptureEvidence(before.path, before.directory, before.absent, &now, error)) return false;
+        const auto capture(before.sharedState ? CaptureSharedStateEvidence : CaptureEvidence);
+        if (!capture(before.path, before.directory, before.absent, &now, error)) return false;
         if (before.absent != now.absent ||
             (!before.absent && (!SameIdentity(before.identity, now.identity) ||
              before.bytes != now.bytes || before.entries != now.entries)))

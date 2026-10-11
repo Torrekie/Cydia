@@ -20,7 +20,7 @@ bool HashSnapshot(const Environment &environment, SnapshotScope scope, std::stri
     std::vector<Evidence> inputs;
     if (!CaptureSnapshotInputs(environment, scope, &inputs, error) || !RecheckEvidence(inputs, error)) return false;
     Hashes hash(Hashes::SHA256SUM);
-    const std::string domain(scope == SnapshotScope::PackageState ? "CYDIA-PACKAGE-SNAPSHOT-2" : "CYDIA-TRUST-SNAPSHOT-1");
+    const std::string domain(scope == SnapshotScope::PackageState ? "CYDIA-PACKAGE-SNAPSHOT-3" : "CYDIA-TRUST-SNAPSHOT-2");
     if (!hash.Add(domain.data(), domain.size())) return Fail(error, "snapshot_failed", "Cannot hash the package-manager snapshot.");
     for (const auto &input : inputs) {
         const std::string frame(SerializeSnapshotEvidence(input));
@@ -72,7 +72,7 @@ bool TrustSnapshot(const Environment &environment, std::string *token, Error *er
 }
 bool ReadExtendedState(const Environment &environment, std::string *bytes, Error *error) {
     CydiaSources::ProtectedFileSnapshot snapshot;
-    if (environment.extendedStates.empty() || !CydiaSources::ReadProtectedFile(environment.extendedStates, &snapshot))
+    if (environment.extendedStates.empty() || !CydiaSources::ReadSharedStateFile(environment.extendedStates, &snapshot))
         return Fail(error, "extended_state_unavailable", "Cannot read protected shared APT state.");
     *bytes = snapshot.bytes; return RecheckEvidence(environment.evidence, error);
 }
@@ -81,8 +81,8 @@ bool CommitExtendedState(const Environment &environment, const std::string &payl
     if (!ParseVariableFields(payload, &fields, error) || fields[0] != environment.extendedStates)
         return Fail(error, "invalid_extended_state", "Invalid configured APT state request.");
     CydiaSources::ProtectedFileSnapshot original, status;
-    if (!CydiaSources::ReadProtectedFile(environment.extendedStates, &original) ||
-        !CydiaSources::ReadProtectedFile(environment.dpkgAdmin + "/status", &status) || !status.identity.exists)
+    if (!CydiaSources::ReadSharedStateFile(environment.extendedStates, &original) ||
+        !CydiaSources::ReadSharedStateFile(environment.dpkgAdmin + "/status", &status) || !status.identity.exists)
         return Fail(error, "extended_state_unavailable", "Cannot read protected APT or dpkg state.");
     if (original.bytes != fields[1]) return Fail(error, "stale_extended_state", "Another package manager changed shared APT state.");
     std::vector<AutoStateDelta> deltas;
@@ -96,10 +96,10 @@ bool CommitExtendedState(const Environment &environment, const std::string &payl
     if (!MergeExtendedState(original.bytes, status.bytes, native, architectures, deltas, &updated))
         return Fail(error, "invalid_extended_state", "Cannot safely merge the committed package flags.");
     CydiaSources::ProtectedFileSnapshot currentStatus;
-    if (!CydiaSources::ReadProtectedFile(environment.dpkgAdmin + "/status", &currentStatus) ||
+    if (!CydiaSources::ReadSharedStateFile(environment.dpkgAdmin + "/status", &currentStatus) ||
         !currentStatus.identity.sameVersion(status.identity) || currentStatus.bytes != status.bytes ||
         !RecheckEvidence(environment.evidence, error)) return Fail(error, "stale_package_state", "The installed package state changed.");
-    const auto result(CydiaSources::ReplaceProtectedFile(environment.extendedStates, original, updated));
+    const auto result(CydiaSources::ReplaceSharedStateFile(environment.extendedStates, original, updated));
     return result.succeeded() || Fail(error, "extended_state_write_failed", "Cannot atomically save shared APT state.");
 }
 } }

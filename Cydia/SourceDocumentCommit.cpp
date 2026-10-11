@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/SourceDocumentCommit.hpp"
+#include "Cydia/SharedStateFile.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -153,7 +154,8 @@ FileIdentity IdentityOf(const struct stat &st) {
     return identity;
 }
 struct RawFile { bool present; std::string bytes; struct stat st; RawFile() : present(false), st() {} };
-bool ReadRaw(int parent, const std::string &leaf, uid_t owner, RawFile *file) {
+bool ReadRaw(int parent, const std::string &leaf, uid_t owner, RawFile *file, bool sharedState = false) {
+    if (sharedState) return CydiaRuntime::SharedState::Read(parent, leaf, &file->present, &file->bytes, &file->st);
     const FD fd(openat(parent, leaf.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC));
     if (fd.get() < 0) return errno == ENOENT;
     if (fstat(fd.get(), &file->st) != 0 || !SafeFile(file->st, owner) || file->st.st_size < 0 ||
@@ -174,10 +176,10 @@ bool ReadRaw(int parent, const std::string &leaf, uid_t owner, RawFile *file) {
 CommitResult Result(CommitStatus status, int error = 0) { CommitResult result = {status, error}; return result; }
 
 CommitResult WriteAtomic(int parent, const std::string &leaf, const RawFile &expected,
-    const std::string &bytes, uid_t owner) {
+    const std::string &bytes, uid_t owner, bool sharedState = false) {
     if (bytes.size() > Limit) return Result(CommitStatus::InvalidRequest);
     RawFile before;
-    if (!ReadRaw(parent, leaf, owner, &before)) return Result(CommitStatus::UnsafePath, errno);
+    if (!ReadRaw(parent, leaf, owner, &before, sharedState)) return Result(CommitStatus::UnsafePath, errno);
     if (before.present != expected.present || before.bytes != expected.bytes ||
         (before.present && !SameStat(before.st, expected.st))) return Result(CommitStatus::StaleSnapshot);
     if (before.present && before.bytes == bytes) return Result(CommitStatus::Unchanged);
@@ -212,7 +214,7 @@ CommitResult WriteAtomic(int parent, const std::string &leaf, const RawFile &exp
     if (!before.present && fchmod(fd.get(), 0644) != 0) return fail(CommitStatus::IOFailure);
     if (fsync(fd.get()) != 0) return fail(CommitStatus::IOFailure);
     RawFile current;
-    if (!ReadRaw(parent, leaf, owner, &current)) return fail(CommitStatus::UnsafePath);
+    if (!ReadRaw(parent, leaf, owner, &current, sharedState)) return fail(CommitStatus::UnsafePath);
     if (current.present != before.present || current.bytes != before.bytes ||
         (current.present && !SameStat(current.st, before.st))) return fail(CommitStatus::StaleSnapshot);
     if (renameat(parent, temporary.c_str(), parent, leaf.c_str()) != 0) return fail(CommitStatus::IOFailure);
@@ -236,6 +238,22 @@ CommitResult ReplaceProtectedFile(const std::string &path, const ProtectedFileSn
     if (raw.present != expected.identity.exists || raw.bytes != expected.bytes ||
         (raw.present && !IdentityOf(raw.st).sameVersion(expected.identity))) return Result(CommitStatus::StaleSnapshot);
     return WriteAtomic(parent.get(), Leaf(path), raw, updated, owner);
+}
+bool ReadSharedStateFile(const std::string &path, ProtectedFileSnapshot *snapshot) {
+    if (snapshot == NULL) return false;
+    const FD parent(CydiaRuntime::SharedState::OpenParent(path)); RawFile raw;
+    if (parent.get() < 0 || !ReadRaw(parent.get(), Leaf(path), 0, &raw, true)) return false;
+    snapshot->bytes = raw.bytes;
+    snapshot->identity = raw.present ? IdentityOf(raw.st) : FileIdentity();
+    return true;
+}
+CommitResult ReplaceSharedStateFile(const std::string &path, const ProtectedFileSnapshot &expected,
+    const std::string &updated) {
+    const FD parent(CydiaRuntime::SharedState::OpenParent(path)); RawFile raw;
+    if (parent.get() < 0 || !ReadRaw(parent.get(), Leaf(path), 0, &raw, true)) return Result(CommitStatus::UnsafePath, errno);
+    if (raw.present != expected.identity.exists || raw.bytes != expected.bytes ||
+        (raw.present && !IdentityOf(raw.st).sameVersion(expected.identity))) return Result(CommitStatus::StaleSnapshot);
+    return WriteAtomic(parent.get(), Leaf(path), raw, updated, 0, true);
 }
 
 std::string SerializeProtectionPolicy(const std::vector<ProtectionSelector> &selectors) {
