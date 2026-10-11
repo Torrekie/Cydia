@@ -5,6 +5,7 @@
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
+#include <initializer_list>
 #include <poll.h>
 #include <sys/stat.h>
 #include <sys/wait.h>

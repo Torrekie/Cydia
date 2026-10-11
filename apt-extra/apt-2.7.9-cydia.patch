@@ -1,7 +1,7 @@
 From 7cd7e534fa2969526b071d6a44c7eff0658abf94 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:05:45 +0800
-Subject: [PATCH 1/6] cydia: include Deb822 source parts in cache mtime
+Subject: [PATCH 1/7] cydia: include Deb822 source parts in cache mtime
 
 ---
  apt-pkg/sourcelist.cc          |  5 ++++-
@@ -69,7 +69,7 @@ index 42fab65a9..1f27fb341 100644
 From 9c189c40b78b765a341dcf3288117b0aeb93df72 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:12:51 +0800
-Subject: [PATCH 2/6] test: name Deb822 source mtime assertion
+Subject: [PATCH 2/7] test: name Deb822 source mtime assertion
 
 ---
  test/libapt/sourcelist_test.cc | 3 ++-
@@ -98,7 +98,7 @@ index 1f27fb341..6960a46e3 100644
 From 6d10c85655707995930ebaadf31fa79a1719307a Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 09:41:00 +0000
-Subject: [PATCH 3/6] Preserve typed repository authentication and validate
+Subject: [PATCH 3/7] Preserve typed repository authentication and validate
  embedded configuration reads
 
 ---
@@ -849,7 +849,7 @@ index 000000000..d026cfe15
 From db0b431062804ccd1d2b0effe25f5fcad22c7809 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 09:58:00 +0000
-Subject: [PATCH 4/6] Allow embedded frontends to acquire protected lock files
+Subject: [PATCH 4/7] Allow embedded frontends to acquire protected lock files
  safely
 
 ---
@@ -918,7 +918,7 @@ index 970b11878..1050240cd 100644
 From 9038aa6e0a019eaae5ae2d0a25b1721ddbc0ebf4 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 10:13:00 +0000
-Subject: [PATCH 5/6] Allow embedded frontends to defer shared automatic state
+Subject: [PATCH 5/7] Allow embedded frontends to defer shared automatic state
  commits
 
 ---
@@ -980,7 +980,7 @@ index be27b1d77..b86257da1 100644
 From 5c762da034fe4f2ccd9d0352455fc938d48ddcd3 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 10:56:26 +0000
-Subject: [PATCH 6/6] Require current frontend proof for cached repository
+Subject: [PATCH 6/7] Require current frontend proof for cached repository
  trust
 
 ---
@@ -1026,6 +1026,46 @@ index d026cfe15..98308659e 100755
      listcurrentlistsdirectory > lists.before
      BADFILE=aptarchive/dists/unstable/InRelease
      if [ "$OMIT" = InRelease ]; then BADFILE=aptarchive/dists/unstable/Release; fi
+-- 
+2.39.3 (Apple Git-145)
+
+
+From 93fedf8ee2c679717605f6585de5f12a6310f6ed Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 11:26:00 +0000
+Subject: [PATCH 7/7] Exercise changed metadata in repository authentication
+ tests
+
+---
+ test/integration/test-cydia-repository-security | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/test/integration/test-cydia-repository-security b/test/integration/test-cydia-repository-security
+index 98308659e..1f58af06d 100755
+--- a/test/integration/test-cydia-repository-security
++++ b/test/integration/test-cydia-repository-security
+@@ -49,6 +49,10 @@ for MODE in allow warning error; do
+     resetarchive
+     testsuccess policyupdate
+     if [ "$OMIT" = InRelease ]; then
++        # An unchanged Release can legitimately reuse its authenticated
++        # cached detached signature without fetching Release.gpg again.
++        printf 'X-Cydia-Test-Revision: malformed-signature\n' >> aptarchive/dists/unstable/Release
++        touch -d '+1 minute' aptarchive/dists/unstable/Release
+         printf 'invalid signature data\n' > aptarchive/dists/unstable/Release.gpg
+         touch -d '+1 minute' aptarchive/dists/unstable/Release.gpg
+     else
+@@ -61,6 +65,10 @@ for MODE in allow warning error; do
+     resetarchive
+     testsuccess policyupdate
+     rm -f aptarchive/dists/unstable/InRelease aptarchive/dists/unstable/Release.gpg
++    # Exercise new unsigned metadata, not an IMS hit for the previously
++    # authenticated Release whose cached signature remains valid.
++    printf 'X-Cydia-Test-Revision: unsigned\n' >> aptarchive/dists/unstable/Release
++    touch -d '+1 minute' aptarchive/dists/unstable/Release
+     if [ "$MODE" = error ]; then
+         testfailure policyupdate
+     else
 -- 
 2.39.3 (Apple Git-145)
 
