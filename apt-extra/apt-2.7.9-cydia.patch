@@ -1,0 +1,90 @@
+From 7cd7e534fa2969526b071d6a44c7eff0658abf94 Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 02:05:45 +0800
+Subject: [PATCH 1/2] cydia: include Deb822 source parts in cache mtime
+
+---
+ apt-pkg/sourcelist.cc          |  5 ++++-
+ test/libapt/sourcelist_test.cc | 23 +++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/apt-pkg/sourcelist.cc b/apt-pkg/sourcelist.cc
+index e11afceed18b6e83abc8a51fa849a0c9f02b9c89..61a9289b681adb2fbe841c2dcbef685954292b54 100644
+--- a/apt-pkg/sourcelist.cc
++++ b/apt-pkg/sourcelist.cc
+@@ -519,7 +519,10 @@ time_t pkgSourceList::GetLastModifiedTime()
+ 
+    // go over the parts
+    if (DirectoryExists(Parts) == true)
+-      List = GetListOfFilesInDir(Parts, "list", true);
++   {
++      std::vector<std::string> const ext = {"list", "sources"};
++      List = GetListOfFilesInDir(Parts, ext, true);
++   }
+ 
+    // calculate the time
+    std::vector<time_t> modtimes;
+diff --git a/test/libapt/sourcelist_test.cc b/test/libapt/sourcelist_test.cc
+index 42fab65a9ce2d5789da6eff061b117be19b4ca6c..1f27fb341108b868f8852386dd2edd2e68e8bf5e 100644
+--- a/test/libapt/sourcelist_test.cc
++++ b/test/libapt/sourcelist_test.cc
+@@ -7,6 +7,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <utime.h>
+ 
+ #include <gtest/gtest.h>
+ 
+@@ -31,3 +32,25 @@ TEST(SourceListTest,ParseFileDeb822)
+    EXPECT_TRUE(sources.Read(file.Name()));
+    EXPECT_EQ(2u, sources.size());
+ }
++
++TEST(SourceListTest,GetLastModifiedTimeIncludesDeb822Parts)
++{
++   std::string directory;
++   createTemporaryDirectory("sourcelistmtime.XXXXXX", directory);
++   std::string parts = directory + "/parts";
++   createDirectory(directory, "parts");
++   std::string main = directory + "/sources.list";
++   std::string deb822 = parts + "/default.sources";
++   createFile(directory, "sources.list");
++   createFile(parts, "default.sources");
++
++   _config->Set("Dir::Etc::sourcelist", main);
++   _config->Set("Dir::Etc::sourceparts", parts);
++   struct utimbuf mainTimes = {1, 1};
++   struct utimbuf deb822Times = {2, 2};
++   ASSERT_EQ(0, utime(main.c_str(), &mainTimes));
++   ASSERT_EQ(0, utime(deb822.c_str(), &deb822Times));
++   pkgSourceList sources;
++   EXPECT_EQ(deb822Times.modtime, sources.GetLastModifiedTime());
++   removeDirectory(directory);
++}
+
+From 9c189c40b78b765a341dcf3288117b0aeb93df72 Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 02:12:51 +0800
+Subject: [PATCH 2/2] test: name Deb822 source mtime assertion
+
+---
+ test/libapt/sourcelist_test.cc | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/test/libapt/sourcelist_test.cc b/test/libapt/sourcelist_test.cc
+index 1f27fb341108b868f8852386dd2edd2e68e8bf5e..6960a46e3fd7d057b3e749ca393990fa3bb281b6 100644
+--- a/test/libapt/sourcelist_test.cc
++++ b/test/libapt/sourcelist_test.cc
+@@ -48,9 +48,10 @@ TEST(SourceListTest,GetLastModifiedTimeIncludesDeb822Parts)
+    _config->Set("Dir::Etc::sourceparts", parts);
+    struct utimbuf mainTimes = {1, 1};
+    struct utimbuf deb822Times = {2, 2};
++   time_t deb822Time = deb822Times.modtime;
+    ASSERT_EQ(0, utime(main.c_str(), &mainTimes));
+    ASSERT_EQ(0, utime(deb822.c_str(), &deb822Times));
+    pkgSourceList sources;
+-   EXPECT_EQ(deb822Times.modtime, sources.GetLastModifiedTime());
++   EXPECT_EQ(deb822Time, sources.GetLastModifiedTime());
+    removeDirectory(directory);
+ }

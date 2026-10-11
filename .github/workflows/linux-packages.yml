@@ -46,30 +46,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          apt_commit=$(git ls-tree HEAD apt64 | awk '$1 == "160000" { print $3 }')
-          test -n "$apt_commit"
-          mkdir -p apt64
-          git -C apt64 init
-          git -C apt64 remote add origin https://git.bingner.com/apt.git
-          if ! timeout 90 git -C apt64 \
-              -c transfer.fsckObjects=true -c fetch.fsckObjects=true \
-              fetch --depth=1 origin refs/heads/cydia; then
-            # The inherited host intermittently serves only its recorded
-            # git:// transport. The exact gitlink below remains mandatory;
-            # this fallback does not promote the source beyond its recorded
-            # legacy-unverified trust state.
-            echo "::warning::APT HTTPS transport unavailable; using the recorded git transport"
-            git -C apt64 remote set-url origin git://git.bingner.com/apt.git
-            git -C apt64 \
-              -c transfer.fsckObjects=true -c fetch.fsckObjects=true \
-              fetch --depth=1 origin refs/heads/cydia
-          fi
-          test "$(git -C apt64 rev-parse FETCH_HEAD)" = "$apt_commit"
-          git -C apt64 checkout --detach "$apt_commit"
-          git -C apt64 fsck --strict
+          scripts/checkout-apt-source.sh
 
-          git config submodule.libiosexec.url https://github.com/Remorix/libiosexec.git
-          git submodule update --init libiosexec
+          git submodule update --init libiosexec xxhash
 
           # The public fork has no release-tag refs. Keep CI candidates
           # install-orderable without presenting them as a release.

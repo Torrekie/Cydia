@@ -12,21 +12,40 @@ The current baseline is recorded in mk/apt.mk:
 | Input | Recorded value |
 | --- | --- |
 | Source directory | apt64 gitlink |
-| Commit | e4718f05d049c1a09fb9662cc3db2d4c5122defe |
-| Source URL | git://git.bingner.com/apt.git |
-| Embedded version | 1.8.2 |
-| Required C++ level | 11 |
-| libapt-pkg version triplet | 5.0.2 |
-| ABI/SOVERSION | 5.0 / 5 |
+| Commit | 9c189c40b78b765a341dcf3288117b0aeb93df72 |
+| Upstream base | ed053de346d92c1a4218a7b80a20158f3535fe2a |
+| Source URL | https://salsa.debian.org/apt-team/apt.git |
+| Embedded version | 2.7.9 |
+| Required C++ level | 17 |
+| libapt-pkg version triplet | 6.0.0 |
+| ABI/SOVERSION | 6.0 / 6 |
 | Provenance trust | legacy-unverified |
 
-This records the inherited starting point; it is not a claim that the old fork
-is the desired long-term version or that its unauthenticated `git://` origin
-proves source authenticity. No signed upstream tag or signer fingerprint was
-recorded for this inherited commit, so the manifest deliberately labels it
-`legacy-unverified`. A separate untracked source archive or working directory
-is not an acceptable replacement for the gitlink. An update must identify an
-authoritative upstream commit and review the iOS/Darwin delta explicitly.
+The upstream base is the APT 2.7.9 release commit. Two local commits add Deb822
+source-file mtime coverage and its regression test. Their mail patches are
+tracked in `apt-extra/apt-2.7.9-cydia.patch`; `scripts/checkout-apt-source.sh`
+fetches the exact public base and replays the recorded identities and dates to
+regenerate the exact committed gitlink. It checks the resulting commit, clean
+checkout and Git object integrity. If Salsa's transport is unavailable, it
+fetches the same base from Debian's HTTPS GitHub mirror. It never substitutes
+a floating branch or the inherited APT 1.8.2 fork.
+
+For a fresh clone without initialized submodules, run:
+
+~~~sh
+scripts/checkout-apt-source.sh
+git submodule update --init libiosexec xxhash
+~~~
+
+An existing clean checkout at the recorded APT commit is retained. The helper
+refuses to replace a different existing checkout or local changes. CI also
+initializes the pinned xxHash 0.8.2 submodule used by APT's header-only XXH3.
+
+No signed upstream tag or signer fingerprint has been verified for this
+baseline, so the manifest deliberately retains `legacy-unverified`. Matching
+the pinned commit does not upgrade that trust claim. A separate untracked
+source archive or working directory is not an acceptable replacement for the
+gitlink. Updates must review the upstream revision and iOS/Darwin delta.
 
 make verify-apt checks that:
 

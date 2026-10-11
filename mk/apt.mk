@@ -18,6 +18,8 @@ APT_SOURCE_CXX_STANDARD := c++17
 # The inherited upstream source has no recorded signed tag or signer identity;
 # APT_SOURCE_COMMIT is the local Cydia compatibility commit above that exact
 # 2.7.9 base.
+# scripts/checkout-apt-source.sh regenerates it from the tracked mail patches
+# in apt-extra/apt-2.7.9-cydia.patch, preserving the exact gitlink.
 # Keep that limitation machine-visible until a reviewed upstream import adds a
 # real signature-verification gate.
 APT_SOURCE_TRUST := legacy-unverified
