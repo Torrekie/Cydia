@@ -26,6 +26,7 @@ insertpackage 'unstable' 'held-target' 'amd64' '3'
 insertpackage 'unstable' 'essential-target' 'amd64' '2' 'Essential: yes'
 insertpackage 'unstable' 'protected-target' 'amd64' '2' 'Protected: yes'
 insertpackage 'unstable' 'missing-reinstall' 'amd64' '3'
+mkdir -p rootdir/var/lib/apt
 cat >rootdir/var/lib/apt/extended_states <<'EOF'
 Package: target
 Architecture: amd64
