@@ -721,7 +721,12 @@ void AptBackend::clearSelections() {
         cache.SetReInstall(package, false);
         cache[package].iFlags &= ~pkgDepCache::Protected;
         cache.MarkKeep(package, false);
-        if (cache_.Policy != NULL) cache.SetCandidateVersion(cache_.Policy->GetCandidateVer(package));
+        if (cache_.Policy != NULL) {
+            const pkgCache::VerIterator candidate(cache_.Policy->GetCandidateVer(package));
+            /* Virtual dependency entries and residual configuration can have
+             * no policy candidate. APT requires a real version here. */
+            if (!candidate.end()) cache.SetCandidateVersion(candidate);
+        }
         if (package.Name() == NULL || package.Arch() == NULL) continue;
         const std::string key(std::string(package.Name()) + ":" + package.Arch());
         const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
@@ -744,7 +749,10 @@ bool AptBackend::clearPackage(PackageHandle handle) {
     cache.SetReInstall(package, false);
     cache[package].iFlags &= ~pkgDepCache::Protected;
     const bool kept(cache.MarkKeep(package, false));
-    if (cache_.Policy != NULL) cache.SetCandidateVersion(cache_.Policy->GetCandidateVer(package));
+    if (cache_.Policy != NULL) {
+        const pkgCache::VerIterator candidate(cache_.Policy->GetCandidateVer(package));
+        if (!candidate.end()) cache.SetCandidateVersion(candidate);
+    }
     if (package.Name() == NULL || package.Arch() == NULL) return kept;
     const std::string key(std::string(package.Name()) + ":" + package.Arch());
     const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
