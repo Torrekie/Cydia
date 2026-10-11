@@ -127,7 +127,7 @@ class Fixture:
                 entries.append((name, LIBRARY + b"\n" + (ROOT / name).read_bytes(), 0o755))
             entries.append(("cydia-shared-config-lifecycle", LIBRARY, 0o755))
             native_bridge_fixture = (b"#!/bin/bash\n"
-                                    b'exec "${0%/*}/cydia.cydia-shared-config-lifecycle" '
+                                    b'exec /bin/bash "${0%/*}/cydia.cydia-shared-config-lifecycle" '
                                     b'--cydia-shared-config-lifecycle postinst "$@"\n')
             entries.append(("postinst", postinst or native_bridge_fixture, 0o755))
         destination = self.new if version == "2" else self.old

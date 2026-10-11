@@ -5,6 +5,7 @@
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivateStateDirectory.hpp"
 #include "Cydia/PrivateMetadataMigration.hpp"
+#include "Cydia/SharedConfigHandoff.hpp"
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -36,27 +37,19 @@ static void RequestUICache() {
     fclose(output);
 }
 
-static bool FinishSharedConfigHandoff(const char *scriptPath) {
-    if (scriptPath == NULL)
-        return false;
-    const std::string script(scriptPath);
-    const std::string::size_type slash(script.rfind('/'));
-    if (slash == std::string::npos)
-        return false;
-    const std::string directory(script.substr(0, slash + 1));
-    // dpkg names an installed private control file "package.filename";
-    // incoming control files retain their unprefixed filename.
-    const char *names[] = {"cydia.cydia-shared-config-lifecycle", "cydia-shared-config-lifecycle"};
-    for (const char *name : names) {
-        const std::string helper(directory + name);
-        struct stat metadata;
-        if (lstat(helper.c_str(), &metadata) != 0 || !S_ISREG(metadata.st_mode) ||
-                metadata.st_uid != geteuid() || (metadata.st_mode & 0022) != 0)
-            continue;
-        CydiaRuntime::Dpkg::Runner runner(helper);
-        return runner.Run({"--cydia-shared-config-lifecycle", "postinst", "configure"}).succeeded();
-    }
-    fprintf(stderr, "cydia shared configuration: lifecycle helper is unavailable\n");
+static bool FinishSharedConfigHandoff(const char *scriptPath,
+                                     const CydiaRuntime::PackageDatabasePaths &paths) {
+    // Use the same bootstrap interpreter as this package's shell maintscripts.
+    const std::string interpreter(paths.layout() == CydiaRuntime::PackageDatabaseLayout::Rootless ?
+        "/var/jb/bin/bash" : "/bin/bash");
+    const auto result(CydiaRuntime::RunSharedConfigHandoff(scriptPath, interpreter));
+    if (result.succeeded()) return true;
+    if (result.kind == CydiaRuntime::Dpkg::ResultKind::LaunchFailed)
+        fprintf(stderr, "cydia shared configuration: cannot launch lifecycle helper: %s\n", strerror(result.error));
+    else if (result.kind == CydiaRuntime::Dpkg::ResultKind::Signaled)
+        fprintf(stderr, "cydia shared configuration: lifecycle helper terminated by signal %d\n", result.code);
+    else
+        fprintf(stderr, "cydia shared configuration: lifecycle helper exited with status %d\n", result.code);
     return false;
 }
 
@@ -138,7 +131,11 @@ int main(int argc, const char *argv[]) {
         perror("Cydia private state directory");
         return 1;
     }
-    if (!CydiaRuntime::RestoreLegacySourceHandoff(paths) || !FinishSharedConfigHandoff(argv[0]))
+    if (!CydiaRuntime::RestoreLegacySourceHandoff(paths)) {
+        perror("Cydia legacy source handoff");
+        return 1;
+    }
+    if (!FinishSharedConfigHandoff(argv[0], paths))
         return 1;
     if (!CydiaRuntime::RepairFirmwareMarkerPermissions(paths.CydiaFirmwareVersionPath().c_str())) {
         perror("Cydia existing firmware marker permissions");

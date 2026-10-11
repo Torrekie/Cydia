@@ -362,7 +362,14 @@ verify-capabilities: $(CAPABILITY_PREVIEW_TEST)
 	@$<
 	@bash tests/FirmwareDiscoveryTests.sh
 	@python3 tests/FirmwareDiscoveryCoverageTests.py
-verify-shared-config-lifecycle:
+SHARED_CONFIG_HANDOFF_TEST := $(BUILD_DIR)/tests/SharedConfigHandoffTests
+$(SHARED_CONFIG_HANDOFF_TEST): tests/SharedConfigHandoffTests.cpp Cydia/SharedConfigHandoff.hpp \
+		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		$(filter %.cpp,$^) -o $@
+verify-shared-config-lifecycle: $(SHARED_CONFIG_HANDOFF_TEST)
+	@$(SHARED_CONFIG_HANDOFF_TEST)
 	@python3 tests/SharedConfigLifecycleTests.py
 verify-private-state: $(PRIVATE_STATE_DIRECTORY_TEST)
 	@$<

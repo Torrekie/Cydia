@@ -38,9 +38,9 @@ for script in preinst prerm postrm; do
     grep -Fq "cydia_shared_config_lifecycle $script" "$root/$script" ||
         fail "$script does not execute the shared-file lifecycle"
 done
-grep -Fq 'FinishSharedConfigHandoff(argv[0])' "$root/postinst.mm" ||
+grep -Fq 'FinishSharedConfigHandoff(argv[0], paths)' "$root/postinst.mm" ||
     fail "native postinst does not finalize the control-file handoff"
-grep -Fq 'cydia.cydia-shared-config-lifecycle' "$root/postinst.mm" ||
+grep -Fq 'cydia.cydia-shared-config-lifecycle' "$root/Cydia/SharedConfigHandoff.hpp" ||
     fail "native postinst does not locate its installed private control helper"
 grep -Fq 'CydiaRuntime::RestoreLegacySourceHandoff(paths)' "$root/postinst.mm" ||
     fail "marker-authorized restore for previously distributed handoffs is absent"

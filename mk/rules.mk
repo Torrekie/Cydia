@@ -213,7 +213,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(APT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings -framework CoreFoundation -licucore
 	@$(LDID) -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/SharedConfigHandoff.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) $(objc_arc) -DCYDIA_POSTINST_ROOTLESS=$(if $(filter rootless,$(PACKAGE_LAYOUT)),1,0) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link)
 	@$(LDID) -T0 -Sgenent.xml $@
