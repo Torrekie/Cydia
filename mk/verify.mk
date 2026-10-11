@@ -93,6 +93,11 @@ ERROR_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ErrorViewModelTests
 YIELD_TO_SELECTOR_TEST := $(BUILD_DIR)/tests/YieldToSelectorTests
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
+
+.PHONY: verify-repository-hygiene
+verify: verify-repository-hygiene
+verify-repository-hygiene:
+	@python3 scripts/verify-repository-hygiene.py
 host_cc ?= $(or $(HOST_CC),cc)
 host_cxx_flags :=
 host_cc_flags :=

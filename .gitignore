@@ -1,4 +1,11 @@
 .DS_Store
+/.agent-workbench/
+/.codex/
+/handoff/
+/docs/checkpoints/
+/docs/*-state.json
+/docs/*-state.md
+/docs/*-status.md
 build/
 sysroot/
 
