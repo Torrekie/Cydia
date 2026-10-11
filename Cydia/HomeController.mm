@@ -1029,12 +1029,16 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
 }
 
 - (void) aboutButtonClicked {
+    NSString *refurbished([NSString stringWithFormat:
+        UCLocalizeEx(@"ABOUT_REFURBISHED_COPYRIGHT", @"Refurbished work Copyright (C) %@"),
+        @"2026"]);
     UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("ABOUT_CYDIA")
-        message:@"Original work Copyright (C) 2008-2017\nSaurikIT, LLC\n\n"
+        message:[NSString stringWithFormat:
+                @"Original work Copyright (C) 2008-2017\nSaurikIT, LLC\n\n"
                 "Jay Freeman (saurik)\nhttp://www.saurik.com/\n\n"
                 "Modified work Copyright (C) 2018\nSB Designs, INC\n\n"
                 "Sam Bingner (sbingner)\nhttp://www.bingner.com/\n\n"
-                "Refurbished work Copyright (C) 2026\nTorrekie\nhttps://torrekie.dev/"
+                "%@\nTorrekie\nhttps://torrekie.dev/", refurbished]
         preferredStyle:UIAlertControllerStyleAlert]);
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CLOSE")
         style:UIAlertActionStyleCancel handler:nil]];

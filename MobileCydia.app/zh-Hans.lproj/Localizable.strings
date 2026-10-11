@@ -234,3 +234,21 @@
 "WHO_ARE_YOU" = "您的身份是？";
 "YES" = "是";
 "LAST_REPORTED_PROGRESS" = "最后报告的进度";
+
+"EXTENSIONS_LOAD_ERROR" = "无法加载扩展。请检查网络连接和应用访问情况，然后轻点重试。";
+"EXTENSIONS_EMPTY" = "这些应用尚无扩展列表。";
+"EXTENSIONS_COUNT" = "扩展：%lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "您配置的软件源中没有此软件包。软件源和软件包均未发生更改。";
+"HOME_UPGRADING_SELECT" = "选择指南";
+"HOME_UPGRADING_SHORT_TITLE" = "升级";
+"HOME_EMPTY_DESTINATION" = "此处暂无内容。";
+"MORE_SOURCES_READ_ONLY" = "此引导环境尚未启用 Cydia 的软件源编辑功能。请使用该环境的软件包管理器管理软件源；Cydia 会读取相同的 APT 软件源。";
+"HOME_GUIDE_OBSOLETE" = "已过时：";
+"HOME_GUIDE_NETWORK_DETAILS" = "网络详情按钮";
+"HOME_STORAGE_CALCULATING" = "正在测量…";
+"HOME_STORAGE_ERROR" = "不可用";
+"HOME_STORAGE_CATEGORIES" = "数据分区内容";
+"HOME_STORAGE_WARNING" = "注意：测量数据期间，显示存储信息可能需要较长时间。";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "无法保存 APT 扩展状态（类型=%d，代码=%d，错误=%d）";
+"ERROR_DESTINATION" = "访问目标";
+"ABOUT_REFURBISHED_COPYRIGHT" = "重制部分 版权所有 (C) %@";

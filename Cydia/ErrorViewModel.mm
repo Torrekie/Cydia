@@ -4,6 +4,7 @@
  */
 
 #import "Cydia/ErrorViewModel.h"
+#import "CyteKit/Localize.h"
 
 namespace {
 
@@ -27,7 +28,8 @@ static NSString *ReplaceIgnoringCase(NSString *text, NSString *value,
 static NSString *SanitizedText(NSString *text, NSURL *URL,
                                NSString *destination, NSUInteger maximum) {
     NSString *result([text isKindOfClass:[NSString class]] ? [text copy] : @"");
-    NSString *replacement([destination length] == 0 ? @"destination" : destination);
+    NSString *replacement([destination length] == 0 ?
+        UCLocalizeEx(@"ERROR_DESTINATION", @"destination") : destination);
 
     NSString *absolute(URL.absoluteString);
     result = ReplaceIgnoringCase(result, absolute, replacement);
@@ -95,11 +97,11 @@ static NSString *SanitizedText(NSString *text, NSURL *URL,
             _destinationDisplayName, 512));
         if ([summary length] == 0)
             summary = SanitizedText(error.domain, nil, @"", 128);
-        _summary = [summary length] == 0 ? @"Error" : [summary copy];
+        _summary = [summary length] == 0 ? UCLocalize("ERROR") : [summary copy];
 
         NSString *domain(SanitizedText(error.domain, nil, @"", 128));
         if ([domain length] == 0)
-            domain = @"Error";
+            domain = UCLocalize("ERROR");
         NSString *destinationLine([_destinationDisplayName length] == 0 ? @"" :
             [@"\n" stringByAppendingString:_destinationDisplayName]);
         _details = [[NSString stringWithFormat:@"%@ (%ld)%@", domain,

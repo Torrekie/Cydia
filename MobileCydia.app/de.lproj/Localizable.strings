@@ -233,3 +233,23 @@
 "WELCOME_TO_CYDIA" = "Willkommen bei Cydia™";
 "WHO_ARE_YOU" = "Wer sind Sie?";
 "YES" = "Ja";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Erweiterungen konnten nicht geladen werden. Prüfen Sie Ihre Verbindung und den Zugriff auf Anwendungen und tippen Sie dann, um es erneut zu versuchen.";
+"EXTENSIONS_EMPTY" = "Für diese Anwendungen sind keine Erweiterungen aufgeführt.";
+"EXTENSIONS_COUNT" = "Erweiterungen: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Dieses Paket ist in Ihren eingerichteten Paketquellen nicht verfügbar. Es wurden keine Paketquellen oder Pakete geändert.";
+"LAST_REPORTED_PROGRESS" = "Zuletzt gemeldeter Fortschritt";
+"HOME_UPGRADING_SELECT" = "Wählen Sie eine Anleitung aus";
+"HOME_UPGRADING_SHORT_TITLE" = "Aktualisierung";
+"HOME_EMPTY_DESTINATION" = "Hier sind keine Inhalte verfügbar.";
+"MORE_SOURCES_READ_ONLY" = "In dieser Bootstrap-Umgebung ist das Bearbeiten von Paketquellen in Cydia nicht aktiviert. Verwalten Sie die Paketquellen mit dem Paketmanager Ihrer Bootstrap-Umgebung; Cydia liest dieselben APT-Quellen.";
+"HOME_GUIDE_OBSOLETE" = "Veraltet:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Schaltfläche für Netzwerkdetails";
+"HOME_STORAGE_CALCULATING" = "Wird gemessen…";
+"HOME_STORAGE_ERROR" = "Nicht verfügbar";
+"HOME_STORAGE_CATEGORIES" = "Daten der Partition „Private“";
+"HOME_STORAGE_WARNING" = "Hinweis: Die Anzeige des Speicherplatzes kann lange dauern, während die Daten gemessen werden.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Der erweiterte APT-Status konnte nicht dauerhaft gespeichert werden (Typ=%d, Code=%d, Fehler=%d)";
+"ERROR_DESTINATION" = "Ziel";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Überarbeitete Fassung — Copyright (C) %@";

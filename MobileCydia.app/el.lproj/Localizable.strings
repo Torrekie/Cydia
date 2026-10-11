@@ -233,3 +233,23 @@
 "WELCOME_TO_CYDIA" = "Καλώς ήλθες στο Cydia™";
 "WHO_ARE_YOU" = "Ποιος είσαι;";
 "YES" = "Ναι";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Δεν ήταν δυνατή η φόρτωση των επεκτάσεων. Ελέγξτε τη σύνδεσή σας και την πρόσβαση στις εφαρμογές και έπειτα πατήστε για να δοκιμάσετε ξανά.";
+"EXTENSIONS_EMPTY" = "Δεν υπάρχουν καταχωρισμένες επεκτάσεις για αυτές τις εφαρμογές.";
+"EXTENSIONS_COUNT" = "Επεκτάσεις: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Αυτό το πακέτο δεν είναι διαθέσιμο στις ρυθμισμένες πηγές σας. Δεν τροποποιήθηκαν πηγές ή πακέτα.";
+"LAST_REPORTED_PROGRESS" = "Τελευταία αναφερόμενη πρόοδος";
+"HOME_UPGRADING_SELECT" = "Επιλέξτε έναν οδηγό";
+"HOME_UPGRADING_SHORT_TITLE" = "Αναβάθμιση";
+"HOME_EMPTY_DESTINATION" = "Δεν υπάρχει διαθέσιμο περιεχόμενο εδώ.";
+"MORE_SOURCES_READ_ONLY" = "Σε αυτό το περιβάλλον bootstrap δεν έχει ενεργοποιηθεί η επεξεργασία πηγών στο Cydia. Διαχειριστείτε τα αποθετήρια με τον διαχειριστή πακέτων του περιβάλλοντος bootstrap· το Cydia θα διαβάζει τις ίδιες πηγές APT.";
+"HOME_GUIDE_OBSOLETE" = "Παρωχημένο:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Κουμπί λεπτομερειών δικτύου";
+"HOME_STORAGE_CALCULATING" = "Μέτρηση…";
+"HOME_STORAGE_ERROR" = "Μη διαθέσιμο";
+"HOME_STORAGE_CATEGORIES" = "Δεδομένα στο διαμέρισμα «Private»";
+"HOME_STORAGE_WARNING" = "Σημείωση: Η εμφάνιση των πληροφοριών αποθήκευσης μπορεί να καθυστερήσει όσο γίνεται η μέτρηση των δεδομένων.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Δεν ήταν δυνατή η μόνιμη αποθήκευση της εκτεταμένης κατάστασης του APT (είδος=%d, κωδικός=%d, σφάλμα=%d)";
+"ERROR_DESTINATION" = "προορισμός";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Ανανεωμένη έκδοση — Πνευματικά δικαιώματα (C) %@";

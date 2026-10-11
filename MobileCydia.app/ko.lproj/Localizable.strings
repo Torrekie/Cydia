@@ -198,3 +198,22 @@
 "WELCOME_TO_CYDIA" = "Cydia™에 환영합니다";
 "WHO_ARE_YOU" = "사용자 구분 선택";
 "YES" = "예";
+
+"EXTENSIONS_LOAD_ERROR" = "확장 기능을 불러올 수 없습니다. 연결과 앱 접근 상태를 확인한 다음 탭하여 다시 시도하십시오.";
+"EXTENSIONS_EMPTY" = "이 앱들에 대한 확장 기능이 등록되어 있지 않습니다.";
+"EXTENSIONS_COUNT" = "확장 기능: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "설정된 소스에서 이 패키지를 사용할 수 없습니다. 소스나 패키지는 변경되지 않았습니다.";
+"LAST_REPORTED_PROGRESS" = "마지막으로 보고된 진행률";
+"HOME_UPGRADING_SELECT" = "가이드 선택";
+"HOME_UPGRADING_SHORT_TITLE" = "업그레이드";
+"HOME_EMPTY_DESTINATION" = "여기에는 표시할 콘텐츠가 없습니다.";
+"MORE_SOURCES_READ_ONLY" = "이 부트스트랩 환경에서는 Cydia의 소스 편집이 활성화되어 있지 않습니다. 이 환경의 패키지 관리자로 저장소를 관리하십시오. Cydia는 동일한 APT 소스를 읽습니다.";
+"HOME_GUIDE_OBSOLETE" = "오래된 정보:";
+"HOME_GUIDE_NETWORK_DETAILS" = "네트워크 세부 정보 버튼";
+"HOME_STORAGE_CALCULATING" = "측정 중…";
+"HOME_STORAGE_ERROR" = "사용 불가";
+"HOME_STORAGE_CATEGORIES" = "Private 영역 데이터";
+"HOME_STORAGE_WARNING" = "참고: 데이터를 측정하는 동안 저장 공간 정보가 표시되기까지 오래 걸릴 수 있습니다.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "APT 확장 상태를 저장할 수 없습니다 (종류=%d, 코드=%d, 오류=%d)";
+"ERROR_DESTINATION" = "접속 대상";
+"ABOUT_REFURBISHED_COPYRIGHT" = "개편 작업 저작권 (C) %@";

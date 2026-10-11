@@ -233,3 +233,23 @@
 "WELCOME_TO_CYDIA" = "Welkom bij Cydia™";
 "WHO_ARE_YOU" = "Wie bent u?";
 "YES" = "Ja";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Uitbreidingen kunnen niet worden geladen. Controleer uw verbinding en de toegang tot toepassingen en tik vervolgens om het opnieuw te proberen.";
+"EXTENSIONS_EMPTY" = "Er worden geen uitbreidingen voor deze toepassingen vermeld.";
+"EXTENSIONS_COUNT" = "Uitbreidingen: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Dit pakket is niet beschikbaar in uw ingestelde bronnen. Er zijn geen bronnen of pakketten gewijzigd.";
+"LAST_REPORTED_PROGRESS" = "Laatst gemelde voortgang";
+"HOME_UPGRADING_SELECT" = "Selecteer een handleiding";
+"HOME_UPGRADING_SHORT_TITLE" = "Bijwerken";
+"HOME_EMPTY_DESTINATION" = "Hier is geen inhoud beschikbaar.";
+"MORE_SOURCES_READ_ONLY" = "In deze bootstrapomgeving is het bewerken van bronnen in Cydia niet ingeschakeld. Beheer pakketbronnen met de pakketbeheerder van uw bootstrapomgeving; Cydia leest dezelfde APT-bronnen.";
+"HOME_GUIDE_OBSOLETE" = "Verouderd:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Knop voor netwerkdetails";
+"HOME_STORAGE_CALCULATING" = "Bezig met meten…";
+"HOME_STORAGE_ERROR" = "Niet beschikbaar";
+"HOME_STORAGE_CATEGORIES" = "Gegevens op de partitie ‘Private’";
+"HOME_STORAGE_WARNING" = "Opmerking: Het weergeven van de opslaginformatie kan lang duren terwijl de gegevens worden gemeten.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "De uitgebreide APT-status kan niet permanent worden opgeslagen (type=%d, code=%d, fout=%d)";
+"ERROR_DESTINATION" = "bestemming";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Vernieuwde versie — Copyright (C) %@";

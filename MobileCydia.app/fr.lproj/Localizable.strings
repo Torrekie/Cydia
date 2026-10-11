@@ -233,3 +233,23 @@
 "WELCOME_TO_CYDIA" = "Bienvenue dans Cydia™";
 "WHO_ARE_YOU" = "Qui êtes-vous?";
 "YES" = "Oui";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Impossible de charger les extensions. Vérifiez votre connexion et l’accès aux applications, puis touchez pour réessayer.";
+"EXTENSIONS_EMPTY" = "Aucune extension n’est répertoriée pour ces applications.";
+"EXTENSIONS_COUNT" = "Extensions : %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Ce paquet n’est pas disponible dans vos sources configurées. Aucune source ni aucun paquet n’a été modifié.";
+"LAST_REPORTED_PROGRESS" = "Dernière progression signalée";
+"HOME_UPGRADING_SELECT" = "Sélectionnez un guide";
+"HOME_UPGRADING_SHORT_TITLE" = "Mise à niveau";
+"HOME_EMPTY_DESTINATION" = "Aucun contenu n’est disponible ici.";
+"MORE_SOURCES_READ_ONLY" = "Cet environnement de bootstrap n’a pas activé la modification des sources dans Cydia. Gérez les dépôts avec le gestionnaire de paquets de votre environnement de bootstrap ; Cydia lira les mêmes sources APT.";
+"HOME_GUIDE_OBSOLETE" = "Obsolète :";
+"HOME_GUIDE_NETWORK_DETAILS" = "Bouton des détails réseau";
+"HOME_STORAGE_CALCULATING" = "Mesure en cours…";
+"HOME_STORAGE_ERROR" = "Indisponible";
+"HOME_STORAGE_CATEGORIES" = "Données de la partition « Private »";
+"HOME_STORAGE_WARNING" = "Remarque : L’affichage des informations de stockage peut prendre beaucoup de temps pendant la mesure des données.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Impossible d’enregistrer durablement l’état étendu d’APT (type=%d, code=%d, erreur=%d)";
+"ERROR_DESTINATION" = "destination";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Version remaniée — Copyright (C) %@";

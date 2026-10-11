@@ -198,3 +198,23 @@
 "WELCOME_TO_CYDIA" = "ברוך הבא אל Cydia™";
 "WHO_ARE_YOU" = "מי אתה?";
 "YES" = "כן";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "לא ניתן לטעון הרחבות. בדוק את החיבור ואת הגישה ליישומים, ואז הקש כדי לנסות שוב.";
+"EXTENSIONS_EMPTY" = "לא רשומות הרחבות עבור יישומים אלה.";
+"EXTENSIONS_COUNT" = "הרחבות: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "חבילה זו אינה זמינה במקורות שהגדרת. לא שונו מקורות או חבילות.";
+"LAST_REPORTED_PROGRESS" = "ההתקדמות האחרונה שדווחה";
+"HOME_UPGRADING_SELECT" = "בחר מדריך";
+"HOME_UPGRADING_SHORT_TITLE" = "שדרוג";
+"HOME_EMPTY_DESTINATION" = "אין כאן תוכן זמין.";
+"MORE_SOURCES_READ_ONLY" = "בסביבת bootstrap זו לא הופעלה עריכת מקורות ב-Cydia. נהל מאגרים באמצעות מנהל החבילות של סביבת bootstrap שלך; Cydia יקרא את אותם מקורות APT.";
+"HOME_GUIDE_OBSOLETE" = "מיושן:";
+"HOME_GUIDE_NETWORK_DETAILS" = "כפתור פרטי הרשת";
+"HOME_STORAGE_CALCULATING" = "מתבצעת מדידה…";
+"HOME_STORAGE_ERROR" = "לא זמין";
+"HOME_STORAGE_CATEGORIES" = "נתונים במחיצת Private";
+"HOME_STORAGE_WARNING" = "הערה: הצגת מידע האחסון עשויה להימשך זמן רב בזמן מדידת הנתונים.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "לא ניתן לשמור את המצב המורחב של APT (סוג=%d, קוד=%d, שגיאה=%d)";
+"ERROR_DESTINATION" = "יעד";
+"ABOUT_REFURBISHED_COPYRIGHT" = "זכויות יוצרים על העבודה המחודשת (C) %@";

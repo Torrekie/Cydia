@@ -747,7 +747,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         }));
         if (!copyResult.succeeded()) {
             NSString *message([NSString stringWithFormat:
-                @"Unable to persist APT extended state (kind=%d, code=%d, error=%d)",
+                UCLocalizeEx(@"APT_EXTENDED_STATE_PERSIST_ERROR",
+                    @"Unable to persist APT extended state (kind=%d, code=%d, error=%d)"),
                 static_cast<int>(copyResult.kind), copyResult.code, copyResult.error]);
             [delegate_ addProgressEventOnMainThread:
                 [CydiaProgressEvent eventWithMessage:message ofType:kCydiaProgressEventTypeError]

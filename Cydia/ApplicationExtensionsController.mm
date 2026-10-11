@@ -243,7 +243,7 @@
         cell.authorLabel.text = row.author; cell.authorLabel.hidden = !row.author.length;
         cell.summaryLabel.text = row.summary; cell.summaryLabel.hidden = !row.summary.length;
         cell.badgeLabel.text = _bundleIdentifier ? row.price : [NSString stringWithFormat:
-            UCLocalizeEx(@"EXTENSIONS_COUNT", @"%lu extensions"), (unsigned long)row.extensionCount];
+            UCLocalizeEx(@"EXTENSIONS_COUNT", @"Extensions: %lu"), (unsigned long)row.extensionCount];
         cell.badgeLabel.hidden = !cell.badgeLabel.text.length;
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.home.extensions.%@.%@",

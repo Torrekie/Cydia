@@ -233,3 +233,22 @@
 "WELCOME_TO_CYDIA" = "歡迎使用 Cydia™";
 "WHO_ARE_YOU" = "您是誰?";
 "YES" = "是";
+
+"EXTENSIONS_LOAD_ERROR" = "無法載入擴充功能。請檢查網路連線和 App 存取情況，然後點一下以重試。";
+"EXTENSIONS_EMPTY" = "這些 App 尚無擴充功能清單。";
+"EXTENSIONS_COUNT" = "擴充功能：%lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "您設定的來源中沒有此套件。來源和套件均未變更。";
+"LAST_REPORTED_PROGRESS" = "最後回報的進度";
+"HOME_UPGRADING_SELECT" = "選擇指南";
+"HOME_UPGRADING_SHORT_TITLE" = "升級";
+"HOME_EMPTY_DESTINATION" = "此處尚無內容。";
+"MORE_SOURCES_READ_ONLY" = "此引導環境尚未啟用 Cydia 的來源編輯功能。請使用該環境的套件管理器管理軟體庫；Cydia 會讀取相同的 APT 來源。";
+"HOME_GUIDE_OBSOLETE" = "已過時：";
+"HOME_GUIDE_NETWORK_DETAILS" = "網路詳細資訊按鈕";
+"HOME_STORAGE_CALCULATING" = "正在測量…";
+"HOME_STORAGE_ERROR" = "無法使用";
+"HOME_STORAGE_CATEGORIES" = "資料分割區內容";
+"HOME_STORAGE_WARNING" = "注意：測量資料期間，顯示儲存空間資訊可能需要較長時間。";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "無法儲存 APT 延伸狀態（類型=%d，代碼=%d，錯誤=%d）";
+"ERROR_DESTINATION" = "存取目標";
+"ABOUT_REFURBISHED_COPYRIGHT" = "重製部分 著作權所有 (C) %@";

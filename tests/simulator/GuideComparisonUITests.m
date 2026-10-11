@@ -622,7 +622,7 @@
     XCTAssertEqual(app.cells.count, 2); // informational intro has StaticText traits
     XCTAssertGreaterThanOrEqual(safari.frame.size.height, 44);
     XCTAssertEqualObjects(safari.label, @"Safari");
-    XCTAssertEqualObjects(safari.value, @"139 extensions");
+    XCTAssertEqualObjects(safari.value, @"Extensions: 139");
     XCTAssertGreaterThanOrEqual(app.buttons[@"cydia.home.extensions.refresh"].frame.size.width, 44);
     XCTAssertGreaterThanOrEqual(app.buttons[@"cydia.home.extensions.refresh"].frame.size.height, 44);
     [self capture:@"extensions-after-root-light" app:app];
@@ -711,7 +711,7 @@
     [self capture:[@"extensions-after-root-top-" stringByAppendingString:profile] app:app];
     [self revealExtension:safari inApp:app];
     XCTAssertGreaterThanOrEqual(safari.frame.size.height, 56);
-    XCTAssertEqualObjects(safari.value, @"139 extensions");
+    XCTAssertEqualObjects(safari.value, @"Extensions: 139");
     XCTAssertGreaterThanOrEqual(app.buttons[@"cydia.home.extensions.refresh"].frame.size.width, 44);
     XCTAssertGreaterThanOrEqual(app.buttons[@"cydia.home.extensions.refresh"].frame.size.height, 44);
     [self capture:[@"extensions-after-root-apps-" stringByAppendingString:profile] app:app];

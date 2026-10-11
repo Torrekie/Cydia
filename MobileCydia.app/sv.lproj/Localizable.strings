@@ -233,3 +233,23 @@
 "WELCOME_TO_CYDIA" = "Välkommen till Cydia™";
 "WHO_ARE_YOU" = "Vem är du?";
 "YES" = "Ja";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Det gick inte att läsa in tillägg. Kontrollera anslutningen och åtkomsten till appar och tryck sedan för att försöka igen.";
+"EXTENSIONS_EMPTY" = "Inga tillägg är listade för dessa appar.";
+"EXTENSIONS_COUNT" = "Tillägg: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Det här paketet är inte tillgängligt i dina konfigurerade källor. Inga källor eller paket har ändrats.";
+"LAST_REPORTED_PROGRESS" = "Senast rapporterat förlopp";
+"HOME_UPGRADING_SELECT" = "Välj en guide";
+"HOME_UPGRADING_SHORT_TITLE" = "Uppgradering";
+"HOME_EMPTY_DESTINATION" = "Det finns inget innehåll tillgängligt här.";
+"MORE_SOURCES_READ_ONLY" = "I den här bootstrapmiljön är redigering av källor i Cydia inte aktiverad. Hantera paketkällor med bootstrapmiljöns pakethanterare; Cydia läser samma APT-källor.";
+"HOME_GUIDE_OBSOLETE" = "Föråldrat:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Knapp för nätverksdetaljer";
+"HOME_STORAGE_CALCULATING" = "Mäter…";
+"HOME_STORAGE_ERROR" = "Inte tillgängligt";
+"HOME_STORAGE_CATEGORIES" = "Data på partitionen ”Private”";
+"HOME_STORAGE_WARNING" = "Obs: Det kan ta lång tid att visa lagringsinformationen medan data mäts.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Det gick inte att spara APT:s utökade tillstånd permanent (typ=%d, kod=%d, fel=%d)";
+"ERROR_DESTINATION" = "mål";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Omarbetad version — Copyright (C) %@";

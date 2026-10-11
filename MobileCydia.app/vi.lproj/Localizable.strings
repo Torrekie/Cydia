@@ -198,3 +198,22 @@
 "WELCOME_TO_CYDIA" = "Chào mừng bạn đến với Cydia™";
 "WHO_ARE_YOU" = "Bạn Là Ai?";
 "YES" = "Có";
+
+"EXTENSIONS_LOAD_ERROR" = "Không thể tải các tiện ích mở rộng. Hãy kiểm tra kết nối và khả năng truy cập ứng dụng, rồi chạm để thử lại.";
+"EXTENSIONS_EMPTY" = "Không có tiện ích mở rộng nào được liệt kê cho các ứng dụng này.";
+"EXTENSIONS_COUNT" = "Tiện ích mở rộng: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Gói này không có trong các nguồn đã cấu hình. Không có nguồn hay gói nào được thay đổi.";
+"LAST_REPORTED_PROGRESS" = "Tiến độ được báo cáo gần nhất";
+"HOME_UPGRADING_SELECT" = "Chọn hướng dẫn";
+"HOME_UPGRADING_SHORT_TITLE" = "Nâng cấp";
+"HOME_EMPTY_DESTINATION" = "Không có nội dung để hiển thị ở đây.";
+"MORE_SOURCES_READ_ONLY" = "Môi trường bootstrap này chưa bật chức năng chỉnh sửa nguồn trong Cydia. Hãy quản lý kho gói bằng trình quản lý gói của môi trường này; Cydia sẽ đọc cùng các nguồn APT.";
+"HOME_GUIDE_OBSOLETE" = "Đã lỗi thời:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Nút chi tiết mạng";
+"HOME_STORAGE_CALCULATING" = "Đang đo…";
+"HOME_STORAGE_ERROR" = "Không khả dụng";
+"HOME_STORAGE_CATEGORIES" = "Dữ liệu trong phân vùng Private";
+"HOME_STORAGE_WARNING" = "Lưu ý: Thông tin lưu trữ có thể mất nhiều thời gian để hiển thị trong khi đo dữ liệu.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Không thể lưu trạng thái mở rộng của APT (loại=%d, mã=%d, lỗi=%d)";
+"ERROR_DESTINATION" = "đích truy cập";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Bản quyền phần cải tiến (C) %@";

@@ -150,7 +150,9 @@ echo "[verify-home-localization][ ok ] $pair_count Home keys resolve in $locale_
 # requiring the original server or changing simulator language preferences.
 python3 - "$root" <<'PY'
 import json
+import hashlib
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -195,4 +197,44 @@ assert 'table:@"Home"' in controller, "native Home bypasses first-party strings"
 for key in ("WELCOME_TO_CYDIA", "BY", "USER_GUIDES", "DEVELOPERS_ONLY"):
     assert re.search(r'HomeLocalized\("' + key + r'"', controller), key + ": not wired to Home"
 print("[verify-home-localization][ ok ] 21 first-party labels in 21 native locale tables; partial coverage and regional mappings preserved")
+
+# The 2023 baseline was captured from Git into this fixture so this check also
+# works in exported source trees. Only existing baseline entries contribute to
+# its digests; historical missing translations remain outside the repair scope.
+baseline = json.loads((root / "tests/fixtures/ui/native-localization-baseline.json").read_text())
+locales = sorted(path.name[:-6] for path in app.glob("*.lproj"))
+assert locales == sorted(baseline["locales"]), "native locale baseline changed"
+assert set(locales) == set(expected.values()), "Home/native locale baselines differ"
+full_keys = set(baseline["legacy_full_keys"])
+missing_keys = set(baseline["legacy_partial_missing_keys"])
+partial_locales = set(baseline["legacy_partial_locales"])
+additions = baseline["native_additions"]
+identical_translations = baseline["native_identical_translations"]
+format_pattern = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztL])?[@diuoxXfFeEgGaAcCsSpn%]')
+for locale in locales:
+    path = app / (locale + ".lproj") / "Localizable.strings"
+    entries = [(json.loads(key), json.loads(value))
+               for key, value in entry_pattern.findall(path.read_text())]
+    values = dict(entries)
+    assert len(values) == len(entries), locale + ": duplicate native localization key"
+    legacy_keys = full_keys - missing_keys if locale in partial_locales else full_keys
+    assert legacy_keys <= set(values), locale + ": lost original localization"
+    legacy = {key: values[key] for key in legacy_keys}
+    digest = hashlib.sha256(json.dumps(legacy, ensure_ascii=False, sort_keys=True,
+                                      separators=(",", ":")).encode()).hexdigest()
+    assert digest == baseline["legacy_table_sha256"][locale], locale + ": original translations changed"
+    for key, english in additions.items():
+        value = values.get(key)
+        assert value and value != key, locale + ": missing native addition " + key
+        assert format_pattern.findall(value) == format_pattern.findall(english), locale + ": incompatible format slots in " + key
+        if locale == "en":
+            assert value == english, key + ": English catalog differs from audited copy"
+        else:
+            identical = key in identical_translations.get(locale, [])
+            assert (value == english) == identical, locale + ": unexpected English native addition " + key
+    # Apple validates the actual .strings grammar, beyond the coverage parser.
+    if sys.platform == "darwin":
+        result = subprocess.run(["plutil", "-lint", "--", str(path)], capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+print("[verify-home-localization][ ok ] %d native additions in %d locales; format slots and 2023 translations preserved" % (len(additions), len(locales)))
 PY

@@ -198,3 +198,22 @@
 "WELCOME_TO_CYDIA" = "Welcome to Cydia™";
 "WHO_ARE_YOU" = "ユーザー情報";
 "YES" = "はい";
+
+"EXTENSIONS_LOAD_ERROR" = "拡張機能を読み込めません。接続とアプリケーションへのアクセスを確認し、タップして再試行してください。";
+"EXTENSIONS_EMPTY" = "これらのアプリケーションに対応する拡張機能は登録されていません。";
+"EXTENSIONS_COUNT" = "拡張機能: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "このパッケージは設定済みのソースでは利用できません。ソースやパッケージは変更されていません。";
+"LAST_REPORTED_PROGRESS" = "最後に報告された進捗";
+"HOME_UPGRADING_SELECT" = "ガイドを選択";
+"HOME_UPGRADING_SHORT_TITLE" = "アップグレード";
+"HOME_EMPTY_DESTINATION" = "ここには表示できるコンテンツがありません。";
+"MORE_SOURCES_READ_ONLY" = "このブートストラップ環境では、Cydia でのソース編集が有効になっていません。この環境のパッケージマネージャーでリポジトリを管理してください。Cydia は同じ APT ソースを読み込みます。";
+"HOME_GUIDE_OBSOLETE" = "古い情報:";
+"HOME_GUIDE_NETWORK_DETAILS" = "ネットワーク詳細ボタン";
+"HOME_STORAGE_CALCULATING" = "計測中…";
+"HOME_STORAGE_ERROR" = "取得できません";
+"HOME_STORAGE_CATEGORIES" = "プライベート領域のデータ";
+"HOME_STORAGE_WARNING" = "注意: データの計測中は、ストレージ情報の表示に時間がかかる場合があります。";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "APT の拡張状態を保存できません（種類=%d、コード=%d、エラー=%d）";
+"ERROR_DESTINATION" = "アクセス先";
+"ABOUT_REFURBISHED_COPYRIGHT" = "改修部分の著作権 (C) %@";

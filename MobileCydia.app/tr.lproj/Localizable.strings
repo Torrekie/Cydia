@@ -198,3 +198,23 @@
 "WELCOME_TO_CYDIA" = "Cydia™'ya Hoş Geldiniz";
 "WHO_ARE_YOU" = "Siz Kimsiniz?";
 "YES" = "Evet";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Uzantılar yüklenemedi. Bağlantınızı ve uygulama erişimini kontrol edin, ardından yeniden denemek için dokunun.";
+"EXTENSIONS_EMPTY" = "Bu uygulamalar için listelenen uzantı yok.";
+"EXTENSIONS_COUNT" = "Uzantılar: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Bu paket yapılandırılmış kaynaklarınızda mevcut değil. Hiçbir kaynak veya paket değiştirilmedi.";
+"LAST_REPORTED_PROGRESS" = "Son bildirilen ilerleme";
+"HOME_UPGRADING_SELECT" = "Bir rehber seçin";
+"HOME_UPGRADING_SHORT_TITLE" = "Yükseltme";
+"HOME_EMPTY_DESTINATION" = "Burada kullanılabilir içerik yok.";
+"MORE_SOURCES_READ_ONLY" = "Bu bootstrap ortamında Cydia'da kaynak düzenleme etkinleştirilmemiştir. Depoları bootstrap ortamınızın paket yöneticisiyle yönetin; Cydia aynı APT kaynaklarını okuyacaktır.";
+"HOME_GUIDE_OBSOLETE" = "Güncelliğini yitirmiş:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Ağ ayrıntıları düğmesi";
+"HOME_STORAGE_CALCULATING" = "Ölçülüyor…";
+"HOME_STORAGE_ERROR" = "Kullanılamıyor";
+"HOME_STORAGE_CATEGORIES" = "Private bölümündeki veriler";
+"HOME_STORAGE_WARNING" = "Not: Veri miktarı ölçülürken depolama bilgilerinin görüntülenmesi uzun sürebilir.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "APT'nin genişletilmiş durumu kaydedilemedi (tür=%d, kod=%d, hata=%d)";
+"ERROR_DESTINATION" = "hedef";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Yenilenen çalışmanın telif hakkı (C) %@";

@@ -198,3 +198,23 @@
 "WELCOME_TO_CYDIA" = "Witamy w Cydia™";
 "WHO_ARE_YOU" = "Kim jesteś?";
 "YES" = "Tak";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Nie można wczytać rozszerzeń. Sprawdź połączenie i dostęp do aplikacji, a następnie stuknij, aby spróbować ponownie.";
+"EXTENSIONS_EMPTY" = "Dla tych aplikacji nie wymieniono żadnych rozszerzeń.";
+"EXTENSIONS_COUNT" = "Rozszerzenia: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Ten pakiet nie jest dostępny w skonfigurowanych źródłach. Nie zmieniono żadnego źródła ani pakietu.";
+"LAST_REPORTED_PROGRESS" = "Ostatnio zgłoszony postęp";
+"HOME_UPGRADING_SELECT" = "Wybierz poradnik";
+"HOME_UPGRADING_SHORT_TITLE" = "Uaktualnianie";
+"HOME_EMPTY_DESTINATION" = "Nie ma tu dostępnej zawartości.";
+"MORE_SOURCES_READ_ONLY" = "W tym środowisku bootstrap edytowanie źródeł w aplikacji Cydia nie jest włączone. Zarządzaj repozytoriami za pomocą menedżera pakietów tego środowiska; Cydia będzie odczytywać te same źródła APT.";
+"HOME_GUIDE_OBSOLETE" = "Nieaktualne:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Przycisk szczegółów sieci";
+"HOME_STORAGE_CALCULATING" = "Pomiar…";
+"HOME_STORAGE_ERROR" = "Niedostępne";
+"HOME_STORAGE_CATEGORIES" = "Dane partycji Private";
+"HOME_STORAGE_WARNING" = "Uwaga: wyświetlenie informacji o pamięci może zająć dużo czasu podczas pomiaru zajętego miejsca.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Nie można zapisać rozszerzonego stanu APT (typ=%d, kod=%d, błąd=%d)";
+"ERROR_DESTINATION" = "miejsce docelowe";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Odnowiona wersja — prawa autorskie (C) %@";

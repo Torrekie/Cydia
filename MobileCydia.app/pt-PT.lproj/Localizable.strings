@@ -198,3 +198,23 @@
 "WELCOME_TO_CYDIA" = "Bem-vindo ao Cydia™";
 "WHO_ARE_YOU" = "Qual o seu Perfil?";
 "YES" = "Sim";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Não foi possível carregar as extensões. Verifique a ligação e o acesso às aplicações e toque para tentar novamente.";
+"EXTENSIONS_EMPTY" = "Não existem extensões listadas para estas aplicações.";
+"EXTENSIONS_COUNT" = "Extensões: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Este pacote não está disponível nas origens configuradas. Não foi alterada nenhuma origem nem nenhum pacote.";
+"LAST_REPORTED_PROGRESS" = "Último progresso comunicado";
+"HOME_UPGRADING_SELECT" = "Selecione um guia";
+"HOME_UPGRADING_SHORT_TITLE" = "Atualização";
+"HOME_EMPTY_DESTINATION" = "Não existe conteúdo disponível aqui.";
+"MORE_SOURCES_READ_ONLY" = "Este ambiente bootstrap não ativou a edição de origens no Cydia. Faça a gestão dos repositórios com o gestor de pacotes do seu ambiente bootstrap; o Cydia lerá as mesmas origens APT.";
+"HOME_GUIDE_OBSOLETE" = "Obsoleto:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Botão de detalhes da rede";
+"HOME_STORAGE_CALCULATING" = "A medir…";
+"HOME_STORAGE_ERROR" = "Indisponível";
+"HOME_STORAGE_CATEGORIES" = "Dados da partição Private";
+"HOME_STORAGE_WARNING" = "Nota: as informações de armazenamento podem demorar a aparecer enquanto os dados são medidos.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Não foi possível guardar o estado estendido do APT (tipo=%d, código=%d, erro=%d)";
+"ERROR_DESTINATION" = "destino";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Obra renovada — direitos de autor (C) %@";

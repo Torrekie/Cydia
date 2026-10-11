@@ -198,3 +198,23 @@
 "WELCOME_TO_CYDIA" = "Добро пожаловать в Cydia™!";
 "WHO_ARE_YOU" = "Кто вы?";
 "YES" = "Да";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "Не удалось загрузить расширения. Проверьте подключение и доступ к приложениям, затем нажмите, чтобы повторить попытку.";
+"EXTENSIONS_EMPTY" = "Для этих приложений расширения не указаны.";
+"EXTENSIONS_COUNT" = "Расширения: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "Этот пакет недоступен в настроенных источниках. Источники и пакеты не были изменены.";
+"LAST_REPORTED_PROGRESS" = "Последние данные о ходе выполнения";
+"HOME_UPGRADING_SELECT" = "Выберите руководство";
+"HOME_UPGRADING_SHORT_TITLE" = "Обновление";
+"HOME_EMPTY_DESTINATION" = "Здесь нет доступного содержимого.";
+"MORE_SOURCES_READ_ONLY" = "В этой среде bootstrap редактирование источников в Cydia не включено. Управляйте репозиториями с помощью менеджера пакетов вашей среды bootstrap; Cydia будет читать те же источники APT.";
+"HOME_GUIDE_OBSOLETE" = "Устарело:";
+"HOME_GUIDE_NETWORK_DETAILS" = "Кнопка сведений о сети";
+"HOME_STORAGE_CALCULATING" = "Измерение…";
+"HOME_STORAGE_ERROR" = "Недоступно";
+"HOME_STORAGE_CATEGORIES" = "Данные раздела Private";
+"HOME_STORAGE_WARNING" = "Примечание: отображение сведений о хранилище может занять много времени, пока измеряется объём данных.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "Не удалось сохранить расширенное состояние APT (тип=%d, код=%d, ошибка=%d)";
+"ERROR_DESTINATION" = "адрес назначения";
+"ABOUT_REFURBISHED_COPYRIGHT" = "Обновлённая версия — авторские права (C) %@";

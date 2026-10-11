@@ -198,3 +198,22 @@
 "WELCOME_TO_CYDIA" = "ขอต้อนรับสู่ Cydia™";
 "WHO_ARE_YOU" = "คุณเป็นใคร?";
 "YES" = "ใช่";
+
+"EXTENSIONS_LOAD_ERROR" = "ไม่สามารถโหลดส่วนขยายได้ โปรดตรวจสอบการเชื่อมต่อและการเข้าถึงแอป แล้วแตะเพื่อลองอีกครั้ง";
+"EXTENSIONS_EMPTY" = "ไม่มีส่วนขยายในรายการสำหรับแอปเหล่านี้";
+"EXTENSIONS_COUNT" = "ส่วนขยาย: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "แพ็กเกจนี้ไม่มีอยู่ในแหล่งแพ็กเกจที่คุณตั้งค่าไว้ ไม่มีการเปลี่ยนแปลงแหล่งแพ็กเกจหรือแพ็กเกจใดๆ";
+"LAST_REPORTED_PROGRESS" = "ความคืบหน้าที่รายงานล่าสุด";
+"HOME_UPGRADING_SELECT" = "เลือกคู่มือ";
+"HOME_UPGRADING_SHORT_TITLE" = "การอัปเกรด";
+"HOME_EMPTY_DESTINATION" = "ไม่มีเนื้อหาที่จะแสดงที่นี่";
+"MORE_SOURCES_READ_ONLY" = "สภาพแวดล้อม bootstrap นี้ไม่ได้เปิดใช้การแก้ไขแหล่งแพ็กเกจใน Cydia โปรดจัดการคลังแพ็กเกจด้วยตัวจัดการแพ็กเกจของสภาพแวดล้อมนี้ Cydia จะอ่านแหล่ง APT ชุดเดียวกัน";
+"HOME_GUIDE_OBSOLETE" = "ข้อมูลล้าสมัย:";
+"HOME_GUIDE_NETWORK_DETAILS" = "ปุ่มรายละเอียดเครือข่าย";
+"HOME_STORAGE_CALCULATING" = "กำลังวัด…";
+"HOME_STORAGE_ERROR" = "ไม่พร้อมใช้งาน";
+"HOME_STORAGE_CATEGORIES" = "ข้อมูลในพาร์ทิชัน Private";
+"HOME_STORAGE_WARNING" = "หมายเหตุ: การแสดงข้อมูลพื้นที่จัดเก็บอาจใช้เวลานานขณะวัดข้อมูล";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "ไม่สามารถบันทึกสถานะเพิ่มเติมของ APT ได้ (ชนิด=%d, รหัส=%d, ข้อผิดพลาด=%d)";
+"ERROR_DESTINATION" = "ปลายทาง";
+"ABOUT_REFURBISHED_COPYRIGHT" = "ผลงานปรับปรุง ลิขสิทธิ์ (C) %@";

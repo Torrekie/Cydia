@@ -233,3 +233,23 @@
 "WELCOME_TO_CYDIA" = "مرحبًا بكم في Cydia™";
 "WHO_ARE_YOU" = "من أنت؟";
 "YES" = "نعم";
+
+/* Native interface additions. */
+"EXTENSIONS_LOAD_ERROR" = "تعذر تحميل الامتدادات. تحقق من اتصالك ومن إمكانية الوصول إلى التطبيقات، ثم اضغط للمحاولة مرة أخرى.";
+"EXTENSIONS_EMPTY" = "لا توجد امتدادات مدرجة لهذه التطبيقات.";
+"EXTENSIONS_COUNT" = "الامتدادات: %lu";
+"EXTENSIONS_PACKAGE_UNAVAILABLE" = "هذه الحزمة غير متاحة في المصادر التي أعددتها. لم يتم تغيير أي مصدر أو حزمة.";
+"LAST_REPORTED_PROGRESS" = "آخر تقدم تم الإبلاغ عنه";
+"HOME_UPGRADING_SELECT" = "اختر دليلًا";
+"HOME_UPGRADING_SHORT_TITLE" = "الترقية";
+"HOME_EMPTY_DESTINATION" = "لا يوجد محتوى متاح هنا.";
+"MORE_SOURCES_READ_ONLY" = "لم تُفعِّل بيئة bootstrap هذه تحرير المصادر في Cydia. أدِر المستودعات باستخدام مدير الحزم الخاص ببيئة bootstrap؛ سيقرأ Cydia مصادر APT نفسها.";
+"HOME_GUIDE_OBSOLETE" = "لم يعد ساريًا:";
+"HOME_GUIDE_NETWORK_DETAILS" = "زر تفاصيل الشبكة";
+"HOME_STORAGE_CALCULATING" = "جارٍ القياس…";
+"HOME_STORAGE_ERROR" = "غير متاح";
+"HOME_STORAGE_CATEGORIES" = "بيانات قسم Private";
+"HOME_STORAGE_WARNING" = "ملحوظة: قد يستغرق عرض معلومات التخزين وقتًا طويلًا أثناء قياس حجم البيانات.";
+"APT_EXTENDED_STATE_PERSIST_ERROR" = "تعذر حفظ الحالة الموسعة لـ APT (النوع=%d، الرمز=%d، الخطأ=%d)";
+"ERROR_DESTINATION" = "الوجهة";
+"ABOUT_REFURBISHED_COPYRIGHT" = "حقوق النشر للعمل المجدد (C) %@";
