@@ -6,6 +6,7 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 : "${APT_INTEGRATION_TESTS_BUILD_DIR:?native APT build directory is required}"
 ACTION_DRIVER="$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-actions"
 python3 "$PROJECT_DIR/tests/BuildAptBackendPolicyTest.py"
+"$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-mmap-backing"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-runtime-state"
 TESTDIR="$PROJECT_DIR/apt64/test/integration"
 TESTDIRECTORY="$TESTDIR"

@@ -1,7 +1,7 @@
 From 7cd7e534fa2969526b071d6a44c7eff0658abf94 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:05:45 +0800
-Subject: [PATCH 1/9] cydia: include Deb822 source parts in cache mtime
+Subject: [PATCH 01/10] cydia: include Deb822 source parts in cache mtime
 
 ---
  apt-pkg/sourcelist.cc          |  5 ++++-
@@ -69,7 +69,7 @@ index 42fab65a9..1f27fb341 100644
 From 9c189c40b78b765a341dcf3288117b0aeb93df72 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:12:51 +0800
-Subject: [PATCH 2/9] test: name Deb822 source mtime assertion
+Subject: [PATCH 02/10] test: name Deb822 source mtime assertion
 
 ---
  test/libapt/sourcelist_test.cc | 3 ++-
@@ -98,7 +98,7 @@ index 1f27fb341..6960a46e3 100644
 From 6d10c85655707995930ebaadf31fa79a1719307a Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 09:41:00 +0000
-Subject: [PATCH 3/9] Preserve typed repository authentication and validate
+Subject: [PATCH 03/10] Preserve typed repository authentication and validate
  embedded configuration reads
 
 ---
@@ -849,8 +849,8 @@ index 000000000..d026cfe15
 From db0b431062804ccd1d2b0effe25f5fcad22c7809 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 09:58:00 +0000
-Subject: [PATCH 4/9] Allow embedded frontends to acquire protected lock files
- safely
+Subject: [PATCH 04/10] Allow embedded frontends to acquire protected lock
+ files safely
 
 ---
  apt-pkg/contrib/fileutl.cc | 19 +++++++++++++++++--
@@ -918,8 +918,8 @@ index 970b11878..1050240cd 100644
 From 9038aa6e0a019eaae5ae2d0a25b1721ddbc0ebf4 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 10:13:00 +0000
-Subject: [PATCH 5/9] Allow embedded frontends to defer shared automatic state
- commits
+Subject: [PATCH 05/10] Allow embedded frontends to defer shared automatic
+ state commits
 
 ---
  apt-pkg/depcache.cc | 13 +++++++++++++
@@ -980,7 +980,7 @@ index be27b1d77..b86257da1 100644
 From 5c762da034fe4f2ccd9d0352455fc938d48ddcd3 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 10:56:26 +0000
-Subject: [PATCH 6/9] Require current frontend proof for cached repository
+Subject: [PATCH 06/10] Require current frontend proof for cached repository
  trust
 
 ---
@@ -1033,7 +1033,7 @@ index d026cfe15..98308659e 100755
 From 93fedf8ee2c679717605f6585de5f12a6310f6ed Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 11:26:00 +0000
-Subject: [PATCH 7/9] Exercise changed metadata in repository authentication
+Subject: [PATCH 07/10] Exercise changed metadata in repository authentication
  tests
 
 ---
@@ -1073,7 +1073,7 @@ index 98308659e..1f58af06d 100755
 From 06bb8eaf1ad679d585e5abd6f5d8748ed429282f Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 11:31:00 +0000
-Subject: [PATCH 8/9] Remove stale cached signature after an allowed unsigned
+Subject: [PATCH 08/10] Remove stale cached signature after an allowed unsigned
  downgrade
 
 ---
@@ -1101,7 +1101,7 @@ index a45a67117..ff4eb887f 100644
 From 97a85dca54ccd6e31e402330cc2c47500f042803 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 11:51:00 +0000
-Subject: [PATCH 9/9] Leave absent frontend policy silent and document its
+Subject: [PATCH 09/10] Leave absent frontend policy silent and document its
  configuration types
 
 ---
@@ -1135,6 +1135,36 @@ index 0d4dd31a5..845ff2784 100644
 +// Process-local embedded frontend policy; absence preserves upstream policy.
 +Cydia::RepositorySecurityMode "<STRING>"; // allow, warning, error
 +Cydia::CachedRepositoryTrustValid "<BOOL>";
+-- 
+2.39.3 (Apple Git-145)
+
+
+From 0c7c5febb3308fc194b79fe1d2a054c80a321a77 Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 15:58:04 +0000
+Subject: [PATCH 10/10] Release fallback dynamic maps through the heap
+ allocator
+
+---
+ apt-pkg/contrib/mmap.cc | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/apt-pkg/contrib/mmap.cc b/apt-pkg/contrib/mmap.cc
+index 0568e1cd0..a00b209c5 100644
+--- a/apt-pkg/contrib/mmap.cc
++++ b/apt-pkg/contrib/mmap.cc
+@@ -306,7 +306,10 @@ DynamicMMap::~DynamicMMap()
+       if (validData() == false)
+ 	 return;
+ #ifdef _POSIX_MAPPED_FILES
+-      munmap(Base, WorkSpace);
++      if ((Flags & Fallback) == Fallback)
++         free(Base);
++      else
++         munmap(Base, WorkSpace);
+ #else
+       free(Base);
+ #endif
 -- 
 2.39.3 (Apple Git-145)
 

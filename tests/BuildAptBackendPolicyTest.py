@@ -30,17 +30,19 @@ def main():
                "Cydia/AptBackendOperations.cpp", "Cydia/AptCompatibility.cpp",
                "Cydia/AptVersionPolicy.cpp", "Cydia/PackageIdentity.cpp",
                "Cydia/RepositorySecurityPolicy.cpp"]
-    def compile_driver(driver_sources, name, sanitize=False):
+    def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=()):
         command = shlex.split(os.environ.get("CXX", "c++")) + ["-std=c++17", "-g"]
         if sanitize:
             command += ["-fsanitize=address", "-fno-omit-frame-pointer"]
         command += ["-Wall", "-Wextra", "-I" + str(project),
                     "-I" + str(build / "include"), "-I" + str(project / "apt64")]
-        command += [str(project / source) for source in driver_sources] + inputs + [
+        command += [str(project / source) for source in driver_sources] + inputs + list(extra_link_flags) + [
             "-pthread", "-o", str(build / name)]
         subprocess.run(command, cwd=build, check=True)
 
     compile_driver(sources, "cydia-package-actions", sanitize=True)
+    compile_driver(["tests/NativeMMapBackingTests.cpp"], "cydia-mmap-backing",
+                   extra_link_flags=["-Wl,--wrap=free,--wrap=munmap"])
     # The same APT objects back snapshot hashing. fakeroot exercises the real
     # protected-file boundary while keeping every mutation in a disposable root.
     compile_driver(["tests/NativeRuntimeStateTests.cpp", "Cydia/RuntimeState.cpp",
