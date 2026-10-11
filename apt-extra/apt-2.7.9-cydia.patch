@@ -1,7 +1,7 @@
 From 7cd7e534fa2969526b071d6a44c7eff0658abf94 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:05:45 +0800
-Subject: [PATCH 1/7] cydia: include Deb822 source parts in cache mtime
+Subject: [PATCH 1/8] cydia: include Deb822 source parts in cache mtime
 
 ---
  apt-pkg/sourcelist.cc          |  5 ++++-
@@ -69,7 +69,7 @@ index 42fab65a9..1f27fb341 100644
 From 9c189c40b78b765a341dcf3288117b0aeb93df72 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Mon, 28 Sep 2026 02:12:51 +0800
-Subject: [PATCH 2/7] test: name Deb822 source mtime assertion
+Subject: [PATCH 2/8] test: name Deb822 source mtime assertion
 
 ---
  test/libapt/sourcelist_test.cc | 3 ++-
@@ -98,7 +98,7 @@ index 1f27fb341..6960a46e3 100644
 From 6d10c85655707995930ebaadf31fa79a1719307a Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 09:41:00 +0000
-Subject: [PATCH 3/7] Preserve typed repository authentication and validate
+Subject: [PATCH 3/8] Preserve typed repository authentication and validate
  embedded configuration reads
 
 ---
@@ -849,7 +849,7 @@ index 000000000..d026cfe15
 From db0b431062804ccd1d2b0effe25f5fcad22c7809 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 09:58:00 +0000
-Subject: [PATCH 4/7] Allow embedded frontends to acquire protected lock files
+Subject: [PATCH 4/8] Allow embedded frontends to acquire protected lock files
  safely
 
 ---
@@ -918,7 +918,7 @@ index 970b11878..1050240cd 100644
 From 9038aa6e0a019eaae5ae2d0a25b1721ddbc0ebf4 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 10:13:00 +0000
-Subject: [PATCH 5/7] Allow embedded frontends to defer shared automatic state
+Subject: [PATCH 5/8] Allow embedded frontends to defer shared automatic state
  commits
 
 ---
@@ -980,7 +980,7 @@ index be27b1d77..b86257da1 100644
 From 5c762da034fe4f2ccd9d0352455fc938d48ddcd3 Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 10:56:26 +0000
-Subject: [PATCH 6/7] Require current frontend proof for cached repository
+Subject: [PATCH 6/8] Require current frontend proof for cached repository
  trust
 
 ---
@@ -1033,7 +1033,7 @@ index d026cfe15..98308659e 100755
 From 93fedf8ee2c679717605f6585de5f12a6310f6ed Mon Sep 17 00:00:00 2001
 From: Torrekie <31795847+Torrekie@users.noreply.github.com>
 Date: Sun, 11 Oct 2026 11:26:00 +0000
-Subject: [PATCH 7/7] Exercise changed metadata in repository authentication
+Subject: [PATCH 7/8] Exercise changed metadata in repository authentication
  tests
 
 ---
@@ -1066,6 +1066,34 @@ index 98308659e..1f58af06d 100755
      if [ "$MODE" = error ]; then
          testfailure policyupdate
      else
+-- 
+2.39.3 (Apple Git-145)
+
+
+From 06bb8eaf1ad679d585e5abd6f5d8748ed429282f Mon Sep 17 00:00:00 2001
+From: Torrekie <31795847+Torrekie@users.noreply.github.com>
+Date: Sun, 11 Oct 2026 11:31:00 +0000
+Subject: [PATCH 8/8] Remove stale cached signature after an allowed unsigned
+ downgrade
+
+---
+ apt-pkg/acquire-item.cc | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/apt-pkg/acquire-item.cc b/apt-pkg/acquire-item.cc
+index a45a67117..ff4eb887f 100644
+--- a/apt-pkg/acquire-item.cc
++++ b/apt-pkg/acquire-item.cc
+@@ -2387,7 +2387,8 @@ void pkgAcqMetaSig::Failed(string const &Message,pkgAcquire::MethodConfig const
+       DestFile = MetaIndexFileSignature;
+       MetaIndexFileSignature.clear();
+    }
+-   TransactionManager->TransactionStageRemoval(this, DestFile);
++   TransactionManager->TransactionStageRemoval(this,
++      RepositorySecurityPolicyActive() ? GetFinalFilename() : DestFile);
+ 
+    // only allow going further if the user explicitly wants it
+    if (AllowInsecureRepositories(InsecureType::UNSIGNED, MetaIndex->Target.Description, TransactionManager->MetaIndexParser, TransactionManager, this) == true)
 -- 
 2.39.3 (Apple Git-145)
 

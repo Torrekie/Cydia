@@ -11,7 +11,10 @@ bool Fail(Privileged::Error *error, const char *code, const char *message) {
 }
 bool Space(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
 std::string Lower(std::string value) {
-    for (char &c : value) if (c >= 'A' && c <= 'Z') c += 'a' - 'A'; return value;
+    for (char &c : value) {
+        if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+    }
+    return value;
 }
 bool Token(const std::string &value) {
     if (value.size() != 64) return false;
@@ -81,8 +84,12 @@ bool SafeKeyPath(const std::string &path) {
 }
 std::vector<std::string> Fields(const std::string &line) {
     std::vector<std::string> fields; std::size_t begin(0);
-    for (;;) { std::size_t end(line.find(':', begin)); fields.push_back(line.substr(begin, end - begin));
-        if (end == std::string::npos) return fields; begin = end + 1; }
+    for (;;) {
+        std::size_t end(line.find(':', begin));
+        fields.push_back(line.substr(begin, end - begin));
+        if (end == std::string::npos) return fields;
+        begin = end + 1;
+    }
 }
 }
 
@@ -152,7 +159,8 @@ bool CheckPublicKeyPackets(const std::string &input, std::size_t *primaryCount, 
         offset += length;
     }
     if (!primaries) return Fail(error, "invalid_public_key", "No primary public key was provided.");
-    if (primaryCount) *primaryCount = primaries; return true;
+    if (primaryCount) *primaryCount = primaries;
+    return true;
 }
 bool ReadFingerprints(const std::string &listing, std::vector<std::string> *fingerprints, Privileged::Error *error) {
     if (!fingerprints || listing.size() > MaximumKeyBytes || listing.find('\0') != std::string::npos) return false;
@@ -195,7 +203,8 @@ bool BindSignedBy(const CydiaSources::Document &document, std::size_t ordinal,
             std::string comments; std::istringstream lines(bytes.substr(begin, end - begin)); std::string line;
             while (std::getline(lines, line)) {
                 if (!line.empty() && line[0] == '#') {
-                    if (!line.empty() && line.back() == '\r') line.pop_back(); comments += line + newline;
+                    if (!line.empty() && line.back() == '\r') line.pop_back();
+                    comments += line + newline;
                 }
             }
             bytes.replace(begin, end - begin, field.name + ": " + keyring + newline + comments);
@@ -208,7 +217,9 @@ bool BindSignedBy(const CydiaSources::Document &document, std::size_t ordinal,
         if (cursor < bytes.size() && bytes[cursor] == '[') {
             std::size_t close(cursor + 1); bool closingQuote(false);
             while (close < bytes.size()) { if (bytes[close] == '"') closingQuote = !closingQuote;
-                if (bytes[close] == ']' && !closingQuote) break; ++close; }
+                if (bytes[close] == ']' && !closingQuote) break;
+                ++close;
+            }
             if (close == bytes.size() || closingQuote) return false;
             std::size_t start(0), end(0), found(0), position(cursor + 1);
             while (position < close) {
