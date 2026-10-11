@@ -7,6 +7,8 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 header=$root/Cydia/PackageDetailController.h
 source=$root/Cydia/PackageDetailController.mm
+depiction_cell_header=$root/Cydia/PackageDetailDepictionCell.h
+depiction_cell_source=$root/Cydia/PackageDetailDepictionCell.mm
 model=$root/Cydia/PackageDetailViewModel.mm
 probe=$root/Cydia/PackageDetailControllerProbe.mm
 depiction_fixture=$root/tests/simulator/package_depiction_server.py
@@ -29,7 +31,8 @@ fail() {
 grep -Fq 'PackageDetailController : CyteViewController' "$header" ||
     fail "package shell is not a native CyteViewController"
 
-if grep -Eq 'CydiaWebViewController|UIWebView|WK[A-Z]|WebScriptObject|WebFrame|JavaScript|(^|[^A-Za-z0-9_])UI_([^A-Za-z0-9_]|$)' "$header" "$source"; then
+if grep -Eq 'CydiaWebViewController|UIWebView|WK[A-Z]|WebScriptObject|WebFrame|JavaScript|(^|[^A-Za-z0-9_])UI_([^A-Za-z0-9_]|$)' "$header" "$source" \
+        "$depiction_cell_header" "$depiction_cell_source"; then
     fail "package shell contains app-owned browser, script, or remote-UI dependencies"
 fi
 
@@ -95,7 +98,8 @@ for token in \
         '_packageDelegate = delegate' \
         'cydia://package/%@/settings' \
         'cydia://package/%@/files'; do
-    grep -Fq "$token" "$source" "$header" ||
+    grep -Fq "$token" "$source" "$header" "$depiction_cell_header" \
+        "$depiction_cell_source" ||
         fail "missing native package-shell contract: $token"
 done
 

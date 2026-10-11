@@ -5,7 +5,11 @@
 
 #include "Cydia/PackageDatabasePaths.hpp"
 
+#if defined(__APPLE__)
 #include <TargetConditionals.h>
+#else
+#define TARGET_OS_SIMULATOR 0
+#endif
 
 #include <cstdlib>
 #include <cstring>

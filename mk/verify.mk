@@ -378,6 +378,8 @@ verify-native-ui-contract: verify-legacy-ui-compatibility-inventory \
 		Cydia/ConfirmationController.mm Cydia/ProgressController.mm \
 		Cydia/HomeController.h Cydia/HomeController.mm \
 		Cydia/HomeControllerProbe.h Cydia/HomeControllerProbe.mm \
+		Cydia/HomeProbeURLProtocol.h Cydia/HomeProbeURLProtocol.mm \
+		Cydia/HomeTableAppearance.h Cydia/HomeTableAppearance.mm \
 		Cydia/HomeViewModel.h Cydia/HomeViewModel.mm
 	@$(NATIVE_UI_VERIFY_SCRIPT) all
 
@@ -738,6 +740,7 @@ verify-package-depiction-view: $(PACKAGE_DEPICTION_VIEW_VERIFY_SCRIPT) \
 
 verify-package-detail-controller: $(PACKAGE_DETAIL_CONTROLLER_VERIFY_SCRIPT) \
 		Cydia/PackageDetailController.h Cydia/PackageDetailController.mm \
+		Cydia/PackageDetailDepictionCell.h Cydia/PackageDetailDepictionCell.mm \
 		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm \
 		Cydia/PackageSupportController.h Cydia/PackageSupportController.mm \
 		Cydia/PackageDetailControllerProbe.h Cydia/PackageDetailControllerProbe.mm \
@@ -761,6 +764,7 @@ verify-package-detail-controller-simulator:
 		BUILD_DIR="$(BUILD_DIR)/package-detail-simulator-ios12" \
 		doIA=yes kind=iphonesimulator arch=x86_64 \
 		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageDetailController.o" \
+		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageDetailDepictionCell.o" \
 		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/Cydia/PackageControllers.o" \
 		"$(BUILD_DIR)/package-detail-simulator-ios12/objects/tests/PackageDetailControllerSimulatorCompile.o"
 
@@ -822,6 +826,7 @@ verify-home-view-model: $(HOME_VIEW_MODEL_TEST)
 
 verify-home-controller: $(HOME_CONTROLLER_VERIFY_SCRIPT) $(HOME_LOCALIZATION_VERIFY_SCRIPT) \
 	Cydia/HomeController.h Cydia/HomeController.mm \
+	Cydia/HomeTableAppearance.h Cydia/HomeTableAppearance.mm \
 	Cydia/HomeSplitDisclosure.h Cydia/HomeSplitDisclosure.mm \
 	Cydia/HomeViewModel.h Cydia/HomeViewModel.mm \
 		Cydia/Application+Navigation.mm
@@ -837,11 +842,13 @@ verify-home-controller-simulator:
 		BUILD_DIR="$(BUILD_DIR)/home-simulator-ios12" \
 		doIA=yes doHomeProbe=yes kind=iphonesimulator arch=x86_64 \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeController.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeTableAppearance.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/UpgradingGuideController.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/MoreSourcesController.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/CopyingFilesGuideController.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeGuideController.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeControllerProbe.o" \
+		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeProbeURLProtocol.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/HomeViewModel.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/Cydia/AppearanceProbe.o" \
 		"$(BUILD_DIR)/home-simulator-ios12/objects/tests/HomeControllerSimulatorCompile.o"

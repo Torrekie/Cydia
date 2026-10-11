@@ -7,6 +7,8 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 controller="$root/Cydia/HomeController.mm"
+table_appearance="$root/Cydia/HomeTableAppearance.mm"
+table_appearance_header="$root/Cydia/HomeTableAppearance.h"
 split="$root/Cydia/HomeSplitDisclosure.mm"
 split_header="$root/Cydia/HomeSplitDisclosure.h"
 probe="$root/Cydia/HomeControllerProbe.mm"
@@ -20,6 +22,8 @@ fail() {
 }
 
 test -f "$controller" || fail "Home controller source is missing"
+test -f "$table_appearance" || fail "Home table appearance source is missing"
+test -f "$table_appearance_header" || fail "Home table appearance header is missing"
 test -f "$split" || fail "Home split disclosure source is missing"
 test -f "$split_header" || fail "Home split disclosure header is missing"
 test -f "$probe" || fail "Home controller probe source is missing"
@@ -90,21 +94,31 @@ grep -Fq 'HomeApplyCellSurface' "$controller" ||
     fail "Home rows do not centralize their native surface refresh"
 grep -Fq 'HomeApplyTableSurface' "$controller" ||
     fail "Home tables do not own their grouped background surface"
+grep -Fq '#include "Cydia/HomeTableAppearance.h"' "$controller" ||
+    fail "Home controller does not import its table appearance helpers"
+grep -Fq 'HomeApplyCellSurface' "$table_appearance_header" ||
+    fail "Home cell surface helper is not declared"
+grep -Fq 'HomeApplyTableSurface' "$table_appearance_header" ||
+    fail "Home table surface helper is not declared"
 grep -Fq 'overrideUserInterfaceStyle' "$controller" ||
     fail "Home UIKit surfaces do not receive the resolved interface style"
+grep -Fq 'cell.overrideUserInterfaceStyle = style' "$table_appearance" ||
+    fail "Home row surfaces do not receive the resolved interface style"
+grep -Fq 'table.overrideUserInterfaceStyle = style' "$table_appearance" ||
+    fail "Home table surface does not receive the resolved interface style"
 grep -Fq 'homeAppearanceTraits' "$controller" ||
     fail "Home colors do not follow the attached window appearance"
 grep -Fq 'viewIfLoaded.window' "$controller" ||
     fail "Home appearance does not inspect the attached window trait"
-grep -Fq 'cell.backgroundView' "$controller" ||
+grep -Fq 'cell.backgroundView' "$table_appearance" ||
     fail "Home rows do not own the grouped background surface"
-grep -Fq 'cell.contentView.backgroundColor' "$controller" ||
+grep -Fq 'cell.contentView.backgroundColor' "$table_appearance" ||
     fail "Home rows do not synchronize their content surface"
-grep -Fq 'UIBackgroundConfiguration' "$controller" ||
+grep -Fq 'UIBackgroundConfiguration' "$table_appearance" ||
     fail "Home rows do not configure iOS 14 background surfaces"
-grep -Fq 'backgroundConfiguration' "$controller" ||
+grep -Fq 'backgroundConfiguration' "$table_appearance" ||
     fail "Home rows do not assign the iOS 14 background configuration"
-grep -Fq '@available(iOS 14.0' "$controller" ||
+grep -Fq '@available(iOS 14.0' "$table_appearance" ||
     fail "Home iOS 14 background path is not availability guarded"
 grep -Fq 'willDisplayCell' "$controller" ||
     fail "Home rows do not refresh their surface after UIKit display styling"
