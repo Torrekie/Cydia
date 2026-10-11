@@ -42,5 +42,5 @@ EOF
 setupaptarchive
 testsuccess runapt "$ACTION_DRIVER"
 if [ "$EXIT_CODE" -ne 0 ] && command -v gdb >/dev/null 2>&1; then
-    runapt "$(command -v gdb)" --batch -ex run -ex 'bt 12' --args "$ACTION_DRIVER" || true
+    runapt command gdb --batch -ex run -ex 'bt 12' --args "$ACTION_DRIVER" || true
 fi
