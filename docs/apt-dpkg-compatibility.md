@@ -12,7 +12,7 @@ The current baseline is recorded in [`mk/apt.mk`](../mk/apt.mk):
 | Input | Recorded value |
 | --- | --- |
 | Source directory | apt64 gitlink |
-| Commit | 97a85dca54ccd6e31e402330cc2c47500f042803 |
+| Commit | 0c7c5febb3308fc194b79fe1d2a054c80a321a77 |
 | Upstream base | ed053de346d92c1a4218a7b80a20158f3535fe2a |
 | Source URL | https://salsa.debian.org/apt-team/apt.git |
 | Embedded version | 2.7.9 |
@@ -21,7 +21,7 @@ The current baseline is recorded in [`mk/apt.mk`](../mk/apt.mk):
 | ABI/SOVERSION | 6.0 / 6 |
 | Provenance trust | legacy-unverified |
 
-The upstream base is the APT 2.7.9 release commit. Nine local commits are
+The upstream base is the APT 2.7.9 release commit. Ten local commits are
 tracked as mail patches in
 [`apt-extra/apt-2.7.9-cydia.patch`](../apt-extra/apt-2.7.9-cydia.patch). They add
 Deb822 source-file mtime coverage, typed repository authentication and cached
@@ -29,6 +29,10 @@ metadata validation, a protected lock-file opener, deferred shared automatic
 package state, and current frontend proof for cached repository trust. The
 series also tests changed metadata and clears stale cached signatures after an
 allowed unsigned refresh. An absent frontend policy retains upstream behavior.
+Dynamic cache teardown also matches the backing allocation: heap fallback
+storage uses `free`, while anonymous mappings use `munmap`. This preserves
+Darwin allocator bookkeeping when a growable cache uses `calloc`/`realloc`.
+The native APT fixture covers heap, mapped, and grown heap cache disposal.
 
 [`scripts/checkout-apt-source.sh`](../scripts/checkout-apt-source.sh) fetches the
 exact public base and replays the recorded identities and dates to regenerate
