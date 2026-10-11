@@ -128,6 +128,17 @@ for asset in DOWNGRADE.png INSTALL.png PURGE.png REINSTALL.png REMOVE.png UPGRAD
         "${prefix:+$prefix/}Applications/Cydia.app/Modes/$asset"
 done
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/cydo"
+python3 - "$cydia" "${prefix:+$prefix/}usr/libexec/cydia/cydo" <<'PY'
+import subprocess, sys, tarfile
+process = subprocess.Popen(["dpkg-deb", "--fsys-tarfile", sys.argv[1]], stdout=subprocess.PIPE)
+with tarfile.open(fileobj=process.stdout, mode="r|") as archive:
+    helpers = [member for member in archive if member.name.removeprefix("./") == sys.argv[2]]
+if process.wait() != 0 or len(helpers) != 1:
+    raise SystemExit("[verify-package][FAIL] missing or ambiguous helper metadata")
+helper = helpers[0]
+if not helper.isfile() or helper.uid != 0 or helper.gid != 0 or helper.mode != 0o4755:
+    raise SystemExit("[verify-package][FAIL] helper must be root-owned setuid without setgid to preserve caller groups")
+PY
 require_path "$cydia_paths" "${prefix:+$prefix/}usr/libexec/cydia/firmware-discovery"
 if grep -E "^${prefix:+$prefix/}(etc/apt/|Library/LaunchDaemons/)" "$cydia_paths" >/dev/null; then
     fail "package owns shared APT configuration or automatic bootstrap startup jobs"

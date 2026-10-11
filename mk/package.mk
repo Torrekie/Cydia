@@ -74,7 +74,8 @@ $(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_
 		TZ=UTC find $(CYDIA_STAGE) -exec touch -h -t "$$stamp" {} +; \
 	fi
 
-	chmod 6755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
+	# Preserve the caller's groups on exec; authorization precedes explicit group elevation.
+	chmod 4755 $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
 
 	mkdir -p $(dir $@)
 	$(dpkg) -b $(CYDIA_STAGE) $@

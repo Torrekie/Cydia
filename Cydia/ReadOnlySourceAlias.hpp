@@ -16,13 +16,17 @@ inline bool CallerCanOpen(const std::string &path, const struct stat &expected, 
     if (!groups.valid) return false;
     const ReaderGroups current;
     const bool sameGroups(current.valid && current.values == groups.values);
+    const bool restoreGroups(getegid() != gid || !sameGroups);
+    // Direct UI reads already run as the caller. Fail closed if that process
+    // would require a credential change; only the root helper restores groups.
+    if (geteuid() != 0 && (geteuid() != uid || restoreGroups)) return false;
     const pid_t child(fork());
     if (child < 0) return false;
     if (child == 0) {
         // Darwin's primary-group changes can rotate supplementary groups.
         // Restore the captured list after setgid and before dropping root.
         if ((getegid() != gid && setgid(gid) != 0) ||
-            (geteuid() == 0 ? setgroups(groups.values.size(), groups.values.empty() ? NULL : groups.values.data()) != 0 : !sameGroups) ||
+            (restoreGroups && (geteuid() == 0 ? setgroups(groups.values.size(), groups.values.empty() ? NULL : groups.values.data()) != 0 : !sameGroups)) ||
             (geteuid() != uid && setuid(uid) != 0)) _exit(1);
         const int fd(open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC));
         struct stat actual;
