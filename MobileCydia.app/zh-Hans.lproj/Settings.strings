@@ -1,5 +1,5 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
-"BOOTSTRAP_DATABASE_ACCESS" = "引导环境数据库访问";
+"BOOTSTRAP_DATABASE_ACCESS" = "发行环境数据库访问";
 "REPOSITORY_SECURITY" = "软件源安全性";
 "REPOSITORY_SECURITY_EXPLANATION" = "选择 Cydia 如何处理无法验证签名的软件源。下载文件的完整性始终会被检查。";
 "SECURITY_ALLOW" = "允许";
@@ -21,17 +21,17 @@
 "REPOSITORY_UNUSABLE_KEY" = "%@ 的签名密钥已过期或无法使用。";
 "REPOSITORY_WEAK" = "%@ 使用了较弱的签名或完整性校验算法。";
 "REPOSITORY_MISSING_RELEASE" = "%@ 未提供 Release 文件。";
-"REPOSITORY_TRUST_DOWNGRADE" = "%@ 不再提供经过认证的仓库元数据。";
+"REPOSITORY_TRUST_DOWNGRADE" = "%@ 不再提供经过认证的软件源元数据。";
 "REPOSITORY_BAD_SIGNATURE" = "%@ 的签名与其内容不匹配。";
 "REPOSITORY_INVALID_SIGNATURE" = "%@ 的签名无效或元数据已损坏。";
 "ADVANCED_SETTINGS" = "高级设置";
-"BOOTSTRAP_REPOSITORIES" = "引导环境仓库";
-"BOOTSTRAP_REPOSITORIES_HELP" = "选择要保护的仓库，使其无法在“软件源”页面中修改。更换引导环境时，请在这里检查所选仓库。Cydia 不会自动添加仓库。";
+"BOOTSTRAP_REPOSITORIES" = "发行环境软件源";
+"BOOTSTRAP_REPOSITORIES_HELP" = "选择软件包发行环境的软件源，保护它们免于在“软件源”页面中被修改。更换发行环境时，请在这里检查所选软件源。Cydia 不会自动添加软件源。";
 "BOOTSTRAP_MISSING_REFERENCE" = "受保护的定义已被修改或移除。请检查其软件源文件，然后在保存前取消选择这里的旧引用。";
-"BOOTSTRAP_NONE_SELECTED" = "未选择任何仓库。确认后将保存配置，不保护任何仓库。";
+"BOOTSTRAP_NONE_SELECTED" = "未选择任何软件源。确认后将保存配置，不保护任何软件源。";
 "EXTERNAL_EXECUTABLES" = "外部可执行文件";
-"EXTERNAL_EXECUTABLES_HELP" = "输入受信任可执行文件的绝对路径。留空则使用引导环境的默认值。重新打开 Cydia 后更改生效。";
-"SOURCE_REVIEW_REQUIRED" = "请在高级设置中检查仓库配置。";
+"EXTERNAL_EXECUTABLES_HELP" = "输入受信任可执行文件的绝对路径。留空则使用软件包发行环境的默认值。重新打开 Cydia 后更改生效。";
+"SOURCE_REVIEW_REQUIRED" = "请在高级设置中检查软件源配置。";
 "SOURCE_SAVE_FAILED" = "无法保存软件源。请重新载入并检查配置。";
 "SETTINGS_SAVED" = "设置已保存。";
 "SETTING_RESTART_REQUIRED" = "设置已保存。请重新打开 Cydia 以使其生效。";
@@ -87,13 +87,13 @@
 
 "REPOSITORY_SETTINGS" = "软件源设置";
 "REPOSITORY_SETTINGS_HELP" = "启用软件源并编辑其配置。";
-"ADVANCED_SETTINGS_HELP" = "引导环境兼容性与故障排查。";
-"BOOTSTRAP_DEFAULT" = "引导环境默认值";
-"TOOL_OVERRIDES_UNAVAILABLE" = "无法读取已保存的路径。请检查引导环境配置。";
+"ADVANCED_SETTINGS_HELP" = "软件包发行环境兼容性与故障排查。";
+"BOOTSTRAP_DEFAULT" = "发行环境默认值";
+"TOOL_OVERRIDES_UNAVAILABLE" = "无法读取已保存的路径。请检查软件包发行环境配置。";
 "TOOL_CUSTOM_PATH" = "自定义路径";
-"TOOL_USE_DEFAULT" = "使用引导环境默认值";
-"TOOL_PATH_HELP" = "使用引导环境默认值，或输入可信可执行文件的完整路径。保存后请重新打开 Cydia。";
-"BOOTSTRAP_CONFIGURATION" = "引导环境配置";
+"TOOL_USE_DEFAULT" = "使用发行环境默认值";
+"TOOL_PATH_HELP" = "使用软件包发行环境默认值，或输入可信可执行文件的完整路径。保存后请重新打开 Cydia。";
+"BOOTSTRAP_CONFIGURATION" = "软件包发行环境";
 "PROTECTED_REPOSITORY_SETTINGS" = "受保护软件源设置";
 "COMPATIBILITY" = "兼容性";
 "DIAGNOSTICS" = "故障排查";

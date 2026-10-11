@@ -208,7 +208,7 @@
 "HOME_UPGRADING_SELECT" = "Selecione um guia";
 "HOME_UPGRADING_SHORT_TITLE" = "Atualização";
 "HOME_EMPTY_DESTINATION" = "Não existe conteúdo disponível aqui.";
-"MORE_SOURCES_READ_ONLY" = "Este ambiente bootstrap não ativou a edição de origens no Cydia. Faça a gestão dos repositórios com o gestor de pacotes do seu ambiente bootstrap; o Cydia lerá as mesmas origens APT.";
+"MORE_SOURCES_READ_ONLY" = "Este ambiente de distribuição de pacotes não ativou a edição de origens no Cydia. Faça a gestão das origens com o gestor de pacotes do seu ambiente de distribuição de pacotes; o Cydia lerá as mesmas origens APT.";
 "HOME_GUIDE_OBSOLETE" = "Obsoleto:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Botão de detalhes da rede";
 "HOME_STORAGE_CALCULATING" = "A medir…";

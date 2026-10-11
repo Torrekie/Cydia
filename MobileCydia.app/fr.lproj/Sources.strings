@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "Composants (facultatifs)";
 "SOURCE_CONTINUE" = "Continuer";
 "SOURCE_DEFINITION" = "Définition de source";
-"SOURCE_DEFINITION_INVALID" = "Saisissez une définition de source APT valide. Les dépôts non plats nécessitent des composants ; les suites se terminant par / ne doivent pas en avoir.";
+"SOURCE_DEFINITION_INVALID" = "Saisissez une définition de source APT valide. Les sources non plates nécessitent des composants ; les suites se terminant par / ne doivent pas en avoir.";
 "SOURCE_DESTINATION_EXPLANATION" = "Choisissez le fichier APT qui contiendra cette définition.";
 "SOURCE_DISABLE" = "Désactiver";
 "SOURCE_DISABLED" = "Désactivée";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Activer";
 "SOURCE_ENABLED" = "Activée";
 "SOURCE_ENTER_DEFINITION" = "Saisir une définition APT";
-"SOURCE_ENTER_DETAILS" = "Saisissez l’URI du dépôt, la suite et les composants facultatifs. Utilisez ./ pour un dépôt plat.";
+"SOURCE_ENTER_DETAILS" = "Saisissez l’URI de la source, la suite et les composants facultatifs. Utilisez ./ pour une source plate.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "L’environnement APT n’est pas disponible. Vérifiez sa configuration dans les réglages avancés.";
 "SOURCE_FILENAME" = "Nom.list ou nom.sources";
 "SOURCE_FILENAME_INVALID" = "Choisissez un nom de fichier compatible avec APT se terminant par .list ou .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "Fichier et ligne";
 "SOURCE_NEW_FILE" = "Nouveau fichier de sources";
 "SOURCE_NEW_FILE_EXPLANATION" = "Saisissez un nouveau nom de fichier se terminant par .list ou .sources. Le fichier sera créé après vérification et enregistrement de la définition.";
-"SOURCE_PROTECTED" = "Ce dépôt du bootstrap ne peut être modifié que dans les réglages avancés.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Les dépôts du bootstrap protégés ou non identifiés doivent être vérifiés dans les réglages avancés. Les fichiers de sources doivent être lisibles avant toute modification.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Vérifiez les dépôts du bootstrap protégés dans les réglages avancés avant de modifier les sources.";
+"SOURCE_PROTECTED" = "Cette source de la distribution de paquets ne peut être modifiée que dans les réglages avancés.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Les sources protégées ou non identifiées de la distribution de paquets doivent être vérifiées dans les réglages avancés. Les fichiers de sources doivent être lisibles avant toute modification.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Vérifiez les sources protégées de la distribution de paquets dans les réglages avancés avant de modifier les sources.";
 "SOURCE_RELOAD_REQUIRED" = "Le fichier de sources a changé. Rechargez les sources et vérifiez à nouveau la modification.";
 "SOURCE_REPOSITORIES" = "URI et suites";
 "SOURCE_REVIEW_CHANGE" = "Vérifier la modification de source";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "La modification de source n’a pas pu être enregistrée. Vérifiez la configuration APT et les permissions du fichier.";
 "SOURCE_STATUS" = "État";
 "SOURCE_SUITE" = "Suite ou distribution";
-"SOURCE_URI" = "URI du dépôt";
+"SOURCE_URI" = "URI de la source";
 "SOURCE_WAIT_FOR_OPERATION" = "Attendez la fin de l’opération en cours sur les paquets.";
 "SOURCE_WHOLE_DEFINITION" = "Cette modification s’applique à la définition entière, y compris à tous ses URI et suites.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Cette définition est protégée en tant que composante de votre bootstrap. Enregistrer une modification conserve sa protection ; la supprimer retire aussi ses références de protection.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "La définition de la source a été modifiée, mais ses références de protection n’ont pas pu être enregistrées. Vérifiez les dépôts du bootstrap dans les réglages avancés avant de modifier d’autres sources.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Cette définition est protégée en tant que composante de votre distribution de paquets. Enregistrer une modification conserve sa protection ; la supprimer retire aussi ses références de protection.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "La définition de la source a été modifiée, mais ses références de protection n’ont pas pu être enregistrées. Vérifiez les sources de la distribution de paquets dans les réglages avancés avant de modifier d’autres sources.";
 "SOURCE_READ_ONLY_ALIAS" = "Cette source est un lien géré en dehors de Cydia. Cydia peut l’utiliser, mais ne peut ni modifier ni supprimer ses définitions.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Réglages des dépôts";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Réglages avancés des dépôts";
+"SOURCE_REPOSITORY_SETTINGS" = "Réglages des sources";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Réglages avancés des sources";
 "SOURCE_DEFINITION_DETAILS" = "Détails de la définition";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "Ce dépôt possède plusieurs définitions de source. Choisissez la définition à supprimer.";
-"SOURCE_DELETE_UNAVAILABLE" = "Ce dépôt ne peut pas être supprimé ici. Examinez ses définitions de source dans Réglages.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Cette source possède plusieurs définitions de source. Choisissez la définition à supprimer.";
+"SOURCE_DELETE_UNAVAILABLE" = "Cette source ne peut pas être supprimée ici. Examinez ses définitions de source dans Réglages.";
+"SOURCE_REMOVE" = "Supprimer la source";

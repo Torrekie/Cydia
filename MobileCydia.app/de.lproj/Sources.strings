@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "Datei und Zeile";
 "SOURCE_NEW_FILE" = "Neue Quelldatei";
 "SOURCE_NEW_FILE_EXPLANATION" = "Gib einen neuen Dateinamen mit der Endung .list oder .sources ein. Die Datei wird erst nach dem Prüfen und Speichern der Definition erstellt.";
-"SOURCE_PROTECTED" = "Diese Bootstrap-Paketquelle kann nur in den erweiterten Einstellungen geändert werden.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Geschützte oder nicht eindeutig zugeordnete Bootstrap-Paketquellen müssen in den erweiterten Einstellungen geprüft werden. Quelldateien müssen vor der Bearbeitung lesbar sein.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Prüfe geschützte Bootstrap-Paketquellen in den erweiterten Einstellungen, bevor du Quellen änderst.";
+"SOURCE_PROTECTED" = "Diese Quelle der Paketdistribution kann nur in den erweiterten Einstellungen geändert werden.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Geschützte oder nicht eindeutig zugeordnete Quellen der Paketdistribution müssen in den erweiterten Einstellungen geprüft werden. Quelldateien müssen vor der Bearbeitung lesbar sein.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Prüfe geschützte Quellen der Paketdistribution in den erweiterten Einstellungen, bevor du Quellen änderst.";
 "SOURCE_RELOAD_REQUIRED" = "Die Quelldatei wurde geändert. Lade die Quellen neu und prüfe die Änderung erneut.";
 "SOURCE_REPOSITORIES" = "URIs und Suites";
 "SOURCE_REVIEW_CHANGE" = "Quellenänderung prüfen";
@@ -36,12 +36,13 @@
 "SOURCE_URI" = "URI der Paketquelle";
 "SOURCE_WAIT_FOR_OPERATION" = "Warte, bis der aktuelle Paketvorgang abgeschlossen ist.";
 "SOURCE_WHOLE_DEFINITION" = "Diese Änderung gilt für die gesamte Definition, einschließlich aller darin enthaltenen URIs und Suites.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Diese Definition ist als Teil deiner Bootstrap-Umgebung geschützt. Beim Speichern einer Änderung bleibt der Schutz erhalten; beim Entfernen werden auch ihre Schutzverweise entfernt.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "Die Quelldefinition wurde geändert, aber ihre Schutzverweise konnten nicht gespeichert werden. Prüfe die Bootstrap-Paketquellen in den erweiterten Einstellungen, bevor du weitere Quellen änderst.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Diese Definition ist als Teil deiner Paketdistribution geschützt. Beim Speichern einer Änderung bleibt der Schutz erhalten; beim Entfernen werden auch ihre Schutzverweise entfernt.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "Die Quelldefinition wurde geändert, aber ihre Schutzverweise konnten nicht gespeichert werden. Prüfe die Quellen der Paketdistribution in den erweiterten Einstellungen, bevor du weitere Quellen änderst.";
 "SOURCE_READ_ONLY_ALIAS" = "Diese Quelle ist eine Verknüpfung, die außerhalb von Cydia verwaltet wird. Cydia kann sie verwenden, aber ihre Definitionen nicht bearbeiten oder entfernen.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Paketquelleneinstellungen";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Erweiterte Paketquelleneinstellungen";
+"SOURCE_REPOSITORY_SETTINGS" = "Quelleneinstellungen";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Erweiterte Quelleneinstellungen";
 "SOURCE_DEFINITION_DETAILS" = "Details zur Definition";
 "SOURCE_DELETE_CHOOSE_DEFINITION" = "Diese Paketquelle hat mehrere Quellendefinitionen. Wähle die Definition aus, die entfernt werden soll.";
 "SOURCE_DELETE_UNAVAILABLE" = "Diese Paketquelle kann hier nicht entfernt werden. Prüfe ihre Quellendefinitionen in den Einstellungen.";
+"SOURCE_REMOVE" = "Quelle entfernen";

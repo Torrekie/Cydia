@@ -7,12 +7,12 @@
 "ACCESS_CHECK_FAILED" = "Kontrollen kunde inte slutföras.";
 "ACCESS_CHECK_BUSY" = "En annan paketåtgärd använder pakethanteraren. Försök igen när den är klar.";
 "ACCESS_CHECK_RUNTIME" = "Skyddad körningskonfiguration";
-"ACCESS_CHECK_TRUST" = "Status för paketkällor och tillit";
+"ACCESS_CHECK_TRUST" = "Källornas status och förtroende";
 "ACCESS_CHECK_LOCK" = "Låsägare och exklusiv åtkomst";
 "ACCESS_CHECK_STATE" = "Skyddad APT-paketstatus";
 "ACCESS_CHECK_RELEASE" = "Frigörande av lås och åtkomstskydd";
 "ACCESS_CHECK_UNCHANGED" = "Paket- och källfiler förblev oförändrade";
-"ACCESS_CHECK_CHANGED" = "Paket- eller källstatus ändrades under kontrollen. Försök igen när andra pakethanterare inte är aktiva.";
+"ACCESS_CHECK_CHANGED" = "Paketens eller källornas status ändrades under kontrollen. Försök igen när andra pakethanterare inte är aktiva.";
 "ACCESS_CHECK_TIMEOUT" = "Kontrollen tog för lång tid. Ingen paketåtgärd startades.";
 "ACCESS_CHECK_DETAILS" = "Tekniska detaljer";
 "ACCESS_CHECK_NOT_RUN" = "Inte kontrollerat";

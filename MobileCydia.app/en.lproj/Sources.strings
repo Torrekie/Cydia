@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Enable";
 "SOURCE_ENABLED" = "Enabled";
 "SOURCE_ENTER_DEFINITION" = "Enter APT Definition";
-"SOURCE_ENTER_DETAILS" = "Enter the repository URI, suite and optional components. Use ./ for a flat repository.";
+"SOURCE_ENTER_DETAILS" = "Enter the source URI, suite and optional components. Use ./ for a flat source.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "The APT environment is unavailable. Review its configuration in Advanced Settings.";
 "SOURCE_FILENAME" = "Filename.list or filename.sources";
 "SOURCE_FILENAME_INVALID" = "Choose an APT-compatible filename ending in .list or .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "File and Line";
 "SOURCE_NEW_FILE" = "New Source File";
 "SOURCE_NEW_FILE_EXPLANATION" = "Enter a new filename ending in .list or .sources. The file is created only after you review and save the definition.";
-"SOURCE_PROTECTED" = "This bootstrap repository can only be changed in Advanced Settings.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Protected or unresolved bootstrap repositories require Advanced Settings. Source files must be readable before editing.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Review protected bootstrap repositories in Advanced Settings before changing sources.";
+"SOURCE_PROTECTED" = "This distribution source can only be changed in Advanced Settings.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Protected or unresolved distribution sources require Advanced Settings. Source files must be readable before editing.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Review protected distribution sources in Advanced Settings before changing sources.";
 "SOURCE_RELOAD_REQUIRED" = "The source file changed. Reload Sources and review the change again.";
 "SOURCE_REPOSITORIES" = "URIs and Suites";
 "SOURCE_REVIEW_CHANGE" = "Review Source Change";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "The source change could not be saved. Review the APT configuration and file permissions.";
 "SOURCE_STATUS" = "Status";
 "SOURCE_SUITE" = "Suite or distribution";
-"SOURCE_URI" = "Repository URI";
+"SOURCE_URI" = "Source URI";
 "SOURCE_WAIT_FOR_OPERATION" = "Wait for the current package operation to finish.";
 "SOURCE_WHOLE_DEFINITION" = "This change applies to the entire definition, including every URI and suite in it.";
-"SOURCE_BOOTSTRAP_CHANGE" = "This definition is protected as part of your bootstrap. Saving an edit preserves its protection; removing it also removes its protection references.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "The source definition changed, but its protection references could not be saved. Review bootstrap repositories in Advanced Settings before changing more sources.";
+"SOURCE_BOOTSTRAP_CHANGE" = "This definition is protected as part of your package distribution. Saving an edit preserves its protection; removing it also removes its protection references.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "The source definition changed, but its protection references could not be saved. Review distribution sources in Advanced Settings before changing more sources.";
 "SOURCE_READ_ONLY_ALIAS" = "This source is a link managed outside Cydia. Cydia can use it, but cannot edit or remove its definitions.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Repository Settings";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Advanced Repository Settings";
+"SOURCE_REPOSITORY_SETTINGS" = "Source Settings";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Advanced Source Settings";
 "SOURCE_DEFINITION_DETAILS" = "Definition Details";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "This repository has more than one source definition. Choose the definition to remove.";
-"SOURCE_DELETE_UNAVAILABLE" = "This repository cannot be removed here. Review its source definitions in Settings.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "This source has more than one source definition. Choose the definition to remove.";
+"SOURCE_DELETE_UNAVAILABLE" = "This source cannot be removed here. Review its source definitions in Settings.";
+"SOURCE_REMOVE" = "Remove Source";

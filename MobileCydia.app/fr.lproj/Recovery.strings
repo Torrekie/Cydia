@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "La réparation normale n’a pas abouti. Une réinstallation peut restaurer le paquet. « %@ » est une option de suppression d’urgence.";
 "RECOVERY_NORMAL_FIRST" = "Essayez d’abord une réparation normale ou une réinstallation. « %@ » sera disponible si la réparation normale échoue.";
 "RECOVERY_PROTECTED" = "La suppression d’urgence est bloquée, car elle affecterait un paquet protégé ou une dépendance installée.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "La version installée n’est pas disponible dans vos dépôts actuels. Actualisez les sources ou choisissez une suppression normale.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "La version installée n’est pas disponible dans vos sources actuelles. Actualisez les sources ou choisissez une suppression normale.";
 "RECOVERY_REMOVE_FAILED" = "La suppression d’urgence a échoué. Les scripts d’origine ont été restaurés lorsque possible et la sauvegarde protégée a été conservée. Vérifiez les détails avant de réessayer.";
 "RECOVERY_REPAIR" = "Essayer une réparation normale";
 "RECOVERY_REPAIR_COMPLETE" = "La réparation normale est terminée. L’état des paquets va être rechargé.";

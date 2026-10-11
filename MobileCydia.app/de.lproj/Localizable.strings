@@ -243,7 +243,7 @@
 "HOME_UPGRADING_SELECT" = "Wählen Sie eine Anleitung aus";
 "HOME_UPGRADING_SHORT_TITLE" = "Aktualisierung";
 "HOME_EMPTY_DESTINATION" = "Hier sind keine Inhalte verfügbar.";
-"MORE_SOURCES_READ_ONLY" = "In dieser Bootstrap-Umgebung ist das Bearbeiten von Paketquellen in Cydia nicht aktiviert. Verwalten Sie die Paketquellen mit dem Paketmanager Ihrer Bootstrap-Umgebung; Cydia liest dieselben APT-Quellen.";
+"MORE_SOURCES_READ_ONLY" = "In dieser Paketdistribution ist das Bearbeiten von Paketquellen in Cydia nicht aktiviert. Verwalten Sie die Paketquellen mit dem Paketmanager Ihrer Paketdistribution; Cydia liest dieselben APT-Quellen.";
 "HOME_GUIDE_OBSOLETE" = "Veraltet:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Schaltfläche für Netzwerkdetails";
 "HOME_STORAGE_CALCULATING" = "Wird gemessen…";

@@ -4,7 +4,7 @@
 "PACKAGE_HELD_NOTICE" = "Este pacote está retido. Desative «Ignorar Atualizações» nas definições do pacote antes de o alterar.";
 "PACKAGE_ESSENTIAL_NOTICE" = "Este pacote está marcado como essencial (Essential). O Cydia não o irá remover nem purgar.";
 "PACKAGE_PROTECTED_NOTICE" = "Este pacote está marcado como protegido (Protected). O Cydia não o irá remover nem purgar.";
-"PACKAGE_REINSTALL_UNAVAILABLE" = "A versão instalada não está disponível nas fontes atuais. Escolha outra versão disponível.";
+"PACKAGE_REINSTALL_UNAVAILABLE" = "A versão instalada não está disponível nas origens atuais. Escolha outra versão disponível.";
 "PACKAGE_PRIORITY" = "Prioridade: %ld";
 "PACKAGE_CANDIDATE" = "Versão candidata";
 "PACKAGE_HOLD_FAILED" = "Não foi possível alterar a retenção do pacote. Volte a carregar e tente novamente.";

@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "O reparo normal não foi concluído. Reinstalar pode restaurar o pacote. “%@” é uma opção de remoção de emergência.";
 "RECOVERY_NORMAL_FIRST" = "Tente primeiro um reparo normal ou uma reinstalação. “%@” ficará disponível se o reparo normal falhar.";
 "RECOVERY_PROTECTED" = "A remoção de emergência foi bloqueada porque afetaria um pacote protegido ou uma dependência instalada.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "A versão instalada não está disponível nos repositórios atuais. Atualize as fontes ou escolha a remoção normal.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "A versão instalada não está disponível nas fontes atuais. Atualize as fontes ou escolha a remoção normal.";
 "RECOVERY_REMOVE_FAILED" = "A remoção de emergência falhou. Os scripts originais foram restaurados quando possível e o backup protegido foi mantido. Revise os detalhes antes de tentar novamente.";
 "RECOVERY_REPAIR" = "Tentar reparo normal";
 "RECOVERY_REPAIR_COMPLETE" = "O reparo normal foi concluído. O estado dos pacotes será recarregado.";

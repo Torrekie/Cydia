@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "רכיבים (לא חובה)";
 "SOURCE_CONTINUE" = "המשך";
 "SOURCE_DEFINITION" = "הגדרת מקור";
-"SOURCE_DEFINITION_INVALID" = "הזינו הגדרת מקור APT תקינה אחת. מאגרים שאינם שטוחים דורשים רכיבים; לסדרות הפצה המסתיימות ב־/ אסור להוסיף רכיבים.";
+"SOURCE_DEFINITION_INVALID" = "הזינו הגדרת מקור APT תקינה אחת. מקורות שאינם שטוחים דורשים רכיבים; לסדרות הפצה המסתיימות ב־/ אסור להוסיף רכיבים.";
 "SOURCE_DESTINATION_EXPLANATION" = "בחרו את קובץ APT שיכיל הגדרה זו.";
 "SOURCE_DISABLE" = "השבתה";
 "SOURCE_DISABLED" = "מושבת";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "הפעלה";
 "SOURCE_ENABLED" = "פעיל";
 "SOURCE_ENTER_DEFINITION" = "הזנת הגדרת APT";
-"SOURCE_ENTER_DETAILS" = "הזינו את URI המאגר, סדרת ההפצה והרכיבים הרצויים. השתמשו ב־./ למאגר שטוח.";
+"SOURCE_ENTER_DETAILS" = "הזינו את URI המקור, סדרת ההפצה והרכיבים הרצויים. השתמשו ב־./ למקור שטוח.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "סביבת APT אינה זמינה. בדקו את התצורה בהגדרות המתקדמות.";
 "SOURCE_FILENAME" = "שם.list או שם.sources";
 "SOURCE_FILENAME_INVALID" = "בחרו שם קובץ התואם ל־APT ומסתיים ב־.list או ב־.sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "קובץ ומספר שורה";
 "SOURCE_NEW_FILE" = "קובץ מקורות חדש";
 "SOURCE_NEW_FILE_EXPLANATION" = "הזינו שם קובץ חדש המסתיים ב־.list או ב־.sources. הקובץ ייווצר רק לאחר בדיקת ההגדרה ושמירתה.";
-"SOURCE_PROTECTED" = "ניתן לשנות מאגר זה של סביבת האתחול רק בהגדרות המתקדמות.";
-"SOURCE_PROTECTED_OR_REVIEW" = "מאגרים מוגנים או לא מזוהים של סביבת האתחול דורשים בדיקה בהגדרות המתקדמות. קובצי המקורות חייבים להיות ניתנים לקריאה לפני עריכתם.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "בדקו את המאגרים המוגנים של סביבת האתחול בהגדרות המתקדמות לפני שינוי המקורות.";
+"SOURCE_PROTECTED" = "ניתן לשנות מקור זה של סביבת הפצת החבילות רק בהגדרות המתקדמות.";
+"SOURCE_PROTECTED_OR_REVIEW" = "מקורות מוגנים או לא מזוהים של סביבת הפצת החבילות דורשים בדיקה בהגדרות המתקדמות. קובצי המקורות חייבים להיות ניתנים לקריאה לפני עריכתם.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "בדקו את המקורות המוגנים של סביבת הפצת החבילות בהגדרות המתקדמות לפני שינוי המקורות.";
 "SOURCE_RELOAD_REQUIRED" = "קובץ המקורות השתנה. טענו מחדש את המקורות ובדקו שוב את השינוי.";
 "SOURCE_REPOSITORIES" = "כתובות URI וסדרות הפצה";
 "SOURCE_REVIEW_CHANGE" = "בדיקת שינוי המקור";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "לא ניתן לשמור את שינוי המקור. בדקו את תצורת APT ואת הרשאות הקובץ.";
 "SOURCE_STATUS" = "מצב";
 "SOURCE_SUITE" = "סדרת הפצה או הפצה";
-"SOURCE_URI" = "URI של המאגר";
+"SOURCE_URI" = "URI של המקור";
 "SOURCE_WAIT_FOR_OPERATION" = "המתינו לסיום הפעולה הנוכחית על החבילות.";
 "SOURCE_WHOLE_DEFINITION" = "שינוי זה חל על ההגדרה כולה, כולל כל כתובות ה־URI וסדרות ההפצה שבה.";
-"SOURCE_BOOTSTRAP_CHANGE" = "הגדרה זו מוגנת כחלק מסביבת האתחול שלך. שמירת שינוי שומרת על ההגנה שלה; הסרתה מסירה גם את הפניות ההגנה שלה.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "הגדרת המקור השתנתה, אך לא ניתן היה לשמור את הפניות ההגנה שלה. יש לבדוק את מאגרי סביבת האתחול בהגדרות המתקדמות לפני שינוי מקורות נוספים.";
+"SOURCE_BOOTSTRAP_CHANGE" = "הגדרה זו מוגנת כחלק מסביבת הפצת החבילות שלך. שמירת שינוי שומרת על ההגנה שלה; הסרתה מסירה גם את הפניות ההגנה שלה.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "הגדרת המקור השתנתה, אך לא ניתן היה לשמור את הפניות ההגנה שלה. יש לבדוק את מקורות סביבת הפצת החבילות בהגדרות המתקדמות לפני שינוי מקורות נוספים.";
 "SOURCE_READ_ONLY_ALIAS" = "מקור זה הוא קישור המנוהל מחוץ ל־Cydia. ניתן להשתמש בו ב־Cydia, אך לא לערוך או להסיר את הגדרותיו.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "הגדרות המאגרים";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "הגדרות מאגרים מתקדמות";
+"SOURCE_REPOSITORY_SETTINGS" = "הגדרות המקורות";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "הגדרות מקורות מתקדמות";
 "SOURCE_DEFINITION_DETAILS" = "פרטי ההגדרה";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "למאגר זה יש יותר מהגדרת מקור אחת. בחרו את ההגדרה להסרה.";
-"SOURCE_DELETE_UNAVAILABLE" = "לא ניתן להסיר מאגר זה כאן. בדקו את הגדרות המקורות שלו בהגדרות.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "למקור זה יש יותר מהגדרת מקור אחת. בחרו את ההגדרה להסרה.";
+"SOURCE_DELETE_UNAVAILABLE" = "לא ניתן להסיר מקור זה כאן. בדקו את הגדרות המקורות שלו בהגדרות.";
+"SOURCE_REMOVE" = "הסרת מקור";

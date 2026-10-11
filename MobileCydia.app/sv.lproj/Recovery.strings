@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "Den normala reparationen slutfördes inte. En ominstallation kan återställa paketet. ”%@” är ett alternativ för nödborttagning.";
 "RECOVERY_NORMAL_FIRST" = "Försök först med normal reparation eller ominstallation. ”%@” blir tillgängligt om den normala reparationen misslyckas.";
 "RECOVERY_PROTECTED" = "Nödborttagning är blockerad eftersom den skulle påverka ett skyddat paket eller ett installerat beroende.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "Den installerade versionen finns inte i dina aktuella paketförråd. Uppdatera källorna eller välj normal borttagning.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Den installerade versionen finns inte i dina aktuella paketkällor. Uppdatera källorna eller välj normal borttagning.";
 "RECOVERY_REMOVE_FAILED" = "Nödborttagningen misslyckades. Originalskripten återställdes där det var möjligt och den skyddade säkerhetskopian behölls. Läs detaljerna innan du försöker igen.";
 "RECOVERY_REPAIR" = "Försök med normal reparation";
 "RECOVERY_REPAIR_COMPLETE" = "Den normala reparationen är klar. Paketens tillstånd läses in på nytt.";

@@ -242,7 +242,7 @@
 "HOME_UPGRADING_SELECT" = "选择指南";
 "HOME_UPGRADING_SHORT_TITLE" = "升级";
 "HOME_EMPTY_DESTINATION" = "此处暂无内容。";
-"MORE_SOURCES_READ_ONLY" = "此引导环境尚未启用 Cydia 的软件源编辑功能。请使用该环境的软件包管理器管理软件源；Cydia 会读取相同的 APT 软件源。";
+"MORE_SOURCES_READ_ONLY" = "此软件包发行环境尚未启用 Cydia 的软件源编辑功能。请使用该环境的软件包管理器管理软件源；Cydia 会读取相同的 APT 软件源。";
 "HOME_GUIDE_OBSOLETE" = "已过时：";
 "HOME_GUIDE_NETWORK_DETAILS" = "网络详情按钮";
 "HOME_STORAGE_CALCULATING" = "正在测量…";

@@ -1,18 +1,18 @@
 /* Native package management access check. Copyright (C) 2026 Torrekie. */
 "ACCESS_CHECK_TITLE" = "Paket yönetimi erişimini denetle";
 "ACCESS_CHECK_START" = "Denetimi başlat";
-"ACCESS_CHECK_EXPLANATION" = "Paket yöneticisine korunan erişimi denetler ve kilidini kısa süreliğine alır. Paketler veya depo tanımları değiştirilmez.";
+"ACCESS_CHECK_EXPLANATION" = "Paket yöneticisine korunan erişimi denetler ve kilidini kısa süreliğine alır. Paketler veya kaynak tanımları değiştirilmez.";
 "ACCESS_CHECK_RUNNING" = "Denetleniyor…";
 "ACCESS_CHECK_PASSED" = "Paket yönetimi erişimi çalışıyor.";
 "ACCESS_CHECK_FAILED" = "Denetim tamamlanamadı.";
 "ACCESS_CHECK_BUSY" = "Başka bir paket işlemi paket yöneticisini kullanıyor. İşlem bittiğinde yeniden deneyin.";
 "ACCESS_CHECK_RUNTIME" = "Korunan çalışma zamanı yapılandırması";
-"ACCESS_CHECK_TRUST" = "Depo ve güven durumu";
+"ACCESS_CHECK_TRUST" = "Kaynak ve güven durumu";
 "ACCESS_CHECK_LOCK" = "Kilit sahipliği ve özel erişim";
 "ACCESS_CHECK_STATE" = "Korunan APT paket durumu";
 "ACCESS_CHECK_RELEASE" = "Kilidi bırakma ve erişim koruması";
-"ACCESS_CHECK_UNCHANGED" = "Paket ve depo dosyaları değişmedi";
-"ACCESS_CHECK_CHANGED" = "Denetim sırasında paket veya depo durumu değişti. Diğer paket yöneticileri boşta olduğunda yeniden deneyin.";
+"ACCESS_CHECK_UNCHANGED" = "Paket ve kaynak dosyaları değişmedi";
+"ACCESS_CHECK_CHANGED" = "Denetim sırasında paket veya kaynak durumu değişti. Diğer paket yöneticileri boşta olduğunda yeniden deneyin.";
 "ACCESS_CHECK_TIMEOUT" = "Denetim zaman aşımına uğradı. Hiçbir paket işlemi başlatılmadı.";
 "ACCESS_CHECK_DETAILS" = "Teknik ayrıntılar";
 "ACCESS_CHECK_NOT_RUN" = "Denetlenmedi";

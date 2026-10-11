@@ -486,7 +486,7 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
         if (path.row == 3) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         else cell.selectionStyle = UITableViewCellSelectionStyleNone;
     } else {
-        NSArray *titles(@[UCLocalize("EDIT"), SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE"), UCLocalize("REMOVE"), SourceUI(@"SOURCE_ADVANCED_SETTINGS")]);
+        NSArray *titles(@[UCLocalize("EDIT"), SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE"), SourceUI(@"SOURCE_REMOVE"), SourceUI(@"SOURCE_ADVANCED_SETTINGS")]);
         cell.textLabel.text = titles[path.row]; cell.accessibilityTraits |= UIAccessibilityTraitButton;
         if (path.row < 3 && !CydiaSourceDefinitionCanEdit(row_, access_)) {
             cell.textLabel.enabled = NO; cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -512,7 +512,7 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
     }
     CydiaSources::Mutation edit(path.row == 1 ? CydiaSources::EditKind::SetEnabled : CydiaSources::EditKind::RemoveDefinition);
     edit.ordinal = row_.ordinal; edit.enabled = !row_.enabled;
-    NSString *action(path.row == 1 ? SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE") : UCLocalize("REMOVE"));
+    NSString *action(path.row == 1 ? SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE") : SourceUI(@"SOURCE_REMOVE"));
     __weak CydiaSourceDefinitionController *weakSelf(self);
     ReviewedSourceCommit(self, database_, [row_ snapshot], edit, access_, action, DefinitionSummary(row_), ^{
         [weakSelf.navigationController popViewControllerAnimated:YES];
@@ -908,7 +908,7 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
     CydiaSources::Mutation edit(CydiaSources::EditKind::RemoveDefinition); edit.ordinal = row.ordinal;
     __weak SourcesController *weakSelf(self);
     ReviewedSourceCommit(self, database_, [row snapshot], edit, CydiaSources::Access::Ordinary,
-        UCLocalize("REMOVE"), DefinitionScope(row), ^{ [weakSelf reloadData]; });
+        SourceUI(@"SOURCE_REMOVE"), DefinitionScope(row), ^{ [weakSelf reloadData]; });
 }
 - (void)tableView:(UITableView *)table commitEditingStyle:(UITableViewCellEditingStyle)style forRowAtIndexPath:(NSIndexPath *)path {
     if (style != UITableViewCellEditingStyleDelete) return;
@@ -931,7 +931,7 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
         }]];
         [self presentViewController:alert animated:YES completion:nil]; return;
     }
-    UIAlertController *chooser([UIAlertController alertControllerWithTitle:UCLocalize("REMOVE") message:SourceUI(@"SOURCE_DELETE_CHOOSE_DEFINITION") preferredStyle:UIAlertControllerStyleActionSheet]);
+    UIAlertController *chooser([UIAlertController alertControllerWithTitle:SourceUI(@"SOURCE_REMOVE") message:SourceUI(@"SOURCE_DELETE_CHOOSE_DEFINITION") preferredStyle:UIAlertControllerStyleActionSheet]);
     for (CydiaSourceDefinition *row in rows) {
         UIAlertAction *action([UIAlertAction actionWithTitle:[NSString stringWithFormat:@"%@\n%@", SourceUI(row.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED"), DefinitionScope(row)]
             style:UIAlertActionStyleDestructive handler:^(UIAlertAction *) { [self removeDefinition:row]; }]);

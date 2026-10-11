@@ -207,7 +207,7 @@
 "HOME_UPGRADING_SELECT" = "가이드 선택";
 "HOME_UPGRADING_SHORT_TITLE" = "업그레이드";
 "HOME_EMPTY_DESTINATION" = "여기에는 표시할 콘텐츠가 없습니다.";
-"MORE_SOURCES_READ_ONLY" = "이 부트스트랩 환경에서는 Cydia의 소스 편집이 활성화되어 있지 않습니다. 이 환경의 패키지 관리자로 저장소를 관리하십시오. Cydia는 동일한 APT 소스를 읽습니다.";
+"MORE_SOURCES_READ_ONLY" = "이 패키지 배포 환경에서는 Cydia의 소스 편집이 활성화되어 있지 않습니다. 이 환경의 패키지 관리자로 소스를 관리하십시오. Cydia는 동일한 APT 소스를 읽습니다.";
 "HOME_GUIDE_OBSOLETE" = "오래된 정보:";
 "HOME_GUIDE_NETWORK_DETAILS" = "네트워크 세부 정보 버튼";
 "HOME_STORAGE_CALCULATING" = "측정 중…";

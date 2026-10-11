@@ -1,18 +1,18 @@
 /* Native package management access check. Copyright (C) 2026 Torrekie. */
 "ACCESS_CHECK_TITLE" = "檢查軟體套件管理存取權限";
 "ACCESS_CHECK_START" = "開始檢查";
-"ACCESS_CHECK_EXPLANATION" = "檢查受保護的軟體套件管理存取權限，並短暫取得其鎖定。不會變更軟體套件或軟體來源定義。";
+"ACCESS_CHECK_EXPLANATION" = "檢查受保護的軟體套件管理存取權限，並短暫取得其鎖定。不會變更軟體套件或來源定義。";
 "ACCESS_CHECK_RUNNING" = "正在檢查…";
 "ACCESS_CHECK_PASSED" = "軟體套件管理存取正常。";
 "ACCESS_CHECK_FAILED" = "無法完成檢查。";
 "ACCESS_CHECK_BUSY" = "另一項軟體套件操作正在使用套件管理器。請在操作完成後重試。";
 "ACCESS_CHECK_RUNTIME" = "受保護的執行階段設定";
-"ACCESS_CHECK_TRUST" = "軟體來源與信任狀態";
+"ACCESS_CHECK_TRUST" = "來源與信任狀態";
 "ACCESS_CHECK_LOCK" = "鎖定持有者與互斥存取";
 "ACCESS_CHECK_STATE" = "受保護的 APT 軟體套件狀態";
 "ACCESS_CHECK_RELEASE" = "釋放鎖定與存取保護";
-"ACCESS_CHECK_UNCHANGED" = "軟體套件與軟體來源檔案未變更";
-"ACCESS_CHECK_CHANGED" = "檢查期間軟體套件或軟體來源狀態已變更。請在其他套件管理器閒置時重試。";
+"ACCESS_CHECK_UNCHANGED" = "軟體套件與來源檔案未變更";
+"ACCESS_CHECK_CHANGED" = "檢查期間軟體套件或來源狀態已變更。請在其他套件管理器閒置時重試。";
 "ACCESS_CHECK_TIMEOUT" = "檢查逾時。未啟動任何軟體套件操作。";
 "ACCESS_CHECK_DETAILS" = "技術詳細資訊";
 "ACCESS_CHECK_NOT_RUN" = "尚未檢查";

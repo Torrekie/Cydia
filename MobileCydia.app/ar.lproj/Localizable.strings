@@ -243,7 +243,7 @@
 "HOME_UPGRADING_SELECT" = "اختر دليلًا";
 "HOME_UPGRADING_SHORT_TITLE" = "الترقية";
 "HOME_EMPTY_DESTINATION" = "لا يوجد محتوى متاح هنا.";
-"MORE_SOURCES_READ_ONLY" = "لم تُفعِّل بيئة bootstrap هذه تحرير المصادر في Cydia. أدِر المستودعات باستخدام مدير الحزم الخاص ببيئة bootstrap؛ سيقرأ Cydia مصادر APT نفسها.";
+"MORE_SOURCES_READ_ONLY" = "لم تُفعِّل بيئة توزيع الحزم هذه تحرير المصادر في Cydia. أدِر المصادر باستخدام مدير الحزم الخاص ببيئة توزيع الحزم؛ سيقرأ Cydia مصادر APT نفسها.";
 "HOME_GUIDE_OBSOLETE" = "لم يعد ساريًا:";
 "HOME_GUIDE_NETWORK_DETAILS" = "زر تفاصيل الشبكة";
 "HOME_STORAGE_CALCULATING" = "جارٍ القياس…";

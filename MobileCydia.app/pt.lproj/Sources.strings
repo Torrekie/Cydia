@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "Componentes (opcionais)";
 "SOURCE_CONTINUE" = "Continuar";
 "SOURCE_DEFINITION" = "Definição de fonte";
-"SOURCE_DEFINITION_INVALID" = "Insira uma definição de fonte APT válida. Repositórios não planos precisam de componentes; distribuições que terminam em / não podem ter componentes.";
+"SOURCE_DEFINITION_INVALID" = "Insira uma definição de fonte APT válida. Fontes não planas precisam de componentes; distribuições que terminam em / não podem ter componentes.";
 "SOURCE_DESTINATION_EXPLANATION" = "Escolha o arquivo APT que conterá esta definição.";
 "SOURCE_DISABLE" = "Desativar";
 "SOURCE_DISABLED" = "Desativada";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Ativar";
 "SOURCE_ENABLED" = "Ativada";
 "SOURCE_ENTER_DEFINITION" = "Inserir definição APT";
-"SOURCE_ENTER_DETAILS" = "Insira o URI do repositório, a distribuição e os componentes opcionais. Use ./ para um repositório plano.";
+"SOURCE_ENTER_DETAILS" = "Insira o URI da fonte, a distribuição e os componentes opcionais. Use ./ para uma fonte plana.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "O ambiente APT não está disponível. Revise a configuração nos ajustes avançados.";
 "SOURCE_FILENAME" = "Nome.list ou nome.sources";
 "SOURCE_FILENAME_INVALID" = "Escolha um nome de arquivo compatível com APT que termine em .list ou .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "Arquivo e linha";
 "SOURCE_NEW_FILE" = "Novo arquivo de fontes";
 "SOURCE_NEW_FILE_EXPLANATION" = "Insira um novo nome de arquivo que termine em .list ou .sources. O arquivo só será criado depois que você revisar e salvar a definição.";
-"SOURCE_PROTECTED" = "Este repositório do bootstrap só pode ser alterado nos ajustes avançados.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Repositórios do bootstrap protegidos ou não identificados precisam dos ajustes avançados. Os arquivos de fontes devem estar legíveis antes da edição.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Revise os repositórios do bootstrap protegidos nos ajustes avançados antes de alterar as fontes.";
+"SOURCE_PROTECTED" = "Esta fonte da distribuição de pacotes só pode ser alterada nos ajustes avançados.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Fontes protegidas ou não identificadas da distribuição de pacotes precisam dos ajustes avançados. Os arquivos de fontes devem estar legíveis antes da edição.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Revise as fontes protegidas da distribuição de pacotes nos ajustes avançados antes de alterar as fontes.";
 "SOURCE_RELOAD_REQUIRED" = "O arquivo de fontes mudou. Recarregue as fontes e revise a alteração novamente.";
 "SOURCE_REPOSITORIES" = "URIs e distribuições";
 "SOURCE_REVIEW_CHANGE" = "Revisar alteração de fonte";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "Não foi possível salvar a alteração de fonte. Revise a configuração do APT e as permissões do arquivo.";
 "SOURCE_STATUS" = "Estado";
 "SOURCE_SUITE" = "Suíte ou distribuição";
-"SOURCE_URI" = "URI do repositório";
+"SOURCE_URI" = "URI da fonte";
 "SOURCE_WAIT_FOR_OPERATION" = "Aguarde a conclusão da operação atual com pacotes.";
 "SOURCE_WHOLE_DEFINITION" = "Esta alteração se aplica à definição inteira, incluindo todos os URIs e distribuições nela contidos.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Esta definição é protegida como parte do seu bootstrap. Salvar uma alteração mantém a proteção; removê-la também remove suas referências de proteção.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "A definição da fonte foi alterada, mas não foi possível salvar suas referências de proteção. Revise os repositórios do bootstrap nas configurações avançadas antes de alterar mais fontes.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Esta definição é protegida como parte da sua distribuição de pacotes. Salvar uma alteração mantém a proteção; removê-la também remove suas referências de proteção.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "A definição da fonte foi alterada, mas não foi possível salvar suas referências de proteção. Revise as fontes da distribuição de pacotes nas configurações avançadas antes de alterar mais fontes.";
 "SOURCE_READ_ONLY_ALIAS" = "Esta fonte é um link gerenciado fora do Cydia. O Cydia pode usá-la, mas não pode editar nem remover suas definições.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Ajustes dos repositórios";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Ajustes avançados dos repositórios";
+"SOURCE_REPOSITORY_SETTINGS" = "Ajustes das fontes";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Ajustes avançados das fontes";
 "SOURCE_DEFINITION_DETAILS" = "Detalhes da definição";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "Este repositório tem mais de uma definição de fonte. Escolha a definição a remover.";
-"SOURCE_DELETE_UNAVAILABLE" = "Este repositório não pode ser removido aqui. Revise suas definições de fonte nos Ajustes.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Esta fonte tem mais de uma definição de fonte. Escolha a definição a remover.";
+"SOURCE_DELETE_UNAVAILABLE" = "Esta fonte não pode ser removida aqui. Revise suas definições de fonte nos Ajustes.";
+"SOURCE_REMOVE" = "Remover fonte";

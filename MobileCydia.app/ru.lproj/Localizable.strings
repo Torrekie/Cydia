@@ -208,7 +208,7 @@
 "HOME_UPGRADING_SELECT" = "Выберите руководство";
 "HOME_UPGRADING_SHORT_TITLE" = "Обновление";
 "HOME_EMPTY_DESTINATION" = "Здесь нет доступного содержимого.";
-"MORE_SOURCES_READ_ONLY" = "В этой среде bootstrap редактирование источников в Cydia не включено. Управляйте репозиториями с помощью менеджера пакетов вашей среды bootstrap; Cydia будет читать те же источники APT.";
+"MORE_SOURCES_READ_ONLY" = "В этой среде распространения пакетов редактирование источников в Cydia не включено. Управляйте источниками с помощью её менеджера пакетов; Cydia будет читать те же источники APT.";
 "HOME_GUIDE_OBSOLETE" = "Устарело:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Кнопка сведений о сети";
 "HOME_STORAGE_CALCULATING" = "Измерение…";

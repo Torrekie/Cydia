@@ -24,12 +24,12 @@
 "REPOSITORY_BAD_SIGNATURE" = "De handtekening van %@ komt niet overeen met de inhoud.";
 "REPOSITORY_INVALID_SIGNATURE" = "De handtekening van %@ is ongeldig of de metadata zijn beschadigd.";
 "ADVANCED_SETTINGS" = "Geavanceerde instellingen";
-"BOOTSTRAP_REPOSITORIES" = "Bootstrap-pakketbronnen";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Selecteer pakketbronnen om ze te beschermen tegen wijzigingen onder Bronnen. Controleer deze selectie hier wanneer je de bootstrap wijzigt. Cydia voegt geen pakketbronnen automatisch toe.";
+"BOOTSTRAP_REPOSITORIES" = "Distributiebronnen";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Selecteer de bronnen die de basisgereedschappen en bibliotheken van je pakketdistributie leveren. Ze zijn beschermd tegen wijzigingen onder Bronnen. Controleer deze selectie hier wanneer je van distributie verandert. Cydia voegt niet automatisch bronnen toe.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Een beschermde definitie is gewijzigd of verwijderd. Controleer het bronbestand en deselecteer hier de oude verwijzing voordat je opslaat.";
 "BOOTSTRAP_NONE_SELECTED" = "Er zijn geen pakketbronnen geselecteerd. Bevestig om zonder bronbescherming op te slaan.";
 "EXTERNAL_EXECUTABLES" = "Externe uitvoerbare bestanden";
-"EXTERNAL_EXECUTABLES_HELP" = "Voer een absoluut pad naar een vertrouwd uitvoerbaar bestand in. Laat het leeg om de bootstrap-standaard te gebruiken. Wijzigingen worden toegepast nadat Cydia opnieuw is geopend.";
+"EXTERNAL_EXECUTABLES_HELP" = "Voer een absoluut pad naar een vertrouwd uitvoerbaar bestand in. Laat het leeg om de standaard van de pakketdistributie te gebruiken. Wijzigingen worden toegepast nadat Cydia opnieuw is geopend.";
 "SOURCE_REVIEW_REQUIRED" = "Controleer de bronconfiguratie in de geavanceerde instellingen.";
 "SOURCE_SAVE_FAILED" = "De bronnen konden niet worden opgeslagen. Laad ze opnieuw en controleer de configuratie.";
 "SETTINGS_SAVED" = "Instellingen opgeslagen.";
@@ -63,7 +63,7 @@
 "TRANSACTION_FAILED" = "De pakketbewerking is niet voltooid. Bekijk de fouten voordat je het opnieuw probeert.";
 "TRANSACTION_STATE_SAVE_FAILED" = "De pakketten zijn gewijzigd, maar hun gegevens over automatische installatie konden niet worden opgeslagen. Bekijk de fout voordat je een nieuwe bewerking start.";
 
-"KEY_IMPORT" = "Repositorysleutel importeren";
+"KEY_IMPORT" = "Bronsleutel importeren";
 "KEY_IMPORT_CHOOSE_FILE" = "Een openbaar sleutelbestand kiezen";
 "KEY_IMPORT_PACKAGE" = "Een sleutel uit een pakket kiezen";
 "KEY_IMPORT_PACKAGE_PROMPT" = "Voer de identificatie in van het pakket dat de sleutel levert.";
@@ -80,21 +80,21 @@
 "KEY_IMPORT_SELECTED" = "Sleutelbestand: %@";
 "KEY_IMPORT_VERIFIER" = "Er is geen vertrouwd programma voor sleutelverificatie beschikbaar. Stel het GnuPG-programma in bij de geavanceerde instellingen en controleer de sleutel opnieuw.";
 
-"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Vernieuw de bronnen om de authenticiteit van de repository voor %@ in deze sessie te controleren.";
+"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Vernieuw de bronnen om de authenticiteit van de bron voor %@ in deze sessie te controleren.";
 
-"REPOSITORY_SECURITY_REFRESH_EX" = "In de foutmodus moeten de bronnen bij elke opening van Cydia succesvol worden vernieuwd. Het opnieuw laden van pakketlijsten of wijzigen van het beleid vernieuwt de repository-authenticatie niet.";
+"REPOSITORY_SECURITY_REFRESH_EX" = "In de foutmodus moeten de bronnen bij elke opening van Cydia succesvol worden vernieuwd. Het opnieuw laden van pakketlijsten of wijzigen van het beleid vernieuwt de bronauthenticatie niet.";
 
-"BOOTSTRAP_DATABASE_ACCESS" = "Toegang tot de bootstrapdatabase";
+"BOOTSTRAP_DATABASE_ACCESS" = "Toegang tot de distributiedatabase";
 
 "REPOSITORY_SETTINGS" = "Instellingen voor pakketbronnen";
 "REPOSITORY_SETTINGS_HELP" = "Schakel pakketbronnen in en bewerk hun configuratie.";
-"ADVANCED_SETTINGS_HELP" = "Bootstrapcompatibiliteit en problemen oplossen.";
-"BOOTSTRAP_DEFAULT" = "Bootstrap-standaard";
-"TOOL_OVERRIDES_UNAVAILABLE" = "De opgeslagen paden konden niet worden gelezen. Controleer je bootstrapconfiguratie.";
+"ADVANCED_SETTINGS_HELP" = "Compatibiliteit met de pakketdistributie en problemen oplossen.";
+"BOOTSTRAP_DEFAULT" = "Distributiestandaard";
+"TOOL_OVERRIDES_UNAVAILABLE" = "De opgeslagen paden konden niet worden gelezen. Controleer de configuratie van je pakketdistributie.";
 "TOOL_CUSTOM_PATH" = "Aangepast pad";
-"TOOL_USE_DEFAULT" = "Bootstrap-standaard gebruiken";
-"TOOL_PATH_HELP" = "Gebruik de bootstrap-standaard of voer het volledige pad naar een vertrouwd uitvoerbaar bestand in. Open Cydia opnieuw na het opslaan.";
-"BOOTSTRAP_CONFIGURATION" = "Bootstrapconfiguratie";
+"TOOL_USE_DEFAULT" = "Distributiestandaard gebruiken";
+"TOOL_PATH_HELP" = "Gebruik de standaard van de pakketdistributie of voer het volledige pad naar een vertrouwd uitvoerbaar bestand in. Open Cydia opnieuw na het opslaan.";
+"BOOTSTRAP_CONFIGURATION" = "Pakketdistributie";
 "PROTECTED_REPOSITORY_SETTINGS" = "Instellingen voor beschermde pakketbronnen";
 "COMPATIBILITY" = "Compatibiliteit";
 "DIAGNOSTICS" = "Problemen oplossen";

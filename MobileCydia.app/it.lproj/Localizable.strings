@@ -243,7 +243,7 @@
 "HOME_UPGRADING_SELECT" = "Seleziona una guida";
 "HOME_UPGRADING_SHORT_TITLE" = "Aggiornamento";
 "HOME_EMPTY_DESTINATION" = "Qui non è disponibile alcun contenuto.";
-"MORE_SOURCES_READ_ONLY" = "In questo ambiente bootstrap la modifica delle sorgenti in Cydia non è abilitata. Gestisci i repository con il gestore di pacchetti del tuo ambiente bootstrap; Cydia leggerà le stesse sorgenti APT.";
+"MORE_SOURCES_READ_ONLY" = "In questo ambiente di distribuzione di pacchetti la modifica delle sorgenti in Cydia non è abilitata. Gestisci le sorgenti con il gestore di pacchetti del tuo ambiente di distribuzione di pacchetti; Cydia leggerà le stesse sorgenti APT.";
 "HOME_GUIDE_OBSOLETE" = "Obsoleto:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Pulsante dei dettagli di rete";
 "HOME_STORAGE_CALCULATING" = "Misurazione…";

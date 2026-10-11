@@ -1,36 +1,36 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
-"REPOSITORY_SECURITY" = "Sécurité des dépôts";
-"REPOSITORY_SECURITY_EXPLANATION" = "Choisissez comment Cydia traite les dépôts dont les signatures ne peuvent pas être vérifiées. L’intégrité des téléchargements est toujours contrôlée.";
+"REPOSITORY_SECURITY" = "Sécurité des sources";
+"REPOSITORY_SECURITY_EXPLANATION" = "Choisissez comment Cydia traite les sources dont les signatures ne peuvent pas être vérifiées. L’intégrité des téléchargements est toujours contrôlée.";
 "SECURITY_ALLOW" = "Autoriser";
 "SECURITY_WARNING" = "Avertissement";
 "SECURITY_ERROR" = "Erreur";
 "SECURITY_ALLOW_DETAIL" = "Autoriser sans avertissements de confiance de Cydia.";
 "SECURITY_WARNING_DETAIL" = "Autoriser et afficher les avertissements (par défaut).";
-"SECURITY_ERROR_DETAIL" = "Bloquer les dépôts et paquets dont l’authenticité ne peut pas être vérifiée.";
+"SECURITY_ERROR_DETAIL" = "Bloquer les sources et paquets dont l’authenticité ne peut pas être vérifiée.";
 "SETTINGS_WAIT_FOR_OPERATION" = "Attendez la fin de l’opération en cours avant de modifier ce réglage.";
 "SETTINGS_SAVE_FAILED" = "Le réglage n’a pas pu être enregistré.";
 "ARCHIVE_INCOMPLETE" = "Le téléchargement de %@ est incomplet.";
 "ARCHIVE_MISSING_HASHES" = "Les empreintes de contrôle d’intégrité attendues pour %@ sont absentes.";
 "ARCHIVE_MISMATCH" = "Le fichier téléchargé pour %@ ne correspond pas aux empreintes de contrôle d’intégrité attendues.";
 "ARCHIVE_UNAVAILABLE" = "Impossible de lire le fichier téléchargé pour %@.";
-"ARCHIVE_UNAUTHENTICATED" = "Impossible d’authentifier le dépôt qui fournit %@.";
+"ARCHIVE_UNAUTHENTICATED" = "Impossible d’authentifier la source qui fournit %@.";
 "PACKAGE_CHANGES_UNAVAILABLE" = "La modification des paquets est indisponible, car Cydia n’a pas pu vérifier la configuration du gestionnaire de paquets sélectionné.";
 "REPOSITORY_UNSIGNED" = "%@ n’est pas signé.";
 "REPOSITORY_MISSING_KEY" = "La clé de signature de %@ est manquante.";
 "REPOSITORY_UNUSABLE_KEY" = "La clé de signature de %@ a expiré ou est inutilisable.";
 "REPOSITORY_WEAK" = "%@ utilise des algorithmes de signature ou d’intégrité faibles.";
 "REPOSITORY_MISSING_RELEASE" = "%@ ne fournit pas de fichier Release.";
-"REPOSITORY_TRUST_DOWNGRADE" = "%@ ne fournit plus de métadonnées de dépôt authentifiées.";
+"REPOSITORY_TRUST_DOWNGRADE" = "%@ ne fournit plus de métadonnées de source authentifiées.";
 "REPOSITORY_BAD_SIGNATURE" = "La signature de %@ ne correspond pas à son contenu.";
 "REPOSITORY_INVALID_SIGNATURE" = "La signature de %@ est invalide ou ses métadonnées sont endommagées.";
 "ADVANCED_SETTINGS" = "Réglages avancés";
-"BOOTSTRAP_REPOSITORIES" = "Dépôts du bootstrap";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Sélectionnez les dépôts à protéger des modifications dans Sources. Vérifiez cette sélection ici lorsque vous changez de bootstrap. Cydia n’ajoute pas de dépôts automatiquement.";
+"BOOTSTRAP_REPOSITORIES" = "Sources de la distribution";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Sélectionnez les sources qui fournissent les outils et bibliothèques essentiels de votre distribution de paquets. Elles sont protégées contre les modifications dans Sources. Vérifiez cette sélection ici lorsque vous changez de distribution. Cydia n’ajoute pas de sources automatiquement.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Une définition protégée a été modifiée ou supprimée. Vérifiez son fichier source, puis désélectionnez ici l’ancienne référence avant d’enregistrer.";
-"BOOTSTRAP_NONE_SELECTED" = "Aucun dépôt n’est sélectionné. Confirmez pour enregistrer sans protection des dépôts.";
+"BOOTSTRAP_NONE_SELECTED" = "Aucune source n’est sélectionnée. Confirmez pour enregistrer sans protection des sources.";
 "EXTERNAL_EXECUTABLES" = "Exécutables externes";
-"EXTERNAL_EXECUTABLES_HELP" = "Saisissez le chemin absolu d’un exécutable de confiance. Laissez le champ vide pour utiliser la valeur par défaut du bootstrap. Les modifications s’appliquent après avoir rouvert Cydia.";
-"SOURCE_REVIEW_REQUIRED" = "Vérifiez la configuration des dépôts dans les réglages avancés.";
+"EXTERNAL_EXECUTABLES_HELP" = "Saisissez le chemin absolu d’un exécutable de confiance. Laissez le champ vide pour utiliser la valeur par défaut de la distribution de paquets. Les modifications s’appliquent après avoir rouvert Cydia.";
+"SOURCE_REVIEW_REQUIRED" = "Vérifiez la configuration des sources dans les réglages avancés.";
 "SOURCE_SAVE_FAILED" = "Les sources n’ont pas pu être enregistrées. Rechargez-les et vérifiez leur configuration.";
 "SETTINGS_SAVED" = "Réglages enregistrés.";
 "SETTING_RESTART_REQUIRED" = "Le réglage a été enregistré. Rouvrez Cydia pour l’appliquer.";
@@ -63,7 +63,7 @@
 "TRANSACTION_FAILED" = "L’opération sur les paquets n’a pas été terminée. Examinez les erreurs avant de réessayer.";
 "TRANSACTION_STATE_SAVE_FAILED" = "Les paquets ont été modifiés, mais les informations sur leur installation automatique n’ont pas pu être enregistrées. Examinez l’erreur avant de lancer une autre opération.";
 
-"KEY_IMPORT" = "Importer une clé de dépôt";
+"KEY_IMPORT" = "Importer une clé de source";
 "KEY_IMPORT_CHOOSE_FILE" = "Choisir un fichier de clé publique";
 "KEY_IMPORT_PACKAGE" = "Choisir une clé fournie par un paquet";
 "KEY_IMPORT_PACKAGE_PROMPT" = "Saisissez l’identifiant du paquet qui fournit la clé.";
@@ -80,32 +80,32 @@
 "KEY_IMPORT_SELECTED" = "Fichier de clé : %@";
 "KEY_IMPORT_VERIFIER" = "Aucun outil de vérification des clés de confiance n’est disponible. Configurez l’exécutable GnuPG dans les réglages avancés, puis examinez à nouveau la clé.";
 
-"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Actualisez les sources pour vérifier l’authenticité du dépôt de %@ dans cette session.";
+"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Actualisez les sources pour vérifier l’authenticité de la source de %@ dans cette session.";
 
-"REPOSITORY_SECURITY_REFRESH_EX" = "Le mode Erreur exige une actualisation réussie des sources à chaque ouverture de Cydia. Recharger les listes de paquets ou changer la politique ne renouvelle pas l’authentification des dépôts.";
+"REPOSITORY_SECURITY_REFRESH_EX" = "Le mode Erreur exige une actualisation réussie des sources à chaque ouverture de Cydia. Recharger les listes de paquets ou changer la politique ne renouvelle pas l’authentification des sources.";
 
-"BOOTSTRAP_DATABASE_ACCESS" = "Accès à la base de données du bootstrap";
+"BOOTSTRAP_DATABASE_ACCESS" = "Accès à la base de données de la distribution";
 
-"REPOSITORY_SETTINGS" = "Réglages des dépôts";
-"REPOSITORY_SETTINGS_HELP" = "Activez les dépôts et modifiez leur configuration.";
-"ADVANCED_SETTINGS_HELP" = "Compatibilité du bootstrap et dépannage.";
-"BOOTSTRAP_DEFAULT" = "Valeur par défaut du bootstrap";
-"TOOL_OVERRIDES_UNAVAILABLE" = "Les chemins enregistrés n’ont pas pu être lus. Vérifiez la configuration de votre bootstrap.";
+"REPOSITORY_SETTINGS" = "Réglages des sources";
+"REPOSITORY_SETTINGS_HELP" = "Activez les sources et modifiez leur configuration.";
+"ADVANCED_SETTINGS_HELP" = "Compatibilité de la distribution de paquets et dépannage.";
+"BOOTSTRAP_DEFAULT" = "Valeur par défaut de la distribution";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Les chemins enregistrés n’ont pas pu être lus. Vérifiez la configuration de votre distribution de paquets.";
 "TOOL_CUSTOM_PATH" = "Chemin personnalisé";
-"TOOL_USE_DEFAULT" = "Utiliser la valeur par défaut du bootstrap";
-"TOOL_PATH_HELP" = "Utilisez la valeur par défaut du bootstrap ou saisissez le chemin complet d’un exécutable de confiance. Rouvrez Cydia après l’enregistrement.";
-"BOOTSTRAP_CONFIGURATION" = "Configuration du bootstrap";
-"PROTECTED_REPOSITORY_SETTINGS" = "Réglages des dépôts protégés";
+"TOOL_USE_DEFAULT" = "Utiliser la valeur par défaut de la distribution de paquets";
+"TOOL_PATH_HELP" = "Utilisez la valeur par défaut de la distribution de paquets ou saisissez le chemin complet d’un exécutable de confiance. Rouvrez Cydia après l’enregistrement.";
+"BOOTSTRAP_CONFIGURATION" = "Distribution de paquets";
+"PROTECTED_REPOSITORY_SETTINGS" = "Réglages des sources protégées";
 "COMPATIBILITY" = "Compatibilité";
 "DIAGNOSTICS" = "Dépannage";
 "SETTINGS_SAVE" = "Enregistrer";
 "DISCARD_SETTINGS_TITLE" = "Abandonner les modifications ?";
 "DISCARD_SETTINGS_MESSAGE" = "Vos modifications n’ont pas été enregistrées.";
 "DISCARD_SETTINGS_ACTION" = "Abandonner les modifications";
-"KEY_IMPORT_NO_SOURCES" = "Ajoutez un dépôt dans Sources avant d’importer sa clé.";
+"KEY_IMPORT_NO_SOURCES" = "Ajoutez une source dans Sources avant d’importer sa clé.";
 "KEY_IMPORT_ACTION" = "Importer";
 "KEY_IMPORT_REVIEW_ACTION" = "Examiner";
 "KEY_IMPORT_NO_FILE" = "Aucun fichier de clé sélectionné.";
 
-"KEY_IMPORT_SOURCE_CHANGED" = "Le dépôt a changé. Sélectionnez-le de nouveau et examinez la clé.";
-"KEY_IMPORT_PARTIAL" = "La clé a été enregistrée, mais la configuration de son dépôt n’a pas pu être mise à jour. Vérifiez les réglages du dépôt avant de réessayer.";
+"KEY_IMPORT_SOURCE_CHANGED" = "La source a changé. Sélectionnez-la de nouveau et examinez la clé.";
+"KEY_IMPORT_PARTIAL" = "La clé a été enregistrée, mais la configuration de sa source n’a pas pu être mise à jour. Vérifiez les réglages de la source avant de réessayer.";

@@ -243,7 +243,7 @@
 "HOME_UPGRADING_SELECT" = "Selecteer een handleiding";
 "HOME_UPGRADING_SHORT_TITLE" = "Bijwerken";
 "HOME_EMPTY_DESTINATION" = "Hier is geen inhoud beschikbaar.";
-"MORE_SOURCES_READ_ONLY" = "In deze bootstrapomgeving is het bewerken van bronnen in Cydia niet ingeschakeld. Beheer pakketbronnen met de pakketbeheerder van uw bootstrapomgeving; Cydia leest dezelfde APT-bronnen.";
+"MORE_SOURCES_READ_ONLY" = "In deze pakketdistributieomgeving is het bewerken van bronnen in Cydia niet ingeschakeld. Beheer pakketbronnen met de pakketbeheerder van uw pakketdistributieomgeving; Cydia leest dezelfde APT-bronnen.";
 "HOME_GUIDE_OBSOLETE" = "Verouderd:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Knop voor netwerkdetails";
 "HOME_STORAGE_CALCULATING" = "Bezig met meten…";

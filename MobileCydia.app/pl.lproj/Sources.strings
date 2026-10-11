@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Włącz";
 "SOURCE_ENABLED" = "Włączone";
 "SOURCE_ENTER_DEFINITION" = "Wprowadź definicję APT";
-"SOURCE_ENTER_DETAILS" = "Wprowadź URI repozytorium, wydanie i opcjonalne komponenty. Dla repozytorium płaskiego użyj ./.";
+"SOURCE_ENTER_DETAILS" = "Wprowadź URI źródła, wydanie i opcjonalne komponenty. Dla płaskiego źródła użyj ./.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "Środowisko APT jest niedostępne. Sprawdź jego konfigurację w ustawieniach zaawansowanych.";
 "SOURCE_FILENAME" = "Nazwa.list lub nazwa.sources";
 "SOURCE_FILENAME_INVALID" = "Wybierz zgodną z APT nazwę pliku zakończoną na .list lub .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "Plik i wiersz";
 "SOURCE_NEW_FILE" = "Nowy plik źródeł";
 "SOURCE_NEW_FILE_EXPLANATION" = "Wprowadź nową nazwę pliku zakończoną na .list lub .sources. Plik zostanie utworzony dopiero po sprawdzeniu i zapisaniu definicji.";
-"SOURCE_PROTECTED" = "To repozytorium bootstrapu można zmienić tylko w ustawieniach zaawansowanych.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Chronione lub nierozpoznane repozytoria bootstrapu wymagają ustawień zaawansowanych. Przed edycją pliki źródeł muszą być możliwe do odczytania.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Przed zmianą źródeł sprawdź chronione repozytoria bootstrapu w ustawieniach zaawansowanych.";
+"SOURCE_PROTECTED" = "To źródło dystrybucji pakietów można zmienić tylko w ustawieniach zaawansowanych.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Chronione lub nierozpoznane źródła dystrybucji pakietów wymagają ustawień zaawansowanych. Przed edycją pliki źródeł muszą być możliwe do odczytania.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Przed zmianą źródeł sprawdź chronione źródła dystrybucji pakietów w ustawieniach zaawansowanych.";
 "SOURCE_RELOAD_REQUIRED" = "Plik źródeł został zmieniony. Wczytaj ponownie Źródła i jeszcze raz sprawdź zmianę.";
 "SOURCE_REPOSITORIES" = "URI i wydania";
 "SOURCE_REVIEW_CHANGE" = "Sprawdź zmianę źródła";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "Nie można zapisać zmiany źródła. Sprawdź konfigurację APT i uprawnienia pliku.";
 "SOURCE_STATUS" = "Stan";
 "SOURCE_SUITE" = "Wydanie lub dystrybucja";
-"SOURCE_URI" = "URI repozytorium";
+"SOURCE_URI" = "URI źródła";
 "SOURCE_WAIT_FOR_OPERATION" = "Poczekaj na zakończenie bieżącej operacji na pakietach.";
 "SOURCE_WHOLE_DEFINITION" = "Ta zmiana obejmuje całą definicję, w tym wszystkie zawarte w niej URI i wydania.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Ta definicja jest chroniona jako część środowiska bootstrap. Zapisanie zmiany zachowuje ochronę; usunięcie definicji usuwa również jej odwołania ochrony.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "Definicja źródła została zmieniona, ale nie udało się zapisać jej odwołań ochrony. Przejrzyj repozytoria środowiska bootstrap w ustawieniach zaawansowanych przed zmianą kolejnych źródeł.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Ta definicja jest chroniona jako część środowiska dystrybucji pakietów. Zapisanie zmiany zachowuje ochronę; usunięcie definicji usuwa również jej odwołania ochrony.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "Definicja źródła została zmieniona, ale nie udało się zapisać jej odwołań ochrony. Przejrzyj źródła środowiska dystrybucji pakietów w ustawieniach zaawansowanych przed zmianą kolejnych źródeł.";
 "SOURCE_READ_ONLY_ALIAS" = "To źródło jest dowiązaniem zarządzanym poza aplikacją Cydia. Cydia może z niego korzystać, ale nie może edytować ani usuwać jego definicji.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Ustawienia repozytoriów";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Zaawansowane ustawienia repozytoriów";
+"SOURCE_REPOSITORY_SETTINGS" = "Ustawienia źródeł";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Zaawansowane ustawienia źródeł";
 "SOURCE_DEFINITION_DETAILS" = "Szczegóły definicji";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "To repozytorium ma więcej niż jedną definicję źródła. Wybierz definicję do usunięcia.";
-"SOURCE_DELETE_UNAVAILABLE" = "Nie można tutaj usunąć tego repozytorium. Sprawdź jego definicje źródeł w Ustawieniach.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "To źródło ma więcej niż jedną definicję źródła. Wybierz definicję do usunięcia.";
+"SOURCE_DELETE_UNAVAILABLE" = "Nie można tutaj usunąć tego źródła. Sprawdź jego definicje źródeł w Ustawieniach.";
+"SOURCE_REMOVE" = "Usuń źródło";

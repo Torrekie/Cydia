@@ -1,18 +1,18 @@
 /* Native package management access check. Copyright (C) 2026 Torrekie. */
 "ACCESS_CHECK_TITLE" = "Vérifier l’accès à la gestion des paquets";
 "ACCESS_CHECK_START" = "Lancer la vérification";
-"ACCESS_CHECK_EXPLANATION" = "Vérifie l’accès protégé au gestionnaire de paquets et prend brièvement son verrou. Aucun paquet ni aucune définition de dépôt n’est modifié.";
+"ACCESS_CHECK_EXPLANATION" = "Vérifie l’accès protégé au gestionnaire de paquets et prend brièvement son verrou. Aucun paquet ni aucune définition de source n’est modifié.";
 "ACCESS_CHECK_RUNNING" = "Vérification…";
 "ACCESS_CHECK_PASSED" = "L’accès à la gestion des paquets fonctionne.";
 "ACCESS_CHECK_FAILED" = "La vérification n’a pas pu être terminée.";
 "ACCESS_CHECK_BUSY" = "Une autre opération utilise le gestionnaire de paquets. Réessayez lorsqu’elle sera terminée.";
 "ACCESS_CHECK_RUNTIME" = "Configuration d’exécution protégée";
-"ACCESS_CHECK_TRUST" = "État des dépôts et de la confiance";
+"ACCESS_CHECK_TRUST" = "État des sources et de la confiance";
 "ACCESS_CHECK_LOCK" = "Détenteur du verrou et accès exclusif";
 "ACCESS_CHECK_STATE" = "État protégé des paquets APT";
 "ACCESS_CHECK_RELEASE" = "Libération du verrou et protection de l’accès";
-"ACCESS_CHECK_UNCHANGED" = "Les fichiers des paquets et des dépôts sont restés inchangés";
-"ACCESS_CHECK_CHANGED" = "L’état des paquets ou des dépôts a changé pendant la vérification. Réessayez lorsque les autres gestionnaires de paquets sont inactifs.";
+"ACCESS_CHECK_UNCHANGED" = "Les fichiers des paquets et des sources sont restés inchangés";
+"ACCESS_CHECK_CHANGED" = "L’état des paquets ou des sources a changé pendant la vérification. Réessayez lorsque les autres gestionnaires de paquets sont inactifs.";
 "ACCESS_CHECK_TIMEOUT" = "La vérification a dépassé le délai imparti. Aucune opération sur les paquets n’a été lancée.";
 "ACCESS_CHECK_DETAILS" = "Détails techniques";
 "ACCESS_CHECK_NOT_RUN" = "Non vérifié";

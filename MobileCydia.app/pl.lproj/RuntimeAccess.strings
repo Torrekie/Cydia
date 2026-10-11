@@ -1,18 +1,18 @@
 /* Native package management access check. Copyright (C) 2026 Torrekie. */
 "ACCESS_CHECK_TITLE" = "Sprawdź dostęp do zarządzania pakietami";
 "ACCESS_CHECK_START" = "Uruchom sprawdzanie";
-"ACCESS_CHECK_EXPLANATION" = "Sprawdza chroniony dostęp do menedżera pakietów i na krótko przejmuje jego blokadę. Pakiety ani definicje repozytoriów nie są zmieniane.";
+"ACCESS_CHECK_EXPLANATION" = "Sprawdza chroniony dostęp do menedżera pakietów i na krótko przejmuje jego blokadę. Pakiety ani definicje źródeł nie są zmieniane.";
 "ACCESS_CHECK_RUNNING" = "Sprawdzanie…";
 "ACCESS_CHECK_PASSED" = "Dostęp do zarządzania pakietami działa.";
 "ACCESS_CHECK_FAILED" = "Nie udało się zakończyć sprawdzania.";
 "ACCESS_CHECK_BUSY" = "Inna operacja korzysta z menedżera pakietów. Spróbuj ponownie po jej zakończeniu.";
 "ACCESS_CHECK_RUNTIME" = "Chroniona konfiguracja wykonawcza";
-"ACCESS_CHECK_TRUST" = "Stan repozytoriów i zaufania";
+"ACCESS_CHECK_TRUST" = "Stan źródeł i zaufania";
 "ACCESS_CHECK_LOCK" = "Właściciel blokady i wyłączność dostępu";
 "ACCESS_CHECK_STATE" = "Chroniony stan pakietów APT";
 "ACCESS_CHECK_RELEASE" = "Zwolnienie blokady i ochrona dostępu";
-"ACCESS_CHECK_UNCHANGED" = "Pliki pakietów i repozytoriów pozostały bez zmian";
-"ACCESS_CHECK_CHANGED" = "Stan pakietów lub repozytoriów zmienił się podczas sprawdzania. Spróbuj ponownie, gdy inne menedżery pakietów nie będą aktywne.";
+"ACCESS_CHECK_UNCHANGED" = "Pliki pakietów i źródeł pozostały bez zmian";
+"ACCESS_CHECK_CHANGED" = "Stan pakietów lub źródeł zmienił się podczas sprawdzania. Spróbuj ponownie, gdy inne menedżery pakietów nie będą aktywne.";
 "ACCESS_CHECK_TIMEOUT" = "Upłynął limit czasu sprawdzania. Nie rozpoczęto żadnej operacji na pakietach.";
 "ACCESS_CHECK_DETAILS" = "Szczegóły techniczne";
 "ACCESS_CHECK_NOT_RUN" = "Nie sprawdzono";

@@ -1,18 +1,18 @@
 /* Native package management access check. Copyright (C) 2026 Torrekie. */
 "ACCESS_CHECK_TITLE" = "パッケージ管理へのアクセスを確認";
 "ACCESS_CHECK_START" = "確認を実行";
-"ACCESS_CHECK_EXPLANATION" = "パッケージ管理への保護されたアクセスを確認し、一時的にロックを取得します。パッケージやリポジトリ定義は変更されません。";
+"ACCESS_CHECK_EXPLANATION" = "パッケージ管理への保護されたアクセスを確認し、一時的にロックを取得します。パッケージやソース定義は変更されません。";
 "ACCESS_CHECK_RUNNING" = "確認中…";
 "ACCESS_CHECK_PASSED" = "パッケージ管理へのアクセスは正常です。";
 "ACCESS_CHECK_FAILED" = "確認を完了できませんでした。";
 "ACCESS_CHECK_BUSY" = "別のパッケージ操作がパッケージマネージャーを使用しています。完了してからもう一度お試しください。";
 "ACCESS_CHECK_RUNTIME" = "保護された実行時設定";
-"ACCESS_CHECK_TRUST" = "リポジトリと信頼の状態";
+"ACCESS_CHECK_TRUST" = "ソースと信頼の状態";
 "ACCESS_CHECK_LOCK" = "ロックの所有者と排他制御";
 "ACCESS_CHECK_STATE" = "保護されたAPTパッケージ状態";
 "ACCESS_CHECK_RELEASE" = "ロックの解放とアクセス保護";
-"ACCESS_CHECK_UNCHANGED" = "パッケージとリポジトリのファイルに変更なし";
-"ACCESS_CHECK_CHANGED" = "確認中にパッケージまたはリポジトリの状態が変わりました。他のパッケージマネージャーが動作していないときにもう一度お試しください。";
+"ACCESS_CHECK_UNCHANGED" = "パッケージとソースのファイルに変更なし";
+"ACCESS_CHECK_CHANGED" = "確認中にパッケージまたはソースの状態が変わりました。他のパッケージマネージャーが動作していないときにもう一度お試しください。";
 "ACCESS_CHECK_TIMEOUT" = "確認がタイムアウトしました。パッケージ操作は開始されていません。";
 "ACCESS_CHECK_DETAILS" = "技術的な詳細";
 "ACCESS_CHECK_NOT_RUN" = "未確認";

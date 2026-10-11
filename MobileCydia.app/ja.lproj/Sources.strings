@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "有効にする";
 "SOURCE_ENABLED" = "有効";
 "SOURCE_ENTER_DEFINITION" = "APT 定義を入力";
-"SOURCE_ENTER_DETAILS" = "リポジトリの URI、スイート、任意のコンポーネントを入力してください。フラット形式のリポジトリには ./ を指定します。";
+"SOURCE_ENTER_DETAILS" = "ソースの URI、スイート、任意のコンポーネントを入力してください。フラット形式のソースには ./ を指定します。";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "APT 環境を利用できません。詳細設定で構成を確認してください。";
 "SOURCE_FILENAME" = "ファイル名.list または ファイル名.sources";
 "SOURCE_FILENAME_INVALID" = ".list または .sources で終わる、APT で使用できるファイル名を指定してください。";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "ファイルと行番号";
 "SOURCE_NEW_FILE" = "新規ソースファイル";
 "SOURCE_NEW_FILE_EXPLANATION" = ".list または .sources で終わる新しいファイル名を入力してください。定義を確認して保存した後にファイルが作成されます。";
-"SOURCE_PROTECTED" = "このブートストラップ用リポジトリは詳細設定でのみ変更できます。";
-"SOURCE_PROTECTED_OR_REVIEW" = "保護されたブートストラップ用リポジトリや特定できないものは詳細設定で確認してください。編集にはソースファイルを読み取れる必要があります。";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "ソースを変更する前に、詳細設定で保護されたブートストラップ用リポジトリを確認してください。";
+"SOURCE_PROTECTED" = "この配布環境のソースは詳細設定でのみ変更できます。";
+"SOURCE_PROTECTED_OR_REVIEW" = "保護された配布環境のソースや特定できないものは詳細設定で確認してください。編集にはソースファイルを読み取れる必要があります。";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "ソースを変更する前に、詳細設定で保護された配布環境のソースを確認してください。";
 "SOURCE_RELOAD_REQUIRED" = "ソースファイルが変更されました。ソースを再読み込みして変更内容を再確認してください。";
 "SOURCE_REPOSITORIES" = "URI とスイート";
 "SOURCE_REVIEW_CHANGE" = "ソースの変更を確認";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "ソースの変更を保存できませんでした。APT の構成とファイルの権限を確認してください。";
 "SOURCE_STATUS" = "状態";
 "SOURCE_SUITE" = "スイートまたはディストリビューション";
-"SOURCE_URI" = "リポジトリ URI";
+"SOURCE_URI" = "ソース URI";
 "SOURCE_WAIT_FOR_OPERATION" = "現在のパッケージ操作が完了するまでお待ちください。";
 "SOURCE_WHOLE_DEFINITION" = "この変更は、すべての URI とスイートを含む定義全体に適用されます。";
-"SOURCE_BOOTSTRAP_CHANGE" = "この定義はブートストラップの一部として保護されています。編集を保存しても保護は維持されます。定義を削除すると、その保護参照も削除されます。";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "ソースの定義は変更されましたが、保護参照を保存できませんでした。他のソースを変更する前に、詳細設定でブートストラップのリポジトリを確認してください。";
+"SOURCE_BOOTSTRAP_CHANGE" = "この定義はパッケージ配布環境の一部として保護されています。編集を保存しても保護は維持されます。定義を削除すると、その保護参照も削除されます。";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "ソースの定義は変更されましたが、保護参照を保存できませんでした。他のソースを変更する前に、詳細設定でパッケージ配布環境のソースを確認してください。";
 "SOURCE_READ_ONLY_ALIAS" = "このソースは Cydia の外部で管理されているリンクです。Cydia で利用できますが、その定義を編集または削除することはできません。";
 
-"SOURCE_REPOSITORY_SETTINGS" = "リポジトリ設定";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "リポジトリの詳細設定";
+"SOURCE_REPOSITORY_SETTINGS" = "ソース設定";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "ソースの詳細設定";
 "SOURCE_DEFINITION_DETAILS" = "定義の詳細";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "このリポジトリには複数のソース定義があります。削除する定義を選んでください。";
-"SOURCE_DELETE_UNAVAILABLE" = "ここではこのリポジトリを削除できません。「設定」でソース定義を確認してください。";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "このソースには複数のソース定義があります。削除する定義を選んでください。";
+"SOURCE_DELETE_UNAVAILABLE" = "ここではこのソースを削除できません。「設定」でソース定義を確認してください。";
+"SOURCE_REMOVE" = "ソースを削除";

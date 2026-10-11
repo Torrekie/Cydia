@@ -243,7 +243,7 @@
 "HOME_UPGRADING_SELECT" = "Selecciona una guía";
 "HOME_UPGRADING_SHORT_TITLE" = "Actualización";
 "HOME_EMPTY_DESTINATION" = "No hay contenido disponible aquí.";
-"MORE_SOURCES_READ_ONLY" = "Este entorno bootstrap no ha habilitado la edición de fuentes en Cydia. Gestiona los repositorios con el gestor de paquetes de tu entorno bootstrap; Cydia leerá las mismas fuentes APT.";
+"MORE_SOURCES_READ_ONLY" = "Este entorno de distribución de paquetes no ha habilitado la edición de fuentes en Cydia. Gestiona las fuentes con el gestor de paquetes de tu entorno de distribución de paquetes; Cydia leerá las mismas fuentes APT.";
 "HOME_GUIDE_OBSOLETE" = "Obsoleto:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Botón de detalles de red";
 "HOME_STORAGE_CALCULATING" = "Midiendo…";

@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "Sửa chữa thông thường chưa hoàn tất. Cài đặt lại có thể khôi phục gói. «%@» là tùy chọn gỡ khẩn cấp.";
 "RECOVERY_NORMAL_FIRST" = "Hãy thử sửa chữa thông thường hoặc cài đặt lại trước. «%@» sẽ khả dụng nếu sửa chữa thông thường thất bại.";
 "RECOVERY_PROTECTED" = "Gỡ khẩn cấp bị chặn vì sẽ ảnh hưởng đến gói được bảo vệ hoặc quan hệ phụ thuộc của gói đã cài.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "Các kho hiện tại không cung cấp phiên bản đã cài. Hãy làm mới nguồn hoặc chọn gỡ thông thường.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Các nguồn hiện tại không cung cấp phiên bản đã cài. Hãy làm mới nguồn hoặc chọn gỡ thông thường.";
 "RECOVERY_REMOVE_FAILED" = "Gỡ khẩn cấp thất bại. Các tập lệnh gốc đã được khôi phục khi có thể và bản sao lưu được bảo vệ được giữ lại. Xem chi tiết trước khi thử lại.";
 "RECOVERY_REPAIR" = "Thử sửa chữa thông thường";
 "RECOVERY_REPAIR_COMPLETE" = "Sửa chữa thông thường đã hoàn tất. Trạng thái gói sẽ được tải lại.";

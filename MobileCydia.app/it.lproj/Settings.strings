@@ -1,36 +1,36 @@
 /* Native Cydia Settings. Copyright (C) 2026 Torrekie. */
-"REPOSITORY_SECURITY" = "Sicurezza dei repository";
-"REPOSITORY_SECURITY_EXPLANATION" = "Scegli come Cydia gestisce i repository le cui firme non possono essere verificate. L’integrità dei download viene sempre controllata.";
+"REPOSITORY_SECURITY" = "Sicurezza delle sorgenti";
+"REPOSITORY_SECURITY_EXPLANATION" = "Scegli come Cydia gestisce le sorgenti le cui firme non possono essere verificate. L’integrità dei download viene sempre controllata.";
 "SECURITY_ALLOW" = "Consenti";
 "SECURITY_WARNING" = "Avviso";
 "SECURITY_ERROR" = "Errore";
 "SECURITY_ALLOW_DETAIL" = "Consenti senza avvisi di attendibilità di Cydia.";
 "SECURITY_WARNING_DETAIL" = "Consenti e mostra gli avvisi (predefinito).";
-"SECURITY_ERROR_DETAIL" = "Blocca i repository e i pacchetti la cui autenticità non può essere verificata.";
+"SECURITY_ERROR_DETAIL" = "Blocca le sorgenti e i pacchetti la cui autenticità non può essere verificata.";
 "SETTINGS_WAIT_FOR_OPERATION" = "Attendi il completamento dell’operazione in corso prima di modificare questa impostazione.";
 "SETTINGS_SAVE_FAILED" = "Impossibile salvare l’impostazione.";
 "ARCHIVE_INCOMPLETE" = "Il download di %@ è incompleto.";
 "ARCHIVE_MISSING_HASHES" = "Mancano gli hash di integrità previsti per %@.";
 "ARCHIVE_MISMATCH" = "Il file scaricato per %@ non corrisponde agli hash di integrità previsti.";
 "ARCHIVE_UNAVAILABLE" = "Impossibile leggere il file scaricato per %@.";
-"ARCHIVE_UNAUTHENTICATED" = "Impossibile autenticare il repository che fornisce %@.";
+"ARCHIVE_UNAUTHENTICATED" = "Impossibile autenticare la sorgente che fornisce %@.";
 "PACKAGE_CHANGES_UNAVAILABLE" = "Le modifiche ai pacchetti non sono disponibili perché Cydia non ha potuto verificare la configurazione selezionata del gestore dei pacchetti.";
 "REPOSITORY_UNSIGNED" = "%@ non è firmato.";
 "REPOSITORY_MISSING_KEY" = "La chiave di firma di %@ è mancante.";
 "REPOSITORY_UNUSABLE_KEY" = "La chiave di firma di %@ è scaduta o inutilizzabile.";
 "REPOSITORY_WEAK" = "%@ usa algoritmi di firma o integrità deboli.";
 "REPOSITORY_MISSING_RELEASE" = "%@ non fornisce un file Release.";
-"REPOSITORY_TRUST_DOWNGRADE" = "%@ non fornisce più metadati autenticati del repository.";
+"REPOSITORY_TRUST_DOWNGRADE" = "%@ non fornisce più metadati autenticati della sorgente.";
 "REPOSITORY_BAD_SIGNATURE" = "La firma di %@ non corrisponde al suo contenuto.";
 "REPOSITORY_INVALID_SIGNATURE" = "La firma di %@ non è valida o i suoi metadati sono danneggiati.";
 "ADVANCED_SETTINGS" = "Impostazioni avanzate";
-"BOOTSTRAP_REPOSITORIES" = "Repository del bootstrap";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Seleziona i repository da proteggere dalle modifiche in Sorgenti. Rivedi qui la selezione quando cambi bootstrap. Cydia non aggiunge repository automaticamente.";
+"BOOTSTRAP_REPOSITORIES" = "Sorgenti della distribuzione";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Seleziona le sorgenti che forniscono gli strumenti e le librerie essenziali della tua distribuzione di pacchetti. Sono protette dalle modifiche in Sorgenti. Rivedi qui la selezione quando cambi distribuzione. Cydia non aggiunge sorgenti automaticamente.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Una definizione protetta è stata modificata o rimossa. Controlla il file sorgente, poi deseleziona qui il vecchio riferimento prima di salvare.";
-"BOOTSTRAP_NONE_SELECTED" = "Nessun repository selezionato. Conferma per salvare senza protezione dei repository.";
+"BOOTSTRAP_NONE_SELECTED" = "Nessuna sorgente selezionata. Conferma per salvare senza protezione delle sorgenti.";
 "EXTERNAL_EXECUTABLES" = "Eseguibili esterni";
-"EXTERNAL_EXECUTABLES_HELP" = "Inserisci il percorso assoluto di un eseguibile attendibile. Lascia vuoto per usare il valore predefinito del bootstrap. Le modifiche si applicano dopo aver riaperto Cydia.";
-"SOURCE_REVIEW_REQUIRED" = "Controlla la configurazione dei repository nelle impostazioni avanzate.";
+"EXTERNAL_EXECUTABLES_HELP" = "Inserisci il percorso assoluto di un eseguibile attendibile. Lascia vuoto per usare il valore predefinito della distribuzione di pacchetti. Le modifiche si applicano dopo aver riaperto Cydia.";
+"SOURCE_REVIEW_REQUIRED" = "Controlla la configurazione delle sorgenti nelle impostazioni avanzate.";
 "SOURCE_SAVE_FAILED" = "Impossibile salvare le sorgenti. Ricaricale e controlla la loro configurazione.";
 "SETTINGS_SAVED" = "Impostazioni salvate.";
 "SETTING_RESTART_REQUIRED" = "Impostazione salvata. Riapri Cydia per applicarla.";
@@ -63,7 +63,7 @@
 "TRANSACTION_FAILED" = "L’operazione sui pacchetti non è stata completata. Controlla gli errori prima di riprovare.";
 "TRANSACTION_STATE_SAVE_FAILED" = "I pacchetti sono stati modificati, ma non è stato possibile salvare i dati relativi alla loro installazione automatica. Controlla l’errore prima di avviare un’altra operazione.";
 
-"KEY_IMPORT" = "Importa chiave del repository";
+"KEY_IMPORT" = "Importa chiave della sorgente";
 "KEY_IMPORT_CHOOSE_FILE" = "Scegli un file di chiave pubblica";
 "KEY_IMPORT_PACKAGE" = "Scegli una chiave da un pacchetto";
 "KEY_IMPORT_PACKAGE_PROMPT" = "Inserisci l’identificativo del pacchetto che fornisce la chiave.";
@@ -80,32 +80,32 @@
 "KEY_IMPORT_SELECTED" = "File della chiave: %@";
 "KEY_IMPORT_VERIFIER" = "Non è disponibile un verificatore di chiavi attendibile. Configura l’eseguibile GnuPG nelle impostazioni avanzate, quindi controlla di nuovo la chiave.";
 
-"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Aggiorna le sorgenti per verificare l’autenticità del repository di %@ in questa sessione.";
+"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Aggiorna le sorgenti per verificare l’autenticità della sorgente di %@ in questa sessione.";
 
-"REPOSITORY_SECURITY_REFRESH_EX" = "La modalità Errore richiede un aggiornamento riuscito delle sorgenti a ogni apertura di Cydia. Ricaricare gli elenchi dei pacchetti o cambiare la politica non rinnova l’autenticazione dei repository.";
+"REPOSITORY_SECURITY_REFRESH_EX" = "La modalità Errore richiede un aggiornamento riuscito delle sorgenti a ogni apertura di Cydia. Ricaricare gli elenchi dei pacchetti o cambiare la politica non rinnova l’autenticazione delle sorgenti.";
 
-"BOOTSTRAP_DATABASE_ACCESS" = "Accesso al database del bootstrap";
+"BOOTSTRAP_DATABASE_ACCESS" = "Accesso al database della distribuzione";
 
-"REPOSITORY_SETTINGS" = "Impostazioni dei repository";
-"REPOSITORY_SETTINGS_HELP" = "Abilita i repository e modifica la loro configurazione.";
-"ADVANCED_SETTINGS_HELP" = "Compatibilità del bootstrap e risoluzione dei problemi.";
-"BOOTSTRAP_DEFAULT" = "Valore predefinito del bootstrap";
-"TOOL_OVERRIDES_UNAVAILABLE" = "Impossibile leggere i percorsi salvati. Controlla la configurazione del bootstrap.";
+"REPOSITORY_SETTINGS" = "Impostazioni delle sorgenti";
+"REPOSITORY_SETTINGS_HELP" = "Abilita le sorgenti e modifica la loro configurazione.";
+"ADVANCED_SETTINGS_HELP" = "Compatibilità della distribuzione di pacchetti e risoluzione dei problemi.";
+"BOOTSTRAP_DEFAULT" = "Valore predefinito della distribuzione";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Impossibile leggere i percorsi salvati. Controlla la configurazione della distribuzione di pacchetti.";
 "TOOL_CUSTOM_PATH" = "Percorso personalizzato";
-"TOOL_USE_DEFAULT" = "Usa il valore predefinito del bootstrap";
-"TOOL_PATH_HELP" = "Usa il valore predefinito del bootstrap oppure inserisci il percorso completo di un eseguibile attendibile. Riapri Cydia dopo aver salvato.";
-"BOOTSTRAP_CONFIGURATION" = "Configurazione del bootstrap";
-"PROTECTED_REPOSITORY_SETTINGS" = "Impostazioni dei repository protetti";
+"TOOL_USE_DEFAULT" = "Usa il valore predefinito della distribuzione di pacchetti";
+"TOOL_PATH_HELP" = "Usa il valore predefinito della distribuzione di pacchetti oppure inserisci il percorso completo di un eseguibile attendibile. Riapri Cydia dopo aver salvato.";
+"BOOTSTRAP_CONFIGURATION" = "Distribuzione di pacchetti";
+"PROTECTED_REPOSITORY_SETTINGS" = "Impostazioni delle sorgenti protette";
 "COMPATIBILITY" = "Compatibilità";
 "DIAGNOSTICS" = "Risoluzione dei problemi";
 "SETTINGS_SAVE" = "Salva";
 "DISCARD_SETTINGS_TITLE" = "Scartare le modifiche?";
 "DISCARD_SETTINGS_MESSAGE" = "Le modifiche non sono state salvate.";
 "DISCARD_SETTINGS_ACTION" = "Scarta modifiche";
-"KEY_IMPORT_NO_SOURCES" = "Aggiungi un repository in Sorgenti prima di importare la sua chiave.";
+"KEY_IMPORT_NO_SOURCES" = "Aggiungi una sorgente in Sorgenti prima di importare la sua chiave.";
 "KEY_IMPORT_ACTION" = "Importa";
 "KEY_IMPORT_REVIEW_ACTION" = "Esamina";
 "KEY_IMPORT_NO_FILE" = "Nessun file di chiave selezionato.";
 
-"KEY_IMPORT_SOURCE_CHANGED" = "Il repository è cambiato. Selezionalo di nuovo ed esamina la chiave.";
-"KEY_IMPORT_PARTIAL" = "La chiave è stata salvata, ma non è stato possibile aggiornare la configurazione del suo repository. Controlla le impostazioni del repository prima di riprovare.";
+"KEY_IMPORT_SOURCE_CHANGED" = "La sorgente è cambiata. Selezionala di nuovo ed esamina la chiave.";
+"KEY_IMPORT_PARTIAL" = "La chiave è stata salvata, ma non è stato possibile aggiornare la configurazione della sua sorgente. Controlla le impostazioni della sorgente prima di riprovare.";

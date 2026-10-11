@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "구성 요소(선택 사항)";
 "SOURCE_CONTINUE" = "계속";
 "SOURCE_DEFINITION" = "소스 정의";
-"SOURCE_DEFINITION_INVALID" = "유효한 APT 소스 정의를 하나 입력하세요. 평면형이 아닌 저장소에는 구성 요소가 필요하며, /로 끝나는 배포판 경로에는 구성 요소를 지정할 수 없습니다.";
+"SOURCE_DEFINITION_INVALID" = "유효한 APT 소스 정의를 하나 입력하세요. 평면형이 아닌 소스에는 구성 요소가 필요하며, /로 끝나는 배포판 경로에는 구성 요소를 지정할 수 없습니다.";
 "SOURCE_DESTINATION_EXPLANATION" = "이 정의를 저장할 APT 파일을 선택하세요.";
 "SOURCE_DISABLE" = "비활성화";
 "SOURCE_DISABLED" = "비활성화됨";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "활성화";
 "SOURCE_ENABLED" = "활성화됨";
 "SOURCE_ENTER_DEFINITION" = "APT 정의 입력";
-"SOURCE_ENTER_DETAILS" = "저장소 URI, 배포판 및 선택적 구성 요소를 입력하세요. 평면형 저장소에는 ./를 사용하세요.";
+"SOURCE_ENTER_DETAILS" = "소스 URI, 배포판 및 선택적 구성 요소를 입력하세요. 평면형 소스에는 ./를 사용하세요.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "APT 환경을 사용할 수 없습니다. 고급 설정에서 구성을 확인하세요.";
 "SOURCE_FILENAME" = "파일명.list 또는 파일명.sources";
 "SOURCE_FILENAME_INVALID" = ".list 또는 .sources로 끝나는 APT 호환 파일명을 선택하세요.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "파일 및 줄 번호";
 "SOURCE_NEW_FILE" = "새 소스 파일";
 "SOURCE_NEW_FILE_EXPLANATION" = ".list 또는 .sources로 끝나는 새 파일명을 입력하세요. 정의를 검토하고 저장한 후에만 파일이 생성됩니다.";
-"SOURCE_PROTECTED" = "이 부트스트랩 저장소는 고급 설정에서만 변경할 수 있습니다.";
-"SOURCE_PROTECTED_OR_REVIEW" = "보호되었거나 식별되지 않은 부트스트랩 저장소는 고급 설정에서 검토해야 합니다. 편집하려면 소스 파일을 읽을 수 있어야 합니다.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "소스를 변경하기 전에 고급 설정에서 보호된 부트스트랩 저장소를 검토하세요.";
+"SOURCE_PROTECTED" = "이 패키지 배포 환경 소스는 고급 설정에서만 변경할 수 있습니다.";
+"SOURCE_PROTECTED_OR_REVIEW" = "보호되었거나 식별되지 않은 패키지 배포 환경 소스는 고급 설정에서 검토해야 합니다. 편집하려면 소스 파일을 읽을 수 있어야 합니다.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "소스를 변경하기 전에 고급 설정에서 보호된 패키지 배포 환경 소스를 검토하세요.";
 "SOURCE_RELOAD_REQUIRED" = "소스 파일이 변경되었습니다. 소스를 다시 불러와 변경 사항을 다시 검토하세요.";
 "SOURCE_REPOSITORIES" = "URI 및 배포판";
 "SOURCE_REVIEW_CHANGE" = "소스 변경 검토";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "소스 변경 사항을 저장할 수 없습니다. APT 구성과 파일 권한을 확인하세요.";
 "SOURCE_STATUS" = "상태";
 "SOURCE_SUITE" = "배포판 또는 배포 경로";
-"SOURCE_URI" = "저장소 URI";
+"SOURCE_URI" = "소스 URI";
 "SOURCE_WAIT_FOR_OPERATION" = "현재 패키지 작업이 끝날 때까지 기다리세요.";
 "SOURCE_WHOLE_DEFINITION" = "이 변경은 정의에 포함된 모든 URI와 배포판을 포함하여 정의 전체에 적용됩니다.";
-"SOURCE_BOOTSTRAP_CHANGE" = "이 정의는 부트스트랩의 일부로 보호됩니다. 편집 내용을 저장해도 보호는 유지되며, 정의를 제거하면 해당 보호 참조도 제거됩니다.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "소스 정의가 변경되었지만 보호 참조를 저장하지 못했습니다. 다른 소스를 변경하기 전에 고급 설정에서 부트스트랩 저장소를 검토하세요.";
+"SOURCE_BOOTSTRAP_CHANGE" = "이 정의는 패키지 배포 환경의 일부로 보호됩니다. 편집 내용을 저장해도 보호는 유지되며, 정의를 제거하면 해당 보호 참조도 제거됩니다.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "소스 정의가 변경되었지만 보호 참조를 저장하지 못했습니다. 다른 소스를 변경하기 전에 고급 설정에서 패키지 배포 환경 소스를 검토하세요.";
 "SOURCE_READ_ONLY_ALIAS" = "이 소스는 Cydia 외부에서 관리하는 링크입니다. Cydia에서 사용할 수 있지만 소스 정의를 편집하거나 제거할 수는 없습니다.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "저장소 설정";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "고급 저장소 설정";
+"SOURCE_REPOSITORY_SETTINGS" = "소스 설정";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "고급 소스 설정";
 "SOURCE_DEFINITION_DETAILS" = "정의 상세 정보";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "이 저장소에는 소스 정의가 여러 개 있습니다. 제거할 정의를 선택하세요.";
-"SOURCE_DELETE_UNAVAILABLE" = "여기서는 이 저장소를 제거할 수 없습니다. 설정에서 소스 정의를 확인하세요.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "이 소스에는 소스 정의가 여러 개 있습니다. 제거할 정의를 선택하세요.";
+"SOURCE_DELETE_UNAVAILABLE" = "여기서는 이 소스를 제거할 수 없습니다. 설정에서 소스 정의를 확인하세요.";
+"SOURCE_REMOVE" = "소스 제거";

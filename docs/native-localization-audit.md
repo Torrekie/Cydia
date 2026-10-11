@@ -85,7 +85,7 @@ were preserved. The new package-management flows below use separate tables.
 | `HOME_UPGRADING_SELECT` | Select a guide |
 | `HOME_UPGRADING_SHORT_TITLE` | Upgrading |
 | `HOME_EMPTY_DESTINATION` | No content is available here. |
-| `MORE_SOURCES_READ_ONLY` | This bootstrap has not enabled source editing in Cydia. Manage repositories with your bootstrap's package manager; Cydia will read the same APT sources. |
+| `MORE_SOURCES_READ_ONLY` | This package distribution has not enabled source editing in Cydia. Manage sources with its package manager; Cydia will read the same APT sources. |
 | `HOME_GUIDE_OBSOLETE` | Obsolete: |
 | `HOME_GUIDE_NETWORK_DETAILS` | Network details button |
 | `HOME_STORAGE_CALCULATING` | Measuring… |
@@ -120,7 +120,7 @@ Brazilian/European Portuguese and Simplified/Traditional Chinese resources.
 | Table | Entries per locale | Native consumers and provenance |
 | --- | --- | --- |
 | `Settings.strings` | 102 | Settings and Advanced Settings; repository Allow/Warning/Error policy; user-selected bootstrap protection; executable overrides; capability review; public-key import; repository/download diagnostics; transaction failures; bootstrap database access navigation; explicit default/custom tool selection and save/discard states. These explanations and review states were introduced with the optional APT frontend. |
-| `Sources.strings` | 45 | Repository Settings for actual `.list` lines and `.sources` stanzas, destination files, enable/disable actions, complete-definition review, bootstrap protection, read-only delegated definitions and conflicts. The Sources tab retains direct package browsing; configuration details live in Settings. Four labels from the retired definition-first browsing route are removed. |
+| `Sources.strings` | 46 | Repository Settings for actual `.list` lines and `.sources` stanzas, destination files, enable/disable actions, complete-definition review, bootstrap protection, read-only delegated definitions and conflicts. The Sources tab retains direct package browsing; configuration details live in Settings. Four labels from the retired definition-first browsing route are removed. |
 | `Actions.strings` | 14 | Native package version selection, priority/candidate information, purge, hold handling, Essential/Protected safeguards and unavailable installed-version reinstall. These labels explain the expanded APT/dpkg actions. |
 | `Recovery.strings` | 21 | Native incomplete-package recovery, normal repair, emergency-removal review, retained script backups and failure states. This is new guidance around the retained historical Forcibly Clear action. |
 | `RuntimeAccess.strings` | 20 | The explicit package-management access check in Advanced Settings, its six checks, contention, changed-state and timeout results, and technical-details navigation. Unsuccessful attempted checks and skipped checks have distinct labels; raw diagnostic output has a separate page. This diagnostic view is newly authored. |
@@ -199,3 +199,18 @@ check also covers `RuntimeAccess.strings`, `BootstrapAccess.strings` and the fil
 meaning and native layout remain review concerns.
 
 Localization resources are shipped by the separate `cydia-lproj` package.
+
+## Package distribution and source terminology
+
+New native text uses each locale’s established Sources term for APT package
+installation sources. Package Distribution refers to the package environment
+that supplies package tools, libraries and jailbreak essentials; it does not
+mean the operating system or the device’s boot process. Distribution Sources
+are the administrator-selected sources that supply that environment, protected
+from ordinary source-page changes. APT’s technical suite/distribution field
+retains its separate meaning.
+
+All 21 locales use this distinction in Settings, source editing and database
+access explanations. Historical package-removal labels remain unchanged;
+source removal uses its own `SOURCE_REMOVE` label so translations such as
+“uninstall” are not applied to source definitions.

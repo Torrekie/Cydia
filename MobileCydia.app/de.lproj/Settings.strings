@@ -20,16 +20,16 @@
 "REPOSITORY_UNUSABLE_KEY" = "Der Signaturschlüssel für %@ ist abgelaufen oder unbrauchbar.";
 "REPOSITORY_WEAK" = "%@ verwendet schwache Signatur- oder Integritätsalgorithmen.";
 "REPOSITORY_MISSING_RELEASE" = "%@ stellt keine Release-Datei bereit.";
-"REPOSITORY_TRUST_DOWNGRADE" = "%@ stellt keine authentifizierten Repository-Metadaten mehr bereit.";
+"REPOSITORY_TRUST_DOWNGRADE" = "%@ stellt keine authentifizierten Quellenmetadaten mehr bereit.";
 "REPOSITORY_BAD_SIGNATURE" = "Die Signatur von %@ stimmt nicht mit dem Inhalt überein.";
 "REPOSITORY_INVALID_SIGNATURE" = "Die Signatur von %@ ist ungültig oder die Metadaten sind beschädigt.";
 "ADVANCED_SETTINGS" = "Erweiterte Einstellungen";
-"BOOTSTRAP_REPOSITORIES" = "Bootstrap-Paketquellen";
-"BOOTSTRAP_REPOSITORIES_HELP" = "Wähle Paketquellen, um sie vor Änderungen unter Quellen zu schützen. Überprüfe diese Auswahl hier, wenn du den Bootstrap wechselst. Cydia fügt keine Paketquellen automatisch hinzu.";
+"BOOTSTRAP_REPOSITORIES" = "Quellen der Distribution";
+"BOOTSTRAP_REPOSITORIES_HELP" = "Wähle die Quellen, die grundlegende Werkzeuge und Bibliotheken deiner Paketdistribution bereitstellen. Sie sind vor Änderungen unter Quellen geschützt. Überprüfe diese Auswahl hier, wenn du die Distribution wechselst. Cydia fügt keine Quellen automatisch hinzu.";
 "BOOTSTRAP_MISSING_REFERENCE" = "Eine geschützte Definition wurde geändert oder entfernt. Prüfe ihre Quelldatei und wähle den alten Verweis hier vor dem Speichern ab.";
 "BOOTSTRAP_NONE_SELECTED" = "Keine Paketquellen ausgewählt. Bestätige, um ohne Schutz der Paketquellen zu speichern.";
 "EXTERNAL_EXECUTABLES" = "Externe Programme";
-"EXTERNAL_EXECUTABLES_HELP" = "Gib einen absoluten Pfad zu einem vertrauenswürdigen Programm ein. Lass das Feld leer, um die Bootstrap-Vorgabe zu verwenden. Änderungen werden nach erneutem Öffnen von Cydia wirksam.";
+"EXTERNAL_EXECUTABLES_HELP" = "Gib einen absoluten Pfad zu einem vertrauenswürdigen Programm ein. Lass das Feld leer, um die Vorgabe der Paketdistribution zu verwenden. Änderungen werden nach erneutem Öffnen von Cydia wirksam.";
 "SOURCE_REVIEW_REQUIRED" = "Überprüfe die Paketquellenkonfiguration in den erweiterten Einstellungen.";
 "SOURCE_SAVE_FAILED" = "Die Quellen konnten nicht gespeichert werden. Lade sie erneut und überprüfe ihre Konfiguration.";
 "SETTINGS_SAVED" = "Einstellungen gespeichert.";
@@ -63,7 +63,7 @@
 "TRANSACTION_FAILED" = "Der Paketvorgang wurde nicht abgeschlossen. Prüfen Sie die Fehler vor einem erneuten Versuch.";
 "TRANSACTION_STATE_SAVE_FAILED" = "Die Pakete wurden geändert, aber die Angaben zur automatischen Installation konnten nicht gespeichert werden. Prüfen Sie den Fehler, bevor Sie einen weiteren Vorgang starten.";
 
-"KEY_IMPORT" = "Repository-Schlüssel importieren";
+"KEY_IMPORT" = "Quellenschlüssel importieren";
 "KEY_IMPORT_CHOOSE_FILE" = "Öffentliche Schlüsseldatei auswählen";
 "KEY_IMPORT_PACKAGE" = "Schlüssel aus einem Paket auswählen";
 "KEY_IMPORT_PACKAGE_PROMPT" = "Geben Sie die Kennung des Pakets ein, das den Schlüssel bereitstellt.";
@@ -80,21 +80,21 @@
 "KEY_IMPORT_SELECTED" = "Schlüsseldatei: %@";
 "KEY_IMPORT_VERIFIER" = "Kein vertrauenswürdiges Schlüsselprüfprogramm verfügbar. Konfigurieren Sie GnuPG in den erweiterten Einstellungen und prüfen Sie den Schlüssel erneut.";
 
-"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Aktualisiere die Quellen, um die Authentizität des Repositorys für %@ in dieser Sitzung zu prüfen.";
+"ARCHIVE_TRUST_REFRESH_REQUIRED" = "Aktualisiere die Quellen, um die Authentizität der Quelle für %@ in dieser Sitzung zu prüfen.";
 
-"REPOSITORY_SECURITY_REFRESH_EX" = "Im Fehlermodus müssen die Quellen bei jedem Öffnen von Cydia erfolgreich aktualisiert werden. Das Neuladen der Paketlisten oder Ändern der Richtlinie erneuert die Authentifizierung der Repositorys nicht.";
+"REPOSITORY_SECURITY_REFRESH_EX" = "Im Fehlermodus müssen die Quellen bei jedem Öffnen von Cydia erfolgreich aktualisiert werden. Das Neuladen der Paketlisten oder Ändern der Richtlinie erneuert die Authentifizierung der Quellen nicht.";
 
-"BOOTSTRAP_DATABASE_ACCESS" = "Zugriff auf die Bootstrap-Datenbank";
+"BOOTSTRAP_DATABASE_ACCESS" = "Zugriff auf die Distributionsdatenbank";
 
-"REPOSITORY_SETTINGS" = "Paketquelleneinstellungen";
+"REPOSITORY_SETTINGS" = "Quelleneinstellungen";
 "REPOSITORY_SETTINGS_HELP" = "Paketquellen aktivieren und ihre Konfiguration bearbeiten.";
-"ADVANCED_SETTINGS_HELP" = "Bootstrap-Kompatibilität und Fehlerbehebung.";
-"BOOTSTRAP_DEFAULT" = "Bootstrap-Vorgabe";
-"TOOL_OVERRIDES_UNAVAILABLE" = "Die gespeicherten Pfade konnten nicht gelesen werden. Prüfe deine Bootstrap-Konfiguration.";
+"ADVANCED_SETTINGS_HELP" = "Kompatibilität der Paketdistribution und Fehlerbehebung.";
+"BOOTSTRAP_DEFAULT" = "Distributionsvorgabe";
+"TOOL_OVERRIDES_UNAVAILABLE" = "Die gespeicherten Pfade konnten nicht gelesen werden. Prüfe die Konfiguration deiner Paketdistribution.";
 "TOOL_CUSTOM_PATH" = "Benutzerdefinierter Pfad";
-"TOOL_USE_DEFAULT" = "Bootstrap-Vorgabe verwenden";
-"TOOL_PATH_HELP" = "Verwende die Bootstrap-Vorgabe oder gib den vollständigen Pfad eines vertrauenswürdigen Programms ein. Öffne Cydia nach dem Speichern erneut.";
-"BOOTSTRAP_CONFIGURATION" = "Bootstrap-Konfiguration";
+"TOOL_USE_DEFAULT" = "Vorgabe der Paketdistribution verwenden";
+"TOOL_PATH_HELP" = "Verwende die Vorgabe der Paketdistribution oder gib den vollständigen Pfad eines vertrauenswürdigen Programms ein. Öffne Cydia nach dem Speichern erneut.";
+"BOOTSTRAP_CONFIGURATION" = "Paketdistribution";
 "PROTECTED_REPOSITORY_SETTINGS" = "Einstellungen geschützter Paketquellen";
 "COMPATIBILITY" = "Kompatibilität";
 "DIAGNOSTICS" = "Fehlerbehebung";
@@ -108,4 +108,4 @@
 "KEY_IMPORT_NO_FILE" = "Keine Schlüsseldatei ausgewählt.";
 
 "KEY_IMPORT_SOURCE_CHANGED" = "Die Paketquelle hat sich geändert. Wähle sie erneut aus und prüfe den Schlüssel.";
-"KEY_IMPORT_PARTIAL" = "Der Schlüssel wurde gespeichert, aber die Paketquellenkonfiguration konnte nicht aktualisiert werden. Prüfe die Paketquelleneinstellungen, bevor du es erneut versuchst.";
+"KEY_IMPORT_PARTIAL" = "Der Schlüssel wurde gespeichert, aber die Paketquellenkonfiguration konnte nicht aktualisiert werden. Prüfe die Quelleneinstellungen, bevor du es erneut versuchst.";

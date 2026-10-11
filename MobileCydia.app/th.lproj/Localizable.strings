@@ -207,7 +207,7 @@
 "HOME_UPGRADING_SELECT" = "เลือกคู่มือ";
 "HOME_UPGRADING_SHORT_TITLE" = "การอัปเกรด";
 "HOME_EMPTY_DESTINATION" = "ไม่มีเนื้อหาที่จะแสดงที่นี่";
-"MORE_SOURCES_READ_ONLY" = "สภาพแวดล้อม bootstrap นี้ไม่ได้เปิดใช้การแก้ไขแหล่งแพ็กเกจใน Cydia โปรดจัดการคลังแพ็กเกจด้วยตัวจัดการแพ็กเกจของสภาพแวดล้อมนี้ Cydia จะอ่านแหล่ง APT ชุดเดียวกัน";
+"MORE_SOURCES_READ_ONLY" = "ระบบแจกจ่ายแพ็กเกจนี้ไม่ได้เปิดใช้การแก้ไขแหล่งแพ็กเกจใน Cydia โปรดจัดการแหล่งแพ็กเกจด้วยตัวจัดการแพ็กเกจของระบบนี้ Cydia จะอ่านแหล่ง APT ชุดเดียวกัน";
 "HOME_GUIDE_OBSOLETE" = "ข้อมูลล้าสมัย:";
 "HOME_GUIDE_NETWORK_DETAILS" = "ปุ่มรายละเอียดเครือข่าย";
 "HOME_STORAGE_CALCULATING" = "กำลังวัด…";

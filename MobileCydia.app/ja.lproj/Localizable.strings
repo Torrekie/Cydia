@@ -207,7 +207,7 @@
 "HOME_UPGRADING_SELECT" = "ガイドを選択";
 "HOME_UPGRADING_SHORT_TITLE" = "アップグレード";
 "HOME_EMPTY_DESTINATION" = "ここには表示できるコンテンツがありません。";
-"MORE_SOURCES_READ_ONLY" = "このブートストラップ環境では、Cydia でのソース編集が有効になっていません。この環境のパッケージマネージャーでリポジトリを管理してください。Cydia は同じ APT ソースを読み込みます。";
+"MORE_SOURCES_READ_ONLY" = "このパッケージ配布環境では、Cydia でのソース編集が有効になっていません。この環境のパッケージマネージャーでソースを管理してください。Cydia は同じ APT ソースを読み込みます。";
 "HOME_GUIDE_OBSOLETE" = "古い情報:";
 "HOME_GUIDE_NETWORK_DETAILS" = "ネットワーク詳細ボタン";
 "HOME_STORAGE_CALCULATING" = "計測中…";

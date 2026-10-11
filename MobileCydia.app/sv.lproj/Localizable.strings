@@ -243,7 +243,7 @@
 "HOME_UPGRADING_SELECT" = "Välj en guide";
 "HOME_UPGRADING_SHORT_TITLE" = "Uppgradering";
 "HOME_EMPTY_DESTINATION" = "Det finns inget innehåll tillgängligt här.";
-"MORE_SOURCES_READ_ONLY" = "I den här bootstrapmiljön är redigering av källor i Cydia inte aktiverad. Hantera paketkällor med bootstrapmiljöns pakethanterare; Cydia läser samma APT-källor.";
+"MORE_SOURCES_READ_ONLY" = "I den här paketdistributionen är redigering av källor i Cydia inte aktiverad. Hantera paketkällor med paketdistributionens pakethanterare; Cydia läser samma APT-källor.";
 "HOME_GUIDE_OBSOLETE" = "Föråldrat:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Knapp för nätverksdetaljer";
 "HOME_STORAGE_CALCULATING" = "Mäter…";

@@ -208,7 +208,7 @@
 "HOME_UPGRADING_SELECT" = "Wybierz poradnik";
 "HOME_UPGRADING_SHORT_TITLE" = "Uaktualnianie";
 "HOME_EMPTY_DESTINATION" = "Nie ma tu dostępnej zawartości.";
-"MORE_SOURCES_READ_ONLY" = "W tym środowisku bootstrap edytowanie źródeł w aplikacji Cydia nie jest włączone. Zarządzaj repozytoriami za pomocą menedżera pakietów tego środowiska; Cydia będzie odczytywać te same źródła APT.";
+"MORE_SOURCES_READ_ONLY" = "W tym środowisku dystrybucji pakietów edytowanie źródeł w aplikacji Cydia nie jest włączone. Zarządzaj źródłami za pomocą menedżera pakietów tego środowiska; Cydia będzie odczytywać te same źródła APT.";
 "HOME_GUIDE_OBSOLETE" = "Nieaktualne:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Przycisk szczegółów sieci";
 "HOME_STORAGE_CALCULATING" = "Pomiar…";

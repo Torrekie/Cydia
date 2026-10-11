@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "Thành phần (không bắt buộc)";
 "SOURCE_CONTINUE" = "Tiếp tục";
 "SOURCE_DEFINITION" = "Định nghĩa nguồn";
-"SOURCE_DEFINITION_INVALID" = "Nhập một định nghĩa nguồn APT hợp lệ. Kho không có cấu trúc phẳng cần thành phần; bộ phân phối kết thúc bằng / không được có thành phần.";
+"SOURCE_DEFINITION_INVALID" = "Nhập một định nghĩa nguồn APT hợp lệ. Nguồn không có cấu trúc phẳng cần thành phần; bộ phân phối kết thúc bằng / không được có thành phần.";
 "SOURCE_DESTINATION_EXPLANATION" = "Chọn tệp APT sẽ chứa định nghĩa này.";
 "SOURCE_DISABLE" = "Tắt";
 "SOURCE_DISABLED" = "Đã tắt";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Bật";
 "SOURCE_ENABLED" = "Đã bật";
 "SOURCE_ENTER_DEFINITION" = "Nhập định nghĩa APT";
-"SOURCE_ENTER_DETAILS" = "Nhập URI của kho, bộ phân phối và các thành phần tùy chọn. Dùng ./ cho kho có cấu trúc phẳng.";
+"SOURCE_ENTER_DETAILS" = "Nhập URI của nguồn, bộ phân phối và các thành phần tùy chọn. Dùng ./ cho nguồn có cấu trúc phẳng.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "Môi trường APT không khả dụng. Kiểm tra cấu hình trong Cài đặt nâng cao.";
 "SOURCE_FILENAME" = "Tên tệp.list hoặc tên tệp.sources";
 "SOURCE_FILENAME_INVALID" = "Chọn tên tệp tương thích với APT, kết thúc bằng .list hoặc .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "Tệp và số dòng";
 "SOURCE_NEW_FILE" = "Tệp nguồn mới";
 "SOURCE_NEW_FILE_EXPLANATION" = "Nhập tên tệp mới kết thúc bằng .list hoặc .sources. Tệp chỉ được tạo sau khi bạn xem xét và lưu định nghĩa.";
-"SOURCE_PROTECTED" = "Chỉ có thể thay đổi kho bootstrap này trong Cài đặt nâng cao.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Kho bootstrap được bảo vệ hoặc chưa xác định cần được xem xét trong Cài đặt nâng cao. Phải đọc được tệp nguồn trước khi sửa.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Xem xét các kho bootstrap được bảo vệ trong Cài đặt nâng cao trước khi thay đổi nguồn.";
+"SOURCE_PROTECTED" = "Chỉ có thể thay đổi nguồn của hệ thống phân phối gói này trong Cài đặt nâng cao.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Nguồn của hệ thống phân phối gói được bảo vệ hoặc chưa xác định cần được xem xét trong Cài đặt nâng cao. Phải đọc được tệp nguồn trước khi sửa.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Xem xét các nguồn được bảo vệ của hệ thống phân phối gói trong Cài đặt nâng cao trước khi thay đổi nguồn.";
 "SOURCE_RELOAD_REQUIRED" = "Tệp nguồn đã thay đổi. Hãy tải lại Nguồn và xem xét thay đổi một lần nữa.";
 "SOURCE_REPOSITORIES" = "URI và bộ phân phối";
 "SOURCE_REVIEW_CHANGE" = "Xem xét thay đổi nguồn";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "Không thể lưu thay đổi nguồn. Kiểm tra cấu hình APT và quyền truy cập tệp.";
 "SOURCE_STATUS" = "Trạng thái";
 "SOURCE_SUITE" = "Bộ hoặc bản phân phối";
-"SOURCE_URI" = "URI của kho";
+"SOURCE_URI" = "URI của nguồn";
 "SOURCE_WAIT_FOR_OPERATION" = "Chờ thao tác gói hiện tại hoàn tất.";
 "SOURCE_WHOLE_DEFINITION" = "Thay đổi này áp dụng cho toàn bộ định nghĩa, bao gồm mọi URI và bộ phân phối trong đó.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Định nghĩa này được bảo vệ vì là một phần của môi trường bootstrap. Lưu chỉnh sửa sẽ giữ nguyên sự bảo vệ; xóa định nghĩa cũng sẽ xóa các tham chiếu bảo vệ của nó.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "Định nghĩa nguồn đã thay đổi, nhưng không thể lưu các tham chiếu bảo vệ. Hãy xem lại các kho bootstrap trong Cài đặt nâng cao trước khi thay đổi thêm nguồn.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Định nghĩa này được bảo vệ vì là một phần của hệ thống phân phối gói. Lưu chỉnh sửa sẽ giữ nguyên sự bảo vệ; xóa định nghĩa cũng sẽ xóa các tham chiếu bảo vệ của nó.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "Định nghĩa nguồn đã thay đổi, nhưng không thể lưu các tham chiếu bảo vệ. Hãy xem lại các nguồn của hệ thống phân phối gói trong Cài đặt nâng cao trước khi thay đổi thêm nguồn.";
 "SOURCE_READ_ONLY_ALIAS" = "Nguồn này là một liên kết được quản lý bên ngoài Cydia. Cydia có thể sử dụng nguồn này, nhưng không thể sửa hoặc xóa các định nghĩa của nó.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Cài đặt kho";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Cài đặt kho nâng cao";
+"SOURCE_REPOSITORY_SETTINGS" = "Cài đặt nguồn";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Cài đặt nguồn nâng cao";
 "SOURCE_DEFINITION_DETAILS" = "Chi tiết định nghĩa";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "Kho này có nhiều định nghĩa nguồn. Hãy chọn định nghĩa cần xóa.";
-"SOURCE_DELETE_UNAVAILABLE" = "Không thể xóa kho này tại đây. Hãy kiểm tra các định nghĩa nguồn trong Cài đặt.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Nguồn này có nhiều định nghĩa nguồn. Hãy chọn định nghĩa cần xóa.";
+"SOURCE_DELETE_UNAVAILABLE" = "Không thể xóa nguồn này tại đây. Hãy kiểm tra các định nghĩa nguồn trong Cài đặt.";
+"SOURCE_REMOVE" = "Xóa nguồn";

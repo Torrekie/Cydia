@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "La reparación normal no ha terminado. Reinstalar puede recuperar el paquete. «%@» es una opción de eliminación de emergencia.";
 "RECOVERY_NORMAL_FIRST" = "Intenta primero una reparación normal o una reinstalación. «%@» estará disponible si falla la reparación normal.";
 "RECOVERY_PROTECTED" = "Se ha bloqueado la eliminación de emergencia porque afectaría a un paquete protegido o a una dependencia instalada.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "La versión instalada no está disponible en tus repositorios actuales. Actualiza las fuentes o elige la eliminación normal.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "La versión instalada no está disponible en tus fuentes actuales. Actualiza las fuentes o elige la eliminación normal.";
 "RECOVERY_REMOVE_FAILED" = "La eliminación de emergencia ha fallado. Se han restaurado los scripts originales cuando ha sido posible y se ha conservado la copia protegida. Revisa los detalles antes de intentarlo de nuevo.";
 "RECOVERY_REPAIR" = "Intentar reparación normal";
 "RECOVERY_REPAIR_COMPLETE" = "La reparación normal ha terminado. Se volverá a cargar el estado de los paquetes.";

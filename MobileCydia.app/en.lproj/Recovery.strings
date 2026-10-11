@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "Normal repair did not finish. Reinstall may restore the package. %@ is an emergency removal option.";
 "RECOVERY_NORMAL_FIRST" = "Try normal repair or reinstall first. %@ becomes available if normal repair fails.";
 "RECOVERY_PROTECTED" = "Emergency removal is blocked because it would affect a protected package or an installed dependency.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "The installed version is unavailable from your current repositories. Refresh sources or choose normal removal.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "The installed version is unavailable from your current sources. Refresh sources or choose normal removal.";
 "RECOVERY_REMOVE_FAILED" = "Emergency removal failed. Original scripts were restored where possible and the protected backup was retained. Review details before trying again.";
 "RECOVERY_REPAIR" = "Try Normal Repair";
 "RECOVERY_REPAIR_COMPLETE" = "Normal repair finished. Package state will be reloaded.";

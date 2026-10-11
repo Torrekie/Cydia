@@ -1,18 +1,18 @@
 /* Native package management access check. Copyright (C) 2026 Torrekie. */
 "ACCESS_CHECK_TITLE" = "Verificar acesso ao gerenciamento de pacotes";
 "ACCESS_CHECK_START" = "Iniciar verificação";
-"ACCESS_CHECK_EXPLANATION" = "Verifica o acesso protegido ao gerenciador de pacotes e adquire brevemente seu bloqueio. Nenhum pacote ou definição de repositório é alterado.";
+"ACCESS_CHECK_EXPLANATION" = "Verifica o acesso protegido ao gerenciador de pacotes e adquire brevemente seu bloqueio. Nenhum pacote ou definição de fonte é alterado.";
 "ACCESS_CHECK_RUNNING" = "Verificando…";
 "ACCESS_CHECK_PASSED" = "O acesso ao gerenciamento de pacotes está funcionando.";
 "ACCESS_CHECK_FAILED" = "Não foi possível concluir a verificação.";
 "ACCESS_CHECK_BUSY" = "Outra operação está usando o gerenciador de pacotes. Tente novamente quando ela terminar.";
 "ACCESS_CHECK_RUNTIME" = "Configuração de execução protegida";
-"ACCESS_CHECK_TRUST" = "Estado dos repositórios e da confiança";
+"ACCESS_CHECK_TRUST" = "Estado das fontes e da confiança";
 "ACCESS_CHECK_LOCK" = "Titular do bloqueio e acesso exclusivo";
 "ACCESS_CHECK_STATE" = "Estado protegido dos pacotes APT";
 "ACCESS_CHECK_RELEASE" = "Liberação do bloqueio e proteção do acesso";
-"ACCESS_CHECK_UNCHANGED" = "Os arquivos de pacotes e repositórios permaneceram inalterados";
-"ACCESS_CHECK_CHANGED" = "O estado dos pacotes ou repositórios mudou durante a verificação. Tente novamente quando outros gerenciadores de pacotes estiverem inativos.";
+"ACCESS_CHECK_UNCHANGED" = "Os arquivos de pacotes e fontes permaneceram inalterados";
+"ACCESS_CHECK_CHANGED" = "O estado dos pacotes ou fontes mudou durante a verificação. Tente novamente quando outros gerenciadores de pacotes estiverem inativos.";
 "ACCESS_CHECK_TIMEOUT" = "A verificação excedeu o tempo limite. Nenhuma operação de pacotes foi iniciada.";
 "ACCESS_CHECK_DETAILS" = "Detalhes técnicos";
 "ACCESS_CHECK_NOT_RUN" = "Não verificado";

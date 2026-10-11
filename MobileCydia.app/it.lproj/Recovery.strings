@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "La riparazione normale non è stata completata. La reinstallazione potrebbe ripristinare il pacchetto. «%@» è un’opzione di rimozione di emergenza.";
 "RECOVERY_NORMAL_FIRST" = "Prova prima una riparazione normale o la reinstallazione. «%@» diventa disponibile se la riparazione normale fallisce.";
 "RECOVERY_PROTECTED" = "La rimozione di emergenza è bloccata perché interesserebbe un pacchetto protetto o una dipendenza installata.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "La versione installata non è disponibile nei repository attuali. Aggiorna le sorgenti o scegli la rimozione normale.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "La versione installata non è disponibile nelle sorgenti attuali. Aggiorna le sorgenti o scegli la rimozione normale.";
 "RECOVERY_REMOVE_FAILED" = "La rimozione di emergenza è fallita. Gli script originali sono stati ripristinati quando possibile e il backup protetto è stato conservato. Esamina i dettagli prima di riprovare.";
 "RECOVERY_REPAIR" = "Prova riparazione normale";
 "RECOVERY_REPAIR_COMPLETE" = "La riparazione normale è terminata. Lo stato dei pacchetti verrà ricaricato.";

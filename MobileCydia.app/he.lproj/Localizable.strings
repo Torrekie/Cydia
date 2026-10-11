@@ -208,7 +208,7 @@
 "HOME_UPGRADING_SELECT" = "בחר מדריך";
 "HOME_UPGRADING_SHORT_TITLE" = "שדרוג";
 "HOME_EMPTY_DESTINATION" = "אין כאן תוכן זמין.";
-"MORE_SOURCES_READ_ONLY" = "בסביבת bootstrap זו לא הופעלה עריכת מקורות ב-Cydia. נהל מאגרים באמצעות מנהל החבילות של סביבת bootstrap שלך; Cydia יקרא את אותם מקורות APT.";
+"MORE_SOURCES_READ_ONLY" = "בסביבת הפצת החבילות זו לא הופעלה עריכת מקורות ב-Cydia. נהל מקורות באמצעות מנהל החבילות של סביבת הפצת החבילות שלך; Cydia יקרא את אותם מקורות APT.";
 "HOME_GUIDE_OBSOLETE" = "מיושן:";
 "HOME_GUIDE_NETWORK_DETAILS" = "כפתור פרטי הרשת";
 "HOME_STORAGE_CALCULATING" = "מתבצעת מדידה…";

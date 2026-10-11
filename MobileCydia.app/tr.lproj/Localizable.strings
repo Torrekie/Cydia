@@ -208,7 +208,7 @@
 "HOME_UPGRADING_SELECT" = "Bir rehber seçin";
 "HOME_UPGRADING_SHORT_TITLE" = "Yükseltme";
 "HOME_EMPTY_DESTINATION" = "Burada kullanılabilir içerik yok.";
-"MORE_SOURCES_READ_ONLY" = "Bu bootstrap ortamında Cydia'da kaynak düzenleme etkinleştirilmemiştir. Depoları bootstrap ortamınızın paket yöneticisiyle yönetin; Cydia aynı APT kaynaklarını okuyacaktır.";
+"MORE_SOURCES_READ_ONLY" = "Bu paket dağıtım ortamında Cydia'da kaynak düzenleme etkinleştirilmemiştir. Kaynakları paket dağıtım ortamınızın paket yöneticisiyle yönetin; Cydia aynı APT kaynaklarını okuyacaktır.";
 "HOME_GUIDE_OBSOLETE" = "Güncelliğini yitirmiş:";
 "HOME_GUIDE_NETWORK_DETAILS" = "Ağ ayrıntıları düğmesi";
 "HOME_STORAGE_CALCULATING" = "Ölçülüyor…";

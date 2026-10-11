@@ -327,7 +327,7 @@
     "HOME_UPGRADING_SELECT": "Select a guide",
     "HOME_UPGRADING_SHORT_TITLE": "Upgrading",
     "HOME_EMPTY_DESTINATION": "No content is available here.",
-    "MORE_SOURCES_READ_ONLY": "This bootstrap has not enabled source editing in Cydia. Manage repositories with your bootstrap's package manager; Cydia will read the same APT sources.",
+    "MORE_SOURCES_READ_ONLY": "This package distribution has not enabled source editing in Cydia. Manage sources with its package manager; Cydia will read the same APT sources.",
     "HOME_GUIDE_OBSOLETE": "Obsolete:",
     "HOME_GUIDE_NETWORK_DETAILS": "Network details button",
     "HOME_STORAGE_CALCULATING": "Measuring…",

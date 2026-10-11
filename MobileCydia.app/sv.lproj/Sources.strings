@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "Komponenter (valfritt)";
 "SOURCE_CONTINUE" = "Fortsätt";
 "SOURCE_DEFINITION" = "Källdefinition";
-"SOURCE_DEFINITION_INVALID" = "Ange en giltig APT-källdefinition. Paketförråd som inte är platta kräver komponenter; sviter som slutar med / får inte ha några.";
+"SOURCE_DEFINITION_INVALID" = "Ange en giltig APT-källdefinition. Paketkällor som inte är platta kräver komponenter; sviter som slutar med / får inte ha några.";
 "SOURCE_DESTINATION_EXPLANATION" = "Välj den APT-fil som ska innehålla denna definition.";
 "SOURCE_DISABLE" = "Inaktivera";
 "SOURCE_DISABLED" = "Inaktiverad";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Aktivera";
 "SOURCE_ENABLED" = "Aktiverad";
 "SOURCE_ENTER_DEFINITION" = "Ange APT-definition";
-"SOURCE_ENTER_DETAILS" = "Ange paketförrådets URI, svit och eventuella komponenter. Använd ./ för ett platt paketförråd.";
+"SOURCE_ENTER_DETAILS" = "Ange paketkällans URI, svit och eventuella komponenter. Använd ./ för en platt paketkälla.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "APT-miljön är inte tillgänglig. Granska konfigurationen i Avancerade inställningar.";
 "SOURCE_FILENAME" = "Filnamn.list eller filnamn.sources";
 "SOURCE_FILENAME_INVALID" = "Välj ett filnamn som stöds av APT och slutar med .list eller .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "Fil och rad";
 "SOURCE_NEW_FILE" = "Ny källfil";
 "SOURCE_NEW_FILE_EXPLANATION" = "Ange ett nytt filnamn som slutar med .list eller .sources. Filen skapas först när du har granskat och sparat definitionen.";
-"SOURCE_PROTECTED" = "Detta bootstrap-paketförråd kan endast ändras i Avancerade inställningar.";
-"SOURCE_PROTECTED_OR_REVIEW" = "Skyddade eller oidentifierade bootstrap-paketförråd kräver Avancerade inställningar. Källfiler måste vara läsbara innan de redigeras.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Granska skyddade bootstrap-paketförråd i Avancerade inställningar innan du ändrar källor.";
+"SOURCE_PROTECTED" = "Denna distributionskälla kan endast ändras i Avancerade inställningar.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Skyddade eller oidentifierade källor för paketdistributionen kräver Avancerade inställningar. Källfiler måste vara läsbara innan de redigeras.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Granska skyddade källor för paketdistributionen i Avancerade inställningar innan du ändrar källor.";
 "SOURCE_RELOAD_REQUIRED" = "Källfilen har ändrats. Läs in Källor på nytt och granska ändringen igen.";
 "SOURCE_REPOSITORIES" = "URI:er och sviter";
 "SOURCE_REVIEW_CHANGE" = "Granska källändring";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "Källändringen kunde inte sparas. Granska APT-konfigurationen och filens behörigheter.";
 "SOURCE_STATUS" = "Status";
 "SOURCE_SUITE" = "Svit eller distribution";
-"SOURCE_URI" = "Paketförrådets URI";
+"SOURCE_URI" = "Paketkällans URI";
 "SOURCE_WAIT_FOR_OPERATION" = "Vänta tills den aktuella paketåtgärden är klar.";
 "SOURCE_WHOLE_DEFINITION" = "Ändringen gäller hela definitionen, inklusive alla URI:er och sviter i den.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Den här definitionen skyddas som en del av din bootstrap-miljö. När en ändring sparas behålls skyddet; om definitionen tas bort tas även dess skyddsreferenser bort.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "Källdefinitionen har ändrats, men dess skyddsreferenser kunde inte sparas. Granska bootstrap-förråden i Avancerade inställningar innan du ändrar fler källor.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Den här definitionen skyddas som en del av din paketdistribution. När en ändring sparas behålls skyddet; om definitionen tas bort tas även dess skyddsreferenser bort.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "Källdefinitionen har ändrats, men dess skyddsreferenser kunde inte sparas. Granska paketdistributionens källor i Avancerade inställningar innan du ändrar fler källor.";
 "SOURCE_READ_ONLY_ALIAS" = "Den här källan är en länk som hanteras utanför Cydia. Cydia kan använda den, men kan inte redigera eller ta bort dess definitioner.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Förrådsinställningar";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Avancerade förrådsinställningar";
+"SOURCE_REPOSITORY_SETTINGS" = "Källinställningar";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Avancerade källinställningar";
 "SOURCE_DEFINITION_DETAILS" = "Definitionsdetaljer";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "Det här förrådet har flera källdefinitioner. Välj den definition som ska tas bort.";
-"SOURCE_DELETE_UNAVAILABLE" = "Det här förrådet kan inte tas bort här. Granska dess källdefinitioner i Inställningar.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Den här källan har flera källdefinitioner. Välj den definition som ska tas bort.";
+"SOURCE_DELETE_UNAVAILABLE" = "Den här källan kan inte tas bort här. Granska dess källdefinitioner i Inställningar.";
+"SOURCE_REMOVE" = "Ta bort källa";

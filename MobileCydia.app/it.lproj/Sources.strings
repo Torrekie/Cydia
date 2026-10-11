@@ -4,7 +4,7 @@
 "SOURCE_COMPONENTS" = "Componenti (facoltativi)";
 "SOURCE_CONTINUE" = "Continua";
 "SOURCE_DEFINITION" = "Definizione della sorgente";
-"SOURCE_DEFINITION_INVALID" = "Inserisci una definizione di sorgente APT valida. I repository non piatti richiedono componenti; le suite che terminano con / non devono averne.";
+"SOURCE_DEFINITION_INVALID" = "Inserisci una definizione di sorgente APT valida. Le sorgenti non piatte richiedono componenti; le suite che terminano con / non devono averne.";
 "SOURCE_DESTINATION_EXPLANATION" = "Scegli il file APT che conterrà questa definizione.";
 "SOURCE_DISABLE" = "Disabilita";
 "SOURCE_DISABLED" = "Disabilitata";
@@ -13,7 +13,7 @@
 "SOURCE_ENABLE" = "Abilita";
 "SOURCE_ENABLED" = "Abilitata";
 "SOURCE_ENTER_DEFINITION" = "Inserisci definizione APT";
-"SOURCE_ENTER_DETAILS" = "Inserisci l’URI del repository, la suite e i componenti facoltativi. Usa ./ per un repository piatto.";
+"SOURCE_ENTER_DETAILS" = "Inserisci l’URI della sorgente, la suite e i componenti facoltativi. Usa ./ per una sorgente piatta.";
 "SOURCE_ENVIRONMENT_UNAVAILABLE" = "L’ambiente APT non è disponibile. Controlla la configurazione nelle impostazioni avanzate.";
 "SOURCE_FILENAME" = "Nomefile.list o nomefile.sources";
 "SOURCE_FILENAME_INVALID" = "Scegli un nome di file compatibile con APT che termini con .list o .sources.";
@@ -23,9 +23,9 @@
 "SOURCE_LOCATION" = "File e riga";
 "SOURCE_NEW_FILE" = "Nuovo file delle sorgenti";
 "SOURCE_NEW_FILE_EXPLANATION" = "Inserisci un nuovo nome di file che termini con .list o .sources. Il file verrà creato solo dopo aver esaminato e salvato la definizione.";
-"SOURCE_PROTECTED" = "Questo repository del bootstrap può essere modificato solo nelle impostazioni avanzate.";
-"SOURCE_PROTECTED_OR_REVIEW" = "I repository del bootstrap protetti o non identificati richiedono le impostazioni avanzate. I file delle sorgenti devono essere leggibili prima della modifica.";
-"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Esamina i repository del bootstrap protetti nelle impostazioni avanzate prima di modificare le sorgenti.";
+"SOURCE_PROTECTED" = "Questa sorgente della distribuzione di pacchetti può essere modificata solo nelle impostazioni avanzate.";
+"SOURCE_PROTECTED_OR_REVIEW" = "Le sorgenti protette o non identificate della distribuzione di pacchetti richiedono le impostazioni avanzate. I file delle sorgenti devono essere leggibili prima della modifica.";
+"SOURCE_PROTECTION_REVIEW_REQUIRED" = "Esamina le sorgenti protette della distribuzione di pacchetti nelle impostazioni avanzate prima di modificare le sorgenti.";
 "SOURCE_RELOAD_REQUIRED" = "Il file delle sorgenti è cambiato. Ricarica le sorgenti ed esamina nuovamente la modifica.";
 "SOURCE_REPOSITORIES" = "URI e suite";
 "SOURCE_REVIEW_CHANGE" = "Esamina modifica della sorgente";
@@ -33,15 +33,16 @@
 "SOURCE_SAVE_FAILED" = "Impossibile salvare la modifica della sorgente. Controlla la configurazione APT e i permessi del file.";
 "SOURCE_STATUS" = "Stato";
 "SOURCE_SUITE" = "Suite o distribuzione";
-"SOURCE_URI" = "URI del repository";
+"SOURCE_URI" = "URI della sorgente";
 "SOURCE_WAIT_FOR_OPERATION" = "Attendi il completamento dell’operazione sui pacchetti in corso.";
 "SOURCE_WHOLE_DEFINITION" = "Questa modifica si applica all’intera definizione, inclusi tutti gli URI e le suite contenuti.";
-"SOURCE_BOOTSTRAP_CHANGE" = "Questa definizione è protetta come parte del tuo bootstrap. Salvare una modifica mantiene la protezione; rimuoverla elimina anche i suoi riferimenti di protezione.";
-"SOURCE_POLICY_SAVE_INCOMPLETE" = "La definizione della sorgente è stata modificata, ma non è stato possibile salvare i suoi riferimenti di protezione. Controlla i repository del bootstrap nelle impostazioni avanzate prima di modificare altre sorgenti.";
+"SOURCE_BOOTSTRAP_CHANGE" = "Questa definizione è protetta come parte della tua distribuzione di pacchetti. Salvare una modifica mantiene la protezione; rimuoverla elimina anche i suoi riferimenti di protezione.";
+"SOURCE_POLICY_SAVE_INCOMPLETE" = "La definizione della sorgente è stata modificata, ma non è stato possibile salvare i suoi riferimenti di protezione. Controlla le sorgenti della distribuzione di pacchetti nelle impostazioni avanzate prima di modificare altre sorgenti.";
 "SOURCE_READ_ONLY_ALIAS" = "Questa sorgente è un collegamento gestito al di fuori di Cydia. Cydia può utilizzarla, ma non può modificarne o rimuoverne le definizioni.";
 
-"SOURCE_REPOSITORY_SETTINGS" = "Impostazioni dei repository";
-"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Impostazioni avanzate dei repository";
+"SOURCE_REPOSITORY_SETTINGS" = "Impostazioni delle sorgenti";
+"SOURCE_REPOSITORY_SETTINGS_ADVANCED" = "Impostazioni avanzate delle sorgenti";
 "SOURCE_DEFINITION_DETAILS" = "Dettagli della definizione";
-"SOURCE_DELETE_CHOOSE_DEFINITION" = "Questo repository ha più di una definizione di sorgente. Scegli la definizione da rimuovere.";
-"SOURCE_DELETE_UNAVAILABLE" = "Questo repository non può essere rimosso qui. Esamina le sue definizioni di sorgente nelle Impostazioni.";
+"SOURCE_DELETE_CHOOSE_DEFINITION" = "Questa sorgente ha più di una definizione di sorgente. Scegli la definizione da rimuovere.";
+"SOURCE_DELETE_UNAVAILABLE" = "Questa sorgente non può essere rimossa qui. Esamina le sue definizioni di sorgente nelle Impostazioni.";
+"SOURCE_REMOVE" = "Rimuovi sorgente";

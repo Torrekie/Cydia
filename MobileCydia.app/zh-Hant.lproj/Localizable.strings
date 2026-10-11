@@ -242,7 +242,7 @@
 "HOME_UPGRADING_SELECT" = "選擇指南";
 "HOME_UPGRADING_SHORT_TITLE" = "升級";
 "HOME_EMPTY_DESTINATION" = "此處尚無內容。";
-"MORE_SOURCES_READ_ONLY" = "此引導環境尚未啟用 Cydia 的來源編輯功能。請使用該環境的套件管理器管理軟體庫；Cydia 會讀取相同的 APT 來源。";
+"MORE_SOURCES_READ_ONLY" = "此套件發行環境尚未啟用 Cydia 的來源編輯功能。請使用該環境的套件管理器管理來源；Cydia 會讀取相同的 APT 來源。";
 "HOME_GUIDE_OBSOLETE" = "已過時：";
 "HOME_GUIDE_NETWORK_DETAILS" = "網路詳細資訊按鈕";
 "HOME_STORAGE_CALCULATING" = "正在測量…";

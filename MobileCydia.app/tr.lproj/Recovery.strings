@@ -11,7 +11,7 @@
 "RECOVERY_FAILED" = "Normal onarım tamamlanmadı. Yeniden kurulum paketi geri yükleyebilir. “%@” acil kaldırma seçeneğidir.";
 "RECOVERY_NORMAL_FIRST" = "Önce normal onarımı veya yeniden kurulumu deneyin. Normal onarım başarısız olursa “%@” kullanılabilir hale gelir.";
 "RECOVERY_PROTECTED" = "Korumalı bir paketi veya kurulu bir bağımlılığı etkileyeceği için acil kaldırma engellendi.";
-"RECOVERY_REINSTALL_UNAVAILABLE" = "Kurulu sürüm mevcut depolarınızda yok. Kaynakları yenileyin veya normal kaldırmayı seçin.";
+"RECOVERY_REINSTALL_UNAVAILABLE" = "Kurulu sürüm mevcut kaynaklarınızda yok. Kaynakları yenileyin veya normal kaldırmayı seçin.";
 "RECOVERY_REMOVE_FAILED" = "Acil kaldırma başarısız oldu. Mümkün olan yerlerde özgün betikler geri yüklendi ve korumalı yedek saklandı. Yeniden denemeden önce ayrıntıları inceleyin.";
 "RECOVERY_REPAIR" = "Normal Onarımı Dene";
 "RECOVERY_REPAIR_COMPLETE" = "Normal onarım tamamlandı. Paket durumu yeniden yüklenecek.";
