@@ -326,7 +326,9 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
 }
 
 - (void) setFetch:(NSNumber *)fetch {
-    if ([fetch boolValue])
+    // A callback queued before reuse belongs to the old source. Always read
+    // the currently bound source so it cannot animate another row.
+    if (source_ != nil && [source_ fetch])
         [indicator_ startAnimating];
     else
         [indicator_ stopAnimating];
