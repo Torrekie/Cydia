@@ -68,11 +68,12 @@ The existing Home catalog maps `en-us` to `en`, `pt-br` to `pt`, `pt-pt` to
 fallbacks remain untouched, including the English Find Extensions label and
 Japanese welcome/byline gaps.
 
-## Repaired additions
+## Repaired migration additions
 
-All 18 keys now resolve in all 21 locale tables. Added 376 entries: 17 new keys
-in every locale, plus the missing 19 translations of `LAST_REPORTED_PROGRESS`.
-Its existing English and Simplified Chinese entries were preserved.
+The migration repair covers 18 keys in all 21 locale tables. It adds 376 entries:
+17 new keys in every locale, plus the missing 19 translations of
+`LAST_REPORTED_PROGRESS`. Its existing English and Simplified Chinese entries
+were preserved. The new package-management flows below use separate tables.
 
 | Key | English text |
 | --- | --- |
@@ -110,6 +111,41 @@ repository/package-provided metadata, and diagnostics hidden behind localized
 UI errors are excluded. The complete classification and original table digests
 are in `tests/fixtures/ui/native-localization-baseline.json`.
 
+## New native package-management flows
+
+These tables contain newly authored native UI text for the package-management
+flows. Their coverage follows the same 21-locale baseline, including separate
+Brazilian/European Portuguese and Simplified/Traditional Chinese resources.
+
+| Table | Entries per locale | Native consumers and provenance |
+| --- | --- | --- |
+| `Settings.strings` | 79 | Settings and Advanced Settings; repository Allow/Warning/Error policy; user-selected bootstrap protection; executable overrides; capability review; public-key import; repository/download diagnostics; transaction failures. These explanations and review states were introduced with the optional APT frontend. |
+| `Sources.strings` | 43 | The native editor for actual `.list` lines and `.sources` stanzas, destination files, enable/disable actions, complete-definition review, bootstrap protection and conflicts. This new file-oriented workflow takes actual APT source files as its authority. |
+| `Actions.strings` | 14 | Native package version selection, priority/candidate information, purge, hold handling, Essential/Protected safeguards and unavailable installed-version reinstall. These labels explain the expanded APT/dpkg actions. |
+| `Recovery.strings` | 21 | Native incomplete-package recovery, normal repair, emergency-removal review, retained script backups and failure states. This is new guidance around the retained historical Forcibly Clear action. |
+| `RuntimeAccess.strings` | 18 | The explicit package-management access check in Advanced Settings, its six checks, contention, changed-state and timeout results, and technical-details navigation. This diagnostic view is newly authored. |
+| `InfoPlist.strings` | 2 | Localized OpenPGP public-key document-type labels for file sharing and Open in Cydia. Both `CFBundleTypeName` and the declared `OpenPGP Public Key` label are provided. |
+
+All six tables have matching key sets in every shipped locale. Existing shared
+navigation and action labels continue to use `Localizable.strings`, including
+Settings, About, Cancel, Confirm, Remove, Reinstall and Forcibly Clear. Historical
+About attributions and English-only guide bodies retain their previous scope.
+
+Format arguments preserve their types across translations: `%@` carries names,
+paths, versions or source definitions; `%lu` carries the capability
+count; `%ld` carries package priority. Capability-count prose uses a label and
+number rather than an English singular/plural package noun. Repository syntax,
+package identifiers, executable names, key fingerprints and user-provided values
+remain data rather than translation keys.
+
+The new controllers use native table cells, alerts and text views. Table rows
+self-size, explanatory labels allow multiple lines, and body/footnote fonts
+follow Dynamic Type. Source-editor constraints use leading/trailing anchors;
+ordinary native controls retain UIKit's language-direction behavior. Action and
+selection accessibility traits distinguish controls from static review text.
+These implementation properties support long translations, RTL and VoiceOver;
+they are separate from an observed accessibility or visual acceptance session.
+
 ## Verification
 
 `make verify-home-localization` checks the original Home catalog/mappings,
@@ -117,5 +153,14 @@ all 18 new keys across all 21 locales, format-slot compatibility, Apple strings
 syntax on macOS, duplicate entries, and preservation of original 2023 values.
 French `destination` is intentionally identical to English because the same
 word is correct in both languages.
+
+`make verify-settings-localization` checks the new tables with
+`SettingsLocalizationTests.py`, `SourcesLocalizationTests.py`,
+`ActionsLocalizationTests.py` and `RecoveryLocalizationTests.py`. The checks
+require the 21-locale baseline and matching keys, compare format arguments where
+used, and check the source/recovery controller key inventories. The Settings
+check also covers `RuntimeAccess.strings` and the file-type label keys in
+`InfoPlist.strings`. These are structural coverage checks; translation meaning
+and native layout remain review concerns.
 
 Localization resources are shipped by the separate `cydia-lproj` package.

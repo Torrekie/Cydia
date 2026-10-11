@@ -283,7 +283,9 @@ static NSString *DefinitionSummary(CydiaSourceDefinition *row) {
     location.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection];
     location.text = [NSString stringWithFormat:@"%@\n%@", [NSString stringWithUTF8String:expected_.document.path.c_str()], SourceUI(@"SOURCE_EDITOR_EXPLANATION")];
     text_ = [[UITextView alloc] init]; text_.delegate = self;
-    text_.font = [UIFont fontWithName:@"Menlo" size:16] ?: [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    UIFont *editorFont([UIFont fontWithName:@"Menlo" size:16]);
+    text_.font = editorFont != nil ? [[UIFontMetrics metricsForTextStyle:UIFontTextStyleBody]
+        scaledFontForFont:editorFont] : [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     text_.adjustsFontForContentSizeCategory = YES;
     text_.autocorrectionType = UITextAutocorrectionTypeNo; text_.autocapitalizationType = UITextAutocapitalizationTypeNone;
     text_.smartQuotesType = UITextSmartQuotesTypeNo; text_.smartDashesType = UITextSmartDashesTypeNo;
