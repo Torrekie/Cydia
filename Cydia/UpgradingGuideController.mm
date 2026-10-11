@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #include "Cydia/UpgradingGuideController.h"
+#include "Cydia/TableViewCompatibility.h"
 #include "Cydia/UIRouteContext.h"
 #include "Cydia/ExternalURLPolicy.h"
 #include "Cydia/UIColor+Cydia.h"

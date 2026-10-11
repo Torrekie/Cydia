@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/ApplicationExtensionsController.h"
+#include "Cydia/TableViewCompatibility.h"
 #include "Cydia/UIRouteContext.h"
 #include "Cydia/UIColor+Cydia.h"
 #include "Cydia/NativeAccessibilityTrace.h"

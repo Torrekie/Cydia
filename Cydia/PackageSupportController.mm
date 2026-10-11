@@ -4,6 +4,7 @@
  */
 
 #include "Cydia/PackageSupportController.h"
+#include "Cydia/TableViewCompatibility.h"
 
 #include "Cydia/Appearance.h"
 #include "Cydia/AppState.h"

@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/HomeGuideController.h"
+#import "Cydia/TableViewCompatibility.h"
 #import "Cydia/UIRouteContext.h"
 #import "Cydia/ExternalURLPolicy.h"
 #import "Cydia/UIColor+Cydia.h"

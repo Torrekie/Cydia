@@ -9,6 +9,7 @@
 #include "Cydia/ExternalURLPolicy.h"
 #include "Cydia/HomeSplitDisclosure.h"
 #include "Cydia/HomeTableAppearance.h"
+#include "Cydia/TableViewCompatibility.h"
 
 #include "Cydia/Application.h"
 #include "Cydia/Appearance.h"
@@ -528,8 +529,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
      * explicit section footer, so retaining that implicit inset makes the
      * social and discovery rows look disconnected.  Keep the guard for the
      * iOS 12 deployment target, where this selector is unavailable. */
-    if ([table_ respondsToSelector:@selector(setSectionHeaderTopPadding:)])
-        table_.sectionHeaderTopPadding = 0;
+    if (@available(iOS 15.0, *)) {
+        if ([table_ respondsToSelector:@selector(setSectionHeaderTopPadding:)])
+            table_.sectionHeaderTopPadding = 0;
+    }
     [view addSubview:table_];
 
     recommendationsTable_ = [[UITableView alloc] initWithFrame:CGRectZero
@@ -540,8 +543,10 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     recommendationsTable_.rowHeight = UITableViewAutomaticDimension;
     recommendationsTable_.sectionHeaderHeight = 0.01;
     recommendationsTable_.sectionFooterHeight = 0.01;
-    if ([recommendationsTable_ respondsToSelector:@selector(setSectionHeaderTopPadding:)])
-        recommendationsTable_.sectionHeaderTopPadding = 0;
+    if (@available(iOS 15.0, *)) {
+        if ([recommendationsTable_ respondsToSelector:@selector(setSectionHeaderTopPadding:)])
+            recommendationsTable_.sectionHeaderTopPadding = 0;
+    }
     HomeApplyTableSurface(recommendationsTable_, view.backgroundColor,
         [self homeAppearanceTraits]);
     recommendationsTable_.separatorColor = table_.separatorColor;
