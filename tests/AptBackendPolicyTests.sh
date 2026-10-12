@@ -10,6 +10,14 @@ python3 "$PROJECT_DIR/tests/BuildAptBackendPolicyTest.py"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-archive-reader"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-mmap-backing"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-runtime-state"
+# Run ordinary admission/codec cases and then the protected-registration and
+# framed-probe cases under the existing fakeroot boundary.
+"$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-selection"
+fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-selection"
+# gzip is already part of the native APT fixture environment. Its compressed
+# index case must run, never silently skip an unavailable decoder.
+command -v gzip >/dev/null
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-archive-evidence"
 TESTDIR="$PROJECT_DIR/apt64/test/integration"
 TESTDIRECTORY="$TESTDIR"
 . "$TESTDIR/framework"

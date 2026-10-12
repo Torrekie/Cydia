@@ -23,11 +23,14 @@
 @class Package;
 @class Source;
 @class CydiaProgressEvent;
+@class CydiaRuntimeProviderStatus;
+@class CydiaTransactionReview;
 @protocol ProgressDelegate;
 
 namespace CydiaAPT {
 class AptBackend;
 class ProgressStatus;
+class RuntimeProviderCoordinator;
 }
 
 @protocol DatabaseDelegate
@@ -66,6 +69,12 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
     CydiaRuntime::TransactionResult transactionResult_;
 
     CydiaAPT::AptBackend *apt_;
+    CydiaAPT::RuntimeProviderCoordinator *runtime_;
+    NSObject *runtimeStatusLock_;
+    _H<CydiaRuntimeProviderStatus> runtimeStatus_;
+    _H<CydiaTransactionReview> confirmationReview_;
+    BOOL confirmationApproved_;
+    BOOL runtimeReloadPending_;
 
     SourceMap sourceMap_;
     _H<NSMutableArray> sourceList_;
@@ -128,6 +137,9 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (bool) configure;
 - (bool) clean;
 - (bool) prepare;
+- (NSNumber *)prepareForConfirmation;
+- (CydiaTransactionReview *)preparedConfirmationReview;
+- (BOOL)approveConfirmationReview:(CydiaTransactionReview *)review;
 - (bool) perform;
 - (CydiaRuntime::TransactionResult) lastTransactionResult;
 - (bool) delocked;
@@ -141,11 +153,11 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 
 - (void) setFetch:(bool)fetch forURI:(const char *)uri;
 - (void) resetFetch;
-- (NSString *) mappedSectionForPointer:(const char *)pointer;
 
 @end
 
 @interface Database (SourceOperations)
+- (NSString *)mappedSectionForPointer:(const char *)pointer;
 - (std::vector<CydiaAPT::SourceHandle>) sourceHandles;
 - (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle;
 - (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name;

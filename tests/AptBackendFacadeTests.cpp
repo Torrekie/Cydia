@@ -138,7 +138,8 @@ struct Peer {
                     break;
                 case P::Operation::DrainErrors:
                     Encode(std::vector<A::ErrorData>{{mode == Mode::SensitiveDiagnostics ?
-                        "Download https://user:password@fixture.invalid/private-token/file?secret=value failed" : "upstream diagnostic", true}}, &response); break;
+                        "Download https://user:password@fixture.invalid/private-token/file?secret=value failed" : "upstream diagnostic",
+                        true, mode == Mode::SensitiveDiagnostics ? "provider_frontend_busy" : ""}}, &response); break;
                 case P::Operation::CacheState: {
                     if (mode == Mode::Disconnect) { shutdown(server, SHUT_RDWR); return; }
                     A::CacheStateSummary cache; cache.installs = 4; Encode(cache, &response);
@@ -255,7 +256,8 @@ struct Peer {
                     result.architecture = A::SourceArchitectureAvailability::Supported;
                     A::FetchFailureData warning; warning.kind = A::FetchDiagnosticKind::UnsignedRepository;
                     if (mode == Mode::SensitiveDiagnostics) {
-                        result.errors.push_back({"Key https://user:password@fixture.invalid/private-token?secret=value unavailable", false});
+                        result.errors.push_back({"Key https://user:password@fixture.invalid/private-token?secret=value unavailable",
+                            false, "provider_frontend_busy"});
                         warning.error = "Failed https://fixture.invalid/private-token?secret=value";
                         warning.uri = "https://fixture.invalid/private-token?secret=value";
                     }
@@ -268,7 +270,8 @@ struct Peer {
                     if (mode == Mode::SourceBudget) std::this_thread::sleep_for(std::chrono::milliseconds(80));
                     A::SourceResourceResult result; result.status = A::SourceCheckStatus::Complete; result.bytes = "fixture metadata";
                     if (mode == Mode::SensitiveDiagnostics)
-                        result.errors.push_back({"Fetch https://user:password@fixture.invalid/private-token?secret=value failed", false});
+                        result.errors.push_back({"Fetch https://user:password@fixture.invalid/private-token?secret=value failed",
+                            false, "provider_frontend_busy"});
                     if (mode == Mode::SourceStatuses) result.status = A::SourceCheckStatus::SizeLimit;
                     if (mode == Mode::CancelSource) {
                         P::Message cancel;
@@ -391,7 +394,9 @@ void SourceBoundaries() {
     }
     {
         Peer peer(Mode::Complete); A::AptBackend backend(Session(peer));
-        Require(backend.sourcePreflight(SourceCheck(), []() { return true; }).status == A::SourceCheckStatus::Cancelled,
+        const auto cancelled(backend.sourcePreflight(SourceCheck(), []() { return true; }));
+        Require(cancelled.status == A::SourceCheckStatus::Cancelled && cancelled.errors.size() == 1 &&
+            cancelled.errors.front().message.empty() && cancelled.errors.front().cydiaCode == "provider_cancelled",
             "explicit source cancellation is forwarded before sending");
         Require(backend.sourceResource(SourceResource()).status == A::SourceCheckStatus::Complete,
             "pre-send cancellation keeps the same provider usable");
@@ -484,12 +489,15 @@ void DiagnosticPrivacy() {
     const auto errors(backend.drainErrors());
     Require(!errors.empty() && errors.front().message.find("fixture.invalid") != std::string::npos,
         "upstream diagnostic retains the safe origin");
+    Require(errors.size() == 2 && errors.front().cydiaCode.empty() && errors.back().message.empty() &&
+        errors.back().cydiaCode == "provider_request_failed", "worker cannot label upstream text as Cydia UI or erase a local failure");
     for (const auto &error : errors) Require(safe(error.message), "drained and queued errors contain no URL credentials");
     const auto checked(backend.sourcePreflight(SourceCheck()));
-    Require(safe(checked.errors.front().message) && safe(checked.warnings.front().error) && safe(checked.warnings.front().uri),
+    Require(safe(checked.errors.front().message) && checked.errors.front().cydiaCode.empty() &&
+        safe(checked.warnings.front().error) && safe(checked.warnings.front().uri),
         "preflight diagnostic messages and URIs are redacted before leaving the facade");
     const auto resource(backend.sourceResource(SourceResource()));
-    Require(safe(resource.errors.front().message) && resource.bytes == "fixture metadata",
+    Require(safe(resource.errors.front().message) && resource.errors.front().cydiaCode.empty() && resource.bytes == "fixture metadata",
         "resource diagnostics are redacted without modifying transport bytes");
 }
 void FailureBoundaries() {
@@ -501,6 +509,12 @@ void FailureBoundaries() {
         const auto failure(backend.providerFailure());
         Require(!failure.code.empty() && !failure.indeterminate, "typed failure retained without invented effects");
         const auto errors(backend.drainErrors()); Require(!errors.empty(), "facade failure remains diagnosable");
+        bool hasLocalDiagnostic(false);
+        for (const auto &error : errors) {
+            Require(error.message != failure.code, "facade machine code leaked into upstream diagnostic text");
+            if (error.cydiaCode == failure.code && error.message.empty()) hasLocalDiagnostic = true;
+        }
+        Require(hasLocalDiagnostic, "facade failure lost its Cydia diagnostic identity");
         if (mode == Mode::FailedReply) {
             Require(errors.front().message == "upstream diagnostic" && errors.front().warning, "failed operation preserves upstream diagnostic queue");
             Require(backend.loadSources(), "ordinary provider errors do not change backends");

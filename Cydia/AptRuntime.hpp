@@ -70,6 +70,10 @@ RuntimeDescriptor ReadEmbeddedRuntimeDescriptor();
 /* Trust is mutable coordinator evidence, not descriptor data. Updating it
  * requires the exact selected provider/configuration/policy/state binding. */
 bool SetRuntimeDescriptorTrustValid(const RuntimeDescriptorBinding &binding, bool valid);
+// After opening a new cache, the coordinator independently recaptures the
+// registered environment and matches its package-state token to the session.
+// Only that verified token may change; provider paths/policy remain immutable.
+bool UpdateRuntimeDescriptorPackageState(const RuntimeDescriptorBinding &expected, const std::string &verifiedState);
 /* Process-local overrides only: no other frontend's apt.conf is modified.
  * Call the setter under Database's serialization boundary, outside an active
  * acquisition, since APT's configuration is process-global. Distribution

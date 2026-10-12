@@ -28,6 +28,8 @@
 #include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/ConfirmationViewModel.h"
 #include "Cydia/Database.h"
+#include "Cydia/TransactionReview.h"
+#include "Cydia/RuntimeProviderStatus.h"
 #include "Cydia/Package.h"
 #include "Cydia/PackageArchitecturePresentation.h"
 #include "CyteKit/Localize.h"
@@ -274,6 +276,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 @end
 
 @interface ConfirmationController () <UITableViewDataSource, UITableViewDelegate>
+@property (nonatomic, strong) Database *database;
+@property (nonatomic, strong) CydiaTransactionReview *transactionReview;
 @property (nonatomic, strong) CydiaConfirmationViewModel *viewModel;
 @property (nonatomic, strong) CydiaConfirmationActionState *actionState;
 @property (nonatomic, copy) NSArray<CydiaConfirmationTableSection *> *sections;
@@ -323,7 +327,10 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
 - (instancetype) initWithDatabase:(Database *)database {
     if ((self = [super init]) != nil) {
-        const CydiaAPT::TransactionData transaction([database transactionData]);
+        _database = database;
+        _transactionReview = [database preparedConfirmationReview];
+        if (_transactionReview == nil) return nil;
+        const CydiaAPT::TransactionData transaction([_transactionReview transaction]);
         CydiaConfirmationPackageNameResolver resolver = ^NSString *(NSString *identity) {
             return OwnedPackageDisplayName(transaction, identity);
         };
@@ -332,6 +339,14 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             advancedModeEnabled:Advanced_
             packageNameResolver:resolver]);
         [self configureWithViewModel:viewModel];
+        NSMutableArray *sections([_sections mutableCopy]);
+        if (_transactionReview.runtimeNotice.length)
+            [sections insertObject:[CydiaConfirmationTableSection runtimeNotice] atIndex:0];
+        if (_transactionReview.operations.count)
+            [sections addObject:[CydiaConfirmationTableSection providerOperationsWithCount:_transactionReview.operations.count]];
+        if (_transactionReview.archiveWarningRows.count)
+            [sections addObject:[CydiaConfirmationTableSection archiveWarningsWithCount:_transactionReview.archiveWarningRows.count]];
+        _sections = [sections copy];
     }
     return self;
 }
@@ -472,7 +487,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
                                          traitCollection:traits]];
     CydiaConfirmationTableCell *confirmationCell((CydiaConfirmationTableCell *) cell);
     CydiaConfirmationCellLayout layout(CydiaConfirmationCellLayoutColumns);
-    if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice)
+    if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice || sectionKind == CydiaConfirmationTableSectionKindRuntimeNotice)
         layout = CydiaConfirmationCellLayoutMessage;
     else if (sectionKind == CydiaConfirmationTableSectionKindQueue)
         layout = CydiaConfirmationCellLayoutAction;
@@ -600,7 +615,12 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     switch ([tableSection kind]) {
         case CydiaConfirmationTableSectionKindIssueNotice:
         case CydiaConfirmationTableSectionKindQueue:
+        case CydiaConfirmationTableSectionKindRuntimeNotice:
             return nil;
+        case CydiaConfirmationTableSectionKindProviderOperations:
+            return CydiaRuntimeProviderLocalize(@"REVIEW_OPERATIONS");
+        case CydiaConfirmationTableSectionKindArchiveWarnings:
+            return UCLocalize("WARNING");
         case CydiaConfirmationTableSectionKindSizes:
             return UCLocalize("STATISTICS");
         case CydiaConfirmationTableSectionKindModifications:
@@ -634,6 +654,21 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     switch ([section kind]) {
+        case CydiaConfirmationTableSectionKindRuntimeNotice:
+            titleLabel.text = _transactionReview.runtimeNotice;
+            cell.accessibilityIdentifier = @"cydia.confirmation.runtime-policy";
+            cell.accessibilityLabel = titleLabel.text;
+            break;
+        case CydiaConfirmationTableSectionKindProviderOperations:
+        case CydiaConfirmationTableSectionKindArchiveWarnings: {
+            const BOOL warning([section kind] == CydiaConfirmationTableSectionKindArchiveWarnings);
+            NSDictionary *operation((warning ? _transactionReview.archiveWarningRows : _transactionReview.operations)[indexPath.row]);
+            titleLabel.text = operation[@"title"]; detailLabel.text = operation[@"detail"];
+            cell.accessibilityIdentifier = [NSString stringWithFormat:warning ? @"cydia.confirmation.archive-warning.%ld" :
+                @"cydia.confirmation.operation.%ld", (long)indexPath.row];
+            cell.accessibilityLabel = [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), titleLabel.text, detailLabel.text];
+            break;
+        }
         case CydiaConfirmationTableSectionKindIssueNotice: {
             NSString *note(UCLocalize("NOTE"));
             NSString *message(UCLocalize("CANNOT_COMPLY_EX"));
@@ -844,6 +879,15 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             return;
 
         case CydiaConfirmationActionEffectConfirm:
+            if (_database && ![_database approveConfirmationReview:_transactionReview]) {
+                UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("CONFIRM")
+                    message:[[NSBundle mainBundle] localizedStringForKey:@"TRANSACTION_STALE" value:nil table:@"Settings"]
+                    preferredStyle:UIAlertControllerStyleAlert]);
+                [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault
+                    handler:^(UIAlertAction *) { [self dismissConfirmation]; }]];
+                [self presentViewController:alert animated:YES completion:nil];
+                return;
+            }
             /* Legacy extensions intentionally clear this ivar before calling
              * the original Confirm action.  Keep that behavior functional. */
             if (substrate_)

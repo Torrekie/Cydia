@@ -30,6 +30,7 @@
 #include "Cydia/RecoveryPrivileged.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/AptMessages.h"
+#include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include <locale.h>
 #include <set>
 
@@ -185,7 +186,16 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
         command != "--cydia-admin-access-review" && command != "--cydia-admin-access-approve" && command != "--cydia-admin-access-revoke" &&
         command != "--cydia-set-executable" &&
         command != "--cydia-key-package-files" && command != "--cydia-key-package-read" &&
-        command != "--cydia-extended-state-read" && command != "--cydia-open-lock") return false;
+        command != "--cydia-extended-state-read" && command != "--cydia-open-lock" &&
+        command != "--cydia-provider-lock" && command != "--cydia-provider-state" &&
+        command != "--cydia-provider-snapshot" && command != "--cydia-provider-extended-read" &&
+        command != "--cydia-provider-route") return false;
+    if (command == "--cydia-provider-route") {
+        const std::string routed(*argc > 3 ? argv[2] : "");
+        if (routed != "--cydia-runtime-snapshot" && routed != "--cydia-trust-snapshot" &&
+            routed != "--cydia-extended-state-read" && routed != "--cydia-key-package-files" &&
+            routed != "--cydia-key-package-read") return false;
+    }
     const char *value(argv[*argc - 1] + sizeof(prefix) - 1);
     if (*value == '\0' || strlen(value) > 5) return false;
     unsigned milliseconds(0);
@@ -353,13 +363,14 @@ void SanitizeEnvironment(const CydiaRuntime::PackageDatabasePaths &paths) {
 }
 
 volatile sig_atomic_t activeChild = -1;
+bool providerChildStarted = false;
 volatile sig_atomic_t pendingSignal = 0;
 void ForwardSignal(int signal) {
     pendingSignal = signal;
     if (activeChild > 0) kill(static_cast<pid_t>(activeChild), signal);
 }
 
-int SpawnAndWait(const std::string &tool, std::vector<std::string> arguments) {
+int SpawnAndWait(const std::string &tool, std::vector<std::string> arguments, int startedDescriptor = -1) {
     arguments.insert(arguments.begin(), tool);
     std::vector<char *> argv;
     for (std::string &argument : arguments) argv.push_back(const_cast<char *>(argument.c_str()));
@@ -374,6 +385,20 @@ int SpawnAndWait(const std::string &tool, std::vector<std::string> arguments) {
         _exit(EX_OSERR);
     }
     activeChild = child;
+    if (startedDescriptor >= 0) {
+        providerChildStarted = true;
+        const char marker = 'S';
+        // The authenticated parent holds this socket until the child settles.
+        // Failure to report a start cannot turn it into a safe retry.
+        ssize_t sent;
+        do {
+#ifdef MSG_NOSIGNAL
+            sent = send(startedDescriptor, &marker, 1, MSG_NOSIGNAL);
+#else
+            sent = send(startedDescriptor, &marker, 1, 0);
+#endif
+        } while (sent < 0 && errno == EINTR);
+    }
     if (pendingSignal != 0) kill(child, pendingSignal);
     int status;
     while (waitpid(child, &status, 0) == -1) {
@@ -418,14 +443,76 @@ bool LegacyCommand(const CydiaRuntime::PackageDatabasePaths &paths,
     return false;
 }
 
+// Discovery returns a typed logical result even when registration is absent.
+// Transport/authentication failure still retains its ordinary nonzero exit.
+int ProviderSnapshotReply(const Privileged::Error &error, const std::string &snapshot = std::string()) {
+    const std::string code = error.code.empty() && snapshot.empty() ? "provider_snapshot_invalid" : error.code;
+    const std::string bytes = Privileged::SerializeFields({"CYDIA-PROVIDER-SNAPSHOT-1", code,
+        code.empty() ? std::string() : error.message, code.empty() ? snapshot : std::string()});
+    return !bytes.empty() && fwrite(bytes.data(), 1, bytes.size(), stdout) == bytes.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
+}
+
 int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int argc, char *argv[], uid_t callerUID, gid_t callerGID,
              const CydiaSources::ReaderGroups &callerGroups) {
     Privileged::Error error;
-    const std::string command = argc > 1 ? argv[1] : "";
+    std::string command = argc > 1 ? argv[1] : "";
+    namespace Provider = CydiaAPT::Provider;
+    Provider::RegisteredProviderEnvironment registered;
+    Privileged::Request providerRequest;
+    const bool providerSnapshot = command == "--cydia-provider-snapshot";
+    const bool providerDpkg = command == "--cydia-provider-dpkg";
+    const bool providerDirect = command == "--cydia-provider-direct";
+    const bool providerState = command == "--cydia-provider-state";
+    const bool provider = providerSnapshot || providerDpkg || providerDirect || providerState ||
+        command == "--cydia-provider-lock" || command == "--cydia-provider-route" ||
+        command == "--cydia-provider-extended-read" || command == "--cydia-provider-extended-commit";
+    int providerRequestDescriptor = -1;
+    struct ProviderExecutionReport {
+        int &descriptor;
+        explicit ProviderExecutionReport(int &value) : descriptor(value) {}
+        ~ProviderExecutionReport() {
+            if (descriptor < 0 || providerChildStarted) return;
+            const char marker = 'N';
+#ifdef MSG_NOSIGNAL
+            send(descriptor, &marker, 1, MSG_NOSIGNAL);
+#else
+            send(descriptor, &marker, 1, 0);
+#endif
+        }
+    } providerExecutionReport(providerRequestDescriptor);
+
+    if (provider) {
+        int input = STDIN_FILENO;
+        if (providerDpkg || providerDirect) {
+            char *end = nullptr; const long descriptor = argc == 3 ? strtol(argv[2], &end, 10) : -1;
+            if (argc != 3 || !end || end == argv[2] || *end != '\0' || descriptor < 3 || descriptor > INT_MAX) return EX_DATAERR;
+            input = providerRequestDescriptor = static_cast<int>(descriptor);
+#ifdef SO_NOSIGPIPE
+            int enabled = 1;
+            if (setsockopt(input, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled)) != 0) return EX_IOERR;
+#endif
+            if (fcntl(input, F_SETFD, FD_CLOEXEC) != 0) return EX_IOERR;
+        }
+        if (!Privileged::ReadRequest(input, &providerRequest, &error)) return providerSnapshot ? ProviderSnapshotReply(error) : Denied(error);
+        if (providerSnapshot) {
+            std::vector<std::string> fields; Provider::RegistrationIdentity expected;
+            if (argc != 2 || !Privileged::ParseFields(providerRequest.payload, 2, &fields, &error) ||
+                (!fields[1].empty() && !Provider::ParseRegistrationIdentity(fields[1], &expected)) ||
+                !Provider::ResolveRegisteredProviderEnvironment(paths, fields[0], fields[1].empty() ? nullptr : &expected,
+                    &registered, &error)) return ProviderSnapshotReply(error);
+        } else if (!Provider::ResolveBrokerRequest(paths, providerRequest, &registered, &providerRequest.payload, &error))
+            return Denied(error);
+        if (command == "--cydia-provider-route") {
+            if (argc != 3) return EX_DATAERR;
+            command = argv[2]; argv[1] = argv[2]; argv[2] = nullptr; --argc;
+        } else if (command == "--cydia-provider-lock") command = "--cydia-open-lock";
+        else if (command == "--cydia-provider-extended-read") command = "--cydia-extended-state-read";
+        else if (command == "--cydia-provider-extended-commit") command = "--cydia-extended-state-commit";
+    }
     // These setup routes require the same pinned application authorization as
     // all other commands, but must work before database access is enrolled.
-    if (command == "--cydia-admin-access-review" || command == "--cydia-admin-access-approve" ||
-        command == "--cydia-admin-access-revoke") {
+    if (!provider && (command == "--cydia-admin-access-review" || command == "--cydia-admin-access-approve" ||
+        command == "--cydia-admin-access-revoke")) {
         Privileged::Request request;
         if (argc != 2 || !Privileged::ReadRequest(STDIN_FILENO, &request, &error)) return Denied(error);
         if (command == "--cydia-admin-access-approve")
@@ -437,7 +524,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         if (!Privileged::ReviewAdminAccess(paths, request.expected, &fields, &error)) return Denied(error);
         return fwrite(fields.data(), 1, fields.size(), stdout) == fields.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
     }
-    if (command == "--cydia-set-executable") {
+    if (!provider && command == "--cydia-set-executable") {
         // Only private configuration changes here. A missing old executable
         // must not prevent resetting it; execution routes still resolve and
         // strictly validate the complete current environment below.
@@ -461,7 +548,10 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     const bool dedicated = keyPreview || keyImport || keyPackage || preview || command == "--cydia-firmware" || source || state || snapshot || trustSnapshot || command == "--cydia-open-lock" || recovery;
     Privileged::Environment environment;
     Privileged::Request request;
-    if (dedicated) {
+    if (provider) {
+        environment = registered.environment; request = providerRequest;
+        if (!dedicated && !providerSnapshot && !providerDpkg && !providerDirect && !providerState) return EX_NOPERM;
+    } else if (dedicated) {
         if (!Privileged::ReadRequest(STDIN_FILENO, &request, &error) ||
             !Privileged::ResolveEnvironment(paths, request.expected, &environment, &error)) return Denied(error);
     } else {
@@ -480,6 +570,44 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         paths.CydiaApplicationDirectory().c_str());
     environment.sourceReaderUID = callerUID; environment.sourceReaderGID = callerGID;
     environment.sourceReaderGroups = callerGroups;
+    if (provider) {
+        registered.environment = environment;
+        setenv("PATH", registered.executableSearchPath.c_str(), 1);
+        if (providerSnapshot) {
+            std::string token;
+            if (!Privileged::RuntimeSnapshot(environment, &token, &error)) return ProviderSnapshotReply(error);
+            const std::string output = Provider::SerializeRegisteredProviderSnapshot(
+                Provider::MakeRegisteredProviderSnapshot(registered, token));
+            return ProviderSnapshotReply(Privileged::Error(), output);
+        }
+        if (providerState) {
+            Provider::DpkgState captured; std::string reason, output;
+            if (argc != 2 || !request.payload.empty() ||
+                !Provider::CaptureDpkgStateForParent(environment, parent, &captured, &reason) ||
+                !Provider::EncodeBrokerState(captured, &output)) return EX_TEMPFAIL;
+            return fwrite(output.data(), 1, output.size(), stdout) == output.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
+        }
+        if (providerDpkg) {
+            Provider::BrokerDpkgRequest execution; int result = EX_NOPERM;
+            if (!Provider::DecodeBrokerDpkg(request.payload, &execution)) return EX_DATAERR;
+            setenv("DPKG_FRONTEND_LOCKED", "1", 1);
+            if (!Provider::ExecuteBrokerDpkg(paths, registered, parent, execution,
+                [&](const std::string &tool, const std::vector<std::string> &arguments) {
+                    return SpawnAndWait(tool, arguments, providerRequestDescriptor);
+                }, &result, &error)) return Denied(error);
+            return result;
+        }
+        if (providerDirect) {
+            std::vector<std::string> arguments; pid_t owner = 0;
+            if (!Provider::Decode(request.payload, &arguments) ||
+                !Privileged::ValidateDpkgArguments(environment, arguments, &error) ||
+                !Privileged::FrontendLockOwner(environment.dpkgAdmin, &owner, &error) || owner != parent ||
+                !Privileged::RecheckEvidence(environment.evidence, &error)) return Denied(error);
+            arguments.insert(arguments.begin(), {"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin});
+            setenv("DPKG_FRONTEND_LOCKED", "1", 1);
+            return SpawnAndWait(environment.dpkg, arguments, providerRequestDescriptor);
+        }
+    }
     if (snapshot || trustSnapshot) {
         std::string token;
         if (argc != 2 || !request.payload.empty()) return EX_DATAERR;

@@ -62,7 +62,11 @@ struct Fixture {
         review.transaction.packages[identity.routingName] = {identity, "1", name};
         P::ArchiveManifest archive;
         archive.identifier = archiveID; archive.package = {name, "1", arch};
-        archive.sourceURI = "https://repository.invalid/"; archive.sourceIndexIdentity = "index-sha256:abc";
+        archive.sourceURI = "https://repository.invalid/"; archive.sourceIndexIdentity = "SHA256:" + std::string(64, 'a');
+        archive.sourceDefinitionPath = "/etc/apt/sources.list.d/example.sources";
+        archive.sourceIndexPath = "/var/lib/apt/lists/repository.invalid_Packages";
+        archive.sourceIndexURI = "https://repository.invalid/Packages";
+        archive.filename = "pool/" + archiveID + ".deb"; archive.recordOffset = id * 1024; archive.recordSize = 512;
         archive.path = "/cache/" + archiveID + ".deb"; archive.hashes = {{"SHA256", std::string(64, '1')}};
         archive.size = 4096; archive.layout = policy.layout;
         review.execution.archives.push_back(archive);
@@ -117,7 +121,7 @@ void ReviewAndWire() {
         decoded.execution.actions[2].package.architecture == "i386" &&
         decoded.execution.archives[2].package.architecture == "all", "manifest lost concrete package architecture");
     Require(authorization.Accept(decoded, fixture.policy, &error), "complete parent-approved review refused");
-    for (unsigned variant = 0; variant != 11; ++variant) {
+    for (unsigned variant = 0; variant != 16; ++variant) {
         auto review = fixture.review; auto policy = fixture.policy;
         switch (variant) {
             case 0: review.execution.archives.front().hashes = {{"SHA1", std::string(40, '1')}}; break;
@@ -134,6 +138,12 @@ void ReviewAndWire() {
                 break;
             case 9: std::swap(review.execution.actions[0], review.execution.actions[1]); break;
             case 10: std::swap(review.execution.actions[7], review.execution.actions[8]); break;
+            case 11: review.execution.archives.front().sourceIndexIdentity = "index-sha256:abc"; break;
+            case 12: review.execution.archives.front().sourceDefinitionPath = "/etc/apt/../elsewhere"; break;
+            case 13: review.execution.archives.front().recordSize = 0; break;
+            case 14: review.execution.archives.front().recordOffset = UINT64_MAX; break;
+            case 15: review.execution.archives.front().filename.clear(); break;
+            default: Require(false, "missing manifest rejection variant");
         }
         Require(!authorization.Accept(review, policy, &error) && !authorization.active(), "invalid manifest accepted");
     }
@@ -171,12 +181,25 @@ void OrdinaryBatches() {
     Require(authorization.Authorize(purge, evidence, &allowed, &error) &&
         authorization.Settle(4, Success(), "state-v5", true, &error) && authorization.complete(), "bounded pending purge failed");
 }
+void ExplicitTriggerBatch() {
+    Fixture fixture; P::ReviewAuthorization authorization; P::AuthorizedExecution allowed; std::string error;
+    Require(authorization.Accept(fixture.review, fixture.policy, &error), "review refused");
+    auto request = fixture.Request(P::ExecutionAction::Triggers, {10}, {"--triggers-only", "triggered:amd64"});
+    auto evidence = fixture.Evidence();
+    // --no-triggers inhibits the deferred queue, while the explicit action
+    // still executes its reviewed recipient. The state layer proves scope.
+    Require(authorization.Authorize(request, evidence, &allowed, &error) &&
+        allowed.action == P::ExecutionAction::Triggers && allowed.actions == request.actions,
+        "explicit trigger batch with deferred processing disabled rejected");
+    Require(authorization.Settle(1, Success(), "state-v2", true, &error), "explicit trigger settlement rejected");
+    Require(!authorization.Authorize(request, evidence, &allowed, &error), "trigger batch replay accepted");
+}
 void EvidenceAndBatchRejection() {
     Fixture fixture; P::ReviewAuthorization authorization; P::AuthorizedExecution allowed; std::string error;
     auto unpack = fixture.Request(P::ExecutionAction::Unpack, {1, 3, 5},
         {"--unpack", "--auto-deconfigure", "/cache/alpha-native.deb", "/cache/alpha-foreign.deb", "/cache/portable.deb"});
     Require(authorization.Accept(fixture.review, fixture.policy, &error), "review refused");
-    for (unsigned variant = 0; variant != 11; ++variant) {
+    for (unsigned variant = 0; variant != 18; ++variant) {
         auto evidence = fixture.ArchiveEvidence();
         switch (variant) {
             case 0: evidence.frontendLockHeld = false; break;
@@ -190,6 +213,14 @@ void EvidenceAndBatchRejection() {
             case 8: evidence.archives.front().inspection.complete = false; break;
             case 9: evidence.deconfigurationTargetsKnown = false; break;
             case 10: evidence.deconfigurationTargets = {{"outside", "1", "amd64"}}; break;
+            case 11: evidence.archives.front().archive.sourceDefinitionPath = "/etc/apt/sources.list.d/other.sources"; break;
+            case 12: ++evidence.archives.front().archive.sourceDefinitionOrdinal; break;
+            case 13: evidence.archives.front().archive.sourceIndexPath = "/var/lib/apt/lists/other_Packages"; break;
+            case 14: evidence.archives.front().archive.sourceIndexURI = "https://different.invalid/Packages"; break;
+            case 15: ++evidence.archives.front().archive.recordOffset; break;
+            case 16: ++evidence.archives.front().archive.recordSize; break;
+            case 17: evidence.archives.front().archive.filename = "pool/different.deb"; break;
+            default: Require(false, "missing evidence rejection variant");
         }
         Require(!authorization.Authorize(unpack, evidence, &allowed, &error), "changed parent archive/state evidence accepted");
     }
@@ -251,6 +282,6 @@ void ExplicitTriggersAndWarnings() {
 }
 }
 int main() {
-    ReviewAndWire(); OrdinaryBatches(); EvidenceAndBatchRejection(); ExplicitTriggersAndWarnings();
+    ReviewAndWire(); OrdinaryBatches(); ExplicitTriggerBatch(); EvidenceAndBatchRejection(); ExplicitTriggersAndWarnings();
     std::cout << "[apt-provider-review][ ok ] manifests, exact batches, pending sets and parent evidence\n";
 }

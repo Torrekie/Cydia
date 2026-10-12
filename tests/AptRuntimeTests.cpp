@@ -1217,6 +1217,48 @@ void VerifyRuntimeDescriptorSelection(const CydiaAPT::InitializationOptions &opt
     Expect(!SetRuntimeDescriptorTrustValid(wrong, true) && !CachedRepositoryTrustValid(), "trust proof requires exact current binding");
     Expect(SetRuntimeDescriptorTrustValid(held->binding, true) && CachedRepositoryTrustValid(), "verified selected trust proof is separate evidence");
     Expect(!AdoptRuntimeDescriptor(*held, held->binding, &error) && error == "runtime_selection_active", "selection cannot be replaced implicitly");
+    RuntimeDescriptorBinding anotherSession(held->binding);
+    anotherSession.session[0] = anotherSession.session[0] == '0' ? '1' : '0';
+    Expect(!UpdateRuntimeDescriptorPackageState(wrong, "sha256:next-state") &&
+        !UpdateRuntimeDescriptorPackageState(anotherSession, "sha256:next-state") && ActiveRuntimeDescriptor() == held,
+        "state updates require the exact selected component and session binding");
+    for (const std::string &invalidState : {std::string(), std::string("state with spaces"),
+            std::string("state\0hidden", 12), std::string(513, 'a')}) {
+        Expect(!UpdateRuntimeDescriptorPackageState(held->binding, invalidState) &&
+            ActiveRuntimeDescriptor() == held && CachedRepositoryTrustValid(),
+            "malformed package state cannot replace the descriptor or alter trust");
+    }
+    const std::string nextState("sha256:next-state");
+    Expect(UpdateRuntimeDescriptorPackageState(held->binding, nextState), "fresh verified package state is accepted");
+    const auto advanced(ActiveRuntimeDescriptor());
+    RuntimeDescriptorBinding advancedBinding(held->binding); advancedBinding.packageStateIdentity = nextState;
+    Expect(advanced && advanced != held && ReadRuntimeDescriptor() == advanced &&
+        SameRuntimeDescriptorBinding(advanced->binding, advancedBinding) && advanced->origin == held->origin,
+        "state refresh publishes a new descriptor with only its package-state binding changed");
+    ExpectSelectedRuntimeGetters(*held);
+    Expect(held->binding.packageStateIdentity == "sha256:fixture-state" &&
+        held->sourceListPath == "/selected/etc/apt/sources.list" && CachedRepositoryTrustValid(),
+        "held snapshots stay unchanged and cache refresh does not renew or discard repository proof");
+    Expect(!UpdateRuntimeDescriptorPackageState(held->binding, "sha256:replayed-state") &&
+        !SetRuntimeDescriptorTrustValid(held->binding, false) && ActiveRuntimeDescriptor() == advanced && CachedRepositoryTrustValid(),
+        "an old binding cannot replay a state update or revoke current trust");
+    Expect(SetRuntimeDescriptorTrustValid(advancedBinding, false) && !CachedRepositoryTrustValid(),
+        "the new binding can revoke repository trust");
+    Expect(!SetRuntimeDescriptorTrustValid(held->binding, true) && !CachedRepositoryTrustValid(),
+        "an old binding cannot establish current trust");
+    Expect(UpdateRuntimeDescriptorPackageState(advancedBinding, "sha256:third-state"),
+        "the refreshed binding authorizes the next independently verified state");
+    const auto latest(ActiveRuntimeDescriptor());
+    RuntimeDescriptorBinding latestBinding(advancedBinding); latestBinding.packageStateIdentity = "sha256:third-state";
+    Expect(latest && latest != advanced && SameRuntimeDescriptorBinding(latest->binding, latestBinding) &&
+        advanced->binding.packageStateIdentity == nextState && !CachedRepositoryTrustValid(),
+        "another state refresh leaves earlier snapshots and revoked trust unchanged");
+    Expect(!UpdateRuntimeDescriptorPackageState(advancedBinding, "sha256:stale-state") &&
+        !SetRuntimeDescriptorTrustValid(advancedBinding, true) && ActiveRuntimeDescriptor() == latest,
+        "intermediate bindings are invalidated by the next refresh");
+    Expect(SetRuntimeDescriptorTrustValid(latestBinding, true) && CachedRepositoryTrustValid(),
+        "only the current binding can accept a fresh repository trust proof");
+    ExpectSelectedRuntimeGetters(*held);
     const RuntimeDescriptor savedEmbedded(ReadEmbeddedRuntimeDescriptor());
     Expect(savedEmbedded.sourceListPath == embedded->sourceListPath && savedEmbedded.dpkgExecutablePath == embedded->dpkgExecutablePath &&
         savedEmbedded.gpgExecutablePath == embedded->gpgExecutablePath && savedEmbedded.repositorySecurityMode == embedded->repositorySecurityMode,
@@ -1227,7 +1269,10 @@ void VerifyRuntimeDescriptorSelection(const CydiaAPT::InitializationOptions &opt
         "reset requires fresh embedded initialization before mutations");
     Expect(held->architecture == "iphoneos-arm64" && held->sourceListPath == "/selected/etc/apt/sources.list",
         "held immutable snapshot survives reset");
-    Expect(!SetRuntimeDescriptorTrustValid(held->binding, true), "reset revokes old trust binding");
+    Expect(!SetRuntimeDescriptorTrustValid(held->binding, true) &&
+        !SetRuntimeDescriptorTrustValid(latestBinding, true) &&
+        !UpdateRuntimeDescriptorPackageState(latestBinding, "sha256:after-reset"),
+        "reset revokes old and refreshed trust/state bindings");
     external = ExternalRuntimeFixture(); external.mutationEnvironmentValid = false;
     external.runtimeErrorCode = "state_unavailable";
     external.runtimeError = "Failed https://user:secret@repo.invalid/token-path?token=private";

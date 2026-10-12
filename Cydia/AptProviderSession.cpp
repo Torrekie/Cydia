@@ -482,6 +482,7 @@ bool Session::Start(const std::string &executable, const ProbeResult &probe, Hel
     if (state.busy || state.child > 0 || state.ready || state.mutated || state.locked) return state.Fail("provider_session_already_started", false);
     if (cancelled && cancelled()) return state.Fail("provider_cancelled", false);
     if (timeoutMilliseconds == 0 || timeoutMilliseconds > 10000 || !probe.compatible() ||
+        probe.registrationPath != hello.registrationPath ||
         !Compatible(probe.info, hello.expected, nullptr) || !Challenge(&hello.challenge) || !ValidHello(hello))
         return state.Fail("provider_invalid_session", false);
     CydiaRuntime::Privileged::Error pathError;

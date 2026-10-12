@@ -267,6 +267,7 @@ static BOOL ValidNewFilename(NSString *filename, Src::Format format) {
                     if (message_ == nil && checked.architecture == CydiaAPT::SourceArchitectureAvailability::Unsupported)
                         message_ = CydiaSourceText(@"SOURCE_ADD_NO_COMPATIBLE_PACKAGES");
                     if (message_ == nil && !checked.failures.empty()) message_ = CydiaFetchDiagnosticMessage(checked.failures.front());
+                    if (message_.length == 0 && !checked.errors.empty()) message_ = CydiaAPTDiagnosticMessage(checked.errors.front());
                     if (message_.length == 0) message_ = CydiaSourceText(@"SOURCE_ADD_CHECK_FAILED");
                 } else if (warning_ && !checked.warnings.empty()) message_ = CydiaFetchDiagnosticMessage(checked.warnings.front());
                 if (completion) completion();

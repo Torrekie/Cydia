@@ -60,6 +60,8 @@ void ParsingAndPending() {
         Row("bad", "1", "amd64", "install ok triggers-pending"),
         Row("bad", "1", "amd64", "install ok installed", "", "same same"),
         Row("bad", "1", "amd64", "install ok installed", "", "", "invalid:architecture:extra"),
+        Row("bad", "1", "amd64", "install ok triggers-awaited", "", "", "target:any"),
+        Row("bad", "1", "amd64", "install ok installed", "", "pending-trigger"),
         Row("bad", "1", "amd64") + Row("bad", "2", "amd64"),
         Row("bad", "", "", "install ok installed"),
         std::string("bad\t1\tamd64\tinstall ok installed\t\t\t"),
@@ -98,6 +100,73 @@ void Evidence() {
     Require(!P::ApplyDpkgStateEvidence(state, review, request, &evidence, &error), "explicit configure concealed trigger execution");
     request.action = P::ExecutionAction::Triggers;
     Require(!P::ApplyDpkgStateEvidence(state, review, request, &evidence, &error), "unknown trigger dependencies assumed safe");
+}
+void BoundedTriggers() {
+    // dpkg trig_clear_awaiters preserves an unpacked waiter's status, and
+    // modstatdb_shutdown checkpoints its cleared links. Sources:
+    // https://git.dpkg.org/cgit/dpkg/dpkg.git/tree/lib/dpkg/triglib.c
+    // https://git.dpkg.org/cgit/dpkg/dpkg.git/tree/lib/dpkg/dbmodify.c
+    const std::string rows = Row("cache", "2", "amd64", "install ok triggers-pending", "same", "cache-native") +
+        Row("cache", "2", "i386", "hold ok triggers-pending", "same", "cache-foreign") +
+        Row("waiting", "1", "all", "install ok triggers-awaited", "", "", "cache:amd64 cache:i386") +
+        Row("partial", "1", "amd64", "install ok unpacked", "", "", "cache:amd64") + Row("untouched", "3", "all");
+    auto before = State(rows);
+    auto after = State(Row("cache", "2", "amd64", "install ok installed", "same") +
+        Row("cache", "2", "i386", "hold ok installed", "same") + Row("waiting", "1", "all") +
+        Row("partial", "1", "amd64", "install ok unpacked") + Row("untouched", "3", "all"), "state-2");
+    P::ReviewedTransaction review;
+    review.execution.actions = {Action(1, P::ExecutionAction::Triggers, "cache", "2", "amd64"),
+        Action(2, P::ExecutionAction::Triggers, "cache", "2", "i386")};
+    P::ParentExecutionRequest request; request.action = P::ExecutionAction::Triggers; request.actions = {1, 2};
+    request.arguments = {"--no-triggers", "--triggers-only", "cache:amd64", "cache:i386"};
+    P::ParentExecutionEvidence evidence; std::string error;
+    Require(P::ApplyDpkgStateEvidence(before, review, request, &evidence, &error) && evidence.stateVerified &&
+        evidence.triggerTargetsKnown && evidence.triggerTargets.empty(), "bounded explicit trigger evidence rejected");
+    auto batch = Batch(P::ExecutionAction::Triggers, {1, 2});
+    Require(P::VerifyDpkgStateTransition(before, after, review, batch, &error),
+        "explicit triggers lost multiarch/hold or deterministic waiter updates");
+    request.arguments = {"--no-triggers", "--triggers-only", "--pending"};
+    Require(P::ApplyDpkgStateEvidence(before, review, request, &evidence, &error) &&
+        evidence.pendingTargetsKnown && evidence.pendingTargets.size() == 2,
+        "exact trigger-pending set rejected");
+    request.actions = {1};
+    Require(!P::ApplyDpkgStateEvidence(before, review, request, &evidence, &error),
+        "subset of pending recipients accepted without dependency evidence");
+    request.actions = {1, 2}; request.arguments = {"--triggers-only", "--pending"};
+    Require(!P::ApplyDpkgStateEvidence(before, review, request, &evidence, &error), "unbounded trigger processing accepted");
+    request.arguments.insert(request.arguments.begin(), "--no-triggers");
+    auto ambiguous = before; ambiguous.packages.at("waiting:all").triggersAwaited = {"cache"};
+    Require(!P::ApplyDpkgStateEvidence(ambiguous, review, request, &evidence, &error), "bare multiarch waiter guessed");
+    auto stale = before; stale.packages.at("waiting:all").triggersAwaited = {"untouched"};
+    Require(!P::ApplyDpkgStateEvidence(stale, review, request, &evidence, &error), "implicit stale waiter repair authorized");
+    auto unwanted = before; unwanted.packages.at("cache:i386").selection = P::DpkgSelection::Deinstall;
+    Require(!P::ApplyDpkgStateEvidence(unwanted, review, request, &evidence, &error), "pending recipient outside install/hold accepted");
+    auto changedReview = review; changedReview.execution.actions[1].package.version = "3";
+    Require(!P::ApplyDpkgStateEvidence(before, changedReview, request, &evidence, &error), "trigger version mismatch accepted");
+    for (unsigned variant = 0; variant != 7; ++variant) {
+        auto changed = after;
+        switch (variant) {
+            case 0: changed.packages.at("cache:amd64") = before.packages.at("cache:amd64"); break;
+            case 1: changed.packages.at("untouched:all").status = P::DpkgPackageStatus::TriggersPending;
+                changed.packages.at("untouched:all").triggersPending = {"new-trigger"}; break;
+            case 2: changed.packages.at("waiting:all").package.version = "9"; break;
+            case 3: changed.packages.at("cache:i386").selection = P::DpkgSelection::Install; break;
+            case 4: changed.packages.at("partial:amd64").status = P::DpkgPackageStatus::Installed; break;
+            case 5: changed.packages.erase("cache:i386"); break;
+            case 6: changed.packages.at("waiting:all") = before.packages.at("waiting:all"); break;
+            default: Require(false, "missing trigger transition variant");
+        }
+        Require(!P::VerifyDpkgStateTransition(before, changed, review, batch, &error),
+            "new or incomplete trigger effects accepted");
+    }
+    // A recipient may itself await another recipient. Both must be reviewed;
+    // successful processing clears the graph without changing either identity.
+    before.packages.at("cache:amd64").status = P::DpkgPackageStatus::TriggersAwaited;
+    before.packages.at("cache:amd64").triggersAwaited = {"cache:i386"};
+    Require(P::ApplyDpkgStateEvidence(before, review, request, &evidence, &error) &&
+        P::VerifyDpkgStateTransition(before, after, review, batch, &error), "reviewed trigger dependency graph rejected");
+    batch.actions.push_back(2);
+    Require(!P::VerifyDpkgStateTransition(before, after, review, batch, &error), "duplicate trigger action accepted");
 }
 void Transitions() {
     const auto foreign = Row("shared", "1", "i386", "install ok installed", "same");
@@ -154,6 +223,6 @@ void Transitions() {
 }
 }
 int main() {
-    ParsingAndPending(); Evidence(); Transitions();
+    ParsingAndPending(); Evidence(); BoundedTriggers(); Transitions();
     std::cout << "[apt-provider-dpkg-state] OK\n";
 }

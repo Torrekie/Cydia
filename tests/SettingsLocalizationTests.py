@@ -45,6 +45,27 @@ def main():
         for key, value in table.items():
             assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(accounts[key].replace("%%", ""))), \
                 f"Account arguments differ: {bundle.name}/{key}"
+    runtime_provider = read_table(ROOT / "MobileCydia.app/en.lproj/RuntimeProvider.strings")
+    runtime_provider_keys = {
+        "REVIEW_OPERATIONS", "REVIEW_UNPACK", "REVIEW_CONFIGURE", "REVIEW_REMOVE",
+        "REVIEW_PURGE", "REVIEW_TRIGGERS", "REVIEW_DECONFIGURE", "RECOVERY_REVIEW",
+        "RUNTIME_TITLE", "AUTOMATIC", "RECOVERY", "AUTOMATIC_HELP", "RECOVERY_HELP",
+        "CURRENT_RUNTIME", "PROVIDER_VERSION", "APT_VERSION", "CHECK_AGAIN", "CHECKING",
+        "STATUS_UNCHECKED", "STATUS_EXTERNAL", "STATUS_RECOVERY", "STATUS_MISSING",
+        "STATUS_UNSUPPORTED", "STATUS_BROKEN", "UNCHECKED_HELP", "MISSING_HELP",
+        "UNSUPPORTED_HELP", "BROKEN_HELP", "REVIEW_RESET_HELP", "ARCHIVE_REVIEW_LIMITS",
+        "REVIEW_UNAVAILABLE", "OPERATION_FAILED",
+    }
+    assert runtime_provider.keys() == runtime_provider_keys, "Runtime provider English keys differ from the UI contract"
+    for bundle in bundles:
+        table = read_table(bundle / "RuntimeProvider.strings")
+        assert table.keys() == runtime_provider.keys(), f"Runtime provider keys differ in {bundle.name}"
+        for key, value in table.items():
+            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(runtime_provider[key].replace("%%", ""))), \
+                f"Runtime provider arguments differ: {bundle.name}/{key}"
+        for key in {"REVIEW_UNAVAILABLE", "OPERATION_FAILED"}:
+            assert bundle.name == "en.lproj" or table[key] != runtime_provider[key], \
+                f"English runtime failure fallback: {bundle.name}/{key}"
     file_types = read_table(ROOT / "MobileCydia.app/en.lproj/InfoPlist.strings", allow_equal=True)
     for bundle in bundles:
         assert read_table(bundle / "InfoPlist.strings", allow_equal=True).keys() == file_types.keys(), \
@@ -76,6 +97,7 @@ def main():
                 f"English progress outcome fallback: {bundle.name}/{key}"
     print(f"[settings-localization] PASS: {len(english)} keys in {len(bundles)} locales")
     print(f"[accounts-localization] PASS: {len(accounts)} keys in {len(bundles)} locales")
+    print(f"[runtime-provider-localization] PASS: {len(runtime_provider)} keys in {len(bundles)} locales")
     print(f"[runtime-access-localization] PASS: {len(access)} keys in {len(bundles)} locales")
     print(f"[bootstrap-access-localization] PASS: {len(bootstrap)} keys in {len(bundles)} locales")
     print(f"[transaction-outcome-localization] PASS: {len(outcomes)} keys in {len(bundles)} locales")

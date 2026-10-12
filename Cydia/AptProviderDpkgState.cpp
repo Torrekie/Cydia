@@ -48,6 +48,11 @@ bool TriggerList(const std::string &bytes, bool awaited, std::vector<std::string
     std::sort(values->begin(), values->end());
     return std::adjacent_find(values->begin(), values->end()) == values->end();
 }
+bool AwaitedSelector(const std::string &value) {
+    const auto selector = ParsePackageSelector(value);
+    return selector.valid() && (selector.kind == PackageSelectorKind::Default ||
+        selector.kind == PackageSelectorKind::ExactArchitecture);
+}
 bool RecordValid(const DpkgPackageState &record) {
     if (!CydiaRuntime::ValidPackageName(record.package.package) ||
         static_cast<unsigned>(record.selection) > static_cast<unsigned>(DpkgSelection::Purge) ||
@@ -61,6 +66,8 @@ bool RecordValid(const DpkgPackageState &record) {
     if (record.package.architecture == "all" && record.multiArch == "same") return false;
     if ((record.status == DpkgPackageStatus::NotInstalled || record.status == DpkgPackageStatus::ConfigFiles) &&
         (!record.triggersPending.empty() || !record.triggersAwaited.empty())) return false;
+    if (!record.triggersPending.empty() && record.status != DpkgPackageStatus::TriggersPending &&
+        record.status != DpkgPackageStatus::TriggersAwaited) return false;
     if (record.status == DpkgPackageStatus::TriggersPending && record.triggersPending.empty()) return false;
     if (record.status == DpkgPackageStatus::TriggersAwaited && record.triggersAwaited.empty()) return false;
     for (const bool awaited : {false, true}) {
@@ -68,7 +75,7 @@ bool RecordValid(const DpkgPackageState &record) {
         if (values.size() > 4096 || !std::is_sorted(values.begin(), values.end()) ||
             std::adjacent_find(values.begin(), values.end()) != values.end()) return false;
         for (const auto &value : values)
-            if (!Visible(value) || (awaited && !ParsePackageSelector(value).valid())) return false;
+            if (!Visible(value) || (awaited && !AwaitedSelector(value))) return false;
     }
     return true;
 }
@@ -123,6 +130,61 @@ bool Option(const std::vector<std::string> &arguments, const char *value) {
         if (argument == value) return true;
     }
     return false;
+}
+// dpkg's deferred queue obeys --no-triggers, but dependency progress can still
+// process pending recipients. Require the whole fresh pending set, not a
+// worker-selected subset. Clearing waiters is derived from the existing graph:
+// https://git.dpkg.org/cgit/dpkg/dpkg.git/tree/lib/dpkg/triglib.c (trig_clear_awaiters)
+// https://git.dpkg.org/cgit/dpkg/dpkg.git/tree/src/main/packages.c (process_queue)
+// The successful shutdown checkpoint persists cleared links even on an
+// unpacked waiter whose status did not change (lib/dpkg/dbmodify.c).
+// Newly activated triggers are deliberately outside this bounded transition.
+bool TriggerResult(const DpkgState &before, const std::vector<ExecutionPackage> &targets,
+                   DpkgState *result, std::string *error) {
+    std::map<std::string, ExecutionPackage> pending;
+    for (const auto &item : before.packages) {
+        const auto &record = item.second;
+        if (record.triggersPending.empty()) continue;
+        if (record.reinstallRequired ||
+            (record.status != DpkgPackageStatus::TriggersPending && record.status != DpkgPackageStatus::TriggersAwaited) ||
+            (record.selection != DpkgSelection::Install && record.selection != DpkgSelection::Hold))
+            return Fail(error, "provider_trigger_state_unsettled");
+        pending.emplace(item.first, record.package);
+    }
+    std::set<std::string> selected;
+    for (const auto &target : targets) {
+        const auto found = pending.find(Key(target));
+        if (found == pending.end() || !SamePackage(target, found->second) || !selected.insert(found->first).second)
+            return Fail(error, "provider_trigger_targets_changed");
+    }
+    if (pending.empty() || selected.size() != pending.size())
+        return Fail(error, "provider_trigger_targets_incomplete");
+    std::map<std::string, std::vector<std::string>> names;
+    for (const auto &item : before.packages) names[item.second.package.package].push_back(item.first);
+    *result = before;
+    for (auto &item : result->packages) {
+        auto &record = item.second;
+        std::set<std::string> awaitedTargets;
+        for (const auto &waiter : record.triggersAwaited) {
+            const auto selector = ParsePackageSelector(waiter); std::string target;
+            if (selector.kind == PackageSelectorKind::ExactArchitecture) target = waiter;
+            else {
+                const auto found = names.find(waiter);
+                if (found == names.end() || found->second.size() != 1)
+                    return Fail(error, "provider_trigger_waiter_ambiguous");
+                target = found->second.front();
+            }
+            // Stale references may be repaired implicitly while dpkg opens the
+            // database. They require a separate review, not guessed recipients.
+            if (!pending.count(target) || !awaitedTargets.insert(target).second)
+                return Fail(error, "provider_trigger_waiter_unresolved");
+        }
+        record.triggersAwaited.clear();
+        if (pending.count(item.first)) record.triggersPending.clear();
+        if (record.status == DpkgPackageStatus::TriggersAwaited || pending.count(item.first))
+            record.status = record.triggersPending.empty() ? DpkgPackageStatus::Installed : DpkgPackageStatus::TriggersPending;
+    }
+    return true;
 }
 }
 
@@ -203,13 +265,14 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
         return Fail(error, "provider_dpkg_state_invalid");
     if (request.action == ExecutionAction::Deconfigure || Option(request.arguments, "--auto-deconfigure"))
         return Fail(error, "provider_deconfiguration_unknown");
-    if (request.action == ExecutionAction::Triggers || !Option(request.arguments, "--no-triggers"))
+    if (!Option(request.arguments, "--no-triggers"))
         return Fail(error, "provider_trigger_targets_unknown");
     std::map<std::uint64_t, const ReviewedAction *> actions;
     for (const auto &action : review.execution.actions)
         if (!action.identifier || !actions.emplace(action.identifier, &action).second)
             return Fail(error, "provider_invalid_execution_review");
     std::set<std::uint64_t> requested;
+    std::vector<ExecutionPackage> triggerTargets;
     for (const auto id : request.actions) {
         const auto action = actions.find(id);
         if (action == actions.end() || !requested.insert(id).second || action->second->action != request.action)
@@ -226,7 +289,12 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
         if (record == state.packages.end() || record->second.reinstallRequired ||
             !SamePackage(record->second.package, action->second->package))
             return Fail(error, "provider_dpkg_target_changed");
-        if (!EmptyTriggers(record->second)) return Fail(error, "provider_trigger_targets_unknown");
+        if (request.action == ExecutionAction::Triggers) triggerTargets.push_back(action->second->package);
+        else if (!EmptyTriggers(record->second)) return Fail(error, "provider_trigger_targets_unknown");
+    }
+    if (request.action == ExecutionAction::Triggers) {
+        DpkgState expected;
+        if (!TriggerResult(state, triggerTargets, &expected, error)) return false;
     }
     std::map<std::string, std::vector<const DpkgPackageState *> > names;
     for (const auto &item : state.packages) names[item.second.package.package].push_back(&item.second);
@@ -263,6 +331,25 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
     for (const auto &action : review.execution.actions)
         if (!action.identifier || !actions.emplace(action.identifier, &action).second)
             return Fail(error, "provider_invalid_execution_review");
+    if (batch.action == ExecutionAction::Triggers) {
+        std::vector<ExecutionPackage> targets; std::set<std::uint64_t> seen;
+        for (const auto id : batch.actions) {
+            const auto found = actions.find(id);
+            if (found == actions.end() || found->second->action != ExecutionAction::Triggers || !seen.insert(id).second)
+                return Fail(error, "provider_unreviewed_batch_target");
+            targets.push_back(found->second->package);
+        }
+        DpkgState expected;
+        if (!TriggerResult(before, targets, &expected, error)) return false;
+        if (after.packages.size() != expected.packages.size()) return Fail(error, "provider_unexpected_dpkg_transition");
+        for (const auto &item : expected.packages) {
+            const auto observed = after.packages.find(item.first);
+            if (observed == after.packages.end() || !SameRecord(item.second, observed->second))
+                return Fail(error, "provider_unexpected_dpkg_transition");
+        }
+        if (error) error->clear();
+        return true;
+    }
     std::set<std::string> affectedBefore, affectedAfter; std::set<std::uint64_t> seen;
     for (const auto id : batch.actions) {
         const auto found = actions.find(id);

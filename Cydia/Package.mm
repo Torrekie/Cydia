@@ -17,6 +17,7 @@
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <string>
 
 static const CFStringCompareFlags LaxCompareFlags_ = kCFCompareNumerically | kCFCompareWidthInsensitive | kCFCompareForcedOrdering;
@@ -222,19 +223,24 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 } }
 
 - (void) parse {
-    if (parsed_ != NULL)
+    if (parsed_ != NULL || ![database_ beginSettingsChange])
         return;
+    @try {
 @synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid())
+    if (parsed_ != NULL || [database_ era] != era_ || !handle_.valid())
         return;
 
-    ParsedPackage *parsed(new ParsedPackage);
-    parsed_ = parsed;
+    // A busy or unavailable backend returns an owned empty record. Do not
+    // make that transient absence the package's permanent parsed metadata.
+    const CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
+    if (record.fields.empty() && record.raw.empty() && record.displayName.empty() &&
+        record.maintainer.empty() && record.shortDescription.empty() &&
+        record.longDescription.empty() && record.tags.empty()) return;
+    std::unique_ptr<ParsedPackage> parsed(new ParsedPackage);
 
     _profile(Package$parse)
         CYString bugs;
         CYString website;
-        CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
 
         _profile(Package$parse$Find)
             struct {
@@ -276,7 +282,10 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
                 parsed->support_ = bugs;
         _end
     _end
-} }
+    parsed_ = parsed.release();
+}
+    } @finally { [database_ endSettingsChange]; }
+}
 
 - (instancetype) initWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
 @synchronized (database) {

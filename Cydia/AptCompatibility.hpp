@@ -143,6 +143,13 @@ struct AcquireItemData {
 struct ErrorData {
     std::string message;
     bool warning;
+    // Cydia-owned diagnostic identity. Empty for upstream APT/dpkg messages,
+    // which retain their own gettext translation and must not be reclassified.
+    std::string cydiaCode;
+
+    ErrorData() : warning(false) {}
+    ErrorData(const std::string &message, bool warning, const std::string &cydiaCode = std::string()) :
+        message(message), warning(warning), cydiaCode(cydiaCode) {}
 };
 
 struct CacheStateSummary {

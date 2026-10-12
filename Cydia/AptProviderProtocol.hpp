@@ -77,6 +77,7 @@ struct Hello {
     std::uint32_t protocolVersion = ProtocolVersion;
     std::uint64_t requiredCapabilities = RequiredCapabilities;
     std::string challenge; // Fresh caller-generated nonce, echoed in Binding.
+    std::string registrationPath; // Protected provider declaration, empty only for explicit legacy/test clients.
     InitializationOptions options;
     Environment expected;
 };
@@ -113,6 +114,10 @@ struct ArchiveManifest {
     std::string identifier;
     ExecutionPackage package;
     std::string sourceURI, sourceIndexIdentity, path;
+    // Exact parent-verifiable provenance. Index identity is SHA256:<hex> of
+    // the stored index bytes; the record range addresses its decoded stream.
+    std::string sourceDefinitionPath, sourceIndexPath, sourceIndexURI, filename;
+    std::uint64_t sourceDefinitionOrdinal = 0, recordOffset = 0, recordSize = 0;
     std::map<std::string, std::string> hashes;
     std::uint64_t size = 0;
     CydiaPackages::ArchiveLayout layout;
@@ -350,7 +355,7 @@ CYDIA_PROVIDER_VALUE(PackageIdentity, v.baseName, v.packageArchitecture, v.versi
 CYDIA_PROVIDER_VALUE(SourceSnapshot, v.handle, v.uri, v.distribution, v.type, v.base, v.defaultIcon,
     v.depiction, v.description, v.label, v.origin, v.support, v.version, v.files, v.trusted)
 CYDIA_PROVIDER_VALUE(AcquireItemData, v.description, v.uri)
-CYDIA_PROVIDER_VALUE(ErrorData, v.message, v.warning)
+CYDIA_PROVIDER_VALUE(ErrorData, v.message, v.cydiaCode, v.warning)
 CYDIA_PROVIDER_VALUE(CacheStateSummary, v.deletes, v.installs, v.broken)
 CYDIA_PROVIDER_VALUE(FetchFailureData, v.uri, v.error, v.package, v.path, v.reason, v.kind)
 CYDIA_PROVIDER_VALUE(FetchResultData, v.failures, v.warnings, v.completed)
@@ -394,7 +399,7 @@ CYDIA_PROVIDER_VALUE(Environment, v.paths, v.configurationIdentity, v.policyIden
     v.packageStateIdentity, v.nativeArchitecture, v.registeredArchitectures, v.acquisitionArchitectures)
 CYDIA_PROVIDER_VALUE(Info, v.protocolVersion, v.availability, v.capabilities, v.identifier,
     v.implementationVersion, v.libraryIdentity, v.frontendIdentity, v.environment, v.errorCode, v.diagnostic)
-CYDIA_PROVIDER_VALUE(Hello, v.protocolVersion, v.requiredCapabilities, v.challenge, v.options, v.expected)
+CYDIA_PROVIDER_VALUE(Hello, v.protocolVersion, v.requiredCapabilities, v.challenge, v.registrationPath, v.options, v.expected)
 CYDIA_PROVIDER_VALUE(Binding, v.providerIdentifier, v.session, v.configurationIdentity,
     v.policyIdentity, v.packageStateIdentity, v.review, v.cacheEpoch, v.selectionRevision)
 CYDIA_PROVIDER_VALUE(Message, v.version, v.kind, v.sequence, v.operation, v.binding,
@@ -406,7 +411,8 @@ CYDIA_PROVIDER_VALUE(PackageManagerReply, v.result, v.archives, v.started)
 CYDIA_PROVIDER_VALUE(ExecutionPackage, v.package, v.version, v.architecture)
 CYDIA_PROVIDER_VALUE(CydiaPackages::ArchiveLayout, v.prefix, v.foreignPrefixes)
 CYDIA_PROVIDER_VALUE(ArchiveManifest, v.identifier, v.package, v.sourceURI, v.sourceIndexIdentity,
-    v.path, v.hashes, v.size, v.layout)
+    v.path, v.sourceDefinitionPath, v.sourceIndexPath, v.sourceIndexURI, v.filename,
+    v.sourceDefinitionOrdinal, v.recordOffset, v.recordSize, v.hashes, v.size, v.layout)
 CYDIA_PROVIDER_VALUE(ReviewedAction, v.identifier, v.action, v.package, v.archive)
 CYDIA_PROVIDER_VALUE(ExecutionManifest, v.archives, v.actions)
 CYDIA_PROVIDER_VALUE(ReviewedTransaction, v.transaction, v.binding, v.execution)

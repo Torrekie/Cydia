@@ -25,7 +25,12 @@ class RemoteBackend final : public BackendImplementation {
         return true;
     }
     static void redact(std::vector<ErrorData> *errors) {
-        for (ErrorData &error : *errors) error.message = CydiaRuntime::RedactDiagnosticURLs(error.message);
+        for (ErrorData &error : *errors) {
+            error.message = CydiaRuntime::RedactDiagnosticURLs(error.message);
+            // Worker diagnostics are upstream text. Only this facade may
+            // assign Cydia UI meaning to a local transport/operation failure.
+            error.cydiaCode.clear();
+        }
     }
     static void redactFailures(std::vector<FetchFailureData> *failures) {
         for (FetchFailureData &failure : *failures) {
@@ -48,8 +53,8 @@ class RemoteBackend final : public BackendImplementation {
         // queue raw worker text here; diagnostics have their own redacted DTO.
         failure_.code = stableCode(code) ? code : "provider_request_failed";
         failure_.indeterminate = failure_.indeterminate || (session_ && session_->indeterminate());
-        if (errors_.size() < 256 && (errors_.empty() || errors_.back().message != failure_.code))
-            errors_.push_back({failure_.code, false});
+        if (errors_.size() < 256 && (errors_.empty() || errors_.back().cydiaCode != failure_.code))
+            errors_.push_back({"", false, failure_.code});
     }
 
     bool request(P::Operation operation, const std::string &payload, P::Message *reply,
@@ -63,9 +68,11 @@ class RemoteBackend final : public BackendImplementation {
         bool success(false), callbackFailed(false), callEntered(false);
         const bool cleanup(operation == P::Operation::UnlockForTransaction || operation == P::Operation::DrainErrors ||
                            operation == P::Operation::DiscardErrors);
+        const bool reportsProgress(operation == P::Operation::RunFetcher || operation == P::Operation::UpdateLists ||
+            operation == P::Operation::RunPackageManager);
         try {
             if (options_.operationContext)
-                options_.operationContext(status == nullptr ? options_.status : status, statusFd);
+                options_.operationContext(reportsProgress ? (status == nullptr ? options_.status : status) : nullptr, statusFd);
             const unsigned timeout(cleanup ? 2000 : timeoutMilliseconds != 0 ? timeoutMilliseconds :
                 operation == P::Operation::RunPackageManager || operation == P::Operation::RunFetcher ||
                 operation == P::Operation::UpdateLists ? options_.transactionTimeoutMilliseconds : options_.requestTimeoutMilliseconds);
@@ -134,7 +141,8 @@ class RemoteBackend final : public BackendImplementation {
         constexpr unsigned MaximumSeconds = (3u * 60u * 60u * 1000u - ReplyAllowanceMilliseconds) / 1000u;
         std::string payload;
         if (input.timeoutSeconds == 0 || input.timeoutSeconds > MaximumSeconds || !P::Encode(input, &payload)) {
-            fail("provider_invalid_request"); result.status = SourceCheckStatus::InvalidDefinition; return result;
+            fail("provider_invalid_request"); result.status = SourceCheckStatus::InvalidDefinition;
+            result.errors.push_back({"", false, failure_.code}); return result;
         }
         bool cancelledDuringCall(false); P::Message reply;
         if (request(operation, payload, &reply, nullptr, -1, input.timeoutSeconds * 1000u + ReplyAllowanceMilliseconds,
@@ -142,7 +150,7 @@ class RemoteBackend final : public BackendImplementation {
         if (cancelledDuringCall || failure_.code == "provider_cancelled") result.status = SourceCheckStatus::Cancelled;
         else if (failure_.code == "provider_timeout" || failure_.code == "provider_write_timeout" ||
                  failure_.code == "provider_cancellation_unsettled") result.status = SourceCheckStatus::TimedOut;
-        result.errors.push_back({failure_.code, false});
+        result.errors.push_back({"", false, failure_.code});
         return result;
     }
 
@@ -165,13 +173,16 @@ public:
             !P::SameBinding(review_.binding, session_->binding()) || review_.binding.review.empty()) return false;
         *review = review_; return true;
     }
+    bool providerBinding(P::Binding *binding) const override {
+        if (!binding || !session_ || !session_->active()) return false;
+        *binding = session_->binding(); return true;
+    }
     void reset() override { (void) value<P::CacheReply>(P::Operation::Reset); }
     void createCacheViews() override { empty(P::Operation::CreateCacheViews); }
     std::vector<ErrorData> drainErrors() override {
         std::vector<ErrorData> remote;
         if (session_ && session_->active()) remote = value<std::vector<ErrorData>>(P::Operation::DrainErrors);
         remote.insert(remote.end(), errors_.begin(), errors_.end());
-        redact(&remote);
         errors_.clear();
         return remote;
     }

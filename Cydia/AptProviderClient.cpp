@@ -23,7 +23,7 @@ std::string Identity(const struct stat &value) {
 }
 
 ProbeResult Probe(const std::string &executable, const Environment &expected,
-    unsigned timeoutMilliseconds, const std::function<bool()> &cancelled) {
+    unsigned timeoutMilliseconds, const std::function<bool()> &cancelled, const std::string &registrationPath) {
     ProbeResult result;
     struct stat before;
     if (executable.empty() || stat(executable.c_str(), &before) != 0) {
@@ -36,10 +36,22 @@ ProbeResult Probe(const std::string &executable, const Environment &expected,
     if (!CydiaRuntime::Privileged::ValidateRootOwnedPath(executable, false, true, &pathError)) {
         result.availability = Availability::Broken; result.errorCode = "provider_untrusted_path"; return result;
     }
+    if (!registrationPath.empty() && !CydiaRuntime::Privileged::ValidateRootOwnedPath(registrationPath, false, false, &pathError)) {
+        result.availability = Availability::Broken; result.errorCode = "provider_registration_untrusted"; return result;
+    }
+    result.registrationPath = registrationPath;
     result.executableIdentity = Identity(before);
     std::string bytes;
     CydiaRuntime::Dpkg::Runner runner(executable);
-    const auto run = runner.RunAndCaptureBounded({executable, "--cydia-provider-info"}, &bytes,
+    std::vector<std::string> arguments{"--cydia-provider-info"};
+    if (!registrationPath.empty()) arguments.push_back("--cydia-provider-registration=" + registrationPath);
+    Message query;
+    query.kind = MessageKind::Request; query.sequence = 1; query.operation = Operation::Hello;
+    std::string input;
+    if (!ValidEnvironment(expected) || !Encode(expected, &query.payload) || !EncodeFrame(query, &input) || input.size() > 256 * 1024) {
+        result.availability = Availability::Broken; result.errorCode = "provider_environment_incomplete"; return result;
+    }
+    const auto run = runner.RunWithInputAndCaptureBounded(arguments, input, &bytes,
         256 * 1024, timeoutMilliseconds == 0 || timeoutMilliseconds > 10000 ? 3000 : timeoutMilliseconds, cancelled);
     struct stat after;
     if (stat(executable.c_str(), &after) != 0 || Identity(after) != result.executableIdentity) {
@@ -48,7 +60,7 @@ ProbeResult Probe(const std::string &executable, const Environment &expected,
     if (!run.succeeded()) {
         // An otherwise runnable old APT tool can reject this option. That
         // does not establish that the distribution is broken.
-        result.availability = run.kind == CydiaRuntime::Dpkg::ResultKind::Exited ?
+        result.availability = run.kind == CydiaRuntime::Dpkg::ResultKind::Exited || run.error == EPIPE ?
             Availability::Unsupported : Availability::Broken;
         result.errorCode = result.availability == Availability::Unsupported ?
             "provider_protocol_unsupported" : "provider_probe_failed";

@@ -32,6 +32,7 @@
 #include "Cydia/ProgressEventCell.h"
 #include "Cydia/RebootCompat.h"
 #include "Cydia/TransactionOutcomePolicy.hpp"
+#include "Cydia/TransactionReview.h"
 #include "CyteKit/Localize.h"
 #include "Menes/yieldToSelector.h"
 #include "iPhonePrivate.h"
@@ -151,7 +152,10 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
-    const CydiaAPT::TransactionData transaction([database transactionData]);
+    CydiaTransactionReview *review([database preparedConfirmationReview]);
+    // Opening progress after confirmation must not ask a worker to issue a
+    // different review token. Generic repair/refresh previews have no review.
+    const CydiaAPT::TransactionData transaction(review ? [review transaction] : [database transactionData]);
     CydiaProgressViewModel *model([[CydiaProgressViewModel alloc]
         initWithPackageNameResolver:^NSString *(NSString *identifier) {
             return CydiaOwnedPackageDisplayName(transaction, identifier);

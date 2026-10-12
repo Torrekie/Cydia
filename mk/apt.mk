@@ -63,6 +63,15 @@ APT_AUDIT_CXX_STANDARD ?= $(APT_SOURCE_CXX_STANDARD)
 # this list explicit: an APT update must review every Cydia-facing API use,
 # even when the source file itself does not include an apt-pkg header.
 apt_api_sources := \
+    Cydia/AptProviderSelectionValues.cpp \
+    Cydia/AptProviderBrokerValues.cpp \
+    Cydia/AptProviderBroker.cpp \
+    Cydia/TransactionReview.mm \
+    Cydia/DatabaseSnapshots.mm \
+    Cydia/Database+RuntimeProviders.mm \
+    Cydia/AptProviderSelection.cpp \
+    Cydia/AptProviderBrokerPrivileged.cpp \
+    Cydia/AptProviderArchiveEvidence.cpp \
     Cydia/APTSrvCompat.cpp \
     Cydia/AdvancedSettingsController.mm \
     Cydia/AptBackend.cpp \
@@ -94,7 +103,6 @@ apt_api_sources := \
     Cydia/PrivilegedClient.mm \
     Cydia/RuntimeAccessController.mm \
     Cydia/RuntimeState.cpp \
-    Cydia/SettingsController.mm \
     Cydia/SettingsStore.mm \
     Cydia/ConfirmationController.mm \
     Cydia/ConfirmationControllerProbe.mm \

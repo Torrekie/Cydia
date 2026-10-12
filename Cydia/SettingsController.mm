@@ -7,11 +7,10 @@
 #import "Cydia/RepositoryAccountsController.h"
 #import "Cydia/RepositoryAccountService.h"
 #import "Cydia/Database.h"
+#import "Cydia/DatabaseRuntimeInternal.h"
 #import "Cydia/CydiaDelegate.h"
 #import "Cydia/UIColor+Cydia.h"
 #import "CyteKit/Localize.h"
-#include "Cydia/AptRuntime.hpp"
-#include "Cydia/RepositorySecurityPolicy.hpp"
 
 static NSString *SettingText(NSString *key) {
     return [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Settings"];
@@ -36,6 +35,7 @@ void CydiaPresentAbout(UIViewController *presenter) {
 @interface CydiaRepositorySecurityController : CyteViewController <UITableViewDataSource, UITableViewDelegate>
 @property(nonatomic, strong) Database *database;
 @property(nonatomic, strong) UITableView *table;
+@property(nonatomic) BOOL saving;
 - (instancetype)initWithDatabase:(Database *)database;
 @end
 
@@ -64,8 +64,10 @@ static UITableViewCell *SettingsCell(UITableView *table) {
     cell.detailTextLabel.text = nil; cell.accessibilityTraits = UIAccessibilityTraitButton;
     return cell;
 }
-static NSString *SecurityValue(void) {
-    NSString *value(CydiaEffectiveRepositorySecurityPreference(CydiaAPT::ActiveRuntimeDescriptor() != nullptr));
+static NSString *SecurityValue(Database *database) {
+    const CydiaRuntimeProviderState state([database runtimeProviderStatus].state);
+    if (state == CydiaRuntimeProviderStateChecking) return CydiaRuntimeProviderLocalize(@"CHECKING");
+    NSString *value(CydiaEffectiveRepositorySecurityPreference(state == CydiaRuntimeProviderStateExternalActive));
     return SettingText([value isEqual:@"distribution"] ? @"SECURITY_DISTRIBUTION" :
         [value isEqual:@"allow"] ? @"SECURITY_ALLOW" : [value isEqual:@"error"] ? @"SECURITY_ERROR" : @"SECURITY_WARNING");
 }
@@ -116,7 +118,9 @@ static NSString *SecurityValue(void) {
     NSArray *values(@[@"distribution", @"allow", @"warning", @"error"]);
     cell.textLabel.text = SettingText(names[path.row]);
     cell.detailTextLabel.text = SettingText(details[path.row]);
-    BOOL selected([CydiaEffectiveRepositorySecurityPreference(CydiaAPT::ActiveRuntimeDescriptor() != nullptr) isEqual:values[path.row]]);
+    const CydiaRuntimeProviderState state([self.database runtimeProviderStatus].state);
+    BOOL selected(state != CydiaRuntimeProviderStateChecking &&
+        [CydiaEffectiveRepositorySecurityPreference(state == CydiaRuntimeProviderStateExternalActive) isEqual:values[path.row]]);
     cell.accessoryType = selected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
     cell.accessibilityTraits = UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
     cell.accessibilityIdentifier = [@"cydia.settings.security." stringByAppendingString:values[path.row]];
@@ -128,22 +132,15 @@ static NSString *SecurityValue(void) {
     BOOL busy([delegate respondsToSelector:@selector(updating)] && [delegate updating]);
     if (busy) { [self showMessage:SettingText(@"SETTINGS_WAIT_FOR_OPERATION")]; return; }
     NSString *value(@[@"distribution", @"allow", @"warning", @"error"][path.row]);
-    if (![self.database beginSettingsChange]) {
-        [self showMessage:SettingText(@"SETTINGS_WAIT_FOR_OPERATION")]; return;
-    }
-    @try {
-        const auto previous(CydiaAPT::GetRepositorySecurityMode());
-        if (!CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityModeFromString([value UTF8String]))) {
-            [self showMessage:SettingText(@"SETTINGS_SAVE_FAILED")]; return;
-        }
-        if (!CydiaSetRepositorySecurityPreference(value)) {
-            CydiaAPT::SetRepositorySecurityMode(previous);
-            [self showMessage:SettingText(@"SETTINGS_SAVE_FAILED")]; return;
-        }
-    } @finally {
-        [self.database endSettingsChange];
-    }
-    [table reloadData];
+    if (self.saving) return;
+    self.saving = YES; table.userInteractionEnabled = NO;
+    __weak CydiaRepositorySecurityController *weakSelf(self);
+    [self.database setRepositorySecurityPreference:value completion:^(CydiaRuntimeProviderStatus *, NSError *error) {
+        CydiaRepositorySecurityController *self(weakSelf); if (!self) return;
+        self.saving = NO; self.table.userInteractionEnabled = YES;
+        [self.table reloadData];
+        if (error) [self showMessage:error.localizedDescription];
+    }];
 }
 - (void)showMessage:(NSString *)message {
     UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("SETTINGS") message:message preferredStyle:UIAlertControllerStyleAlert]);
@@ -189,7 +186,7 @@ static NSString *SecurityValue(void) {
         cell.textLabel.text = path.row == 3 ? CydiaAccountLocalize(@"ACCOUNTS") : SettingText(keys[path.row]);
         cell.accessibilityIdentifier = identifiers[path.row];
         if (path.row == 0) cell.detailTextLabel.text = SettingText(@"REPOSITORY_SETTINGS_HELP");
-        if (path.row == 1) cell.detailTextLabel.text = SecurityValue();
+        if (path.row == 1) cell.detailTextLabel.text = SecurityValue(self.database);
     } else if (path.section == 1) {
         cell.textLabel.text = SettingText(@"ADVANCED_SETTINGS");
         cell.detailTextLabel.text = SettingText(@"ADVANCED_SETTINGS_HELP");

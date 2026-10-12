@@ -167,10 +167,18 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
     if ([tabbar_ updating])
         [tabbar_ cancelUpdate];
 
-    if (![database_ prepare])
-        return false;
+    // Archive/index evidence can involve substantial I/O. Keep UIKit serving
+    // its run loop while the serialized database prepares an immutable review.
+    BOOL prepared(NO);
+    UIView *interactionView([tabbar_ view]);
+    const BOOL wasInteractive(interactionView.userInteractionEnabled);
+    interactionView.userInteractionEnabled = NO;
+    @try { prepared = [[database_ yieldToSelector:@selector(prepareForConfirmation)] boolValue]; }
+    @finally { interactionView.userInteractionEnabled = wasInteractive; }
+    if (!prepared) return false;
 
     ConfirmationController *page([[ConfirmationController alloc] initWithDatabase:database_]);
+    if (page == nil) return false;
     [page setDelegate:self];
     UINavigationController *confirm_([[UINavigationController alloc] initWithRootViewController:page]);
 

@@ -365,7 +365,10 @@ AptBackend::~AptBackend() {
 }
 
 void AptBackend::KeepFileDescriptor(int descriptor) {
-    if (descriptor >= 0)
+    if (descriptor < 0) return;
+    const auto retained(_config->FindVector("APT::Keep-Fds"));
+    const std::string value(std::to_string(descriptor));
+    if (std::find(retained.begin(), retained.end(), value) == retained.end())
         _config->Set("APT::Keep-Fds::", descriptor);
 }
 

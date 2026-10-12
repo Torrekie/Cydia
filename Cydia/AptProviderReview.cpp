@@ -63,15 +63,26 @@ bool Hashes(const std::map<std::string, std::string> &hashes) {
     }
     return strong;
 }
+bool URI(const std::string &value) {
+    const auto colon = value.find(':');
+    return Text(value) && value.find_first_of(" \t") == std::string::npos && colon != std::string::npos && colon != 0 &&
+        value.substr(0, colon).find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789+.-") == std::string::npos;
+}
 bool Archive(const ArchiveManifest &archive, const ReviewPolicy &policy) {
-    const auto colon = archive.sourceURI.find(':');
     return ValidIdentityToken(archive.identifier) && Package(archive.package) &&
-        Text(archive.sourceURI) && archive.sourceURI.find_first_of(" \t") == std::string::npos &&
-        colon != std::string::npos && colon != 0 &&
-        archive.sourceURI.substr(0, colon).find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789+.-") == std::string::npos &&
-        ValidIdentityToken(archive.sourceIndexIdentity) && Path(archive.path) && archive.path != "/" &&
+        URI(archive.sourceURI) && URI(archive.sourceIndexURI) &&
+        archive.sourceIndexIdentity.size() == 71 && archive.sourceIndexIdentity.compare(0, 7, "SHA256:") == 0 &&
+        archive.sourceIndexIdentity.find_first_not_of("0123456789abcdef", 7) == std::string::npos &&
+        Path(archive.sourceDefinitionPath) && archive.sourceDefinitionPath != "/" &&
+        Path(archive.sourceIndexPath) && archive.sourceIndexPath != "/" &&
+        archive.sourceDefinitionOrdinal < MaximumCollectionItems &&
+        archive.recordSize != 0 && archive.recordSize <= MaximumStringBytes &&
+        archive.recordOffset <= std::numeric_limits<std::uint64_t>::max() - archive.recordSize &&
+        Text(archive.filename) && archive.filename.find_first_of(" \t") == std::string::npos &&
+        Path(archive.path) && archive.path != "/" &&
         archive.size != 0 && Hashes(archive.hashes) && Equal(archive.layout, policy.layout);
 }
+
 bool Decimal(const std::string &value) {
     return !value.empty() && value.size() <= 10 && value.find_first_not_of("0123456789") == std::string::npos;
 }
@@ -151,8 +162,7 @@ bool ParseBatch(const ParentExecutionRequest &request, const ReviewPolicy &polic
         (value.pending && (!value.operands.empty() || value.action == ExecutionAction::Unpack)) ||
         (!value.pending && value.operands.empty()) ||
         (value.autoDeconfigure && value.action != ExecutionAction::Unpack) ||
-        ((forceDepends || abortOne) && value.action != ExecutionAction::Remove && value.action != ExecutionAction::Purge) ||
-        (value.noTriggers && value.action == ExecutionAction::Triggers)) return false;
+        ((forceDepends || abortOne) && value.action != ExecutionAction::Remove && value.action != ExecutionAction::Purge)) return false;
     *parsed = std::move(value); return true;
 }
 bool PackageSet(const std::vector<ExecutionPackage> &packages, std::set<std::string> *keys) {

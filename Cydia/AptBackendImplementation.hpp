@@ -10,6 +10,7 @@ public:
     virtual ~BackendImplementation() {}
     virtual BackendFailure providerFailure() const { return BackendFailure(); }
     virtual bool providerReview(Provider::ReviewedTransaction *) const { return false; }
+    virtual bool providerBinding(Provider::Binding *) const { return false; }
     virtual void reset() = 0;
     virtual void createCacheViews() = 0;
     virtual std::vector<ErrorData> drainErrors() = 0;

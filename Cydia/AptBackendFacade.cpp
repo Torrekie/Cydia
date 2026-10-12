@@ -7,6 +7,7 @@ namespace CydiaAPT {
 AptBackend::~AptBackend() {}
 BackendFailure AptBackend::providerFailure() const { return implementation_->providerFailure(); }
 bool AptBackend::providerReview(Provider::ReviewedTransaction *review) const { return implementation_->providerReview(review); }
+bool AptBackend::providerBinding(Provider::Binding *binding) const { return implementation_->providerBinding(binding); }
 
 void AptBackend::reset() {
     implementation_->reset();

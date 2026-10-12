@@ -85,6 +85,13 @@ class Runner {
                                std::string *output, std::size_t maxBytes,
                                unsigned timeoutMilliseconds,
                                const std::function<bool()> &cancelled = std::function<bool()>()) const;
+    /* Bidirectional variant for framed, read-only provider probes. Input is
+     * capped at 8 MiB; writing and reading share the same cancellation/deadline
+     * and neither direction may block the other. Not for dpkg transactions. */
+    Result RunWithInputAndCaptureBounded(const std::vector<std::string> &arguments,
+                               const std::string &input, std::string *output,
+                               std::size_t maxBytes, unsigned timeoutMilliseconds,
+                               const std::function<bool()> &cancelled = std::function<bool()>()) const;
 
     static std::string DefaultPath(Executable executable);
 

@@ -98,6 +98,8 @@ UI_ROUTE_DISPATCH_TEST := $(BUILD_DIR)/tests/UIRouteDispatchTests
 UI_RESTORATION_STATE_TEST := $(BUILD_DIR)/tests/RestorationStateTests
 CONFIRMATION_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ConfirmationViewModelTests
 CONFIRMATION_CONTROLLER_TEST := $(BUILD_DIR)/tests/ConfirmationControllerContractTests
+TRANSACTION_REVIEW_TEST := $(BUILD_DIR)/tests/TransactionReviewTests
+FETCH_DIAGNOSTICS_TEST := $(BUILD_DIR)/tests/FetchDiagnosticsTests
 PROGRESS_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ProgressViewModelTests
 PACKAGE_DETAIL_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/PackageDetailViewModelTests
 PACKAGE_DEPICTION_FACADE_TEST := $(BUILD_DIR)/tests/PackageDepictionJavaScriptFacadeTests
@@ -230,7 +232,7 @@ verify: verify-message-locale
 .PHONY: verify-yield-to-selector
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
 .PHONY: verify-native-ui verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch verify-ui-restoration-state verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-inventory verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer
-.PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance verify-confirmation-controller-simulator
+.PHONY: verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance verify-confirmation-controller-simulator verify-transaction-review verify-fetch-diagnostics
 .PHONY: verify-progress-view-model verify-progress-controller
 .PHONY: verify-package-detail-view-model verify-package-depiction-facade verify-package-depiction-policy verify-package-legacy-metadata-policy verify-url-protocol-policy
 .PHONY: verify-package-detail-controller verify-package-detail-contact verify-package-detail-controller-simulator verify-package-depiction-view
@@ -449,10 +451,13 @@ $(PRIVILEGED_RUNTIME_TEST): tests/PrivilegedRuntimeTests.cpp Cydia/PrivilegedRun
 $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClient.mm \
 		Cydia/PrivilegedClient.h Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedRuntime.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
+		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptProviderBrokerValues.cpp \
+		Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderDpkgState.cpp Cydia/ExtendedState.cpp \
+		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp \
 		tests/apt-stubs/apt-pkg/fileutl.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -Itests/apt-stubs -I. \
-		-x c++ tests/PrivilegedClientTests.cpp Cydia/PrivilegedClient.mm Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp -o $@
+		-x c++ $(filter %.cpp %.mm,$^) -o $@
 
 $(CAPABILITY_PREVIEW_TEST): tests/CapabilityPreviewTests.cpp Cydia/CapabilityPreview.cpp Cydia/CapabilityPreview.hpp
 	@mkdir -p $(dir $@)
@@ -1105,6 +1110,27 @@ $(CONFIRMATION_VIEW_MODEL_TEST): tests/ConfirmationViewModelTests.mm \
 verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
 	@$<
 
+$(TRANSACTION_REVIEW_TEST): tests/TransactionReviewTests.mm \
+		Cydia/TransactionReview.mm Cydia/TransactionReview.h \
+		Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \
+		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/PackageArchitecturePresentation.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
+		-Wall -Wextra -I. $(filter %.mm %.cpp,$^) -framework Foundation -o $@
+
+verify-transaction-review: $(TRANSACTION_REVIEW_TEST)
+	@$<
+
+$(FETCH_DIAGNOSTICS_TEST): tests/FetchDiagnosticsTests.mm \
+		Cydia/FetchDiagnostics.mm Cydia/FetchDiagnostics.h Cydia/AptCompatibility.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc \
+		-Wall -Wextra -I. $(filter %.mm,$^) -framework Foundation -o $@
+
+verify-fetch-diagnostics: $(FETCH_DIAGNOSTICS_TEST)
+	@$<
+
 $(CONFIRMATION_CONTROLLER_TEST): tests/ConfirmationControllerContractTests.mm \
 		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
 		Cydia/AptCompatibility.hpp
@@ -1247,6 +1273,12 @@ verify-package-detail-controller-simulator:
 verify-confirmation-view-model:
 	@echo "[verify] Confirmation view-model runtime test requires a Darwin host; iOS compile coverage remains enabled"
 
+verify-transaction-review:
+	@echo "[verify] Immutable transaction review runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-fetch-diagnostics:
+	@echo "[verify] Diagnostic localization runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
 verify-confirmation-controller:
 	@echo "[verify] Confirmation controller contract test requires a Darwin host; iOS compile coverage remains enabled"
 
@@ -1339,7 +1371,7 @@ verify-native-ui: verify-native-ui-contract verify-no-remote-app-ui verify-ui-ro
 	verify-ui-restoration-state \
 	verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format \
 	verify-url-protocol-policy \
-	verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance \
+	verify-confirmation-view-model verify-confirmation-controller verify-confirmation-controller-appearance verify-transaction-review verify-fetch-diagnostics \
 	verify-confirmation-controller-simulator verify-progress-view-model \
 	verify-progress-controller verify-package-detail-view-model verify-package-depiction-facade \
 	verify-package-depiction-policy verify-package-legacy-metadata-policy verify-package-depiction-view \

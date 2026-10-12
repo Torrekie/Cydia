@@ -54,9 +54,10 @@ bool DpkgPendingTargets(const DpkgState &state, ExecutionAction action,
 // status fd and independently verified archives. A nonzero fresh identity is
 // not itself a lock or file-validation proof. Bare names are included only
 // when all recorded instances make the result unambiguous.
-// Implicit trigger execution and auto-deconfiguration cannot be predicted
-// from status alone and reject. Explicit triggers also require further local
-// trigger-dependency evidence; this implementation does not guess it.
+// Implicit trigger execution and auto-deconfiguration reject. An explicit
+// --triggers-only --no-triggers batch must cover every fresh pending recipient
+// (including when --pending is used); waiter updates come from the captured
+// exact graph, never provider claims. New trigger activation still rejects.
 bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &review,
                             const ParentExecutionRequest &request,
                             ParentExecutionEvidence *evidence, std::string *error);
@@ -64,8 +65,10 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
 // Observe only after a successful parent dpkg child exit. Verifies exact
 // identities and permitted end states for the already authorized action IDs;
 // unrelated selection/version/state/trigger changes reject. It does not prove
-// filesystem effects of trusted maintainer scripts. Unknown trigger effects,
-// deconfiguration, changed architectures and incomplete end states reject.
+// filesystem effects of trusted maintainer scripts. Explicit trigger batches
+// require all selected pending lists to clear and exactly the derived waiter
+// updates. New trigger effects, deconfiguration, changed architectures and
+// incomplete end states reject.
 // On false, invalidate the review; never retry an already-started batch.
 bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
                               const ReviewedTransaction &review,

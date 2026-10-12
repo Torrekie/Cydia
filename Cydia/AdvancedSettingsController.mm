@@ -3,6 +3,7 @@
 #import "Cydia/Database.h"
 #import "Cydia/SourceControllers.h"
 #import "Cydia/RuntimeAccessController.h"
+#import "Cydia/RuntimeProviderSettingsController.h"
 #import "Cydia/BootstrapAccessController.h"
 #import "Cydia/CapabilityController.h"
 #import "Cydia/UIColor+Cydia.h"
@@ -418,7 +419,7 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
 - (void)loadView { table_ = GroupedTable(self); table_.accessibilityIdentifier = @"cydia.settings.advanced"; self.view = table_; }
 - (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = Text(@"ADVANCED_SETTINGS"); }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 3 : section == 1 ? 2 : 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 4 : section == 1 ? 2 : 1; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
     return Text(@[@"BOOTSTRAP_CONFIGURATION", @"COMPATIBILITY", @"DIAGNOSTICS"][section]);
 }
@@ -426,8 +427,10 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell(Cell(table));
     if (path.section == 0) {
-        cell.textLabel.text = Text(@[@"BOOTSTRAP_REPOSITORIES", @"PROTECTED_REPOSITORY_SETTINGS", @"BOOTSTRAP_DATABASE_ACCESS"][path.row]);
-        cell.accessibilityIdentifier = @[@"cydia.settings.bootstrap", @"cydia.settings.advanced-sources", @"cydia.settings.bootstrap-access"][path.row];
+        cell.textLabel.text = path.row == 3 ? CydiaRuntimeProviderLocalize(@"RUNTIME_TITLE") :
+            Text(@[@"BOOTSTRAP_REPOSITORIES", @"PROTECTED_REPOSITORY_SETTINGS", @"BOOTSTRAP_DATABASE_ACCESS"][path.row]);
+        cell.accessibilityIdentifier = @[@"cydia.settings.bootstrap", @"cydia.settings.advanced-sources",
+            @"cydia.settings.bootstrap-access", @"cydia.settings.runtime"][path.row];
     } else if (path.section == 1) {
         cell.textLabel.text = Text(path.row == 0 ? @"CAPABILITIES" : @"EXTERNAL_EXECUTABLES");
         cell.accessibilityIdentifier = path.row == 0 ? @"cydia.settings.capabilities" : @"cydia.settings.external-tools";
@@ -447,7 +450,8 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
         if (@available(iOS 13.0, *)) navigation.modalInPresentation = YES;
         [self presentViewController:navigation animated:YES completion:nil]; return;
     }
-    if (path.section == 0) controller = path.row == 1 ?
+    if (path.section == 0 && path.row == 3) controller = [[CydiaRuntimeProviderSettingsController alloc] initWithDatabase:database_];
+    else if (path.section == 0) controller = path.row == 1 ?
         [[CydiaRepositorySettingsController alloc] initWithDatabase:database_ advancedAccess:YES] :
         [[CydiaBootstrapAccessController alloc] initWithDatabase:database_];
     else if (path.section == 1) controller = path.row == 0 ?

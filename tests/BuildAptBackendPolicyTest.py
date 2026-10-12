@@ -52,6 +52,26 @@ def main():
     compile_driver(["tests/PackageArchivePolicyTests.cpp", "Cydia/PackageArchivePolicy.cpp",
                     "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-reader", sanitize=True,
                    extra_compile_flags=["-DCYDIA_TEST_PACKAGE_ARCHIVE_READER"])
+    # Provider admission and archive proof use the same native APT objects;
+    # no second APT build, external provider service, or network is involved.
+    compile_driver(["tests/AptProviderSelectionTests.cpp",
+                    "Cydia/AptProviderSelection.cpp", "Cydia/AptProviderSelectionValues.cpp",
+                    "Cydia/AptProviderClient.cpp", "Cydia/AptProviderProtocol.cpp",
+                    "Cydia/AptProviderValues.cpp", "Cydia/AptRuntimeDescriptor.cpp",
+                    "Cydia/RepositorySecurityPolicy.cpp", "Cydia/PackageIdentity.cpp",
+                    "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocument.cpp",
+                    "Cydia/SourceDocumentStore.cpp", "Cydia/PrivilegedRuntime.cpp",
+                    "Cydia/DpkgRunner.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                   "cydia-provider-selection")
+    compile_driver(["tests/AptProviderArchiveEvidenceTests.cpp",
+                    "Cydia/AptProviderArchiveEvidence.cpp", "Cydia/AptProviderArchiveDecoders.cpp",
+                    "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp",
+                    "Cydia/RepositorySecurityPolicy.cpp", "Cydia/PackageIdentity.cpp",
+                    "Cydia/PackageArchivePolicy.cpp",
+                    "Cydia/PackageArchiveReader.cpp", "Cydia/SourceDocument.cpp",
+                    "Cydia/SourceDocumentStore.cpp", "Cydia/PrivilegedRuntime.cpp",
+                    "Cydia/PackageDatabasePaths.cpp"],
+                   "cydia-provider-archive-evidence", sanitize=True, extra_link_flags=["-lz"])
     compile_driver(["tests/NativeMMapBackingTests.cpp"], "cydia-mmap-backing",
                    extra_link_flags=["-Wl,--wrap=free,--wrap=munmap"])
     # The same APT objects back snapshot hashing. fakeroot exercises the real

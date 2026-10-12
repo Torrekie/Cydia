@@ -114,7 +114,7 @@ bool ValidEnvironment(const Environment &environment) {
 }
 
 bool ValidHello(const Hello &hello) {
-    return hello.protocolVersion == ProtocolVersion && ValidChallenge(hello.challenge) &&
+    return hello.protocolVersion == ProtocolVersion && ValidChallenge(hello.challenge) && Path(hello.registrationPath, true) &&
         (hello.requiredCapabilities & RequiredCapabilities) == RequiredCapabilities &&
         (hello.options.repositorySecurityMode == RepositorySecurityMode::Distribution ||
             (hello.requiredCapabilities & ExplicitSecurityOverrides) != 0) &&

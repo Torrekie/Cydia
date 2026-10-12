@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include <apt-pkg/fileutl.h>
 #include <cerrno>
 #include <chrono>
@@ -44,6 +45,20 @@ bool WriteAll(int fd, const std::string &bytes) {
 int Helper(int argc, char **argv) {
     if (argc > 1 && std::strncmp(argv[argc - 1], "--cydia-deadline-ms=", 20) == 0) --argc;
     const std::string command(argv[1]);
+    if (command == "--cydia-provider-direct" && argc == 3) {
+        CydiaRuntime::Privileged::Request request; CydiaRuntime::Privileged::Error error;
+        const int channel = std::atoi(argv[2]);
+        if (!CydiaRuntime::Privileged::ReadRequest(channel, &request, &error)) return 31;
+        if (request.payload == "started") return WriteAll(channel, "S") ? 0 : 32;
+        if (request.payload == "denied") return WriteAll(channel, "N") ? 7 : 33;
+        if (request.payload == "lost") return 0;
+        if (request.payload == "input") {
+            char input[4];
+            return read(STDIN_FILENO, input, sizeof(input)) == 4 && std::string(input, 4) == "hold" &&
+                WriteAll(channel, "S") ? 0 : 34;
+        }
+        return 35;
+    }
     if (command == "--cydia-early") return 17;
     if (command == "--cydia-hang" || command == "--cydia-hang-closed") {
         if (command == "--cydia-hang-closed") {
@@ -58,6 +73,9 @@ int Helper(int argc, char **argv) {
     CydiaRuntime::Privileged::Request request;
     CydiaRuntime::Privileged::Error error;
     if (!CydiaRuntime::Privileged::ReadRequest(STDIN_FILENO, &request, &error)) return 21;
+    if (command == "--cydia-provider-snapshot")
+        return WriteAll(STDOUT_FILENO, CydiaRuntime::Privileged::SerializeFields(
+            {"CYDIA-PROVIDER-SNAPSHOT-1", "provider_registration_missing", "localized diagnostic", ""})) ? 0 : 36;
     if (command == "--cydia-duplex")
         return request.payload == std::string(1048576, 'p') ? 0 : 22;
     if (command == "--cydia-signal") { raise(SIGTERM); return 23; }
@@ -230,6 +248,26 @@ int main(int argc, char **argv) {
            "route only the expected dpkg lock through the helper");
     close(fd); PrivilegedClient::ClearLockBridge();
     Expect(opener == NULL, "clear opener"); unlink(admin.c_str());
+    namespace Provider = CydiaAPT::Provider;
+    Provider::RegisteredProviderSnapshot snapshot;
+    Expect(!PrivilegedClient::ReadProviderSnapshot(executable, "/missing", nullptr, &snapshot, &error) &&
+        error.code == "provider_registration_missing", "read exact provider error code without matching diagnostics");
+    request = Privileged::Request(); request.payload = "started";
+    auto execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, -1);
+    Expect(execution.result.succeeded() && execution.started && !execution.indeterminate,
+        "separate request channel reports started child");
+    request.payload = "denied";
+    execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, -1);
+    Expect(!execution.result.succeeded() && !execution.started && !execution.indeterminate,
+        "typed pre-launch denial cannot be mistaken for a mutation");
+    request.payload = "lost";
+    execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, -1);
+    Expect(!execution.result.succeeded() && execution.indeterminate,
+        "lost launch status forbids a safe retry even if helper exits zero");
+    request.payload = "input"; const std::string input = "hold";
+    execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, -1, &input);
+    Expect(execution.result.succeeded() && execution.started && !execution.indeterminate,
+        "protected request does not consume dpkg selection input");
     std::cout << "[verify-privileged-client][ ok ] bounded duplex I/O, descriptor validation and frontend-owned locks\n";
     return 0;
 }

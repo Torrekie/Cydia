@@ -29,7 +29,7 @@ struct SourceResourceResult;
 namespace Internal {
 class BackendImplementation;
 }
-namespace Provider { class Session; struct ReviewedTransaction; }
+namespace Provider { class Session; struct ReviewedTransaction; struct Binding; }
 
 struct BackendFailure {
     // Stable provider/transport code; upstream diagnostics remain ErrorData.
@@ -41,6 +41,8 @@ struct RemoteBackendOptions {
     AcquireStatus *status = nullptr;
     // The coordinator routes Session progress and parent execution through
     // this context. Descriptors stay in Cydia and never cross the wire.
+    // The status is non-null only during fetch/update/package execution. Reads
+    // and cleanup must not reset cancellation or flash transaction progress.
     // The callback is cleared with (nullptr, -1) after each operation.
     std::function<void(AcquireStatus *, int)> operationContext;
     std::function<bool()> cancelled;
@@ -69,6 +71,7 @@ class AptBackend {
     // Supplies the complete accepted remote manifest only while its binding
     // remains current. Embedded backends have no protocol review manifest.
     bool providerReview(Provider::ReviewedTransaction *review) const;
+    bool providerBinding(Provider::Binding *binding) const;
 
     static void KeepFileDescriptor(int descriptor);
 

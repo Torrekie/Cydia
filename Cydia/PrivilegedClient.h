@@ -4,8 +4,11 @@
 #define Cydia_PrivilegedClient_H
 
 #include "Cydia/PrivilegedRuntime.hpp"
+#include "Cydia/DpkgRunner.h"
 #include <cstddef>
 #include <string>
+
+namespace CydiaAPT { namespace Provider { struct RegistrationIdentity; struct RegisteredProviderSnapshot; } }
 
 namespace CydiaRuntime {
 namespace PrivilegedClient {
@@ -52,6 +55,35 @@ void ConfigureLockBridge(const std::string &helperPath,
  * replacing its expected environment. Returns the previous timeout. */
 unsigned SetLockBridgeTimeoutMilliseconds(unsigned timeoutMilliseconds);
 void ClearLockBridge();
+// Selected registration is pinned by the coordinator under Database's gate.
+// Every helper call rereads that protected authority, never embedded defaults.
+void ConfigureProviderAuthority(const std::string &helperPath,
+    const CydiaAPT::Provider::RegistrationIdentity &identity,
+    const Privileged::ExpectedEnvironment &expected);
+void ClearProviderAuthority();
+// Machine-readable helper response, including missing registration, without
+// matching translated stderr. Suitable for RegistrationSnapshotReader.
+bool ReadProviderSnapshot(const std::string &helperPath, const std::string &registrationPath,
+    const CydiaAPT::Provider::RegistrationIdentity *expected,
+    CydiaAPT::Provider::RegisteredProviderSnapshot *snapshot, Privileged::Error *error,
+    unsigned timeoutMilliseconds = 4000,
+    const std::function<bool()> &cancelled = std::function<bool()>());
+int OpenProviderLock(const std::string &helperPath, const Privileged::Request &wrappedRequest,
+    Privileged::Error *error, unsigned timeoutMilliseconds = 0);
+struct DpkgExecutionResult {
+    Dpkg::Result result;
+    bool started;
+    bool indeterminate; // Helper transport disappeared without a verified pre-launch denial.
+};
+// Uses a separate inherited request channel; dpkg stdin/stdout/status-fd retain
+// their existing conffile/progress behavior. No transaction timeout or kill.
+DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::string &command,
+    const Privileged::Request &wrappedRequest, int statusFd,
+    const std::string *input = nullptr);
+// Compatibility bridge for Cydia's own explicit hold/configure actions. This
+// is never exposed as a reverse-RPC operation to an external provider worker.
+Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int statusFd = -1,
+                            const std::string *input = nullptr);
 
 } // namespace PrivilegedClient
 } // namespace CydiaRuntime

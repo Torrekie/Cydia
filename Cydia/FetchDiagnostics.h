@@ -6,4 +6,6 @@
 
 /* Localizes typed acquisition/preflight outcomes; raw paths remain verbatim. */
 NSString *CydiaFetchDiagnosticMessage(const CydiaAPT::FetchFailureData &diagnostic);
+/* Localizes only explicitly Cydia-owned diagnostics; upstream text is preserved. */
+NSString *CydiaAPTDiagnosticMessage(const CydiaAPT::ErrorData &diagnostic);
 #endif

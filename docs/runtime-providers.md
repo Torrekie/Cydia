@@ -10,33 +10,38 @@ keyrings, or package database. No distribution is identified from a repository
 hostname or assumed to be the default. The package ID remains `cydia`;
 legacy package-owned file migrations remain maintscript responsibilities.
 
-This document distinguishes the target architecture from the available
-implementation. APT 2.7.9 remains statically linked into the application and
-privileged helper, and dpkg is external. The versioned provider codecs,
-protected executable probe, session client and explicit remote facade are
-preparation for adapters; application startup still selects embedded APT.
-Activation requires a coordinator and an adapter
-accepted against the complete transaction and source-check contract below.
-An ordinary installed APT executable is not such an adapter.
+Application startup now uses the runtime coordinator. Automatic mode reads
+protected provider registrations, validates their components and configuration,
+probes the declared adapter, and starts a bound worker session before adopting
+its immutable runtime descriptor. A working, compatible registered provider
+takes precedence. If none can be selected, the coordinator initializes bundled
+APT and explains the fallback. An ordinary installed `apt`, `apt-get` or libapt
+package is not a provider registration or a protocol adapter.
 
-Source preflight and discovery use the database's backend interface. The
-remote facade preserves typed results and cancellation on its owning session.
-Its reviewed-execution model requires exact actions and archive evidence before
-authorizing a dpkg batch; production parent execution and runtime activation
-remain separate integration work.
+The Cydia side includes the remote facade, source-check routing, native progress
+and cancellation bridge, Settings controls, immutable confirmation and a
+privileged parent executor. It does not include a distribution adapter/server.
+There is no completed Remorix adapter or production end-to-end acceptance claim.
+APT 2.7.9 remains statically linked into the application and privileged helper;
+the recovery backend still runs inside the application. A separate bundled
+recovery worker is not implemented. dpkg remains an external component.
 
-Runtime getters can read one immutable, explicitly adopted provider descriptor.
-Embedded mutation setters refuse while that descriptor is active, and resetting
-it requires fresh embedded initialization before package changes. Trust and
-transaction snapshots include selected provider identity. An absent repository
-security preference remains distinct from a saved Warning choice.
+Runtime getters resolve the adopted descriptor. Embedded mutation setters
+refuse while it is active, and resetting it requires fresh embedded
+initialization. Trust and transaction snapshots include the provider identity;
+changing providers invalidates cache handles and prepared confirmation. An
+absent repository-security preference remains distinct from a saved Warning
+choice: absence means distribution policy for an accepted external provider
+and the existing Warning default for recovery.
 
-Parent-side dpkg evidence uses bounded structured queries and exact state
-transition checks. Protected evidence may still need the existing Cydia helper
-when the app cannot read it directly; unreadable evidence rejects the operation.
-Unknown trigger/deconfiguration effects are not guessed. The provider progress
-bridge reuses native progress and cancellation controls. These interfaces do
-not activate a provider or grant execution authority by themselves.
+Native confirmation owns the exact package operations and archive identities.
+The parent independently proves source/index provenance and verifies downloaded
+archive contents before its existing authenticated helper stages and rechecks
+them for dpkg. A provider token or a successful worker reply alone cannot
+authorize execution or establish completion. Explicit processing of the complete
+current pending-trigger set includes independently derived waiter transitions.
+New trigger activations and automatic deconfiguration remain unsupported;
+unproved effects are rejected.
 
 Cydia-owned locale conversion and regular expressions prefer validated
 bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
@@ -47,15 +52,16 @@ upstream English messages if no usable libintl is available.
 
 | Area | Current implementation | Required behavior |
 | --- | --- | --- |
-| APT | Application startup selects the embedded backend; the facade also supports an explicitly supplied remote session | Prefer a validated distribution provider; keep the bundled provider available for recovery |
-| Repository policy | Existing Warning default is retained; explicit Use selected APT settings restores independent loaded settings | Inherit validated distribution-provider enforcement by default; preserve explicit administrator overrides |
+| APT | Automatic startup selects a validated registered external worker when available, otherwise in-process bundled APT | Supply accepted distribution adapters and isolate recovery in its own worker |
+| Repository policy | Unsaved preference inherits an accepted external provider; recovery retains Warning; saved choices are preserved | Verify each adapter reproduces its distribution's compiled frontend and library policy |
 | Other APT settings | Expiration policy and explicit language/parallel settings are preserved | Preserve the selected provider's configuration and compiled behavior |
-| Source checks | Preflight and discovery route through the database backend; startup still uses bundled APT | Check with the same selected provider and policy used for refresh and transactions |
-| dpkg | Selected external tools and protected runtime paths | Retain external dpkg and its policies; extend validation to the selected APT provider |
+| Source checks | Preflight, resource requests and discovery use the selected database backend and session | Establish source-check parity for each distribution adapter |
+| dpkg | Selected external tools, parent-owned locks, reviewed batches and authenticated privileged staging | Complete independent trigger/deconfiguration evidence and adapter acceptance |
 | ICU | Validated bootstrap/Apple service tables; isolated private fallback loader; Apple-owned UIKit collation | Supply reproducible private fallback binaries and matching data |
 | Messages | Converted locale environment, upstream catalog packaging and optional libintl bridge | Supply the private libintl closure for localization when external libraries are broken |
-| Failure handling | No APT provider transition | Diagnose provider failure separately from repository, configuration, dependency, and lock errors |
-| Remorix packages | Future distribution integration is not yet defined | Publish localized APT/dpkg and a tested provider interface without making Remorix a requirement for Cydia |
+| Failure handling | Selection and fallback occur at coordinator boundaries; no operation-level retry under another provider | Verify interruption and recovery behavior with real adapters and their dependencies |
+| Settings | Automatic/Cydia Recovery, cached provider identity/version/status, asynchronous Check Again and distinct fallback explanations | Retain truthful state; never probe while rendering cells or claim an unselected provider is active |
+| Remorix packages | The registration/protocol contract and Cydia client exist; no Remorix adapter or new APT/dpkg package is supplied | Publish localized APT/dpkg and a tested adapter without making Remorix a requirement for Cydia |
 | Commercial sources | Native accounts and exact archive authorization with ordinary hash/layout checks; no purchase API | Complete vendor-authorized account/download acceptance separately from public-source access |
 
 ## Remorix distribution contract
@@ -114,7 +120,7 @@ and the platform-framework recovery limit below still apply.
 ## Selecting one coherent APT provider
 
 Automatic selection first considers a protected, explicitly configured external
-provider, then the selected bootstrap's provider. Discovery must use the
+provider, then the selected bootstrap's provider. Discovery uses the
 selected runtime and its effective configuration, not the first `apt` found in
 an arbitrary inherited PATH. The provider includes its APT library or tools,
 acquisition methods, dependent libraries, configuration interpretation, and
@@ -131,8 +137,9 @@ An unrecognized but otherwise healthy APT version is **unsupported**, not
 Use a versioned Cydia-owned protocol across a worker-process boundary. The
 existing package/source/transaction value types are a starting point; raw APT
 C++ objects and cache handles must remain inside their owning provider.
-Implement tested adapters for supported external libapt ABI families and a
-separate bundled recovery worker. Do not load arbitrary libapt C++ ABIs into
+The Cydia client and parent broker use this boundary for external providers.
+Tested adapters for supported external libapt ABI families and a separate
+bundled recovery worker remain deliverables. Do not load arbitrary libapt C++ ABIs into
 the UIKit process or require distribution maintainers to install Cydia's APT
 patches. A CLI adapter may cover supported capabilities, but it must prove the
 same preview and transaction guarantees before it is used for mutations.
@@ -154,10 +161,86 @@ Do not reuse provider-native binary caches or trust proofs across incompatible
 providers. Rebuild derived data while preserving shared sources, dpkg state,
 holds and automatic-package markings.
 
+### Protected registration and Settings
+
+`AptProviderSelection` looks for `apt-provider.conf` first in Cydia's protected
+state directory, then in the distribution's `cydia` data directory beside its
+dpkg data directory. Both paths are derived from the selected package layout.
+A present but invalid higher-priority registration does not fall through to a
+different external provider. It is reported as a failure of that candidate;
+Automatic mode can use recovery with a visible explanation.
+
+Registration format `CYDIA-APT-PROVIDER-1` is a bounded, length-prefixed field
+document, not a source file or shell script. Its root-owned declaration names
+the adapter, effective dpkg/source/state/keyring/method paths, executable search
+path, protected dpkg options, and complete library/frontend/configuration/policy
+inputs. Optional configuration files and directories are declared explicitly.
+`AptProviderSelection.hpp` defines the required fields. Cydia's authenticated
+helper reads and verifies this authority independently of the worker's claims,
+including protected paths, component identities and dpkg architectures.
+
+The probe and session handshake must agree with that snapshot, supported
+protocol capabilities and the current package-state identity. The coordinator
+publishes a descriptor only after validation. Later privileged requests reread
+the registration and compare its authority, so replacing a component or changing
+configuration cannot silently authorize an old review. This mechanism cannot
+prove that a distributor declared every dependency or faithfully implemented
+its policy; those remain adapter packaging and acceptance requirements.
+
+Advanced Settings exposes **Automatic** and **Cydia Recovery**. Its status is a
+cached snapshot of the selected runtime, with the accepted provider identifier
+and adapter version when available. APT version is not inferred from the
+adapter version or an installed package record. **Check Again** performs an
+asynchronous coordinator check. Missing, unsupported and broken external
+candidates have distinct explanations even when recovery is the active runtime.
+Settings changes rebuild the cache and invalidate queued confirmation; a notice
+explains this when package changes are pending. Preferences are saved only
+after a successful selection. No arbitrary executable-path picker is added.
+
+### Immutable review and parent execution
+
+`Database.prepare` captures an external transaction and source/index evidence
+off the main thread while holding the frontend lock. The lock is released while
+the user reads the confirmation sheet. `CydiaTransactionReview` copies the
+transaction values, exact execution-action IDs, and per-archive warning IDs.
+The native sheet displays every operation and its version; normal single-arch
+devices retain unqualified native/`all` package names, while multiarch reviews
+distinguish native, foreign and architecture-independent packages. Progress
+uses that same owned snapshot instead of asking the worker for a fresh review.
+
+Archive inspection limits are presented for the exact queued archives. This
+acknowledgment is independent of repository-signature settings. It permits only
+a complete, identity-verified inspection with unverified script/shared-path
+semantics; it does not permit an incomplete inspection, an identity/hash
+mismatch or a known layout conflict. The later fetch cannot add hidden warning
+approvals or substitute a different manifest.
+
+`AptProviderArchiveEvidence` independently reads the configured source files and
+retains the selected Packages indexes before confirmation. Each archive names
+its source document and definition ordinal, exact index URI/path, SHA256 of
+the stored index bytes, and decoded record offset/length. Cydia verifies the
+source association and exact Package, Version, Architecture, Filename, Size and
+hash fields. Ordinary flat and suite/component sources are supported, including
+implicit `binary-all` targets unless explicitly removed. Source/index changes
+invalidate the proof. Compressed indexes use bounded readers and protected
+decoder paths, without invoking the bundled resolver or adopting its policy.
+Custom `Acquire::IndexTargets` paths and alternate list naming are not supported
+by this proof and must not be treated as verified.
+
+Before an unpack batch, the parent rechecks retained source/index evidence and
+downloaded archive size, hashes, control identity and layout. The privileged
+broker then copies approved archives into a root-owned private staging directory,
+checks them again, and substitutes only those protected copies into validated
+dpkg operands. The parent owns the frontend lock, authorizes exact reviewed
+batches, and verifies structured dpkg state before and after execution. Shared
+automatic-package state is committed only for approved deltas after verified
+completion. Cancellation cannot turn a started dpkg operation into a safe retry;
+the actual child must settle and uncertain effects require a new review.
+
 ## Distribution policy and explicit overrides
 
-The selected-provider target default is **Use distribution settings**. Until
-external activation, the shipped default remains Warning. The explicit
+With an accepted external provider, the unsaved default is **Use distribution
+settings**. Recovery retains the existing Warning default. The explicit
 **Use selected APT settings** choice restores the active embedded engine's
 loaded settings; it does not claim to reproduce another binary's compiled
 distribution policies. Existing saved choices remain unchanged. Preserve the provider's
@@ -321,9 +404,9 @@ selected package architecture, including foreign architectures. Obtain a
 short-lived HTTPS grant near download time. Reauthorization after expiry must
 not change the reviewed package identity, expected hash or layout checks.
 
-Before adding grants, separate transport URLs from display URLs. Current
-progress/error paths expose raw URIs, and the preflight sanitizer only strips
-URL user information. Redact credentials and sensitive query/path tokens from
+The native account/acquisition implementation separates transport URLs from
+display URLs and redacts credential-bearing URLs in progress and diagnostic
+paths. Preserve this separation in every adapter. Redact credentials and sensitive query/path tokens from
 UI, logs, diagnostics and crash context. Send grants through authenticated,
 bounded IPC or protected descriptors, never command arguments, source files,
 shared APT configuration or world-readable caches. Do not forward account
@@ -332,11 +415,11 @@ own scoped grant; retain TLS, repository trust and payload-integrity checks.
 
 ### Patch responsibilities and CLI behavior
 
-| Layer | Planned work |
+| Layer | Responsibility and status |
 | --- | --- |
-| Cydia | Native accounts, supported browser callbacks, entitlement-aware actions, typed authentication errors and safe progress presentation |
-| Provider protocol | Carry a scoped authorized download or a securely staged, verified archive while preserving the provider's reviewed solve, archive identity and transaction guarantees |
-| Bundled APT | Reuse supported acquisition interfaces first. Add a narrow, generic authorization hook only if an adapter cannot safely supply the reviewed archive; no vendor-specific bypass or identity spoofing |
+| Cydia | Native accounts, browser-session callbacks, entitlement-aware actions and redacted progress are implemented; vendor acceptance remains separate |
+| External provider integration | An adapter must carry a scoped authorized download or a securely staged, verified archive while preserving its reviewed solve and archive identity; native account support alone does not complete this integration |
+| Bundled APT | Cydia uses existing acquisition interfaces to stage granted archives and verify expected hashes and size; no vendor-specific bypass or identity spoofing is supplied |
 | Remorix APT | If a generic hook is necessary, share the same tested protocol as recovery APT and keep it an optional, separately maintained patch/integration |
 | Other distributions | Use supported adapters or verified archive staging. Do not patch installed APT in place or require replacing it with Remorix |
 | Optional Remorix CLI helper | Let an explicitly linked account authorize downloads through a protected service. Do not assume root CLI processes can read the mobile user's Keychain. Without credentials, report an actionable authentication requirement |
@@ -357,41 +440,59 @@ unverified until the vendor accepts the Cydia integration and an authorized
 owned-package retrieval succeeds. This gate does not block the general
 APT/ICU provider migration or public-source support.
 
-## Required implementation changes
+## Implementation map and remaining work
 
 | Part | Work |
 | --- | --- |
-| `AptRuntime.*`, `MobileCydia.mm` | Provider discovery, capability reporting, inherited configuration, removal of unconditional policy overrides |
-| `AptBackendFacade.cpp`, `AptBackend*`, `SourcePreflight*` | Worker protocol, provider adapters, one-provider operation lifecycle, structured progress and errors |
+| `AptRuntime.*`, `RuntimeProviderCoordinator.*`, `AptProviderSelection.*`, `MobileCydia.mm` | Startup selection, protected registration and immutable descriptor adoption are implemented; distribution adapters and deployment acceptance remain |
+| `AptBackendFacade.cpp`, `AptBackend*`, `SourcePreflight*` | Remote value facade, source routing and session ownership are implemented; no external adapter/server or separate bundled worker is supplied |
 | `apt-extra/apt-2.7.9-cydia.patch`, `AptCompatibility.cpp` | Keep recovery-specific patches private; replace Cydia-only authentication/state hooks in stock-provider adapters |
-| `PrivilegedConfig.cpp`, `PrivilegedRuntime.*`, `PrivilegedClient.*`, `cydo.cpp` | Authenticate worker requests, validate provider/dependency identity and configuration, update lock ownership and privilege boundaries |
-| `RuntimeSnapshotInputs.*`, `Database.mm` | Bind previews to provider and policy identity, invalidate stale queues, preserve shared state and structured recovery |
-| `SettingsStore.*`, Settings controllers, locale tables | Inheritance versus explicit overrides, Automatic/recovery selection, provider/version/status and an actionable fallback explanation |
+| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated registration snapshots, reviewed parent execution, protected archive staging and state settlement are implemented; trigger/deconfiguration effect coverage remains under development |
+| `RuntimeSnapshotInputs.*`, `Database*`, `TransactionReview.*`, `AptProviderArchiveEvidence.*` | Provider-bound immutable review and independent source/index/archive proof are implemented; custom index-target/list layouts remain unsupported |
+| `SettingsStore.*`, `RuntimeProviderSettingsController.*`, Settings controllers, locale tables | Explicit-choice preservation, Automatic/recovery selection and truthful asynchronous status UI are implemented in all existing locales |
 | `CyteKit/RegEx.hpp`, `Collation.hpp`, `Package.mm`, `Package+Metadata.mm`, `MessageLocaleConversion.mm` | ICU adapter and handle ownership, coherent collation and locale behavior |
-| `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/package.mk`, `cydia.control` | Separate workers/adapters and private recovery dependencies; preserve package ID and avoid hard dependencies that defeat recovery |
+| `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/package.mk`, `cydia.control` | Separate recovery worker and complete private ICU/libintl dependency packaging remain; preserve package ID and avoid hard dependencies that defeat recovery |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
 | `DatabaseStatus.mm`, `ProgressEvent.mm`, acquisition protocol | Redacted display URLs, typed account/transport failures and protected short-lived grants |
 | Remorix APT/dpkg packaging and optional adapter/helper packages | Native catalogs, declared runtime/ABI policy and reusable optional authorization integration |
 
-## Delivery order and compatibility gates
+## Remaining delivery and compatibility gates
 
-| Phase | Deliverable | Exit condition |
+| Gate | Available Cydia support | Remaining work or acceptance |
 | --- | --- | --- |
-| 1. Contracts and policy | Versioned worker/account capability models, explicit-choice migration, clean inherited configuration and removal of English diagnostic control flow | Saved choices survive; absence means inheritance; errors are structured; no silent engine changes |
-| 2. Remorix packages | Localized APT/dpkg, published distribution policy, Darwin ABI/path metadata and an optional versioned adapter | CLI catalogs work; dependencies and rooted/rootless artifacts match policy; installing Cydia does not replace another distribution with Remorix |
-| 3. Isolate current APT | Put bundled APT behind the worker boundary and update helper/lock ownership | Existing review, multiarch, source preflight, hooks, state updates and bootstrap protections remain correct |
-| 4. Prefer external APT | Remorix and other tested distribution adapters, coherent operation ownership and provider-change invalidation | Healthy supported external providers win; strict and permissive distribution behavior is preserved; unsupported is distinct from broken |
-| 5. Recovery and ICU | Private recovery dependency closure and gettext; independent ICU adapter and fallback | Failure handling works before/during/after interrupted operations; no mid-transaction switching; sorting, sections and transliteration remain coherent |
-| 6. Commercial sources | URL redaction first, native accounts, accepted callbacks, entitlement and generic acquisition integration; optional Remorix CLI helper | Public refresh, free retrieval and owned paid retrieval have separate gates; secrets remain scoped; unsupported vendors are identified honestly |
-| 7. UI and release acceptance | Settings, all existing Cydia UI locales, package install/upgrade/remove checks and focused runtime verification | Clear provider/account states, unchanged ordinary Sources UX, package ID `cydia` and safe drop-in upgrade/removal |
+| Contracts and policy | Versioned worker/account models, protected registration, explicit-choice handling and provider-bound snapshots | Demonstrate that real adapters declare their complete environment and reproduce distribution policy |
+| Remorix packages | A client/registration contract that does not require replacing another distribution | Supply localized APT/dpkg and an optional adapter; verify catalogs, ABI/path metadata and dependency closure |
+| Recovery isolation | Existing bundled APT can be selected for recovery | Move recovery out of the UIKit process without losing review, multiarch, source checks, hooks or state guarantees |
+| External transactions | Startup coordinator, selected-backend routing, native review, parent broker and archive proof | Real adapter end-to-end installation, upgrade and removal; complete independent trigger/deconfiguration effect support |
+| Recovery dependencies and ICU | Bootstrap/Apple ICU selection, private loader interfaces and upstream gettext bridge/catalogs | Supply private ICU/libintl binaries and full dependency/data closure; prove usable recovery when optional bootstrap components fail |
+| Commercial sources | Native accounts, scoped authorization, private archive acquisition and redacted diagnostics | Vendor-accepted callbacks and authorized paid retrieval; any optional Remorix CLI authorization helper remains separate work |
+| UI and release acceptance | Runtime Settings and immutable confirmation in all existing Cydia locales | Verify runtime transitions, failure handling and safe drop-in upgrade/removal with supported provider packages |
 
-Phases 2 and 3 can proceed independently after the contract is fixed; the ICU
-work can also proceed after its interface is defined. Full inheritance of
-compiled distribution behavior arrives with phase 4, not the configuration
-cleanup alone. Missing capabilities in a healthy provider require an explicit
-compatibility or recovery choice, not silent bundled-provider substitution.
-Havoc paid support remains a separate external compatibility gate.
+The Cydia production glue does not by itself establish compatibility with an
+ordinary installed APT or a future Remorix adapter. Full inheritance of compiled
+distribution behavior requires the accepted adapter, not configuration cleanup
+alone. Automatic can select recovery before an operation and explain why;
+repository failures and unsupported controls must not silently change the
+provider during an operation. Havoc paid support remains a separate external
+compatibility gate.
+
+Current limits are explicit:
+
+- Recovery APT is still in-process; there is no separate bundled recovery worker.
+- Private ICU/libintl binaries and their complete recovery dependency closure
+  are not packaged by the loader interfaces.
+- Independent archive provenance supports ordinary flat and suite/component
+  indexes; custom `Acquire::IndexTargets` and alternate list naming are unsupported.
+- Explicit trigger batches must enumerate the complete fresh pending set and
+  retain `--no-triggers`; new activations and automatic deconfiguration remain
+  unsupported. This is a bounded adapter contract, not full implicit trigger parity.
+  The broker rejects effects it cannot independently establish; the protocol's
+  action enum and visible review rows are not a claim of complete dpkg coverage.
+- No real Remorix adapter, full external-provider end-to-end acceptance or
+  vendor-authorized commercial-download acceptance has been completed by these
+  interfaces. Remorix APT/dpkg patches, adapter packages and optional CLI helpers
+  are separate distribution work, not bundled substitutes supplied by Cydia.
 
 Potential behavior changes include distribution-specific dependency solutions
 and security decisions, restored expiry checking when the distribution enables
@@ -419,12 +520,10 @@ Use fixtures for ordinary failure cases; do not make a
 purchase or transmit a device identity solely for an automated test. A vendor
 capability is not complete until its own authorized end-to-end gate passes.
 
-Validate Remorix packaging statically first, then use the smallest relevant
-build and inspect the resulting metadata, catalogs and Mach-O dependencies.
-Retain the existing build machines. Use real devices only for gaps that depend
-on device behavior: general/rooted checks on an iPad, rootless or iPhone-specific
-checks on an iPhone. New Cydia-owned UI strings cover the existing 21 locales;
-APT/dpkg diagnostics remain upstream translations, with untranslated upstream
+Validate Remorix package metadata, catalogs and Mach-O dependencies, then verify
+the relevant artifacts on their supported runtime layouts. New Cydia-owned UI
+strings cover the existing 21 locales. APT/dpkg diagnostics remain upstream
+translations, with untranslated upstream
 messages allowed to fall back normally.
 
 ## Upstream references

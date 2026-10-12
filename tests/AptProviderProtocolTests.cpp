@@ -93,6 +93,11 @@ void PackageValues() {
     Require(checked.repositories.front().detachedSignature == source.detachedSignature &&
             checked.warnings.front().kind == FetchDiagnosticKind::RepositoryTrustDowngrade,
             "raw signature bytes or typed authentication diagnostics changed");
+    Require(checked.errors.front().message == "Upstream text" && checked.errors.front().cydiaCode.empty(),
+            "upstream diagnostic acquired a Cydia identity");
+    const auto local = RoundTrip(ErrorData{"", false, "provider_cancelled"});
+    Require(local.message.empty() && local.cydiaCode == "provider_cancelled" && !local.warning,
+            "Cydia-owned diagnostic identity was lost or converted to upstream text");
     InitializationOptions options;
     options.architecture = "native"; options.aptConfigDirectory = "/distribution/etc/apt";
     options.repositorySecurityMode = RepositorySecurityMode::Distribution;
@@ -100,11 +105,12 @@ void PackageValues() {
             "initialization lost distribution inheritance");
 }
 void RejectionAndBinding() {
-    ErrorData before = {"unchanged", true}; std::string encoded;
+    ErrorData before = {"unchanged", true, "unchanged_code"}; std::string encoded;
     Require(P::Encode(before, &encoded), "encode diagnostic");
     for (std::size_t i = 0; i < encoded.size(); ++i) {
         ErrorData target = before;
-        Require(!P::Decode(encoded.substr(0, i), &target) && target.message == "unchanged" && target.warning,
+        Require(!P::Decode(encoded.substr(0, i), &target) && target.message == "unchanged" && target.warning &&
+                target.cydiaCode == "unchanged_code",
                 "truncated payload changed its output");
     }
     encoded.back() = 2;

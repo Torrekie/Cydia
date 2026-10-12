@@ -2,6 +2,7 @@
 #ifndef Cydia_PackageArchiveReader_HPP
 #define Cydia_PackageArchiveReader_HPP
 #include "Cydia/PackageArchivePolicy.hpp"
+#include <map>
 
 namespace CydiaPackages {
 /* Uses the active APT compressor configuration. The caller serializes APT
@@ -13,5 +14,17 @@ ArchivePolicyResult InspectPackageArchive(const std::string &path,
                                          const ArchiveIdentity &expected,
                                          const ArchiveLayout &layout,
                                          const ArchiveLimits &limits = ArchiveLimits());
+/* Provider-parent proof uses only these independently selected decoder paths,
+ * never the embedded APT compressor configuration. Keys are gzip, bzip2, xz,
+ * lzma, lz4 and zstd; values are verified absolute executable paths. */
+ArchivePolicyResult InspectPackageArchiveWithDecoders(const std::string &path,
+    const ArchiveIdentity &expected, const ArchiveLayout &layout,
+    const std::map<std::string, std::string> &decoders,
+    const ArchiveLimits &limits = ArchiveLimits(),
+    const std::function<bool()> &cancelled = std::function<bool()>());
+/* Missing optional tools are omitted: uncompressed/gzip archives remain
+ * inspectable. Malformed search paths fail; no PATH lookup or shell is used. */
+bool ResolveTrustedArchiveDecoders(const std::string &protectedSearchPath,
+    std::map<std::string, std::string> *decoders, std::string *error);
 }
 #endif

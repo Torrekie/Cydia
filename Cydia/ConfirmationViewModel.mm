@@ -137,6 +137,18 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
 @end
 
 @implementation CydiaConfirmationTableSection
++ (instancetype)providerOperationsWithCount:(NSUInteger)count {
+    return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindProviderOperations
+        issue:nil changeGroups:@[] rowCount:count];
+}
++ (instancetype)runtimeNotice {
+    return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindRuntimeNotice
+        issue:nil changeGroups:@[] rowCount:1];
+}
++ (instancetype)archiveWarningsWithCount:(NSUInteger)count {
+    return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindArchiveWarnings
+        issue:nil changeGroups:@[] rowCount:count];
+}
 
 - (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
                          issue:(CydiaConfirmationIssue *)issue

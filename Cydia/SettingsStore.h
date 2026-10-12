@@ -14,6 +14,11 @@ NSString *CydiaEffectiveRepositorySecurityPreference(BOOL selectedExternalProvid
 NSString *CydiaRepositorySecurityPreference(void);
 BOOL CydiaSetRepositorySecurityPreference(NSString *value);
 
+/* Automatic is the unsaved default. Only the runtime coordinator persists a
+ * choice after accepting the corresponding transition. */
+NSString *CydiaRuntimeProviderPreference(void);
+BOOL CydiaSetRuntimeProviderPreference(NSString *value);
+
 NS_ASSUME_NONNULL_END
 
 #endif

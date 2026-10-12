@@ -153,7 +153,9 @@ bool Container(FileFd &file, const ArchiveLimits &limits, Members *members, Arch
     return file.Seek(0);
 }
 bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
-             FileFd *stream, GzipInput *gzip, std::uint64_t *remaining) {
+             FileFd *stream, GzipInput *gzip, std::uint64_t *remaining,
+             const std::map<std::string, std::string> *decoders,
+             const std::function<bool()> &cancelled) {
     const auto member(deb.GotoMember(name.c_str()));
     if (member == NULL) return false;
     *remaining = std::numeric_limits<std::uint64_t>::max();
@@ -161,7 +163,22 @@ bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
         *remaining = member->Size;
         return stream->OpenDescriptor(deb.GetFile().Fd(), FileFd::ReadOnly, FileFd::None, false);
     }
-    const auto compressors(APT::Configuration::getCompressors());
+    std::vector<APT::Configuration::Compressor> compressors;
+    if (decoders == nullptr) compressors = APT::Configuration::getCompressors();
+    else {
+        for (const auto &format : std::vector<std::pair<std::string, std::string>>{
+                {"gzip", ".gz"}, {"bzip2", ".bz2"}, {"xz", ".xz"},
+                {"lzma", ".lzma"}, {"lz4", ".lz4"}, {"zstd", ".zst"}}) {
+            const auto binary(decoders->find(format.first));
+            if (format.first != "gzip" && binary == decoders->end()) continue;
+            APT::Configuration::Compressor compressor;
+            compressor.Name = format.first; compressor.Extension = format.second;
+            compressor.Binary = binary == decoders->end() ? "" : binary->second;
+            compressor.UncompressArgs = {"-d", "-c"};
+            if (format.first == "lzma") compressor.UncompressArgs.push_back("--format=lzma");
+            compressors.push_back(compressor);
+        }
+    }
     for (const auto &compressor : compressors) {
         if (!compressor.Extension.empty() && name.size() > compressor.Extension.size() &&
             name.compare(name.size() - compressor.Extension.size(), compressor.Extension.size(), compressor.Extension) == 0) {
@@ -171,6 +188,7 @@ bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
             if (GetTempFile("cydia-archive-member", true, spool) == NULL) return false;
             std::uint64_t left(member->Size); unsigned char bytes[32768];
             while (left != 0) {
+                if (cancelled && cancelled()) return false;
                 const std::size_t amount(static_cast<std::size_t>(std::min<std::uint64_t>(left, sizeof(bytes))));
                 if (!deb.GetFile().Read(bytes, amount) || !spool->Write(bytes, amount)) return false;
                 left -= amount;
@@ -192,8 +210,9 @@ bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
 }
 }
 
-ArchivePolicyResult InspectPackageArchive(const std::string &path, const ArchiveIdentity &expected,
-                                         const ArchiveLayout &layout, const ArchiveLimits &limits) {
+static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, const ArchiveIdentity &expected,
+    const ArchiveLayout &layout, const ArchiveLimits &limits, const std::map<std::string, std::string> *decoders,
+    const std::function<bool()> &cancelled) {
     ErrorScope errors;
     const int descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (descriptor < 0) return Failure(ArchivePolicyStatus::Invalid, path, "archive_open_failed");
@@ -210,9 +229,11 @@ ArchivePolicyResult InspectPackageArchive(const std::string &path, const Archive
     for (bool control : {true, false}) {
         const std::string &name(control ? members.control : members.data);
         FileFd spool, stream; GzipInput gzip; std::uint64_t remaining; bool exhausted(false);
-        if (!OpenTar(deb, name, &spool, &stream, &gzip, &remaining))
+        if (cancelled && cancelled()) return Failure(ArchivePolicyStatus::Unverified, name, "inspection_cancelled");
+        if (!OpenTar(deb, name, &spool, &stream, &gzip, &remaining, decoders, cancelled))
             return Failure(ArchivePolicyStatus::Unverified, name, "archive_decoder_unavailable", !control);
         const ArchiveRead read([&](void *bytes, std::size_t size) {
+            if (cancelled && cancelled()) return false;
             if (size > limits.maxStreamBytes || decoded > limits.maxStreamBytes - size) {
                 exhausted = true; return false;
             }
@@ -232,6 +253,7 @@ ArchivePolicyResult InspectPackageArchive(const std::string &path, const Archive
         // Closing after the tar terminator can otherwise kill an external
         // gzip on large zero padding, or miss corrupt/truncated trailers.
         while (remaining != 0) {
+            if (cancelled && cancelled()) return Failure(ArchivePolicyStatus::Unverified, name, "inspection_cancelled");
             unsigned char bytes[32768]; unsigned long long actual(0);
             const std::uint64_t available(limits.maxStreamBytes - decoded);
             const std::size_t amount(static_cast<std::size_t>(std::min<std::uint64_t>(
@@ -257,4 +279,17 @@ ArchivePolicyResult InspectPackageArchive(const std::string &path, const Archive
         return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
     return policy.Finish();
 }
+
+ArchivePolicyResult InspectPackageArchive(const std::string &path, const ArchiveIdentity &expected,
+    const ArchiveLayout &layout, const ArchiveLimits &limits) {
+    return InspectPackageArchiveImpl(path, expected, layout, limits, nullptr, std::function<bool()>());
+}
+
+ArchivePolicyResult InspectPackageArchiveWithDecoders(const std::string &path, const ArchiveIdentity &expected,
+    const ArchiveLayout &layout, const std::map<std::string, std::string> &decoders,
+    const ArchiveLimits &limits, const std::function<bool()> &cancelled) {
+    return InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled);
+}
+
+
 }

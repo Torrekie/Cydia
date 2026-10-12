@@ -208,6 +208,12 @@ $(SETNSFPN_BINARY): setnsfpn.cpp
 	@$(LDID) -T0 -Sgenent.xml $@
 
 $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
+		Cydia/AptProviderBrokerPrivileged.cpp Cydia/AptProviderBrokerValues.cpp \
+		Cydia/AptProviderSelection.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderClient.cpp \
+		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptRuntimeDescriptor.cpp \
+		Cydia/AptProviderDpkgState.cpp Cydia/AptProviderDpkgStateCapture.cpp Cydia/PackageIdentity.cpp \
+		Cydia/PackageArchivePolicy.cpp Cydia/PackageArchiveReader.cpp Cydia/AptProviderArchiveDecoders.cpp \
+		Cydia/RepositorySecurityPolicy.cpp \
 		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/PrivilegedRuntime.hpp Cydia/ApplicationIdentity.hpp Cydia/ApplicationSession.hpp \
 		Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
 		Cydia/SourceDocument.hpp Cydia/SourceDocumentStore.hpp Cydia/SourceDocumentCommit.hpp \

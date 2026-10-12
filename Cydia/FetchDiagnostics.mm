@@ -1,5 +1,50 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/FetchDiagnostics.h"
+#include <initializer_list>
+
+namespace {
+bool DiagnosticCodeIs(const std::string &code, std::initializer_list<const char *> candidates) {
+    for (const char *candidate : candidates) if (code == candidate) return true;
+    return false;
+}
+NSString *DiagnosticLabel(NSString *key, NSString *table) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:key table:table];
+}
+}
+
+NSString *CydiaAPTDiagnosticMessage(const CydiaAPT::ErrorData &diagnostic) {
+    const std::string &code(diagnostic.cydiaCode);
+    if (code.empty()) {
+        // Do not infer ownership from English wording or a code-looking
+        // message: upstream gettext remains authoritative for upstream text.
+        return [[NSString alloc] initWithBytes:diagnostic.message.data() length:diagnostic.message.size()
+                                     encoding:NSUTF8StringEncoding] ?: DiagnosticLabel(@"OPERATION_FAILED", @"RuntimeProvider");
+    }
+    if (code == "provider_frontend_busy" || code == "provider_frontend_lock_unavailable")
+        return DiagnosticLabel(@"DPKG_LOCKED", nil);
+    if (code == "provider_cancelled") return DiagnosticLabel(@"TRANSACTION_CANCELLED", nil);
+    if (code == "provider_extended_state_commit_failed")
+        return DiagnosticLabel(@"TRANSACTION_STATE_SAVE_FAILED", @"Settings");
+    if (DiagnosticCodeIs(code, {"provider_execution_outcome_unknown", "provider_cancellation_unsettled"}))
+        return DiagnosticLabel(@"TRANSACTION_FAILED", @"Settings");
+    if (DiagnosticCodeIs(code, {
+        "provider_package_state_changed", "provider_environment_changed", "provider_registration_changed",
+        "provider_changed_since_probe", "provider_changed_during_launch", "provider_changed_during_probe",
+        "provider_execution_state_changed", "provider_architectures_changed", "provider_authority_changed",
+        "provider_dpkg_options_changed", "provider_archive_index_changed", "provider_archive_sources_changed",
+        "provider_evidence_changed", "provider_review_changed", "provider_reprobe_required"}))
+        return DiagnosticLabel(@"TRANSACTION_STALE", @"Settings");
+    if (DiagnosticCodeIs(code, {
+        "provider_review_missing", "provider_review_or_lock_required", "provider_unverified_dpkg_effects",
+        "provider_deconfiguration_unknown", "provider_trigger_targets_unknown", "provider_archive_evidence_unavailable",
+        "provider_archive_review_missing", "provider_parent_operation_unsupported", "provider_security_override_unsupported",
+        "provider_execution_not_approved", "provider_archive_manifest_missing", "provider_dpkg_state_unavailable"}))
+        return DiagnosticLabel(@"REVIEW_UNAVAILABLE", @"RuntimeProvider");
+    if (DiagnosticCodeIs(code, {"provider_session_unavailable", "provider_invalid_session", "provider_spawn_failed"}))
+        return DiagnosticLabel(@"BROKEN_HELP", @"RuntimeProvider");
+    // Unknown codes are useful to developers, but never user-facing text.
+    return DiagnosticLabel(@"OPERATION_FAILED", @"RuntimeProvider");
+}
 
 NSString *CydiaFetchDiagnosticMessage(const CydiaAPT::FetchFailureData &diagnostic) {
     if (diagnostic.reason == "invalid_download_grant")

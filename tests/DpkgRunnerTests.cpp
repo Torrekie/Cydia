@@ -89,6 +89,11 @@ int RunFixture(int argc, char *argv[]) {
         std::cout << kOutput;
         return 0;
     }
+    if (strcmp(argv[2], "duplex") == 0) {
+        std::cout << std::string(256 * 1024, 'p') << std::flush;
+        if (ReadStandardInput() != std::string(1024 * 1024, 'q')) return 94;
+        std::cout << "done"; return 0;
+    }
     if (strcmp(argv[2], "wait") == 0) {
         std::cout << getpid() << std::endl;
         for (;;) pause();
@@ -223,6 +228,19 @@ int main(int argc, char *argv[]) {
     result = runner.RunAndCaptureBounded({"--fixture", "output"}, &captured, 4, 2000);
     Expect(result.kind == ResultKind::LaunchFailed && result.error == EFBIG && captured.size() <= 4,
         "bounded helper output overflow terminates acquisition");
+
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "input", kArgument}, kInput, &captured, 1024, 2000);
+    Expect(result.succeeded() && captured.empty(), "bounded input reaches EOF while capturing output");
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "duplex"}, std::string(1024 * 1024, 'q'), &captured, 512 * 1024, 2000);
+    Expect(result.succeeded() && captured == std::string(256 * 1024, 'p') + "done",
+        "bounded duplex drains output while helper waits to read input");
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "close-input"}, std::string(1024 * 1024, 'q'), &captured, 1024, 2000);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EPIPE, "bounded writer survives a closed input pipe");
+    cancellationChecks = 0;
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "wait"}, std::string(1024 * 1024, 'q'), &captured, 1024, 2000,
+        [&]() { return ++cancellationChecks > 4; });
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == ECANCELED,
+        "cancellation interrupts a blocked bounded input writer");
 
     VerifyStatusDescriptor(runner, false);
     VerifyStatusDescriptor(runner, true);

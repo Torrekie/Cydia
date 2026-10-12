@@ -62,3 +62,20 @@ BOOL CydiaSetRepositorySecurityPreference(NSString *value) {
         return WriteSettings(settings);
     }
 }
+
+NSString *CydiaRuntimeProviderPreference() {
+    @synchronized (SettingsLock()) {
+        id value(ReadSettings()[@"RuntimeProvider"]);
+        return [value isKindOfClass:[NSString class]] && [value isEqualToString:@"recovery"] ? @"recovery" : @"automatic";
+    }
+}
+
+BOOL CydiaSetRuntimeProviderPreference(NSString *value) {
+    if (![value isKindOfClass:[NSString class]] ||
+        (![value isEqualToString:@"automatic"] && ![value isEqualToString:@"recovery"])) return NO;
+    @synchronized (SettingsLock()) {
+        NSMutableDictionary *settings(ReadSettings());
+        settings[@"RuntimeProvider"] = value;
+        return WriteSettings(settings);
+    }
+}

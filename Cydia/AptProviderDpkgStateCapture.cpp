@@ -51,15 +51,14 @@ bool CaptureDeferredTriggers(const CydiaRuntime::Privileged::Environment &enviro
     evidence->push_back(pending);
     return P::RecheckEvidence(*evidence, &ignored);
 }
-}
-bool CaptureDpkgState(const CydiaRuntime::Privileged::Environment &environment,
-                     int frontendLockDescriptor, DpkgState *state, std::string *error,
-                     const std::function<bool()> &cancelled) {
+bool Capture(const CydiaRuntime::Privileged::Environment &environment,
+             const std::function<bool()> &locked, DpkgState *state, std::string *error,
+             const std::function<bool()> &cancelled) {
     if (!state) return Fail(error, "provider_dpkg_state_invalid");
     *state = DpkgState();
     namespace P = CydiaRuntime::Privileged;
     P::Error ignored; P::Evidence dpkg, query;
-    if (!ParentLock(environment, frontendLockDescriptor)) return Fail(error, "provider_frontend_lock_missing");
+    if (!locked()) return Fail(error, "provider_frontend_lock_missing");
     if (!P::RecheckEvidence(environment.evidence, &ignored) ||
         !P::CapturePathIdentity(environment.dpkg, false, true, &dpkg, &ignored) ||
         !P::CapturePathIdentity(environment.dpkgQuery, false, true, &query, &ignored))
@@ -84,11 +83,25 @@ bool CaptureDpkgState(const CydiaRuntime::Privileged::Environment &environment,
         "--showformat=" + std::string(DpkgStateQueryFormat()), "--show"};
     if (!reader.RunAndCaptureBounded(arguments, &records, 32 * 1024 * 1024, 3000, cancelled).succeeded())
         return Fail(error, "provider_dpkg_state_query_failed");
-    if ((cancelled && cancelled()) || !ParentLock(environment, frontendLockDescriptor) ||
+    if ((cancelled && cancelled()) || !locked() ||
         !P::RecheckEvidence({dpkg, query}, &ignored) || !P::RecheckEvidence(environment.evidence, &ignored) ||
         !P::RecheckEvidence(triggerEvidence, &ignored) ||
         !JournalSettled(environment) || !P::RuntimeSnapshot(environment, &after, &ignored) || before != after)
         return Fail(error, "provider_dpkg_state_changed");
     return ParseDpkgState(records, native, foreign, after, state, error);
+}
+}
+bool CaptureDpkgState(const CydiaRuntime::Privileged::Environment &environment,
+                     int frontendLockDescriptor, DpkgState *state, std::string *error,
+                     const std::function<bool()> &cancelled) {
+    return Capture(environment, [&]() { return ParentLock(environment, frontendLockDescriptor); }, state, error, cancelled);
+}
+bool CaptureDpkgStateForParent(const CydiaRuntime::Privileged::Environment &environment,
+                              pid_t parent, DpkgState *state, std::string *error) {
+    return Capture(environment, [&]() {
+        CydiaRuntime::Privileged::Error ignored; pid_t owner = 0;
+        return parent > 1 && getppid() == parent &&
+            CydiaRuntime::Privileged::FrontendLockOwner(environment.dpkgAdmin, &owner, &ignored) && owner == parent;
+    }, state, error, std::function<bool()>());
 }
 }} // namespace CydiaAPT::Provider

@@ -103,6 +103,7 @@ extern "C" {
 #include "Cydia/Collation.hpp"
 #include "Cydia/Appearance.h"
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/RuntimeProviderCoordinator.hpp"
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/SettingsStore.h"
 #include "Cydia/MessageLocale.h"
@@ -1061,11 +1062,7 @@ int main(int argc, char *argv[]) {
     aptOptions.repositorySecurityMode = CydiaAPT::RepositorySecurityModeFromString(
         [CydiaRepositorySecurityPreference() UTF8String]);
     aptOptions.forceEssential = false;
-    std::string architecture;
-    _assert(CydiaAPT::Initialize(aptOptions, &architecture));
-    CydiaRuntime::PrivilegedClient::ConfigureLockBridge(packagePaths.CydoPath(),
-        CydiaRuntime::PrivilegedClient::CurrentExpectedEnvironment());
-    NSLog(@"Common Arch: %s\n", architecture.c_str());
+    CydiaAPT::ConfigureRuntimeProviderStartup(aptOptions);
 
     mkdir([Cache("archives") UTF8String], 0755);
     mkdir([Cache("archives/partial") UTF8String], 0755);

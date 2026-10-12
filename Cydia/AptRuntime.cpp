@@ -785,6 +785,15 @@ bool SetRuntimeDescriptorTrustValid(const RuntimeDescriptorBinding &binding, boo
     return true;
 }
 
+bool UpdateRuntimeDescriptorPackageState(const RuntimeDescriptorBinding &expected, const std::string &verifiedState) {
+    if (!gSelectedRuntime || !SameRuntimeDescriptorBinding(gSelectedRuntime->binding, expected)) return false;
+    RuntimeDescriptor copy(*gSelectedRuntime);
+    copy.binding.packageStateIdentity = verifiedState;
+    if (!ValidateRuntimeDescriptor(copy, copy.binding)) return false;
+    gSelectedRuntime = std::make_shared<const RuntimeDescriptor>(copy);
+    return true;
+}
+
 bool SetRepositorySecurityMode(RepositorySecurityMode mode) {
     if (gSelectedRuntime || _config == NULL) return false;
     gRepositorySecurityMode = RepositorySecurityModeFromString(
