@@ -29,11 +29,13 @@ def main():
     sources = ["tests/AptBackendPolicyTests.cpp", "Cydia/AptBackend.cpp",
                "Cydia/AptBackendOperations.cpp", "Cydia/AptCompatibility.cpp",
                "Cydia/AptVersionPolicy.cpp", "Cydia/PackageIdentity.cpp",
+               "Cydia/PackageArchivePolicy.cpp", "Cydia/PackageArchiveReader.cpp",
                "Cydia/RepositorySecurityPolicy.cpp"]
-    def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=()):
+    def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=(), extra_compile_flags=()):
         command = shlex.split(os.environ.get("CXX", "c++")) + ["-std=c++17", "-g"]
         if sanitize:
             command += ["-fsanitize=address", "-fno-omit-frame-pointer"]
+        command += list(extra_compile_flags)
         command += ["-Wall", "-Wextra", "-I" + str(project),
                     "-I" + str(build / "include"), "-I" + str(project / "apt64")]
         command += [str(project / source) for source in driver_sources] + inputs + list(extra_link_flags) + [
@@ -41,6 +43,9 @@ def main():
         subprocess.run(command, cwd=build, check=True)
 
     compile_driver(sources, "cydia-package-actions", sanitize=True)
+    compile_driver(["tests/PackageArchivePolicyTests.cpp", "Cydia/PackageArchivePolicy.cpp",
+                    "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-reader", sanitize=True,
+                   extra_compile_flags=["-DCYDIA_TEST_PACKAGE_ARCHIVE_READER"])
     compile_driver(["tests/NativeMMapBackingTests.cpp"], "cydia-mmap-backing",
                    extra_link_flags=["-Wl,--wrap=free,--wrap=munmap"])
     # The same APT objects back snapshot hashing. fakeroot exercises the real

@@ -4,6 +4,7 @@
  */
 
 #include "Cydia/ProgressViewModel.h"
+#include "Cydia/PackageArchitecturePresentation.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -398,6 +399,30 @@ void TestFinishActions(void) {
     }
 }
 
+void TestArchitectureDisplayNames(void) {
+    NSArray *registered(@[@"iphoneos-arm64", @"iphoneos-arm"]);
+    CydiaProgressViewModel *model(NewModel(^NSString *(NSString *identity) {
+        NSString *architecture([identity isEqualToString:@"runtime:iphoneos-arm"] ?
+            @"iphoneos-arm" : @"iphoneos-arm64");
+        return CydiaPackageNameWithArchitectureCaption(@"Runtime",
+            CydiaPackageArchitectureCaption(architecture, registered));
+    }));
+    FixtureProgressEvent *native(Event(@"Status", @"runtime:iphoneos-arm64"));
+    native.packageValue = @"runtime:iphoneos-arm64";
+    [model addProgressEvent:(CydiaProgressEvent *)native];
+    FixtureProgressEvent *foreign(Event(@"Status", @"runtime:iphoneos-arm"));
+    foreign.packageValue = @"runtime:iphoneos-arm";
+    [model addProgressEvent:(CydiaProgressEvent *)foreign];
+    ExpectEqual(model.state.events[0].displayMessage, @"Runtime (Native · iphoneos-arm64)",
+        @"native status lost architecture distinction");
+    ExpectEqual(model.state.events[1].displayMessage, @"Runtime (Additional · iphoneos-arm)",
+        @"foreign status lost architecture distinction");
+    ExpectEqual(model.state.events[1].accessibilityLabel, model.state.events[1].displayMessage,
+        @"VoiceOver lost the visible architecture distinction");
+    ExpectEqual(model.state.events[1].packageIdentifier, @"runtime:iphoneos-arm",
+        @"presentation changed the underlying progress identifier");
+}
+
 int main() {
     @autoreleasepool {
         TestStateAndLegacyOrdering();
@@ -406,6 +431,7 @@ int main() {
         TestCancellationStateMachine();
         TestHistoricalTerminalPercent();
         TestFinishActions();
+        TestArchitectureDisplayNames();
         std::cout << "[verify-progress-view-model][ ok ] immutable legacy/native progress state"
                   << std::endl;
     }

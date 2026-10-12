@@ -108,3 +108,7 @@
 "KEY_IMPORT_NO_FILE" = "No key file selected.";
 "KEY_IMPORT_SOURCE_CHANGED" = "The source changed. Select it again and review the key.";
 "KEY_IMPORT_PARTIAL" = "The key was saved, but its source configuration could not be updated. Review source settings before trying again.";
+"ARCHIVE_LAYOUT_MISMATCH" = "The file layout of %@ is incompatible with the selected package manager. Installation was blocked.";
+"ARCHIVE_INVALID" = "The archive for %@ is invalid or incomplete and could not be inspected safely.";
+"ARCHIVE_IDENTITY_MISMATCH" = "The archive for %@ does not match the selected package name, version, or architecture. Installation was blocked.";
+"ARCHIVE_UNVERIFIED" = "Cydia could not fully verify the layout of %@. Review package compatibility before continuing.";

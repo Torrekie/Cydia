@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ är låst. Stäng av ”Ignorera uppgraderingar” i paketinställningarna innan du ändrar det.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ är markerat som nödvändigt (Essential). Cydia kommer inte att ta bort eller rensa det.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ är markerat som skyddat (Protected). Cydia kommer inte att ta bort eller rensa det.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Inbyggd · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Ytterligare · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Arkitekturoberoende · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Stöds inte · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Paketets arkitektur är inte aktiverad i den valda pakethanteraren.";
+"PACKAGE_VERSION_UNAVAILABLE" = "Den valda paketversionen är inte längre tillgänglig. Läs in paketinformationen igen och granska ändringarna.";
+
+"PACKAGE_LOOKUP_TITLE" = "Paketet är inte tillgängligt";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Välj arkitektur";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Paketet är tillgängligt";
+"PACKAGE_LOOKUP_INVALID" = "Paketnamnet eller arkitekturen i den här länken är ogiltigt.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Paketet finns inte i den aktuella paketinformationen. Kontrollera och uppdatera dina källor.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Ingen lämplig version är tillgänglig för det här paketet och den här arkitekturen.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Länken matchar flera paketarkitekturer. Välj det paket du vill visa.";
+"PACKAGE_LOOKUP_REQUESTED" = "Begärt paket";
+"PACKAGE_LOOKUP_REGISTERED" = "Konfigurerade arkitekturer";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Tillgängliga paket";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Arkitekturinformation är inte tillgänglig just nu.";

@@ -108,3 +108,7 @@
 "KEY_IMPORT_NO_FILE" = "Ingen nyckelfil vald.";
 "KEY_IMPORT_SOURCE_CHANGED" = "Källan har ändrats. Välj den igen och granska nyckeln.";
 "KEY_IMPORT_PARTIAL" = "Nyckeln sparades, men källans konfiguration kunde inte uppdateras. Granska källinställningarna innan du försöker igen.";
+"ARCHIVE_LAYOUT_MISMATCH" = "Filstrukturen för %@ är inte kompatibel med den valda pakethanteraren. Installationen blockerades.";
+"ARCHIVE_INVALID" = "Arkivet för %@ är ogiltigt eller ofullständigt och kunde inte granskas på ett säkert sätt.";
+"ARCHIVE_IDENTITY_MISMATCH" = "Arkivet för %@ stämmer inte överens med det valda paketets namn, version eller arkitektur. Installationen blockerades.";
+"ARCHIVE_UNVERIFIED" = "Cydia kunde inte verifiera hela filstrukturen för %@. Kontrollera paketets kompatibilitet innan du fortsätter.";

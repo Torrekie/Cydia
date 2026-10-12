@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ đang bị giữ lại. Hãy tắt “Bỏ Qua Nâng Cấp” trong cài đặt gói trước khi thay đổi gói.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ được đánh dấu là thiết yếu (Essential). Cydia sẽ không xóa gói hoặc xóa cả cấu hình của gói.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ được đánh dấu là được bảo vệ (Protected). Cydia sẽ không xóa gói hoặc xóa cả cấu hình của gói.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Gốc · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Bổ sung · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Không phụ thuộc kiến trúc · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Không được hỗ trợ · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Kiến trúc của gói này chưa được bật trong trình quản lý gói đã chọn.";
+"PACKAGE_VERSION_UNAVAILABLE" = "Phiên bản gói đã chọn không còn khả dụng. Hãy tải lại thông tin gói và xem lại các thay đổi.";
+
+"PACKAGE_LOOKUP_TITLE" = "Gói không khả dụng";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Chọn kiến trúc";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Gói khả dụng";
+"PACKAGE_LOOKUP_INVALID" = "Tên gói hoặc kiến trúc trong liên kết này không hợp lệ.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Gói này không có trong thông tin gói hiện tại. Hãy kiểm tra và làm mới các nguồn của bạn.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Không có phiên bản phù hợp cho gói và kiến trúc này.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Liên kết này khớp với nhiều kiến trúc gói. Hãy chọn gói bạn muốn xem.";
+"PACKAGE_LOOKUP_REQUESTED" = "Gói được yêu cầu";
+"PACKAGE_LOOKUP_REGISTERED" = "Các kiến trúc đã cấu hình";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Các gói khả dụng";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Thông tin kiến trúc hiện không khả dụng.";

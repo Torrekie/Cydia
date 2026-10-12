@@ -107,3 +107,7 @@
 "KEY_IMPORT_NO_FILE" = "Anahtar dosyası seçilmedi.";
 "KEY_IMPORT_SOURCE_CHANGED" = "Kaynak değişti. Yeniden seçin ve anahtarı inceleyin.";
 "KEY_IMPORT_PARTIAL" = "Anahtar kaydedildi ancak kaynak yapılandırması güncellenemedi. Yeniden denemeden önce kaynak ayarlarını gözden geçirin.";
+"ARCHIVE_LAYOUT_MISMATCH" = "%@ paketinin dosya düzeni, seçilen paket yöneticisiyle uyumlu değil. Yükleme engellendi.";
+"ARCHIVE_INVALID" = "%@ paketinin arşivi geçersiz veya eksik olduğundan güvenli bir şekilde incelenemedi.";
+"ARCHIVE_IDENTITY_MISMATCH" = "%@ paketinin arşivi, seçilen paket adı, sürümü veya mimarisiyle eşleşmiyor. Yükleme engellendi.";
+"ARCHIVE_UNVERIFIED" = "Cydia, %@ paketinin dosya düzenini tamamen doğrulayamadı. Devam etmeden önce paket uyumluluğunu gözden geçirin.";

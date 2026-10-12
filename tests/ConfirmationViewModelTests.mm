@@ -7,6 +7,7 @@
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/ConfirmationViewModel.h"
+#include "Cydia/PackageArchitecturePresentation.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -244,6 +245,39 @@ void TestSizesAndPolicies() {
             "legacy Advanced flag bypassed essential protection");
 }
 
+void TestArchitectureSiblingsAndBlockingIssues() {
+    CydiaAPT::TransactionData transaction;
+    transaction.installs = {"runtime", "runtime:iphoneos-arm"};
+    CydiaAPT::TransactionIssueData issue;
+    issue.package = "runtime:iphoneos-arm";
+    issue.kind = "unsupported_architecture";
+    transaction.issues.push_back(issue);
+    CydiaConfirmationViewModel *model([[CydiaConfirmationViewModel alloc]
+        initWithTransactionData:transaction advancedModeEnabled:NO
+        packageNameResolver:^NSString *(NSString *identity) {
+            NSString *architecture([identity isEqualToString:@"runtime"] ? @"iphoneos-arm64" : @"iphoneos-arm");
+            return CydiaPackageNameWithArchitectureCaption(@"Runtime",
+                CydiaPackageArchitectureCaption(architecture, @[@"iphoneos-arm64", @"iphoneos-arm"]));
+        }]);
+    NSArray<CydiaConfirmationPackageReference *> *packages(model.groups.firstObject.packages);
+    Require(packages.count == 2, "same-name architecture siblings were collapsed");
+    RequireString(packages[0].displayName, @"Runtime (Native · iphoneos-arm64)",
+        "native confirmation row lost its architecture");
+    RequireString(packages[1].displayName, @"Runtime (Additional · iphoneos-arm)",
+        "foreign confirmation row lost its architecture");
+    RequireString(packages[1].identity, @"runtime:iphoneos-arm",
+        "caption changed transaction identity");
+    RequireString(model.issues.firstObject.kind, @"unsupported_architecture",
+        "unsupported architecture issue kind was discarded");
+    Require(model.hasBlockingIssues && !model.showsConfirmAction,
+        "unsupported architecture exposed Confirm");
+    transaction.issues[0].kind = "unavailable_version";
+    model = [[CydiaConfirmationViewModel alloc] initWithTransactionData:transaction
+        advancedModeEnabled:YES packageNameResolver:nil];
+    Require(model.hasBlockingIssues && !model.showsConfirmAction,
+        "unavailable selected version exposed Confirm");
+}
+
 } // namespace
 
 int main() {
@@ -251,6 +285,7 @@ int main() {
         TestGroupsIdentityAndOwnership();
         TestIssuesAndNullableValues();
         TestSizesAndPolicies();
+        TestArchitectureSiblingsAndBlockingIssues();
     }
     std::cout << "[verify-confirmation-view-model][ ok ] typed transaction snapshot" << std::endl;
     return 0;

@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ is vastgehouden. Schakel ‘Negeer upgrades’ uit in de pakketinstellingen voordat je het wijzigt.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ is als essentieel (Essential) gemarkeerd. Cydia zal het niet verwijderen of wissen.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ is als beschermd (Protected) gemarkeerd. Cydia zal het niet verwijderen of wissen.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Standaard · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Aanvullend · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Architectuuronafhankelijk · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Niet ondersteund · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "De architectuur van dit pakket is niet ingeschakeld in de geselecteerde pakketbeheerder.";
+"PACKAGE_VERSION_UNAVAILABLE" = "De geselecteerde pakketversie is niet meer beschikbaar. Laad de pakketinformatie opnieuw en controleer de wijzigingen.";
+
+"PACKAGE_LOOKUP_TITLE" = "Pakket niet beschikbaar";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Architectuur kiezen";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Pakket beschikbaar";
+"PACKAGE_LOOKUP_INVALID" = "De pakketnaam of architectuur in deze link is ongeldig.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Dit pakket staat niet in de huidige pakketinformatie. Controleer je bronnen en vernieuw ze.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Er is geen geschikte versie beschikbaar voor dit pakket en deze architectuur.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Deze link komt overeen met meerdere pakketarchitecturen. Kies het pakket dat je wilt bekijken.";
+"PACKAGE_LOOKUP_REQUESTED" = "Aangevraagd pakket";
+"PACKAGE_LOOKUP_REGISTERED" = "Ingestelde architecturen";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Beschikbare pakketten";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Architectuurinformatie is momenteel niet beschikbaar.";

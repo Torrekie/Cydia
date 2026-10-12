@@ -108,3 +108,7 @@
 "KEY_IMPORT_NO_FILE" = "Nenhum ficheiro de chave selecionado.";
 "KEY_IMPORT_SOURCE_CHANGED" = "A origem foi alterada. Selecione-a novamente e reveja a chave.";
 "KEY_IMPORT_PARTIAL" = "A chave foi guardada, mas não foi possível atualizar a configuração da respetiva origem. Reveja as definições das origens antes de tentar novamente.";
+"ARCHIVE_LAYOUT_MISMATCH" = "A estrutura de ficheiros de %@ é incompatível com o gestor de pacotes selecionado. A instalação foi bloqueada.";
+"ARCHIVE_INVALID" = "O arquivo do pacote %@ é inválido ou está incompleto e não pôde ser inspecionado em segurança.";
+"ARCHIVE_IDENTITY_MISMATCH" = "O arquivo do pacote %@ não corresponde ao nome, à versão ou à arquitetura do pacote selecionado. A instalação foi bloqueada.";
+"ARCHIVE_UNVERIFIED" = "O Cydia não conseguiu verificar totalmente a estrutura de ficheiros de %@. Verifique a compatibilidade do pacote antes de continuar.";

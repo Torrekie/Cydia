@@ -24,6 +24,7 @@
 
 #include <cstring>
 #include <limits>
+#include <algorithm>
 
 namespace {
 
@@ -169,9 +170,13 @@ std::string GetPackageRouteName(pkgCache::PkgIterator package) {
 std::string RegistryKey(pkgCache::PkgIterator package, pkgCache::VerIterator version) {
     std::string key(package.Name());
     key.push_back('\n');
+    key.append(package.Arch());
+    key.push_back('\n');
     key.append(version.Arch());
     key.push_back('\n');
     key.append(version.VerStr());
+    key.push_back('\n');
+    key.append(std::to_string(version->ID));
     return key;
 }
 
@@ -199,11 +204,108 @@ bool HasLocalState(pkgCache::PkgIterator package) {
          !package.CurrentVer().end());
 }
 
+pkgCache::VerIterator LocalStateVersion(pkgCache::PkgIterator package) {
+    const pkgCache::VerIterator installed(package.CurrentVer());
+    if (!installed.end()) return installed;
+    if (package->CurrentState == pkgCache::State::ConfigFiles) {
+        for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version)
+            for (pkgCache::VerFileIterator file(version.FileList()); !file.end(); ++file) {
+                const char *type(file.File().IndexType());
+                if (type != NULL && strcmp(type, "Debian dpkg status file") == 0) return version;
+            }
+    }
+    return pkgCache::VerIterator();
+}
+
+void RecomputeCandidateState(pkgDepCache &cache) {
+    // APT has no SetCandidateVersion(end) overload. After clearing a null
+    // policy candidate, rebuild dependency/count state using its public API.
+    // Update also rereads extended_states; preserve other queued user changes.
+    std::vector<std::pair<pkgCache::PkgIterator, bool>> automatic;
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package)
+        automatic.push_back(std::make_pair(package, (cache[package].Flags & pkgCache::Flag::Auto) != 0));
+    cache.Update();
+    for (const auto &entry : automatic) cache.MarkAuto(entry.first, entry.second);
+    cache.MarkAndSweep();
+}
+
+bool RestorePolicyCandidate(pkgDepCache &cache, pkgPolicy *policy, pkgCache::PkgIterator package) {
+    if (policy == NULL) return false;
+    const pkgCache::VerIterator candidate(policy->GetCandidateVer(package));
+    if (!candidate.end()) {
+        cache.SetCandidateVersion(candidate);
+        return false;
+    }
+    if (cache[package].CandidateVer == NULL) return false;
+    cache[package].CandidateVer = NULL;
+    cache[package].Update(package, cache);
+    return true;
+}
+
 bool IsVisiblePackageVersion(pkgCache::PkgIterator package,
                              pkgCache::VerIterator version) {
     return !package.end() && !version.end() &&
         IsPackageArchitectureVisible(version.Arch(), HasLocalState(package),
-                                     Architectures());
+                                     RegisteredArchitectures());
+}
+
+bool MatchesVersionArchitecture(pkgCache::VerIterator version,
+                                const std::string &architecture, bool includeAll) {
+    return !version.end() && (architecture == version.Arch() ||
+        (includeAll && strcmp(version.Arch(), "all") == 0));
+}
+
+pkgCache::VerIterator SelectedVersion(pkgCacheFile &cache, pkgCache::PkgIterator package,
+                                      const std::string &architecture, bool includeAll) {
+    if (package.end()) return pkgCache::VerIterator();
+    const pkgCache::VerIterator candidate(cache->GetCandidateVersion(package));
+    if (MatchesVersionArchitecture(candidate, architecture, includeAll)) return candidate;
+
+    /* Filter the same priority and no-implicit-downgrade rules used by
+     * pkgPolicy::GetCandidateVer. Looking up :all or an exact native version
+     * must not change the shared native/all cache bucket's policy candidate. */
+    pkgCache::VerIterator selected;
+    const pkgCache::VerIterator current(package.CurrentVer());
+    signed short selectedPriority(-1);
+    if (cache.Policy != NULL) {
+        for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version) {
+            if (!MatchesVersionArchitecture(version, architecture, includeAll)) continue;
+            const signed short priority(cache.Policy->GetPriority(version, true));
+            if (priority == 0 || priority <= selectedPriority) continue;
+            if (!current.end() && priority < 1000 && package.Cache()->VS != NULL &&
+                package.Cache()->VS->CmpVersion(version.VerStr(), current.VerStr()) < 0)
+                continue;
+            selected = version;
+            selectedPriority = priority;
+        }
+    }
+    if (!selected.end()) return selected;
+    // Installed records stay inspectable/removable even with no candidate.
+    if (MatchesVersionArchitecture(current, architecture, includeAll)) return current;
+    if (package->CurrentState == pkgCache::State::ConfigFiles)
+        for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version)
+            if (MatchesVersionArchitecture(version, architecture, includeAll)) return version;
+    return pkgCache::VerIterator();
+}
+
+std::string DependencyTargetName(pkgCache::DepIterator dependency) {
+    const pkgCache::PkgIterator target(dependency.TargetPkg());
+    // Unqualified dependencies use the depender's architecture internally;
+    // that cache detail is not an explicit architecture in the expression.
+    return target.end() ? std::string() : target.Name();
+}
+
+std::vector<PackageHandle> DependencyProviders(PackageRegistry &registry,
+                                              pkgCache::DepIterator dependency) {
+    std::vector<PackageHandle> providers;
+    std::set<std::uint32_t> seen;
+    std::unique_ptr<pkgCache::Version *[]> targets(dependency.AllTargets());
+    for (pkgCache::Version **target(targets.get()); target != NULL && *target != NULL; ++target) {
+        pkgCache::VerIterator version(*dependency.Cache(), *target);
+        const PackageHandle handle(RegisterPackage(registry, version.ParentPkg(), version));
+        if (handle.valid() && seen.insert(handle.value).second) providers.push_back(handle);
+    }
+    return providers;
 }
 
 PackageRegistry::Entry *FindPackage(PackageRegistry *registry, PackageHandle handle) {
@@ -320,8 +422,7 @@ std::vector<PackageHandle> AptBackend::packageHandles() {
     PackageRegistry &registry(*packages_);
     for (pkgCache::PkgIterator package(cache_->PkgBegin()); !package.end(); ++package) {
         pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
-        if (version.end() && package->CurrentState == pkgCache::State::ConfigFiles)
-            version = package.VersionList();
+        if (version.end()) version = LocalStateVersion(package);
         if (!IsVisiblePackageVersion(package, version))
             continue;
         PackageHandle handle(RegisterPackage(registry, package, version));
@@ -331,44 +432,70 @@ std::vector<PackageHandle> AptBackend::packageHandles() {
     return handles;
 }
 
+PackageLookupResult AptBackend::lookupPackage(const std::string &name, const std::string &preferredArchitecture) {
+    PackageLookupResult result;
+    result.selector = ParsePackageSelector(name);
+    if (!result.selector.valid()) {
+        result.status = PackageLookupStatus::InvalidSelector;
+        return result;
+    }
+    if (static_cast<pkgDepCache *>(cache_) == NULL) return result;
+    const char *nativeArchitecture(static_cast<pkgCache &>(cache_).NativeArch());
+    const std::string native(nativeArchitecture == NULL ? preferredArchitecture : nativeArchitecture);
+    const PackageSelector &selector(result.selector);
+    const std::string architecture(selector.kind == PackageSelectorKind::Native ||
+        selector.kind == PackageSelectorKind::Default ? native : selector.architecture);
+    const pkgCache::GrpIterator group(cache_->FindGrp(selector.baseName));
+    const bool supported(selector.kind == PackageSelectorKind::Any || IsArchitectureSupported(architecture));
+    if (group.end()) {
+        result.status = supported ? PackageLookupStatus::NotFound : PackageLookupStatus::UnsupportedArchitecture;
+        return result;
+    }
+
+    std::set<std::string> architectures;
+    std::set<std::string> alternatives;
+    for (pkgCache::PkgIterator package(group.PackageList()); !package.end(); package = group.NextPkg(package)) {
+        for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version)
+            architectures.insert(version.Arch());
+        const pkgCache::VerIterator version(SelectedVersion(cache_, package, package.Arch(), true));
+        if (version.end() || !IsArchitectureSupported(version.Arch())) continue;
+        const std::string key(std::string(version.Arch()) + "\n" + version.VerStr());
+        if (alternatives.insert(key).second)
+            result.alternatives.push_back(RegisterPackage(*packages_, package, version));
+    }
+    result.availableArchitectures.assign(architectures.begin(), architectures.end());
+
+    if (selector.kind == PackageSelectorKind::Any) {
+        if (result.alternatives.size() == 1) {
+            result.status = PackageLookupStatus::Found;
+            result.handle = result.alternatives.front();
+        } else result.status = result.alternatives.empty() ? PackageLookupStatus::NoEligibleVersion :
+                                                           PackageLookupStatus::Ambiguous;
+        return result;
+    }
+
+    // APT maps "all" to its native package bucket. Select the version's
+    // actual architecture below, instead of accepting that bucket's alias.
+    const pkgCache::PkgIterator package(cache_->FindPkg(selector.baseName, architecture));
+    if (!supported && (package.end() || !HasLocalState(package))) {
+        result.status = PackageLookupStatus::UnsupportedArchitecture;
+        return result;
+    }
+    const pkgCache::VerIterator version(SelectedVersion(cache_, package, architecture,
+        selector.kind == PackageSelectorKind::Default));
+    if (version.end()) {
+        result.status = !supported ? PackageLookupStatus::UnsupportedArchitecture :
+            (architectures.empty() ? PackageLookupStatus::NotFound : PackageLookupStatus::NoEligibleVersion);
+        return result;
+    }
+    result.handle = RegisterPackage(*packages_, package, version);
+    result.status = result.handle.valid() ? PackageLookupStatus::Found : PackageLookupStatus::NoEligibleVersion;
+    return result;
+}
+
 PackageHandle AptBackend::packageHandle(const std::string &name, const std::string &preferredArchitecture) {
-    if (name.empty() || static_cast<pkgDepCache *>(cache_) == NULL)
-        return PackageHandle();
-
-    pkgCache::PkgIterator package;
-    if (name.rfind(':') != std::string::npos)
-        package = cache_->FindPkg(name);
-    else {
-        if (!preferredArchitecture.empty())
-            package = cache_->FindPkg(name, preferredArchitecture);
-        if (package.end())
-            package = cache_->FindPkg(name, "any");
-        if (package.end())
-            package = cache_->FindPkg(name);
-    }
-    if (package.end())
-        return PackageHandle();
-
-    pkgCache::VerIterator version(cache_->GetCandidateVersion(package));
-    if (version.end() && !package.end() && package->CurrentState == pkgCache::State::ConfigFiles)
-        version = package.VersionList();
-    const std::string::size_type qualifier(name.rfind(':'));
-    if (version.end() && qualifier != std::string::npos &&
-        name.compare(qualifier + 1, std::string::npos, "any") == 0) {
-        pkgCache::GrpIterator group(cache_->FindGrp(name.substr(0, qualifier)));
-        if (!group.end()) {
-            pkgCache::PkgIterator preferred(group.FindPreferredPkg(true));
-            pkgCache::VerIterator preferredVersion(cache_->GetCandidateVersion(preferred));
-            if (!preferred.end() && !preferredVersion.end()) {
-                package = preferred;
-                version = preferredVersion;
-            }
-        }
-    }
-
-    if (!IsVisiblePackageVersion(package, version))
-        return PackageHandle();
-    return RegisterPackage(*packages_, package, version);
+    const PackageLookupResult result(lookupPackage(name, preferredArchitecture));
+    return result.status == PackageLookupStatus::Found ? result.handle : PackageHandle();
 }
 
 std::vector<PackageHandle> AptBackend::downgradeHandles(PackageHandle handle) {
@@ -448,6 +575,7 @@ CydiaAPT::PackageSnapshot AptBackend::packageSnapshot(PackageHandle handle) {
         return data;
 
     data.handle = handle;
+    data.registeredArchitectures = RegisteredArchitectures();
     data.record = recordData(handle);
     data.state = packageState(handle);
     data.identity = GetPackageIdentity(entry->package, entry->version,
@@ -460,9 +588,11 @@ CydiaAPT::PackageSnapshot AptBackend::packageSnapshot(PackageHandle handle) {
         data.section = section;
 
     pkgCache::VerIterator installed(entry->package.CurrentVer());
-    if (!installed.end()) {
+    if (!installed.end())
         data.installedVersion = installed.VerStr();
-        data.installedIdentity = GetPackageIdentity(entry->package, installed,
+    const pkgCache::VerIterator local(LocalStateVersion(entry->package));
+    if (!local.end()) {
+        data.installedIdentity = GetPackageIdentity(entry->package, local,
                                                     entry->package.Cache()->NativeArch());
     }
 
@@ -512,6 +642,7 @@ CydiaAPT::PackageStateData AptBackend::packageState(PackageHandle handle) {
     pkgCache::VerIterator version(entry->version);
     pkgCache::VerIterator current(package.CurrentVer());
     data.hasCurrent = !current.end();
+    data.architectureSupported = !version.end() && IsArchitectureSupported(version.Arch());
     data.versionAvailable = !version.end() && version.Downloadable();
     data.installedVersionAvailable = !current.end() && current.Downloadable();
     data.installedVersion = version == current;
@@ -556,7 +687,8 @@ std::vector<RelationData> AptBackend::relations(PackageHandle handle) {
     if (entry == NULL)
         return result;
 
-    for (pkgCache::DepIterator dependency(entry->version.DependsList()); !dependency.end(); ) {
+    const pkgCache::VerIterator selected(entry->version);
+    for (pkgCache::DepIterator dependency(selected.DependsList()); !dependency.end(); ) {
         pkgCache::DepIterator first;
         pkgCache::DepIterator last;
         dependency.GlobOr(first, last);
@@ -565,7 +697,8 @@ std::vector<RelationData> AptBackend::relations(PackageHandle handle) {
         relation.relationship = first.DepType();
         for (;;) {
             RelationClauseData clause;
-            clause.package = GetPackageRouteName(first.TargetPkg());
+            clause.package = DependencyTargetName(first);
+            clause.providers = DependencyProviders(*packages_, first);
             if (const char *version = first.TargetVer()) {
                 clause.comparison = first.CompType();
                 clause.version = version;
@@ -608,28 +741,75 @@ void AddActionIssue(TransactionData &result, const std::string &name, const char
 
 TransactionData AptBackend::transactionData() {
     TransactionData result;
+    result.registeredArchitectures = RegisteredArchitectures();
     if (static_cast<pkgDepCache *>(cache_) == NULL)
         return result;
 
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
-    const std::vector<PackageHandle> handles(packageHandles());
-    for (std::vector<PackageHandle>::const_iterator handle(handles.begin()); handle != handles.end(); ++handle) {
-        PackageRegistry::Entry *entry(FindPackage(packages_.get(), *handle));
-        if (entry == NULL)
+    // Transaction safety must include every cache entry, including versions
+    // hidden from browsing because dpkg no longer registers their architecture.
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
+        pkgDepCache::StateCache &selection(cache[package]);
+        const bool reinstall((selection.iFlags & pkgDepCache::ReInstall) != 0);
+        const bool changed(selection.Mode != pkgDepCache::ModeKeep || reinstall);
+        if (!changed && !selection.InstBroken()) continue;
+        const pkgCache::VerIterator planned(selection.InstVerIter(cache));
+        const pkgCache::VerIterator local(LocalStateVersion(package));
+        pkgCache::VerIterator version(selection.Delete() ? local : planned);
+        if (version.end()) version = local;
+        if (version.end()) version = selection.CandidateVerIter(cache);
+        if (version.end()) version = package.VersionList();
+        const std::string name(GetPackageRouteName(package));
+        if (changed) {
+            TransactionPackageData operation;
+            operation.displayName = package.Name();
+            operation.identity.baseName = package.Name();
+            operation.identity.packageArchitecture = package.Arch();
+            operation.identity.aptName = std::string(package.Name()) + ":" + package.Arch();
+            operation.identity.routingName = name;
+            result.packages[name] = operation;
+        }
+        if (version.end()) {
+            if (changed) {
+                if (package->SelectedState == pkgCache::State::Hold) AddActionIssue(result, name, "held");
+                if (!selection.Delete()) AddActionIssue(result, name, "unavailable_version");
+                else {
+                    const bool essential((package->Flags & pkgCache::Flag::Essential) != 0);
+                    const bool protectedPackage((package->Flags & pkgCache::Flag::Important) != 0);
+                    if (essential || protectedPackage)
+                        AddActionIssue(result, name, essential ? "essential_removal" : "protected_removal");
+                    result.removesEssential = result.removesEssential || essential;
+                    if ((selection.iFlags & pkgDepCache::Purge) != 0) result.purges.push_back(name);
+                    else result.removes.push_back(name);
+                }
+            }
+            if (selection.InstBroken()) AddActionIssue(result, name, "dependency");
             continue;
-
-        PackageIdentity identity(GetPackageIdentity(entry->package, entry->version,
-                                                     entry->package.Cache()->NativeArch()));
-        const std::string name(identity.valid() ? identity.routingName :
-                                                  GetPackageRouteName(entry->package));
-        const PackageStateData state(packageState(*handle));
+        }
+        const PackageHandle handle(RegisterPackage(*packages_, package, version));
+        const PackageStateData state(packageState(handle));
+        if (changed) {
+            TransactionPackageData &operation(result.packages[name]);
+            const pkgCache::VerIterator exact(selection.Delete() ? local : planned);
+            if (!exact.end()) {
+                operation.identity = GetPackageIdentity(package, exact, package.Cache()->NativeArch());
+                operation.version = exact.VerStr();
+                const PackageHandle exactHandle(RegisterPackage(*packages_, package, exact));
+                operation.displayName = recordData(exactHandle).displayName;
+            }
+            if (operation.displayName.empty()) operation.displayName = package.Name();
+        }
+        if (!state.deletePackage && changed) {
+            if (planned.end()) AddActionIssue(result, name, "unavailable_version");
+            else if (!IsArchitectureSupported(planned.Arch()))
+                AddActionIssue(result, name, "unsupported_architecture");
+        }
 
         if (state.broken) {
             TransactionIssueData issue;
             issue.package = name;
             issue.kind = "dependency";
 
-            pkgCache::VerIterator planned(cache[entry->package].InstVerIter(cache));
             for (pkgCache::DepIterator dependency(planned.end() ? pkgCache::DepIterator() : planned.DependsList()); !dependency.end(); ) {
                 pkgCache::DepIterator first;
                 pkgCache::DepIterator last;
@@ -642,25 +822,34 @@ TransactionData AptBackend::transactionData() {
                 for (;;) {
                     TransactionClauseData clause;
                     pkgCache::PkgIterator target(first.TargetPkg());
-                    clause.package = GetPackageRouteName(target);
+                    clause.package = DependencyTargetName(first);
+                    clause.providers = DependencyProviders(*packages_, first);
                     if (const char *required = first.TargetVer()) {
                         clause.comparison = first.CompType();
                         clause.version = required;
                     }
 
-                    if (target.end() || target->ProvidesList != 0)
+                    if (target.end() || (target.VersionList().end() && target->ProvidesList == 0))
                         clause.reason = "missing";
                     else {
                         pkgCache::VerIterator targetPlanned(cache[target].InstVerIter(cache));
                         if (!targetPlanned.end()) {
                             clause.reason = "installed";
                             clause.installed = targetPlanned.VerStr();
-                        } else if (!cache[target].CandidateVerIter(cache).end())
-                            clause.reason = "uninstalled";
-                        else if (target->ProvidesList == 0)
-                            clause.reason = "uninstallable";
-                        else
-                            clause.reason = "virtual";
+                        } else {
+                            clause.reason = clause.providers.empty() ? "uninstallable" : "virtual";
+                            for (PackageHandle provider : clause.providers) {
+                                const PackageRegistry::Entry *provided(FindPackage(packages_.get(), provider));
+                                if (provided == NULL) continue;
+                                if (cache[provided->package].InstVerIter(cache) == provided->version) {
+                                    clause.reason = "installed";
+                                    clause.installed = provided->version.VerStr();
+                                    break;
+                                }
+                                if (cache[provided->package].CandidateVerIter(cache) == provided->version)
+                                    clause.reason = "uninstalled";
+                            }
+                        }
                     }
                     reason.clauses.push_back(clause);
                     if (first == last)
@@ -685,6 +874,8 @@ TransactionData AptBackend::transactionData() {
             result.upgrades.push_back(name);
         else if (state.downgrade)
             result.downgrades.push_back(name);
+        else if (!state.deletePackage && state.hasMode)
+            result.installs.push_back(name);
         else if (!state.deletePackage)
             continue;
         else {
@@ -693,8 +884,8 @@ TransactionData AptBackend::transactionData() {
             else result.removes.push_back(name);
         }
 
-        result.substrate = result.substrate || DependsOnSubstrate(entry->version);
-        result.substrate = result.substrate || DependsOnSubstrate(entry->package.CurrentVer());
+        result.substrate = result.substrate || DependsOnSubstrate(version);
+        result.substrate = result.substrate || DependsOnSubstrate(package.CurrentVer());
     }
 
     if (fetcher_ != NULL) {
@@ -717,21 +908,18 @@ void AptBackend::clearSelections() {
     delete resolver_;
     resolver_ = new pkgProblemResolver(cache_);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    bool recompute(false);
     for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
         cache.SetReInstall(package, false);
         cache[package].iFlags &= ~pkgDepCache::Protected;
         cache.MarkKeep(package, false);
-        if (cache_.Policy != NULL) {
-            const pkgCache::VerIterator candidate(cache_.Policy->GetCandidateVer(package));
-            /* Virtual dependency entries and residual configuration can have
-             * no policy candidate. APT requires a real version here. */
-            if (!candidate.end()) cache.SetCandidateVersion(candidate);
-        }
+        recompute = RestorePolicyCandidate(cache, cache_.Policy, package) || recompute;
         if (package.Name() == NULL || package.Arch() == NULL) continue;
         const std::string key(std::string(package.Name()) + ":" + package.Arch());
         const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
         if (original != originalAutoInstalled_.end()) cache.MarkAuto(package, original->second);
     }
+    if (recompute) RecomputeCandidateState(cache);
 }
 
 bool AptBackend::prepareDistUpgrade() {
@@ -749,14 +937,12 @@ bool AptBackend::clearPackage(PackageHandle handle) {
     cache.SetReInstall(package, false);
     cache[package].iFlags &= ~pkgDepCache::Protected;
     const bool kept(cache.MarkKeep(package, false));
-    if (cache_.Policy != NULL) {
-        const pkgCache::VerIterator candidate(cache_.Policy->GetCandidateVer(package));
-        if (!candidate.end()) cache.SetCandidateVersion(candidate);
-    }
+    const bool recompute(RestorePolicyCandidate(cache, cache_.Policy, package));
     if (package.Name() == NULL || package.Arch() == NULL) return kept;
     const std::string key(std::string(package.Name()) + ":" + package.Arch());
     const std::map<std::string, bool>::const_iterator original(originalAutoInstalled_.find(key));
     if (original != originalAutoInstalled_.end()) cache.MarkAuto(package, original->second);
+    if (recompute) RecomputeCandidateState(cache);
     return kept;
 }
 
@@ -766,7 +952,8 @@ bool AptBackend::installPackage(PackageHandle handle) {
         return false;
     pkgCache::PkgIterator package(entry->package);
     pkgCache::VerIterator version(entry->version);
-    if (package->SelectedState == pkgCache::State::Hold || !version.Downloadable()) return false;
+    if (package->SelectedState == pkgCache::State::Hold || !version.Downloadable() ||
+        !IsArchitectureSupported(version.Arch())) return false;
     resolver_->Clear(package);
     resolver_->Protect(package);
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));

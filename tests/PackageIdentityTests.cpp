@@ -25,6 +25,20 @@ int main() {
 
     const std::string native("iphoneos-arm64");
 
+    Require(ParsePackageSelector("example").kind == PackageSelectorKind::Default,
+            "bare selector was not the native/all default");
+    Require(ParsePackageSelector("example:native").kind == PackageSelectorKind::Native,
+            "explicit native selector was not distinguished from the default");
+    const PackageSelector allSelector(ParsePackageSelector("example:all"));
+    Require(allSelector.kind == PackageSelectorKind::ExactArchitecture && allSelector.architecture == "all",
+            "explicit all selector lost its actual-version restriction");
+    Require(ParsePackageSelector("example:any").kind == PackageSelectorKind::Any,
+            "any selector was not distinguished from an exact architecture");
+    Require(ParsePackageSelector("example:iphoneos-arm64e").architecture == "iphoneos-arm64e",
+            "concrete architecture selector was changed");
+    for (const char *invalidSelector : {"", ":amd64", "example:", "example:any:any", "example/path", "example amd64", "Example"})
+        Require(!ParsePackageSelector(invalidSelector).valid(), "invalid package selector was accepted");
+
     PackageIdentity normal(BuildPackageIdentity("example", native, native, native,
                                                 MultiArchMode::None));
     Require(normal.valid(), "native identity is invalid");
@@ -63,6 +77,10 @@ int main() {
 
     Require(BuildPackageRouteName("dependency", "any", native) == "dependency:any",
             "versionless :any dependency proxy lost its qualifier");
+    Require(BuildPackageRouteName("dependency:any", "any", native) == "dependency:any",
+            "APT's synthetic :any dependency proxy duplicated its qualifier");
+    Require(BuildPackageRouteName("dependency:iphoneos-arm", "any", native) == "dependency:iphoneos-arm",
+            "APT's synthetic exact dependency proxy gained an :any qualifier");
     Require(BuildPackageRouteName("dependency", "all", native) == "dependency",
             "Architecture: all route was qualified");
 

@@ -2,8 +2,9 @@
 #include "Cydia/Database.h"
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/AptRuntime.hpp"
+#include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/Profile.hpp"
-#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/Section.h"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
@@ -187,10 +188,16 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 } }
 
 - (NSString *) architecture {
-    [self parse];
-@synchronized (database_) {
-    return parsed_->architecture_.empty() ? [NSNull null] : (id) parsed_->architecture_;
-} }
+    return selectedArchitecture_.empty() ? [NSNull null] : (id) selectedArchitecture_;
+}
+
+- (NSString *) installedArchitecture {
+    return installedArchitecture_.empty() ? nil : (NSString *) installedArchitecture_;
+}
+
+- (NSArray<NSString *> *) registeredArchitectures {
+    return registeredArchitectures_;
+}
 
 - (NSString *) getField:(NSString *)name {
 @synchronized (database_) {
@@ -272,6 +279,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 } }
 
 - (instancetype) initWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {
+@synchronized (database) {
     if ((self = [super init]) != nil) {
     _profile(Package$initWithHandle)
         CydiaAPT::PackageSnapshot snapshot([database packageSnapshot:handle]);
@@ -288,6 +296,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         database_ = database;
         era_ = [database era];
         handle_ = handle;
+        registeredArchitectures_ = CydiaPackageRegisteredArchitectureNames(snapshot.registeredArchitectures);
         installedSize_ = static_cast<size_t>(snapshot.installedSize);
         sourceFileID_ = snapshot.sourceFileID;
         hasSourceFile_ = snapshot.hasSourceFile;
@@ -299,8 +308,10 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         baseId_.set(pool_, snapshot.identity.baseName);
         aptId_.set(pool_, snapshot.identity.aptName);
         dpkgId_.set(pool_, snapshot.identity.dpkgName);
-        if (snapshot.installedIdentity.valid())
+        if (snapshot.installedIdentity.valid()) {
             installedDpkgId_.set(pool_, snapshot.installedIdentity.dpkgName);
+            installedArchitecture_.set(pool_, snapshot.installedIdentity.versionArchitecture);
+        }
         multiArch_ = snapshot.identity.multiArch;
 
         _profile(Package$initWithHandle$Cache)
@@ -308,6 +319,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             name_.set(pool_, record.displayName);
 
             latest_.set(pool_, StripVersion_(snapshot.version.c_str()));
+            fullVersion_.set(pool_, snapshot.version);
 
             if (!snapshot.installedVersion.empty())
                 installed_.set(pool_, StripVersion_(snapshot.installedVersion.c_str()));
@@ -421,11 +433,12 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             lower[size] = '\0';
 
             if (!installed_.empty()) {
-                const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
                 const char *dpkgName(installedDpkgId_.empty() ?
                     static_cast<const char *>(dpkgId_) :
                     static_cast<const char *>(installedDpkgId_));
-                const std::string infoPath(paths.DpkgInfoFile(dpkgName, ".list"));
+                const std::string admin(CydiaAPT::DpkgAdminDirectory());
+                const std::string infoPath(admin.empty() || dpkgName == NULL || dpkgName[0] == '\0' ||
+                    strchr(dpkgName, '/') != NULL ? std::string() : admin + "/info/" + dpkgName + ".list");
                 if (!infoPath.empty()) {
                     struct stat info;
                     if (stat(infoPath.c_str(), &info) != -1)
@@ -470,6 +483,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
         _end
 
     _end } return self;
+}
 }
 
 + (instancetype) newPackageWithHandle:(CydiaAPT::PackageHandle)handle withZone:(NSZone *)zone inPool:(CYPool *)pool database:(Database *)database {

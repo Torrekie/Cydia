@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ está retenido. Desactiva «Ignorar actualizaciones» en los ajustes del paquete antes de modificarlo.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ está marcado como esencial (Essential). Cydia no lo eliminará ni lo purgará.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ está marcado como protegido (Protected). Cydia no lo eliminará ni lo purgará.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Nativa · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Adicional · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Independiente de la arquitectura · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "No compatible · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "La arquitectura de este paquete no está habilitada en el gestor de paquetes seleccionado.";
+"PACKAGE_VERSION_UNAVAILABLE" = "La versión seleccionada del paquete ya no está disponible. Vuelve a cargar la información del paquete y revisa los cambios.";
+
+"PACKAGE_LOOKUP_TITLE" = "Paquete no disponible";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Elegir arquitectura";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Paquete disponible";
+"PACKAGE_LOOKUP_INVALID" = "El nombre del paquete o la arquitectura de este enlace no es válido.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Este paquete no aparece en la información actual. Comprueba tus fuentes y actualízalas.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "No hay ninguna versión apta disponible para este paquete y esta arquitectura.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Este enlace coincide con varias arquitecturas de paquete. Elige el paquete que quieres ver.";
+"PACKAGE_LOOKUP_REQUESTED" = "Paquete solicitado";
+"PACKAGE_LOOKUP_REGISTERED" = "Arquitecturas configuradas";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Paquetes disponibles";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "La información de arquitectura no está disponible en este momento.";

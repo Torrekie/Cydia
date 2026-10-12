@@ -9,6 +9,7 @@
 #include "Cydia/AptBackendInternal.hpp"
 #include "Cydia/AptCompatibilityInternal.hpp"
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/PackageArchiveReader.hpp"
 
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/clean.h>
@@ -25,6 +26,39 @@ namespace CydiaAPT {
 namespace Internal {
 
 namespace {
+
+std::string TransactionPlanIdentity(const TransactionData &transaction) {
+    std::string result;
+    for (const auto &entry : transaction.packages) {
+        const TransactionPackageData &package(entry.second);
+        result += entry.first + "\n" + package.identity.aptName + "\n" +
+            package.identity.versionArchitecture + "\n" + package.version + "\n";
+    }
+    const std::vector<std::string> *groups[] = {&transaction.installs, &transaction.reinstalls,
+        &transaction.upgrades, &transaction.downgrades, &transaction.removes, &transaction.purges};
+    for (const auto group : groups) {
+        result += "\n";
+        for (const std::string &package : *group) result += package + "\n";
+    }
+    return result;
+}
+
+FetchFailureData ArchivePolicyDiagnostic(pkgAcqArchive *archive, const PreparedArchiveData *expected,
+                                         FetchDiagnosticKind kind, const std::string &path,
+                                         const std::string &reason, const char *message) {
+    FetchFailureData diagnostic;
+    diagnostic.kind = kind;
+    diagnostic.path = path;
+    diagnostic.reason = reason;
+    diagnostic.error = message;
+    if (archive != NULL) {
+        diagnostic.uri = archive->DescURI();
+        diagnostic.package = expected == NULL ? archive->ShortDesc() : expected->package;
+    }
+    if (!diagnostic.package.empty()) diagnostic.error += ": " + diagnostic.package;
+    if (!path.empty()) diagnostic.error += " (" + path + ")";
+    return diagnostic;
+}
 
 #ifdef APT_CYDIA_STATE_FILE_WRITER
 bool DeferStateFileWrite(pkgDepCache &, bool, void *) { return true; }
@@ -141,6 +175,10 @@ void AptBackend::discardErrors() {
 
 bool AptBackend::openCache() {
     OpProgress progress;
+    archivesPrepared_ = false;
+    preparedArchives_.clear();
+    preparedPlan_.clear();
+    preparedPrefix_.clear();
     originalAutoInstalled_.clear();
     if (!cache_.Open(&progress, false)) return false;
     pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
@@ -224,6 +262,10 @@ bool AptBackend::cleanArchives() {
 }
 
 bool AptBackend::prepareArchives() {
+    archivesPrepared_ = false;
+    preparedArchives_.clear();
+    preparedPlan_.clear();
+    preparedPrefix_.clear();
     if (fetcher_ == NULL)
         return false;
     fetcher_->Shutdown();
@@ -239,7 +281,80 @@ bool AptBackend::prepareArchives() {
         return false;
 
     manager_.reset(_system->CreatePM(cache_));
-    return manager_.get() != NULL && manager_->GetArchives(fetcher_, &list, &records);
+    if (manager_.get() == NULL || !manager_->GetArchives(fetcher_, &list, &records)) return false;
+
+    // GetArchives constructs pkgAcqArchive from InstVerIter and sets its
+    // ShortDesc to ParentPkg().FullName(true). Bind that exact instance now;
+    // candidates and filenames are not identity authorities.
+    std::map<std::string, std::vector<PreparedArchiveData>> selected;
+    pkgDepCache &cache(static_cast<pkgDepCache &>(cache_));
+    for (pkgCache::PkgIterator package(cache.PkgBegin()); !package.end(); ++package) {
+        if (cache[package].Delete()) continue;
+        const pkgCache::VerIterator version(cache[package].InstVerIter(cache));
+        if (version.end()) continue;
+        PreparedArchiveData data;
+        data.identity = {package.Name(), version.VerStr(), version.Arch()};
+        data.package = BuildPackageRouteName(package.Name(), package.Arch(), package.Cache()->NativeArch());
+        selected[package.FullName(true)].push_back(data);
+    }
+    for (pkgAcquire::ItemIterator item(fetcher_->ItemsBegin()); item != fetcher_->ItemsEnd(); ++item) {
+        pkgAcqArchive *archive(dynamic_cast<pkgAcqArchive *>(*item));
+        if (archive == NULL) continue;
+        const auto found(selected.find(archive->ShortDesc()));
+        if (found != selected.end() && found->second.size() == 1)
+            preparedArchives_[archive] = found->second.front();
+    }
+    preparedPlan_ = TransactionPlanIdentity(transactionData());
+    preparedPrefix_ = PackageInstallPrefix();
+    archivesPrepared_ = true;
+    return true;
+}
+
+void AptBackend::validateArchives(FetchResultData &result) {
+    if (!archivesPrepared_ || preparedPlan_ != TransactionPlanIdentity(transactionData()) ||
+        preparedPrefix_ != PackageInstallPrefix()) {
+        result.failures.push_back(ArchivePolicyDiagnostic(NULL, NULL,
+            FetchDiagnosticKind::ArchiveIdentityMismatch, "", "transaction_changed",
+            "The package selection or installation layout changed after archive preparation."));
+        return;
+    }
+    ValidateArchiveItems(*fetcher_, result);
+    CydiaPackages::ArchiveLayout layout;
+    layout.prefix = preparedPrefix_;
+    if (layout.prefix == "/") layout.foreignPrefixes.push_back("/var/jb");
+    for (pkgAcquire::ItemIterator item(fetcher_->ItemsBegin()); item != fetcher_->ItemsEnd(); ++item) {
+        pkgAcqArchive *archive(dynamic_cast<pkgAcqArchive *>(*item));
+        if (archive == NULL || archive->Status != pkgAcquire::Item::StatDone || !archive->Complete) continue;
+        const auto association(preparedArchives_.find(archive));
+        if (association == preparedArchives_.end()) {
+            result.failures.push_back(ArchivePolicyDiagnostic(archive, NULL,
+                FetchDiagnosticKind::ArchiveIdentityMismatch, archive->DestFile, "unassociated_archive",
+                "The package archive cannot be associated with an exact selected version."));
+            continue;
+        }
+        const PreparedArchiveData &expected(association->second);
+        const CydiaPackages::ArchivePolicyResult policy(CydiaPackages::InspectPackageArchive(
+            archive->DestFile, expected.identity, layout));
+        using CydiaPackages::ArchivePolicyStatus;
+        if (policy.status == ArchivePolicyStatus::Accepted && policy.identityVerified && policy.complete) continue;
+        const bool warning(policy.status == ArchivePolicyStatus::Unverified && policy.identityVerified && policy.complete);
+        FetchDiagnosticKind kind(FetchDiagnosticKind::ArchiveInvalid);
+        const char *message("The package archive could not be completely validated.");
+        if (policy.status == ArchivePolicyStatus::Unverified) {
+            kind = FetchDiagnosticKind::ArchiveUnverified;
+            message = "The package archive layout could not be fully verified.";
+        } else if (policy.status == ArchivePolicyStatus::LayoutMismatch) {
+            kind = FetchDiagnosticKind::ArchiveLayoutMismatch;
+            message = "The package archive contains paths for a different installation layout.";
+        } else if (policy.status == ArchivePolicyStatus::IdentityMismatch) {
+            kind = FetchDiagnosticKind::ArchiveIdentityMismatch;
+            message = "The package archive does not verify the exact selected package, version, and architecture.";
+        }
+        FetchFailureData diagnostic(ArchivePolicyDiagnostic(archive, &expected, kind,
+            policy.path.empty() ? archive->DestFile : policy.path, policy.reason, message));
+        if (warning) result.warnings.push_back(diagnostic);
+        else result.failures.push_back(diagnostic);
+    }
 }
 
 SourceListData AptBackend::sourceList() {
@@ -264,11 +379,13 @@ FetchResultData AptBackend::runFetcher(int pulseInterval) {
 
     /* Also verify completed/cached payloads: upstream skips downloading a
      * same-size cached .deb without recalculating its expected hashes. */
-    ValidateArchiveItems(*fetcher_, result);
+    validateArchives(result);
     return result;
 }
 
-PackageManagerResult AptBackend::runPackageManager(int statusFd) {
+PackageManagerResult AptBackend::runPackageManager(int statusFd, FetchResultData *archiveValidation, bool *started) {
+    if (started != NULL) *started = false;
+    if (archiveValidation != NULL) *archiveValidation = FetchResultData();
     if (manager_.get() == NULL || fetcher_ == NULL)
         return PackageManagerResult::Failed;
     if (_system == NULL || !_system->IsLocked()) {
@@ -286,11 +403,12 @@ PackageManagerResult AptBackend::runPackageManager(int statusFd) {
      * runFetcher. Warning mode remains nonblocking; its advisory is returned
      * by runFetcher for presentation before reaching this method. */
     FetchResultData verified;
-    ValidateArchiveItems(*fetcher_, verified);
+    validateArchives(verified);
+    if (archiveValidation != NULL) *archiveValidation = verified;
     if (!verified.failures.empty()) {
-        for (std::vector<FetchFailureData>::const_iterator failure(verified.failures.begin());
-             failure != verified.failures.end(); ++failure)
-            _error->Error("%s", failure->error.c_str());
+        if (archiveValidation == NULL)
+            for (const FetchFailureData &failure : verified.failures)
+                _error->Error("%s", failure.error.c_str());
         return PackageManagerResult::Failed;
     }
     /* Follow APT's normal handoff: keep the frontend lock while dpkg owns
@@ -302,6 +420,7 @@ PackageManagerResult AptBackend::runPackageManager(int statusFd) {
     _error->Error("The embedded package manager cannot defer shared state writes.");
     return PackageManagerResult::Failed;
 #endif
+    if (started != NULL) *started = true;
     const PackageManagerResult result(RunPackageManager(*manager_, statusFd));
     if (!_system->LockInner()) return PackageManagerResult::Failed;
     return result;

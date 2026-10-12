@@ -8,18 +8,33 @@
 #include <apt-pkg/pkgsystem.h>
 #include <cstdlib>
 #include <iostream>
+#include <unistd.h>
 
-/* The fixture has two explicit architectures. All cache, policy and resolver
+/* APT indexes include armhf, but dpkg registers only amd64 and i386. This
+ * deliberately tests that fetch configuration cannot authorize installation.
+ * All cache, policy and resolver
  * behavior below comes from libapt-pkg, rather than the portable APT stubs. */
 namespace CydiaAPT {
+RepositorySecurityMode fixtureSecurityMode = RepositorySecurityMode::Warning;
 RepositorySecurityMode GetRepositorySecurityMode() {
-    return RepositorySecurityMode::Warning;
+    return fixtureSecurityMode;
 }
 bool CachedRepositoryTrustValid() { return true; }
+const std::string &PackageInstallPrefix() {
+    static const std::string prefix("/");
+    return prefix;
+}
 
 const std::vector<std::string> &Architectures() {
+    static const std::vector<std::string> architectures{"amd64", "i386", "armhf"};
+    return architectures;
+}
+const std::vector<std::string> &RegisteredArchitectures() {
     static const std::vector<std::string> architectures{"amd64", "i386"};
     return architectures;
+}
+bool IsArchitectureSupported(const std::string &architecture) {
+    return architecture == "all" || architecture == "amd64" || architecture == "i386";
 }
 }
 
@@ -44,9 +59,230 @@ CydiaAPT::PackageHandle Version(CydiaAPT::Internal::AptBackend &backend,
     Require(false, "available version was missing from the backend picker");
     return CydiaAPT::PackageHandle();
 }
+
+bool HasIssue(const CydiaAPT::TransactionData &transaction, const char *package, const char *kind) {
+    for (const CydiaAPT::TransactionIssueData &issue : transaction.issues)
+        if (issue.package == package && issue.kind == kind) return true;
+    return false;
 }
 
-int main() {
+const CydiaAPT::RelationClauseData *Clause(const std::vector<CydiaAPT::RelationData> &relations,
+                                          const char *package) {
+    for (const CydiaAPT::RelationData &relation : relations)
+        if (relation.relationship == "Depends")
+            for (const CydiaAPT::RelationClauseData &clause : relation.clauses)
+                if (clause.package == package) return &clause;
+    return NULL;
+}
+
+void CheckMultiarch(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    Require(backend.lookupPackage("foreign-only", "amd64").status == PackageLookupStatus::NoEligibleVersion &&
+        !backend.packageHandle("foreign-only", "amd64").valid(), "bare lookup fell back to a foreign package");
+    Require(backend.packageSnapshot(backend.packageHandle("foreign-only:i386", "amd64")).architecture == "i386",
+        "explicit configured foreign architecture was unavailable");
+    Require(backend.lookupPackage("unknown", "amd64").status == PackageLookupStatus::NotFound &&
+        backend.lookupPackage("foreign-only:any:any", "amd64").status == PackageLookupStatus::InvalidSelector,
+        "lookup diagnostics conflated missing and invalid selectors");
+
+    const PackageHandle mixed(backend.packageHandle("mixed-layout", "amd64"));
+    const PackageHandle mixedAll(backend.packageHandle("mixed-layout:all", "amd64"));
+    const PackageHandle mixedNative(backend.packageHandle("mixed-layout:native", "amd64"));
+    const std::vector<std::string> registered{"amd64", "i386"};
+    Require(backend.packageSnapshot(mixed).registeredArchitectures == registered,
+        "package presentation snapshot omitted dpkg architectures or included an acquisition-only architecture");
+    Require(backend.packageSnapshot(mixed).architecture == "amd64" &&
+        backend.packageSnapshot(mixedAll).architecture == "all" &&
+        backend.packageSnapshot(mixedNative).architecture == "amd64" && mixedAll.value != mixedNative.value,
+        "exact native/all lookup reused the native cache bucket's wrong version");
+    Require(backend.packageSnapshot(backend.packageHandle("mixed-layout", "amd64")).version == "2",
+        "viewing an exact architecture changed APT's shared policy candidate");
+    Require(backend.packageSnapshot(backend.packageHandle("portable", "amd64")).architecture == "all" &&
+        backend.lookupPackage("portable:amd64", "amd64").status == PackageLookupStatus::NoEligibleVersion,
+        "explicit native selector accepted Architecture: all");
+    Require(backend.lookupPackage("native-only:all", "amd64").status == PackageLookupStatus::NoEligibleVersion,
+        "explicit all selector accepted a concrete native version");
+    const PackageLookupResult ambiguous(backend.lookupPackage("coinstall:any", "amd64"));
+    Require(ambiguous.status == PackageLookupStatus::Ambiguous && ambiguous.alternatives.size() == 2,
+        "user :any selector silently chose one of two actual architectures");
+    Require(backend.lookupPackage("foreign-only:any", "amd64").status == PackageLookupStatus::Found,
+        "unique concrete user :any selection was unavailable");
+
+    const PackageHandle transition(backend.packageHandle("transition", "amd64"));
+    Require(backend.packageSnapshot(transition).architecture == "amd64" && backend.removePackage(transition),
+        "native/all transition fixture could not remove its installed version");
+    TransactionData operation(backend.transactionData());
+    Require(operation.registeredArchitectures == registered,
+        "transaction presentation snapshot omitted dpkg architectures or included an acquisition-only architecture");
+    const TransactionPackageData *removed(FindTransactionPackage(operation, "transition"));
+    Require(removed != NULL && removed->identity.versionArchitecture == "all" && removed->version == "1" &&
+        removed->displayName == "Portable transition", "removal snapshot borrowed the repository candidate's identity");
+    backend.clearSelections();
+    Require(backend.reinstallPackage(transition), "native/all transition reinstall failed");
+    operation = backend.transactionData();
+    const TransactionPackageData *reinstalled(FindTransactionPackage(operation, "transition:amd64"));
+    Require(reinstalled != NULL && reinstalled->identity.versionArchitecture == "all" && reinstalled->version == "1",
+        "APT progress alias did not retain the exact all-version reinstall");
+    backend.clearSelections();
+    Require(backend.installPackage(backend.packageHandle("transition", "amd64")), "native transition upgrade failed");
+    operation = backend.transactionData();
+    const TransactionPackageData *upgraded(FindTransactionPackage(operation, "transition"));
+    Require(upgraded != NULL && upgraded->identity.versionArchitecture == "amd64" && upgraded->version == "2",
+        "upgrade snapshot retained the removed architecture instead of the planned architecture");
+    backend.clearSelections();
+    const PackageHandle portableConfig(backend.packageHandle("portable-config", "amd64"));
+    const PackageSnapshot retained(backend.packageSnapshot(portableConfig));
+    Require(retained.architecture == "amd64" && retained.installedIdentity.valid() &&
+        retained.installedIdentity.versionArchitecture == "all" &&
+        retained.installedIdentity.dpkgName == "portable-config" && retained.installedVersion.empty() &&
+        !retained.state.hasCurrent && retained.state.state == "ConfigFiles",
+        "retained configuration lost its original identity or appeared installed under the newer candidate architecture");
+    Require(backend.removePackage(portableConfig, true),
+        "architecture-independent residual configuration could not be purged");
+    operation = backend.transactionData();
+    const TransactionPackageData *purged(FindTransactionPackage(operation, "portable-config"));
+    Require(purged != NULL && purged->identity.versionArchitecture == "all" && purged->version == "1" &&
+        purged->displayName == "Old portable configuration", "purge snapshot borrowed a newer repository architecture");
+    backend.clearSelections();
+
+    const PackageHandle consumer(backend.packageHandle("qualified-consumer", "amd64"));
+    const std::vector<RelationData> relations(backend.relations(consumer));
+    const RelationClauseData *any(Clause(relations, "allowed-runtime:any"));
+    const RelationClauseData *exact(Clause(relations, "coinstall:i386"));
+    const RelationClauseData *foreign(Clause(relations, "foreign-runtime"));
+    const RelationClauseData *portable(Clause(relations, "portable"));
+    Require(any != NULL && any->providers.size() == 1 &&
+        backend.packageSnapshot(any->providers.front()).architecture == "i386",
+        "contextual :any relation lost its eligible Multi-Arch: allowed provider");
+    Require(exact != NULL && exact->providers.size() == 1 &&
+        backend.packageSnapshot(exact->providers.front()).architecture == "i386",
+        "concrete dependency qualifier was duplicated or resolved to the wrong architecture");
+    Require(foreign != NULL && foreign->providers.size() == 1 &&
+        backend.packageSnapshot(foreign->providers.front()).architecture == "i386",
+        "unqualified dependency did not preserve APT's Multi-Arch: foreign provider");
+    Require(portable != NULL && !portable->providers.empty(),
+        "ordinary Architecture: all dependency required a fabricated :all qualifier");
+    const std::vector<RelationData> invalidAnyRelations(backend.relations(
+        backend.packageHandle("unqualified-runtime-consumer", "amd64")));
+    const RelationClauseData *invalidAny(Clause(invalidAnyRelations, "native-only:any"));
+    Require(invalidAny != NULL && invalidAny->providers.empty(),
+        "dependency :any fell back to a package lacking Multi-Arch: allowed");
+    Require(backend.installPackage(consumer) && backend.resolveDependencies() && backend.transactionData().issues.empty(),
+        "valid APT multiarch dependencies did not resolve");
+    backend.clearSelections();
+
+    Require(backend.lookupPackage("unsupported:armhf", "amd64").status == PackageLookupStatus::UnsupportedArchitecture,
+        "index architecture was treated as dpkg installation authorization");
+    const PackageHandle unsupportedInstalled(backend.packageHandle("unsupported-installed:armhf", "amd64"));
+    Require(unsupportedInstalled.valid() && !backend.packageState(unsupportedInstalled).architectureSupported &&
+        !backend.installPackage(unsupportedInstalled) && !backend.reinstallPackage(unsupportedInstalled),
+        "local-state visibility bypassed unsupported installation gates");
+    Require(backend.removePackage(unsupportedInstalled) && backend.transactionData().issues.empty(),
+        "unsupported installed package could not be removed safely");
+    backend.clearSelections();
+    const PackageHandle unsupportedConsumer(backend.packageHandle("unsupported-consumer", "amd64"));
+    const std::vector<RelationData> unsupportedRelations(backend.relations(unsupportedConsumer));
+    const RelationClauseData *unsupportedClause(Clause(unsupportedRelations, "unsupported:armhf"));
+    Require(unsupportedClause != NULL && !unsupportedClause->providers.empty() &&
+        !backend.installPackage(unsupportedClause->providers.front()),
+        "contextual navigation handle bypassed unsupported installation gate");
+    Require(backend.installPackage(unsupportedConsumer) && backend.resolveDependencies(),
+        "fixture resolver did not select its unsupported indirect dependency");
+    Require(HasIssue(backend.transactionData(), "unsupported:armhf", "unsupported_architecture"),
+        "final transaction omitted an unsupported resolver-selected hidden package");
+    backend.clearSelections();
+    Require(backend.prepareDistUpgrade() &&
+        HasIssue(backend.transactionData(), "unsupported-installed:armhf", "unsupported_architecture"),
+        "bulk upgrade bypassed unsupported architecture validation");
+    backend.clearSelections();
+}
+
+void CheckNegativePins(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    bool installedVisible(false), unsupportedVisible(false);
+    for (PackageHandle handle : backend.packageHandles()) {
+        const PackageSnapshot package(backend.packageSnapshot(handle));
+        if (package.identifier == "negative-installed") installedVisible = true;
+        if (package.identifier == "negative-foreign:armhf") unsupportedVisible = true;
+    }
+    Require(installedVisible && unsupportedVisible,
+        "all-negative policy hid installed package instances from inspection/removal");
+    const PackageHandle foreign(backend.packageHandle("negative-foreign:armhf", "amd64"));
+    Require(foreign.valid() && backend.removePackage(foreign),
+        "unsupported installed package with no policy candidate could not be removed");
+    backend.clearSelections();
+    Require(backend.lookupPackage("negative-only", "amd64").status == PackageLookupStatus::NoEligibleVersion,
+        "negative pin unexpectedly supplied an uninstalled policy candidate");
+    const std::vector<RelationData> relations(backend.relations(backend.packageHandle("negative-consumer", "amd64")));
+    const RelationClauseData *clause(Clause(relations, "negative-only"));
+    Require(clause != NULL && clause->providers.size() == 1,
+        "exact version fixture lost APT's contextual target behind the negative pin");
+    const PackageHandle exact(clause->providers.front());
+    Require(backend.installPackage(exact) && backend.packageHandle("negative-only", "amd64").valid(),
+        "explicit version selection did not use the real APT candidate override");
+    Require(backend.clearPackage(exact) &&
+        backend.lookupPackage("negative-only", "amd64").status == PackageLookupStatus::NoEligibleVersion &&
+        backend.transactionData().packages.empty() && backend.cacheState().installs == 0 && backend.cacheState().deletes == 0,
+        "single cancellation retained an explicitly selected version with no policy candidate");
+
+    const PackageHandle target(backend.packageHandle("target", "amd64"));
+    Require(backend.installPackage(Version(backend, target, "3")) && backend.installPackage(exact),
+        "two-package cancellation fixture could not be selected");
+    Require(backend.clearPackage(exact) && !backend.autoInstalledDeltas().empty() &&
+        backend.packageState(target).hasMode,
+        "clearing a null candidate reset another queued package's manual/automatic state");
+    Require(backend.installPackage(exact), "negative-pinned version could not be selected a second time");
+    backend.clearSelections();
+    Require(backend.lookupPackage("negative-only", "amd64").status == PackageLookupStatus::NoEligibleVersion &&
+        backend.transactionData().packages.empty() && backend.cacheState().installs == 0 &&
+        backend.cacheState().deletes == 0 && backend.autoInstalledDeltas().empty(),
+        "whole transaction cancellation retained a candidate or package-state change under negative pins");
+}
+
+void CheckArchivePreflight(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    const char *marker(std::getenv("CYDIA_APT_PREFLIGHT_DPKG_MARKER"));
+    const char *sentinel(std::getenv("CYDIA_APT_PREFLIGHT_DPKG_SENTINEL"));
+    Require(marker != NULL && sentinel != NULL, "archive preflight sentinel was not configured");
+    Require(access(marker, F_OK) != 0, "dpkg sentinel was already triggered");
+    const PackageHandle parent(backend.packageHandle("archive-parent", "amd64"));
+    Require(parent.valid() && backend.installPackage(parent) && backend.resolveDependencies(),
+        "archive fixture dependency could not be selected");
+    const TransactionData transaction(backend.transactionData());
+    Require(transaction.installs.size() == 2 && transaction.issues.empty(),
+        "archive fixture did not have two initially eligible packages");
+    fixtureSecurityMode = RepositorySecurityMode::Allow;
+    Require(backend.prepareArchives(), "real dependency archives could not be prepared");
+    const FetchResultData fetched(backend.runFetcher(1000));
+    bool layoutFailure(false), scriptWarning(false);
+    for (const FetchFailureData &failure : fetched.failures)
+        if (failure.package == "archive-layout-dependency" && failure.kind == FetchDiagnosticKind::ArchiveLayoutMismatch &&
+            !failure.path.empty() && !failure.reason.empty()) layoutFailure = true;
+    for (const FetchFailureData &warning : fetched.warnings)
+        if (warning.package == "archive-parent" && warning.kind == FetchDiagnosticKind::ArchiveUnverified)
+            scriptWarning = true;
+    Require(fetched.completed && layoutFailure && scriptWarning,
+        "permissive repository security skipped archive layout/complete-script inspection");
+    const std::string previousDpkg(_config->Find("Dir::Bin::dpkg"));
+    _config->Set("Dir::Bin::dpkg", sentinel);
+    Require(backend.lockForTransaction(), "fixture transaction lock was unavailable");
+    bool started(true);
+    FetchResultData finalValidation;
+    Require(backend.runPackageManager(-1, &finalValidation, &started) == PackageManagerResult::Failed &&
+        !started && !finalValidation.failures.empty() && access(marker, F_OK) != 0,
+        "a dependency archive failure reached dpkg before blocking the whole transaction");
+    backend.discardErrors();
+    backend.clearSelections();
+    Require(backend.runPackageManager(-1) == PackageManagerResult::Failed && access(marker, F_OK) != 0,
+        "changed transaction selections reused already-prepared archives");
+    backend.discardErrors();
+    backend.unlockForTransaction();
+    _config->Set("Dir::Bin::dpkg", previousDpkg);
+    fixtureSecurityMode = RepositorySecurityMode::Warning;
+}
+}
+
+int main(int argc, char **) {
     Require(pkgInitConfig(*_config) && pkgInitSystem(*_config, _system), "APT initialization failed");
     _config->Set("Dir::Cache::pkgcache", "");
     _config->Set("Dir::Cache::srcpkgcache", "");
@@ -55,6 +291,11 @@ int main() {
     Require(backend.openCache(), "real APT cache could not be opened");
     backend.createCacheViews();
     Require(backend.loadSources(), "fixture source definitions could not be loaded");
+    if (argc > 1) {
+        CheckArchivePreflight(backend);
+        std::cout << "[apt-package-actions] cached archive preflight passed\n";
+        return 0;
+    }
     const CydiaAPT::PackageHandle target(backend.packageHandle("target", "amd64"));
     Require(target.valid(), "fixture target was missing");
     Require(backend.packageSnapshot(target).version == "1", "APT pin did not select the lower candidate");
@@ -127,5 +368,8 @@ int main() {
         "bulk upgrade changed a held package through an inherited Ignore-Hold option");
     Require(_config->FindB("APT::Ignore-Hold", false), "temporary hold policy changed bootstrap configuration");
     backend.clearSelections();
+    CheckMultiarch(backend);
+    CheckNegativePins(backend);
+    CheckArchivePreflight(backend);
     std::cout << "[apt-package-actions] real APT action/resolver fixture passed\n";
 }

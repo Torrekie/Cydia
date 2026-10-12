@@ -6,6 +6,7 @@
 #import <Foundation/Foundation.h>
 
 #import "Cydia/PackageDetailViewModel.h"
+#import "Cydia/PackageArchitecturePresentation.h"
 
 #include <cstdlib>
 #include <ctime>
@@ -91,6 +92,8 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 @property(nonatomic, strong) id dpkgIdentityValue;
 @property(nonatomic, strong) id nameValue;
 @property(nonatomic, strong) id latestValue;
+@property(nonatomic, copy) NSString *fullVersionValue;
+@property(nonatomic, strong) NSNumber *architectureSupportedValue;
 @property(nonatomic, strong) id installedValue;
 @property(nonatomic, strong) id md5sumValue;
 @property(nonatomic, strong) id architectureValue;
@@ -140,6 +143,8 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 - (NSString *)dpkgId { return _dpkgIdentityValue; }
 - (NSString *)name { return _nameValue; }
 - (NSString *)latest { return _latestValue; }
+- (NSString *)fullVersion { return _fullVersionValue ?: _latestValue; }
+- (BOOL)architectureSupported { return _architectureSupportedValue == nil || [_architectureSupportedValue boolValue]; }
 - (NSString *)installed { return _installedValue; }
 - (NSString *)md5sum { return _md5sumValue; }
 - (NSString *)architecture { return _architectureValue; }
@@ -456,6 +461,90 @@ void TestExactVersionActionsAndSafeguards() {
         @(CydiaPackageDetailModifyActionKindVersions)]], "Essential package exposed Remove or Purge");
 }
 
+void TestArchitecturePresentation() {
+    NSArray *native(@[@"iphoneos-arm64"]);
+    NSArray *multiarch(@[@"iphoneos-arm64", @"iphoneos-arm"]);
+    Require(CydiaPackageArchitectureCaption(@"iphoneos-arm64", native) == nil &&
+        CydiaPackageArchitectureCaption(@"all", native) == nil,
+        "single-architecture native/all packages acquired new labels");
+    RequireString(CydiaPackageArchitectureCaption(@"iphoneos-arm64", multiarch),
+        @"Native · iphoneos-arm64", "native architecture role was lost");
+    RequireString(CydiaPackageArchitectureCaption(@"iphoneos-arm", multiarch),
+        @"Additional · iphoneos-arm", "foreign architecture role was lost");
+    RequireString(CydiaPackageArchitectureCaption(@"all", multiarch),
+        @"Architecture-independent · all", "all was treated as a foreign architecture");
+    RequireString(CydiaPackageArchitectureCaption(@"iphoneos-arm", native),
+        @"Unsupported · iphoneos-arm", "single-architecture unsupported exception disappeared");
+    Require(CydiaPackageArchitectureCaption(@"any", multiarch) == nil &&
+        CydiaPackageArchitectureCaption(@"iphoneos-arm", @[]) == nil,
+        "dependency proxy or unknown runtime state invented an architecture role");
+    Require([CydiaPackageRegisteredArchitectureNames({"iphoneos-arm64", "all", "iphoneos-arm64", "any", "iphoneos-arm"})
+        isEqualToArray:multiarch], "registration projection changed native order or added proxy architectures");
+
+    FakePackage *package(BasePackage(@"runtime:iphoneos-arm"));
+    package.architectureValue = @"iphoneos-arm";
+    FakePackage *choice(BasePackage(@"runtime:iphoneos-arm"));
+    choice.architectureValue = @"iphoneos-arm";
+    package.downgradesValue = @[choice];
+    NSMutableArray *registered([multiarch mutableCopy]);
+    CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc]
+        initWithPackage:(Package *)(id)package registeredArchitectures:registered]);
+    [registered removeAllObjects];
+    RequireString(model.displayName, @"Runtime Package", "caption altered the raw package display name");
+    RequireString(model.identity, @"runtime:iphoneos-arm", "caption altered the package route");
+    RequireString(model.architectureCaption, @"Additional · iphoneos-arm", "detail did not own its architecture caption");
+    CydiaPackageDetailVersionChoice *version(model.modifyActions.lastObject.versions.firstObject);
+    RequireString(version.architectureCaption, @"Additional · iphoneos-arm", "version choice lost architecture context");
+    RequireString(model.legacyDepictionSnapshot[@"package"][@"values"][@"architecture"], @"iphoneos-arm",
+        "native caption leaked into the depiction API");
+
+    package.architectureValue = @"iphoneos-arm64";
+    choice.architectureValue = @"iphoneos-arm64";
+    model = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package
+        registeredArchitectures:native];
+    Require(model.architectureCaption == nil &&
+        model.modifyActions.lastObject.versions.firstObject.architectureCaption == nil,
+        "single-architecture detail or version choices changed their historical labels");
+}
+
+
+void TestExactArchitectureAndEpochVersionChoices() {
+    FakePackage *package(BasePackage(@"runtime"));
+    FakePackage *native(BasePackage(@"runtime"));
+    native.architectureValue = @"iphoneos-arm64";
+    native.latestValue = @"1.0";
+    native.fullVersionValue = @"1:1.0";
+    FakePackage *all(BasePackage(@"runtime"));
+    all.architectureValue = @"all";
+    all.latestValue = @"1.0";
+    all.fullVersionValue = @"2:1.0";
+    FakePackage *unsupported(BasePackage(@"runtime:iphoneos-arm"));
+    unsupported.architectureSupportedValue = @NO;
+    package.downgradesValue = @[native, all, unsupported];
+    CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc]
+        initWithPackage:(Package *)(id)package registeredArchitectures:@[@"iphoneos-arm64"]
+        versionArchitecture:@"all"]);
+    NSArray *choices(model.modifyActions.lastObject.versions);
+    Require(choices.count == 1, "exact all route leaked native or unsupported version choices");
+    CydiaPackageDetailVersionChoice *choice(choices.firstObject);
+    RequireString(choice.architecture, @"all", "all was replaced by its native APT bucket");
+    RequireString(choice.fullVersion, @"2:1.0", "epoch was discarded from exact version identity");
+    RequireString(choice.version, @"2:1.0", "version picker hid the epoch distinguishing its choices");
+    model = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package
+        registeredArchitectures:@[@"iphoneos-arm64"]];
+    Require(model.modifyActions.lastObject.versions.count == 2,
+        "unqualified route lost valid native/all alternatives or exposed an unsupported one");
+    package.architectureSupportedValue = @NO;
+    package.downgradesValue = @[];
+    package.canReinstallOverride = @NO;
+    model = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    for (CydiaPackageDetailModifyAction *action in model.modifyActions)
+        Require(action.kind != CydiaPackageDetailModifyActionKindInstall &&
+            action.kind != CydiaPackageDetailModifyActionKindUpgrade &&
+            action.kind != CydiaPackageDetailModifyActionKindDowngrade &&
+            action.kind != CydiaPackageDetailModifyActionKindReinstall,
+            "unsupported installed package offered an installation action");
+}
 
 void TestNullabilityFallbackAndContactPriority() {
     FakePackage *invalid([[FakePackage alloc] init]);
@@ -523,6 +612,8 @@ int main() {
         TestCompleteQualifiedSnapshotAndOwnership();
         TestInstallReinstallRemoveAndLocalActions();
         TestExactVersionActionsAndSafeguards();
+        TestArchitecturePresentation();
+        TestExactArchitectureAndEpochVersionChoices();
         TestNullabilityFallbackAndContactPriority();
     }
     std::cout << "[verify-package-detail-view-model][ ok ] immutable package snapshot"

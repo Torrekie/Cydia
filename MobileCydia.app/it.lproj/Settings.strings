@@ -109,3 +109,7 @@
 
 "KEY_IMPORT_SOURCE_CHANGED" = "La sorgente è cambiata. Selezionala di nuovo ed esamina la chiave.";
 "KEY_IMPORT_PARTIAL" = "La chiave è stata salvata, ma non è stato possibile aggiornare la configurazione della sua sorgente. Controlla le impostazioni della sorgente prima di riprovare.";
+"ARCHIVE_LAYOUT_MISMATCH" = "La struttura dei file di %@ è incompatibile con il gestore di pacchetti selezionato. L’installazione è stata bloccata.";
+"ARCHIVE_INVALID" = "L’archivio di %@ non è valido o è incompleto e non è stato possibile esaminarlo in modo sicuro.";
+"ARCHIVE_IDENTITY_MISMATCH" = "L’archivio di %@ non corrisponde al nome, alla versione o all’architettura del pacchetto selezionato. L’installazione è stata bloccata.";
+"ARCHIVE_UNVERIFIED" = "Cydia non ha potuto verificare completamente la struttura dei file di %@. Controlla la compatibilità del pacchetto prima di continuare.";

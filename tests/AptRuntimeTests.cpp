@@ -90,10 +90,13 @@ enum class RuntimeFixture {
     InvalidExecutableOverrides,
 };
 RuntimeFixture gRuntimeFixture(RuntimeFixture::Default);
+bool gRuntimeDescriptorFixture(false);
+std::vector<std::string> gConfiguredArchitectures({"iphoneos-foreign-test"});
 std::string gFakeDpkgExecutable;
 enum class VerifierFixture { Defaults, NativeSearchPath, ConfiguredPaths, ConfiguredCommands };
 VerifierFixture gVerifierFixture(VerifierFixture::Defaults);
 std::string gCompressionToolsDirectory;
+std::string gConfiguredPackagePrefix;
 bool gExplicitCompressionTools(false);
 int gCompressorRefreshes(0), gCompressionTypeRefreshes(0);
 
@@ -129,8 +132,8 @@ void ExpectBootstrapConfiguration(const Configuration &configuration, const char
                                   const std::string &expectedEtc) {
     const CydiaAPT::InitializationOptions &options(*gExpectedOptions);
     const bool beforeConfig(std::strcmp(stage, "before pkgInitConfig") == 0);
-    const bool queried(gRuntimeFixture == RuntimeFixture::NativeQuery ||
-                       gRuntimeFixture == RuntimeFixture::NativeQueryConfigured);
+    const bool queried(gRuntimeDescriptorFixture && gRuntimeFixture != RuntimeFixture::QueryFailure &&
+                       std::getenv("CYDIA_TEST_ARCH_QUERY_FAILURE") == NULL);
     ExpectValue(configuration, "APT::Architecture",
                 beforeConfig ? options.architecture : queried ? "native-dpkg-test" : "apt-conf-override", stage);
     ExpectValue(configuration, "Dir::Etc", expectedEtc, stage);
@@ -221,7 +224,10 @@ void ExpectSourceConfiguration(const Configuration &configuration, const char *s
 void OverrideBootstrapConfiguration(Configuration &configuration) {
     configuration.Set("APT::Architecture", "apt-conf-override");
     configuration.Set("Dir::State::status", "/apt-conf-override/status");
-    configuration.Set("Dir::Bin::dpkg", "/apt-conf-override/dpkg");
+    if (!gConfiguredPackagePrefix.empty())
+        configuration.Set("Cydia::Package-Install-Prefix", gConfiguredPackagePrefix);
+    configuration.Set("Dir::Bin::dpkg", gRuntimeDescriptorFixture ?
+                      gFakeDpkgExecutable : "/apt-conf-override/dpkg");
     configuration.Set("Dir::Bin::dpkg-query", "/apt-conf-override/dpkg-query");
     configuration.Set("Dir::Bin::dpkg-deb", "/apt-conf-override/dpkg-deb");
     configuration.Set("Dir::dpkg::cputable", "/apt-conf-override/cputable");
@@ -237,7 +243,9 @@ void OverrideBootstrapConfiguration(Configuration &configuration) {
         configuration.Set("APT::Compressor::xz::Binary", "configured-xz-decoder");
         configuration.Set("Acquire::CompressionTypes::Order::0", "gz");
     }
-    configuration.Set("APT::Architectures::configured", "iphoneos-foreign-test");
+    for (std::size_t index(0); index != gConfiguredArchitectures.size(); ++index)
+        configuration.Set(("APT::Architectures::" + std::to_string(index)).c_str(),
+                          gConfiguredArchitectures[index]);
     configuration.Set("Dir::Bin::Methods", "/bootstrap/methods");
     configuration.Set("Dir::State::extended_states", "/bootstrap/extended_states");
     configuration.Set("Dir::Etc::trusted", "bootstrap-trusted.gpg");
@@ -284,6 +292,7 @@ CydiaAPT::InitializationOptions OptionsForLayout(
     const CydiaRuntime::PackageDatabasePaths &paths) {
     CydiaAPT::InitializationOptions options;
     options.architecture = paths.AptArchitecture();
+    options.packageInstallPrefix = paths.layout() == CydiaRuntime::PackageDatabaseLayout::Rootless ? "/var/jb" : "/";
     options.aptConfigDirectory = paths.AptConfigDirectory();
     options.methodsDirectory = paths.CydiaApplicationDirectory();
     options.cacheDirectory = "/tmp/cydia-apt-runtime/cache";
@@ -434,10 +443,14 @@ void VerifyLayout(CydiaRuntime::PackageDatabaseLayout layout, const char *name) 
     Expect(CydiaAPT::Architectures() ==
                std::vector<std::string>({"apt-conf-override", "iphoneos-foreign-test"}),
            std::string(name) + " materialized architecture vector");
-    Expect(CydiaAPT::IsArchitectureSupported("apt-conf-override"),
-           std::string(name) + " native architecture support");
-    Expect(CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test"),
-           std::string(name) + " foreign architecture support");
+    Expect(CydiaAPT::RegisteredArchitectures().empty(),
+           std::string(name) + " unavailable dpkg cannot establish registration");
+    Expect(!CydiaAPT::IsArchitectureSupported("apt-conf-override"),
+           std::string(name) + " APT native fallback does not prove dpkg registration");
+    Expect(!CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test"),
+           std::string(name) + " acquisition policy does not prove foreign registration");
+    Expect(!CydiaAPT::MutationEnvironmentValid(),
+           std::string(name) + " unavailable architecture discovery blocks mutations");
     Expect(CydiaAPT::IsArchitectureSupported("all"),
            std::string(name) + " Architecture: all support");
     Expect(!CydiaAPT::IsArchitectureSupported("iphoneos-unsupported-test"),
@@ -717,6 +730,7 @@ void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
     gExpectedRootDir = "";
     gSourceFixture = SourceFixture::Relative;
     gRuntimeFixture = fixture;
+    gRuntimeDescriptorFixture = true;
     std::string architecture;
     Expect(CydiaAPT::Initialize(options, &architecture), "runtime descriptor remains readable");
     Expect(CydiaAPT::MethodsDirectory() == "/bootstrap/methods", "loaded methods must survive initialization");
@@ -764,12 +778,13 @@ void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
     if (fixture == RuntimeFixture::NativeQuery || fixture == RuntimeFixture::NativeQueryConfigured) {
         Expect(CydiaAPT::DpkgExecutablePath() == gFakeDpkgExecutable, "real executable selected without cydo");
         Expect(architecture == "native-dpkg-test", "native architecture comes from real dpkg query");
-        Expect(CydiaAPT::IsArchitectureSupported("foreign-dpkg-test") ==
-                   (fixture == RuntimeFixture::NativeQuery),
-               "explicit bootstrap foreign architecture policy must survive discovery");
-        Expect(CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test") ==
-                   (fixture == RuntimeFixture::NativeQueryConfigured),
-               "configured foreign architecture policy remains effective");
+        Expect(CydiaAPT::RegisteredArchitectures() ==
+                   std::vector<std::string>({"native-dpkg-test", "foreign-dpkg-test"}),
+               "dpkg registration survives an independent acquisition policy");
+        Expect(CydiaAPT::IsArchitectureSupported("foreign-dpkg-test"),
+               "registered foreign architecture remains installable when omitted from acquisition");
+        Expect(!CydiaAPT::IsArchitectureSupported("iphoneos-foreign-test"),
+               "APT-only foreign architecture is not registered with dpkg");
     }
     Expect(!CydiaAPT::CachedRepositoryTrustValid(), "initialization cannot authenticate cached indexes");
     CydiaAPT::SetCachedRepositoryTrustValid(true);
@@ -790,6 +805,121 @@ void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
     CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityMode::Error);
     Expect(!CydiaAPT::CachedRepositoryTrustValid(), "changing to Error cannot establish trust proof");
     gRuntimeFixture = RuntimeFixture::Default;
+    gRuntimeDescriptorFixture = false;
+}
+
+class ScopedEnvironment {
+    const char *name_;
+    bool existed_;
+    std::string value_;
+  public:
+    explicit ScopedEnvironment(const char *name) : name_(name), existed_(std::getenv(name) != NULL),
+        value_(existed_ ? std::getenv(name) : "") { unsetenv(name_); }
+    ~ScopedEnvironment() {
+        if (existed_) setenv(name_, value_.c_str(), 1);
+        else unsetenv(name_);
+    }
+};
+
+void VerifyArchitectureRefresh(const std::vector<std::string> &acquisition,
+                               bool unrelatedError = false, bool initialFailure = false) {
+    ScopedEnvironment native("CYDIA_TEST_NATIVE_ARCH");
+    ScopedEnvironment foreign("CYDIA_TEST_FOREIGN_ARCHES");
+    ScopedEnvironment failure("CYDIA_TEST_ARCH_QUERY_FAILURE");
+    CydiaAPT::InitializationOptions options(OptionsForLayout(
+        CydiaRuntime::PackageDatabasePaths::ForLayout(CydiaRuntime::PackageDatabaseLayout::Rootful)));
+    options.nativeDpkgPath = gFakeDpkgExecutable;
+    Configuration configuration;
+    _config = &configuration;
+    _system = NULL;
+    gExpectedOptions = &options;
+    gExpectedLayout = "architecture-refresh";
+    gExpectedRootDir = "";
+    gSourceFixture = SourceFixture::Relative;
+    gRuntimeDescriptorFixture = true;
+    gRuntimeFixture = unrelatedError ? RuntimeFixture::UnsupportedChroot : acquisition.empty() ?
+        RuntimeFixture::NativeQuery : RuntimeFixture::NativeQueryConfigured;
+    gConfiguredArchitectures = acquisition;
+    if (initialFailure) setenv("CYDIA_TEST_ARCH_QUERY_FAILURE", "foreign", 1);
+    std::string architecture;
+    Expect(CydiaAPT::Initialize(options, &architecture), "architecture refresh runtime initialized");
+    if (initialFailure) {
+        Expect(CydiaAPT::RegisteredArchitectures().empty(), "failed initial foreign query publishes no registration");
+        Expect(architecture == "apt-conf-override", "failed initial foreign query preserves APT native fallback");
+        ExpectArchitectures(configuration, acquisition, "failed initial discovery leaves acquisition policy untouched");
+        Expect(!CydiaAPT::MutationEnvironmentValid(), "failed initial discovery disables mutation");
+        unsetenv("CYDIA_TEST_ARCH_QUERY_FAILURE");
+        Expect(CydiaAPT::RefreshArchitectures(), "failed initial discovery can recover on reload");
+    }
+    Expect(CydiaAPT::RegisteredArchitectures() ==
+               std::vector<std::string>({"native-dpkg-test", "foreign-dpkg-test"}),
+           "initial verified registration is independent of acquisition subset or superset");
+    Expect(CydiaAPT::IsArchitectureSupported("foreign-dpkg-test"), "registered foreign installation support");
+    Expect(!CydiaAPT::IsArchitectureSupported("apt-only-test"), "acquiring an index cannot register an architecture");
+    Expect(CydiaAPT::MutationEnvironmentValid() == !unrelatedError, "initial mutation validity");
+    const std::string unrelatedCode(CydiaAPT::RuntimeErrorCode());
+    const std::string unrelatedMessage(CydiaAPT::RuntimeError());
+
+    setenv("CYDIA_TEST_FOREIGN_ARCHES", "foreign-dpkg-test\nsecond-dpkg-test\nforeign-dpkg-test\nnative-dpkg-test", 1);
+    Expect(CydiaAPT::RefreshArchitectures(), "foreign registration refresh succeeds");
+    Expect(CydiaAPT::RegisteredArchitectures() ==
+               std::vector<std::string>({"native-dpkg-test", "foreign-dpkg-test", "second-dpkg-test"}),
+           "registration refresh normalizes repeated native and foreign architectures");
+    ExpectArchitectures(configuration, acquisition.empty() ? CydiaAPT::RegisteredArchitectures() : acquisition,
+                        "added registration follows generated defaults but preserves explicit acquisition policy");
+    Expect(CydiaAPT::IsArchitectureSupported("second-dpkg-test"), "new registration is supported immediately");
+
+    setenv("CYDIA_TEST_FOREIGN_ARCHES", "", 1);
+    Expect(CydiaAPT::RefreshArchitectures(), "removing the last foreign architecture succeeds");
+    Expect(CydiaAPT::RegisteredArchitectures() == std::vector<std::string>({"native-dpkg-test"}),
+           "empty foreign output is a valid native-only registration");
+    Expect(!CydiaAPT::IsArchitectureSupported("foreign-dpkg-test"), "removed registration no longer allows installation");
+    const auto registered(CydiaAPT::RegisteredArchitectures());
+    const auto acquired(CydiaAPT::Architectures());
+    const auto configured(configuration.FindVector("APT::Architectures"));
+    auto expectUnpublished = [&]() {
+        Expect(CydiaAPT::RegisteredArchitectures() == registered, "failed discovery retains verified registration");
+        Expect(CydiaAPT::Architecture() == "native-dpkg-test", "failed discovery retains verified native architecture");
+        Expect(CydiaAPT::Architectures() == acquired, "failed discovery retains acquisition view");
+        ExpectValue(configuration, "APT::Architecture", "native-dpkg-test", "failed architecture discovery");
+        ExpectArchitectures(configuration, configured, "failed discovery leaves configured acquisition policy untouched");
+        Expect(!CydiaAPT::MutationEnvironmentValid(), "failed discovery disables mutation");
+        Expect(CydiaAPT::RuntimeErrorCode() == (unrelatedError ? unrelatedCode : "architecture_query_failed"),
+               "query failure preserves earlier unrelated diagnostic");
+    };
+    setenv("CYDIA_TEST_NATIVE_ARCH", "replacement-native", 1);
+    setenv("CYDIA_TEST_FOREIGN_ARCHES", "new-foreign", 1);
+    for (const char *probe : {"native", "foreign"}) {
+        setenv("CYDIA_TEST_ARCH_QUERY_FAILURE", probe, 1);
+        Expect(!CydiaAPT::RefreshArchitectures(), "failed dpkg probe rejects refresh");
+        expectUnpublished();
+    }
+    unsetenv("CYDIA_TEST_ARCH_QUERY_FAILURE");
+    for (const char *malformed : {"valid-foreign\nINVALID", "all", "any"}) {
+        setenv("CYDIA_TEST_FOREIGN_ARCHES", malformed, 1);
+        Expect(!CydiaAPT::RefreshArchitectures(), "malformed foreign query rejects refresh");
+        expectUnpublished();
+    }
+    setenv("CYDIA_TEST_FOREIGN_ARCHES", "new-foreign", 1);
+    setenv("CYDIA_TEST_NATIVE_ARCH", "replacement-native excess", 1);
+    Expect(!CydiaAPT::RefreshArchitectures(), "multiple native architectures reject refresh");
+    expectUnpublished();
+
+    setenv("CYDIA_TEST_NATIVE_ARCH", "replacement-native", 1);
+    Expect(CydiaAPT::RefreshArchitectures(), "complete valid discovery recovers after query failures");
+    Expect(CydiaAPT::RegisteredArchitectures() == std::vector<std::string>({"replacement-native", "new-foreign"}),
+           "successful recovery publishes both probes together");
+    Expect(CydiaAPT::Architecture() == "replacement-native", "native architecture refresh reaches APT consumers");
+    Expect(CydiaAPT::Architectures().front() == "replacement-native", "acquisition view refreshes native default");
+    ExpectArchitectures(configuration, acquisition.empty() ? CydiaAPT::RegisteredArchitectures() : acquisition,
+                        "recovery preserves explicit policy or refreshes generated default");
+    Expect(CydiaAPT::MutationEnvironmentValid() == !unrelatedError, "query recovery cannot clear unrelated errors");
+    Expect(CydiaAPT::RuntimeErrorCode() == unrelatedCode && CydiaAPT::RuntimeError() == unrelatedMessage,
+           "recovery clears only the query diagnostic");
+    Expect(CydiaAPT::IsArchitectureSupported("all"), "Architecture all remains valid independently of acquisition");
+    gRuntimeFixture = RuntimeFixture::Default;
+    gRuntimeDescriptorFixture = false;
+    gConfiguredArchitectures = {"iphoneos-foreign-test"};
 }
 
 } // namespace
@@ -841,7 +971,7 @@ bool pkgInitSystem(Configuration &configuration, pkgSystem *&system) {
     ExpectBootstrapConfiguration(configuration, "before pkgInitSystem",
                                  ExpectedEtcDirectory());
     if (gRuntimeFixture != RuntimeFixture::NativeQuery)
-        ExpectArchitectures(configuration, {"iphoneos-foreign-test"}, "before pkgInitSystem");
+        ExpectArchitectures(configuration, gConfiguredArchitectures, "before pkgInitSystem");
     ExpectValue(configuration, "Dir", "/", "before pkgInitSystem");
     ExpectRootDirectory(configuration, "before pkgInitSystem");
     ExpectSourceConfiguration(configuration, "before pkgInitSystem");
@@ -881,7 +1011,7 @@ std::vector<std::string> const getCompressionTypes(bool const &cached) {
 }
 
 std::vector<std::string> getArchitectures(bool cached) {
-    (void) cached;
+    Expect(!cached, "architecture acquisition cache must be refreshed");
     Expect(_system == &gTestSystem,
            std::string(gExpectedLayout) + " architecture discovery preceded pkgInitSystem");
     std::vector<std::string> result(_config->FindVector("APT::Architectures"));
@@ -895,20 +1025,57 @@ std::vector<std::string> getArchitectures(bool cached) {
 } // namespace Configuration
 } // namespace APT
 
+void VerifyPackageLayoutPrefix() {
+    struct Case { bool rootless; const char *configured; bool relocated; const char *expected; };
+    for (const Case &test : {
+        Case{false, "", false, "/"}, Case{true, "", false, "/var/jb"},
+        Case{true, "/custom-prefix/", false, "/custom-prefix"},
+        Case{true, "/selected-install-root", true, "/"},
+        Case{true, "/selected-install-root/bootstrap", true, "/bootstrap"},
+        Case{true, "relative-prefix", false, ""}}) {
+        CydiaAPT::InitializationOptions options(OptionsForLayout(CydiaRuntime::PackageDatabasePaths::ForLayout(
+            test.rootless ? CydiaRuntime::PackageDatabaseLayout::Rootless : CydiaRuntime::PackageDatabaseLayout::Rootful)));
+        // Architecture and database/tool paths cannot establish package layout.
+        options.architecture = "unrelated-architecture";
+        Configuration configuration;
+        _config = &configuration; _system = NULL;
+        gExpectedOptions = &options; gExpectedLayout = "package-prefix"; gExpectedRootDir = "";
+        gSourceFixture = SourceFixture::Relative;
+        gConfiguredPackagePrefix = test.configured;
+        gRuntimeFixture = test.relocated ? RuntimeFixture::CoherentOptions : RuntimeFixture::Default;
+        gRuntimeDescriptorFixture = true;
+        Expect(CydiaAPT::Initialize(options, NULL), "layout prefix preserves read-only initialization");
+        Expect(CydiaAPT::PackageInstallPrefix() == test.expected,
+            "archive layout prefix must follow explicit layout and selected installation root");
+        if (*test.expected == '\0')
+            Expect(!CydiaAPT::MutationEnvironmentValid() && CydiaAPT::RuntimeErrorCode() == "invalid_package_prefix",
+                "relative layout prefix must not silently become rooted");
+    }
+    gConfiguredPackagePrefix.clear();
+    gRuntimeDescriptorFixture = false; gRuntimeFixture = RuntimeFixture::Default;
+}
+
 int main(int argc, char **argv) {
     /* The same portable test binary acts as an unprivileged dpkg fixture;
      * executable paths are discovered at runtime, never saved in the repo. */
-    if (argc == 4 && std::strcmp(argv[1], "--root=/") == 0 &&
-        std::strcmp(argv[2], "--admindir=/apt-conf-override") == 0) {
+    if (argc == 4 && std::strncmp(argv[1], "--root=", 7) == 0 &&
+        std::strncmp(argv[2], "--admindir=", 11) == 0) {
+        const char *failure(std::getenv("CYDIA_TEST_ARCH_QUERY_FAILURE"));
         if (std::strcmp(argv[3], "--print-architecture") == 0) {
-            std::cout << "native-dpkg-test\n";
+            if (failure != NULL && std::strcmp(failure, "native") == 0) return 1;
+            const char *native(std::getenv("CYDIA_TEST_NATIVE_ARCH"));
+            std::cout << (native == NULL ? "native-dpkg-test" : native) << '\n';
             return 0;
         }
         if (std::strcmp(argv[3], "--print-foreign-architectures") == 0) {
-            std::cout << "foreign-dpkg-test\n";
+            if (failure != NULL && std::strcmp(failure, "foreign") == 0) return 1;
+            const char *foreign(std::getenv("CYDIA_TEST_FOREIGN_ARCHES"));
+            if (foreign == NULL || foreign[0] != '\0')
+                std::cout << (foreign == NULL ? "foreign-dpkg-test" : foreign) << '\n';
             return 0;
         }
     }
+    if (argc != 1) return 64;
     gFakeDpkgExecutable = argv[0];
     const char *originalPath(std::getenv("PATH"));
     const bool hadPath(originalPath != NULL);
@@ -930,6 +1097,12 @@ int main(int argc, char **argv) {
                                     RuntimeFixture::QueryFailure, RuntimeFixture::MalformedOptions,
                                     RuntimeFixture::InvalidStatus, RuntimeFixture::InvalidExecutableOverrides })
         VerifyRuntimeEnvironment(fixture);
+    VerifyArchitectureRefresh({});
+    VerifyArchitectureRefresh({"native-dpkg-test"});
+    VerifyArchitectureRefresh({"native-dpkg-test", "foreign-dpkg-test", "apt-only-test"});
+    VerifyArchitectureRefresh({"native-dpkg-test"}, true);
+    VerifyArchitectureRefresh({}, false, true);
+    VerifyPackageLayoutPrefix();
     const char *existingRoot(getenv("DPKG_ROOT"));
     const bool hadRoot(existingRoot != NULL);
     const std::string savedRoot(hadRoot ? existingRoot : "");

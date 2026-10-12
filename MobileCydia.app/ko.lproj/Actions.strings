@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@는 보류 중입니다. 변경하기 전에 패키지 설정에서 “업그레이드 무시”를 끄세요.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@는 필수(Essential)로 표시되어 있습니다. Cydia에서는 이 패키지를 제거하거나 설정까지 삭제할 수 없습니다.";
 "PACKAGE_PROTECTED_ISSUE" = "%@는 보호됨(Protected)으로 표시되어 있습니다. Cydia에서는 이 패키지를 제거하거나 설정까지 삭제할 수 없습니다.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "기본 · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "추가 · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "아키텍처 독립 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "지원되지 않음 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "이 패키지의 아키텍처는 선택한 패키지 관리자에서 활성화되어 있지 않습니다.";
+"PACKAGE_VERSION_UNAVAILABLE" = "선택한 패키지 버전을 더 이상 사용할 수 없습니다. 패키지 정보를 다시 불러오고 변경 사항을 확인하세요.";
+
+"PACKAGE_LOOKUP_TITLE" = "패키지를 사용할 수 없음";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "아키텍처 선택";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "패키지 사용 가능";
+"PACKAGE_LOOKUP_INVALID" = "이 링크의 패키지 이름 또는 아키텍처가 올바르지 않습니다.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "현재 패키지 정보에 이 패키지가 없습니다. 소스를 확인하고 새로 고치세요.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "이 패키지와 아키텍처에 대해 선택할 수 있는 버전이 없습니다.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "이 링크에 해당하는 패키지 아키텍처가 여러 개 있습니다. 보려는 패키지를 선택하세요.";
+"PACKAGE_LOOKUP_REQUESTED" = "요청한 패키지";
+"PACKAGE_LOOKUP_REGISTERED" = "설정된 아키텍처";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "사용 가능한 패키지";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "현재 아키텍처 정보를 가져올 수 없습니다.";

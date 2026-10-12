@@ -28,6 +28,9 @@ struct InitializationOptions {
     /* Real, unprivileged dpkg used for architecture queries. dpkgPath is
      * Cydia's privileged package-manager wrapper. */
     std::string nativeDpkgPath;
+    /* Package payload prefix selected by the installed Cydia layout, not
+     * inferred from a CPU architecture or the dpkg database location. */
+    std::string packageInstallPrefix;
     /* Root-selected private authority, not a native preference. */
     std::string privateRuntimeConfigurationPath;
     std::string helperPath;
@@ -56,8 +59,24 @@ RepositorySecurityMode GetRepositorySecurityMode();
  * trust proof. Reloading caches or changing policy must not renew it. */
 void SetCachedRepositoryTrustValid(bool valid);
 bool CachedRepositoryTrustValid();
+/* Selected native architecture. APT's startup fallback remains available
+ * for read-only use if initial dpkg discovery fails. */
 const std::string &Architecture();
+/* APT's effective index-acquisition policy, including its native default.
+ * This list is not evidence that dpkg permits installing an architecture. */
 const std::vector<std::string> &Architectures();
+/* Verified dpkg native architecture first, followed by registered foreign
+ * architectures. Empty until both architecture probes have succeeded. */
+const std::vector<std::string> &RegisteredArchitectures();
+/* Requery the selected dpkg and refresh APT's generated acquisition default.
+ * Explicit APT::Architectures policy is preserved. Call only after closing
+ * caches, under Database serialization, outside an active acquisition. Both
+ * probes must succeed before publishing; failure retains the last verified
+ * values and disables mutations. The return value reports query success,
+ * not overall MutationEnvironmentValid(). Success clears only the query
+ * failure, not any unrelated environment error. It may invalidate Architecture()'s
+ * c_str(), so callers must not retain that pointer across refreshes. */
+bool RefreshArchitectures();
 /* Paths resolved from the distro/bootstrap APT configuration.  Cydia never
  * replaces these with a private source context. */
 const std::string &SourceListPath();
@@ -72,6 +91,9 @@ const std::string &AptConfigOverride();
 const std::string &PrivilegedHelperPath();
 const std::string &DpkgAdminDirectory();
 const std::string &DpkgRootDirectory();
+/* Expected prefix inside archives, relative to dpkg's installation root.
+ * An administrator may declare Cydia::Package-Install-Prefix in apt.conf. */
+const std::string &PackageInstallPrefix();
 const std::string &DpkgChrootDirectory();
 const std::vector<std::string> &DpkgOptions();
 bool MutationEnvironmentValid();
@@ -83,6 +105,7 @@ const std::string &ListsDirectory();
 /* Dir::Etc::trusted is the legacy keyring file; trustedparts is a directory. */
 const std::string &TrustedKeyringDirectory();
 const std::string &TrustedKeyringPartsDirectory();
+/* Installation architecture policy: registered dpkg architectures and all. */
 bool IsArchitectureSupported(const std::string &architecture);
 std::string SourceArchitectureOption();
 

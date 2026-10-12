@@ -1,5 +1,6 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
+#include "Cydia/AptRuntime.hpp"
 #include "Cydia/Source.h"
 #include "Cydia/Profile.hpp"
 #include "CyteKit/Localize.h"
@@ -22,7 +23,9 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 @implementation Package (Metadata)
 
 - (NSArray *) downgrades {
+@synchronized (database_) {
     NSMutableArray *versions([NSMutableArray arrayWithCapacity:4]);
+    if ([database_ era] != era_ || !handle_.valid()) return versions;
 
     std::vector<CydiaAPT::PackageHandle> handles([database_ packageDowngrades:handle_]);
     for (std::vector<CydiaAPT::PackageHandle>::const_iterator handle(handles.begin()); handle != handles.end(); ++handle) {
@@ -33,26 +36,58 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     }
 
     return versions;
-}
+} }
 
 - (NSArray *) availableVersions {
+@synchronized (database_) {
     NSMutableArray *versions([NSMutableArray array]);
-    if ([database_ era] != era_) return versions;
+    if ([database_ era] != era_ || !handle_.valid()) return versions;
     for (const CydiaAPT::PackageHandle handle : [database_ packageVersions:handle_]) {
+        if (![database_ packageState:handle].architectureSupported) continue;
         Package *package([[Package alloc] initWithHandle:handle withZone:NULL inPool:NULL database:database_]);
         if (package != nil) [versions addObject:package];
     }
     return versions;
-}
+} }
 
-- (BOOL) protectedPackage { return [database_ era] == era_ && [database_ packageState:handle_].protectedPackage; }
-- (BOOL) canReinstall { return [database_ era] == era_ && [database_ packageState:handle_].installedVersionAvailable; }
-- (BOOL) hasSavedConfiguration { return [database_ era] == era_ && [database_ packageState:handle_].state == "ConfigFiles"; }
-- (BOOL) versionAvailable { return [database_ era] == era_ && [database_ packageState:handle_].versionAvailable; }
-- (BOOL) policyCandidate { return [database_ era] == era_ && [database_ packageState:handle_].policyCandidate; }
-- (BOOL) selectedVersionInstalled { return [database_ era] == era_ && [database_ packageState:handle_].installedVersion; }
-- (NSInteger) versionPriority { return [database_ era] == era_ ? [database_ packageState:handle_].versionPriority : 0; }
-- (NSInteger) versionComparison { return [database_ era] == era_ ? [database_ packageState:handle_].versionComparison : 0; }
+- (BOOL) protectedPackage {
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].protectedPackage;
+} }
+- (BOOL) canReinstall {
+@synchronized (database_) {
+    return [database_ era] == era_ &&
+    !installedArchitecture_.empty() && CydiaAPT::IsArchitectureSupported(installedArchitecture_.data()) &&
+    [database_ packageState:handle_].installedVersionAvailable;
+} }
+- (BOOL) hasSavedConfiguration {
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].state == "ConfigFiles";
+} }
+- (BOOL) versionAvailable {
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].versionAvailable;
+} }
+- (BOOL) architectureSupported {
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].architectureSupported;
+} }
+- (BOOL) policyCandidate {
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].policyCandidate;
+} }
+- (BOOL) selectedVersionInstalled {
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].installedVersion;
+} }
+- (NSInteger) versionPriority {
+@synchronized (database_) {
+    return [database_ era] == era_ ? [database_ packageState:handle_].versionPriority : 0;
+} }
+- (NSInteger) versionComparison {
+@synchronized (database_) {
+    return [database_ era] == era_ ? [database_ packageState:handle_].versionComparison : 0;
+} }
 
 - (NSString *) section {
     if (section$_ == nil) {
@@ -136,6 +171,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         return static_cast<NSString *>(parsed_->tagline_);
 
 @synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid())
+        return nil;
     CydiaAPT::PackageRecordData record([database_ packageRecord:handle_]);
     std::string value(record.shortDescription);
     if (value.empty())
@@ -189,6 +226,10 @@ static bool PackageIsLetterCharacter_(UniChar character) {
     return latest_;
 }
 
+- (NSString *) fullVersion {
+    return fullVersion_;
+}
+
 - (NSString *) installed {
     return installed_;
 }
@@ -198,13 +239,15 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (BOOL) upgradableAndEssential:(BOOL)essential {
+@synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid()) return NO;
     _profile(Package$upgradableAndEssential)
         CydiaAPT::PackageStateData state([database_ packageState:handle_]);
         if (!state.hasCurrent) {
             if (essential && essential_) {
                 const char *architecture(selectedArchitecture_);
                 return architecture != NULL && CydiaAPT::IsNativeOrArchitectureIndependent(
-                    architecture, common_arch == NULL ? std::string() : common_arch);
+                    architecture, [[registeredArchitectures_ firstObject] UTF8String] ?: "");
             } else {
                 return false;
             }
@@ -212,7 +255,7 @@ static bool PackageIsLetterCharacter_(UniChar character) {
             return state.upgradable;
         }
     _end
-}
+} }
 
 - (BOOL) essential {
     return essential_;
@@ -259,16 +302,19 @@ static bool PackageIsLetterCharacter_(UniChar character) {
 }
 
 - (BOOL) half {
-    return [database_ packageState:handle_].half;
-}
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].half;
+} }
 
 - (BOOL) halfConfigured {
-    return [database_ packageState:handle_].halfConfigured;
-}
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].halfConfigured;
+} }
 
 - (BOOL) halfInstalled {
-    return [database_ packageState:handle_].halfInstalled;
-}
+@synchronized (database_) {
+    return [database_ era] == era_ && [database_ packageState:handle_].halfInstalled;
+} }
 
 - (BOOL) hasMode {
 @synchronized (database_) {

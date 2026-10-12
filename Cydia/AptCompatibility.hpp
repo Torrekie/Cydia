@@ -32,6 +32,33 @@ struct PackageHandle {
     bool valid() const { return value != 0; }
 };
 
+/* User-facing selectors are not dependency expressions. In particular :all
+ * selects an actual Architecture: all version, and :native is a UI alias for
+ * the native version architecture. Neither adds binary dependency syntax. */
+enum class PackageSelectorKind { Default, Native, ExactArchitecture, Any };
+
+struct PackageSelector {
+    PackageSelectorKind kind = PackageSelectorKind::Default;
+    std::string baseName;
+    std::string architecture;
+    bool valid() const { return !baseName.empty(); }
+};
+
+PackageSelector ParsePackageSelector(const std::string &name);
+
+enum class PackageLookupStatus {
+    Found, InvalidSelector, NotFound, UnsupportedArchitecture,
+    NoEligibleVersion, Ambiguous,
+};
+
+struct PackageLookupResult {
+    PackageLookupStatus status = PackageLookupStatus::NotFound;
+    PackageSelector selector;
+    PackageHandle handle;
+    std::vector<PackageHandle> alternatives;
+    std::vector<std::string> availableArchitectures;
+};
+
 enum class MultiArchMode {
     None,
     Same,
@@ -142,12 +169,18 @@ enum class FetchDiagnosticKind {
     BadRepositorySignature,
     InvalidRepositorySignature,
     ArchiveTrustNeedsRefresh,
+    ArchiveLayoutMismatch,
+    ArchiveInvalid,
+    ArchiveIdentityMismatch,
+    ArchiveUnverified,
 };
 
 struct FetchFailureData {
     std::string uri;
     std::string error;
     std::string package;
+    std::string path;
+    std::string reason;
     FetchDiagnosticKind kind;
 
     FetchFailureData() : kind(FetchDiagnosticKind::General) {}
@@ -224,6 +257,7 @@ struct PackageStateData {
     bool installedVersionAvailable;
     bool policyCandidate;
     bool installedVersion;
+    bool architectureSupported = false;
     int versionPriority;
     int versionComparison;
 
@@ -232,6 +266,7 @@ struct PackageStateData {
 
 struct PackageSnapshot {
     PackageHandle handle;
+    std::vector<std::string> registeredArchitectures;
     PackageIdentity identity;
     PackageIdentity installedIdentity;
     PackageRecordData record;
@@ -253,6 +288,10 @@ struct RelationClauseData {
     std::string package;
     std::string comparison;
     std::string version;
+    /* APT's version-qualified, architecture-aware targets of this exact
+     * dependency, including virtual providers. Never resolve package again
+     * as a user selector when navigating a dependency. */
+    std::vector<PackageHandle> providers;
 };
 
 struct RelationData {
@@ -266,6 +305,7 @@ struct TransactionClauseData {
     std::string version;
     std::string reason;
     std::string installed;
+    std::vector<PackageHandle> providers;
 };
 
 struct TransactionReasonData {
@@ -279,7 +319,17 @@ struct TransactionIssueData {
     std::vector<TransactionReasonData> reasons;
 };
 
+/* Owning operation metadata remains valid after dpkg changes the status file
+ * or Database rebuilds its cache. The version is the planned install version
+ * or the actual version being removed, never a later policy candidate. */
+struct TransactionPackageData {
+    PackageIdentity identity;
+    std::string version;
+    std::string displayName;
+};
+
 struct TransactionData {
+    std::vector<std::string> registeredArchitectures;
     std::vector<std::string> installs;
     std::vector<std::string> reinstalls;
     std::vector<std::string> upgrades;
@@ -287,6 +337,7 @@ struct TransactionData {
     std::vector<std::string> removes;
     std::vector<std::string> purges;
     std::vector<TransactionIssueData> issues;
+    std::map<std::string, TransactionPackageData> packages;
     std::uint64_t downloading;
     std::uint64_t resuming;
     bool removesEssential;
@@ -294,6 +345,11 @@ struct TransactionData {
 
     TransactionData();
 };
+
+/* Match APT/dpkg progress identifiers to an operation snapshot. These aliases
+ * describe the package bucket; they are not user-selector lookup semantics. */
+const TransactionPackageData *FindTransactionPackage(const TransactionData &transaction,
+                                                     const std::string &identifier);
 
 std::string Fingerprint(const void *data, std::size_t size);
 std::string FingerprintFileDescriptor(int descriptor);

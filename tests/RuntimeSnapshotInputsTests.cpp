@@ -88,6 +88,24 @@ int main() {
     environment.evidence.push_back(config);
     auto state = Capture(environment, SnapshotScope::PackageState);
     auto trust = Capture(environment, SnapshotScope::RepositoryTrust);
+    const std::string architecturePath(environment.dpkgAdmin + "/arch");
+    assert(Find(state, architecturePath)->absent && Find(state, architecturePath)->adminAccess);
+    assert(!Find(state, architecturePath)->sharedState && !Find(trust, architecturePath));
+    // Adding, editing or deleting dpkg registration invalidates a reviewed
+    // package plan, without pretending that repository authentication changed.
+    const std::string withoutArchitecture(Frame(state)), architectureTrust(Frame(trust));
+    Write(architecturePath, "amd64\ni386\n");
+    const auto registered(Capture(environment, SnapshotScope::PackageState));
+    assert(Frame(registered) != withoutArchitecture);
+    assert(Find(registered, architecturePath)->bytes == "amd64\ni386\n");
+    assert(Frame(Capture(environment, SnapshotScope::RepositoryTrust)) == architectureTrust);
+    Write(architecturePath, "amd64\narm64\n");
+    const std::string changedArchitecture(Frame(Capture(environment, SnapshotScope::PackageState)));
+    assert(changedArchitecture != Frame(registered));
+    std::filesystem::remove(architecturePath);
+    assert(Frame(Capture(environment, SnapshotScope::PackageState)) != changedArchitecture);
+    assert(Find(Capture(environment, SnapshotScope::PackageState), architecturePath)->absent);
+    assert(Frame(Capture(environment, SnapshotScope::RepositoryTrust)) == architectureTrust);
     assert(Find(state, environment.dpkgAdmin + "/status")->sharedState && Find(state, environment.extendedStates)->sharedState);
     assert(Find(state, environment.preferences)->sharedState && Find(state, root + "/pins/plain")->sharedState);
     assert(!Find(state, environment.trusted)->sharedState && !Find(state, scopedA)->sharedState &&

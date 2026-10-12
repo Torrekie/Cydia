@@ -84,8 +84,8 @@ FetchResultData AptBackend::runFetcher(int pulseInterval) {
     return implementation_->runFetcher(pulseInterval);
 }
 
-PackageManagerResult AptBackend::runPackageManager(int statusFd) {
-    return implementation_->runPackageManager(statusFd);
+PackageManagerResult AptBackend::runPackageManager(int statusFd, FetchResultData *archiveValidation, bool *started) {
+    return implementation_->runPackageManager(statusFd, archiveValidation, started);
 }
 
 UpdateResultData AptBackend::updateLists(AcquireStatus &status, int pulseInterval) {
@@ -94,6 +94,10 @@ UpdateResultData AptBackend::updateLists(AcquireStatus &status, int pulseInterva
 
 std::vector<PackageHandle> AptBackend::packageHandles() {
     return implementation_->packageHandles();
+}
+
+PackageLookupResult AptBackend::lookupPackage(const std::string &name, const std::string &preferredArchitecture) {
+    return implementation_->lookupPackage(name, preferredArchitecture);
 }
 
 PackageHandle AptBackend::packageHandle(const std::string &name, const std::string &preferredArchitecture) {

@@ -27,6 +27,7 @@
 #include "Cydia/Database.h"
 #include "Cydia/NSString+Cydia.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/Section.h"
 #include "Cydia/Source.h"
 #include "CyteKit/extern.h"
@@ -73,7 +74,15 @@
 }
 
 - (NSString *) accessibilityLabel {
-    return name_;
+    return CydiaPackageNameWithArchitectureCaption(name_, architectureCaption_);
+}
+
++ (NSString *) architectureCaptionForPackage:(Package *)package {
+    NSString *mode([package mode]);
+    NSString *architecture(([mode isEqualToString:@"REMOVE"] || [mode isEqualToString:@"PURGE"]) ?
+        [package installedArchitecture] : [package architecture]);
+    return CydiaPackageArchitectureCaption(architecture,
+        [package registeredArchitectures]);
 }
 
 - (void) setPackage:(Package *)package asSummary:(bool)summary {
@@ -81,6 +90,7 @@
 
     icon_ = nil;
     name_ = nil;
+    architectureCaption_ = nil;
     description_ = nil;
     source_ = nil;
     badge_ = nil;
@@ -99,6 +109,7 @@
 
         if (NSString *name = [package name])
             name_ = [NSString stringWithString:name];
+        architectureCaption_ = [[self class] architectureCaptionForPackage:package];
 
         if (NSString *description = [package shortDescription])
             description_ = [NSString stringWithString:description];
@@ -190,6 +201,11 @@
     if (!highlighted)
         CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(36, 8) forWidth:(width - (placard_ == nil ? 68 : 94)) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
+    if ([architectureCaption_ length] != 0) {
+        CydiaSetColor(CydiaColorRoleSecondaryLabel, self.traitCollection);
+        [architectureCaption_ drawAtPoint:CGPointMake(36, 29) forWidth:(width - 68)
+            withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
+    }
 
     if (placard_ != nil)
         [placard_ drawAtPoint:CGPointMake(width - 52, 11)];
@@ -233,11 +249,18 @@
     if (!highlighted)
         CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
-    [source_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95) withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
+    CGFloat architectureOffset([architectureCaption_ length] == 0 ? 0 : 17);
+    if (architectureOffset != 0) {
+        CydiaSetColor(CydiaColorRoleSecondaryLabel, self.traitCollection);
+        [architectureCaption_ drawAtPoint:CGPointMake(58, 29) forWidth:(width - 95)
+            withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
+        CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
+    }
+    [source_ drawAtPoint:CGPointMake(58, 29 + architectureOffset) forWidth:(width - 95) withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     if (!highlighted)
         CydiaSetColor(commercial_ ? CydiaColorRoleCommercialSecondaryLabel : CydiaColorRoleSecondaryLabel, self.traitCollection);
-    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:(width - 46) withFont:Font14_ lineBreakMode:NSLineBreakByTruncatingTail];
+    [description_ drawAtPoint:CGPointMake(12, 46 + architectureOffset) forWidth:(width - 46) withFont:Font14_ lineBreakMode:NSLineBreakByTruncatingTail];
 
     if (placard_ != nil)
         [placard_ drawAtPoint:CGPointMake(width - 52, 9)];

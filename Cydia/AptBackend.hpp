@@ -57,9 +57,11 @@ class AptBackend {
     bool prepareArchives();
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
-    PackageManagerResult runPackageManager(int statusFd);
+    PackageManagerResult runPackageManager(int statusFd, FetchResultData *archiveValidation = NULL,
+                                          bool *started = NULL);
     UpdateResultData updateLists(AcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
+    PackageLookupResult lookupPackage(const std::string &name, const std::string &preferredArchitecture);
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
     std::vector<PackageHandle> versionHandles(PackageHandle handle);

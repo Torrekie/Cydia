@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ is on hold. Turn off Ignore Upgrades in package settings before changing it.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ is marked Essential and cannot be removed or purged in Cydia.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ is marked Protected and cannot be removed or purged in Cydia.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Native · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Additional · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Architecture-independent · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Unsupported · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "This package architecture is not enabled in the selected package manager.";
+"PACKAGE_VERSION_UNAVAILABLE" = "The selected package version is no longer available. Reload package information and review the changes.";
+
+"PACKAGE_LOOKUP_TITLE" = "Package Unavailable";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Choose Architecture";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Package Available";
+"PACKAGE_LOOKUP_INVALID" = "The package name or architecture in this link is invalid.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "This package is not in the current package information. Check your sources and refresh them.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "No eligible version is available for this package and architecture.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "This link matches more than one package architecture. Choose the package you want to view.";
+"PACKAGE_LOOKUP_REQUESTED" = "Requested Package";
+"PACKAGE_LOOKUP_REGISTERED" = "Configured Architectures";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Available Packages";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Architecture information is currently unavailable.";

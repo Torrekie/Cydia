@@ -109,3 +109,7 @@
 
 "KEY_IMPORT_SOURCE_CHANGED" = "De pakketbron is gewijzigd. Selecteer deze opnieuw en controleer de sleutel.";
 "KEY_IMPORT_PARTIAL" = "De sleutel is opgeslagen, maar de configuratie van de bijbehorende pakketbron kon niet worden bijgewerkt. Controleer de instellingen van de pakketbron voordat je het opnieuw probeert.";
+"ARCHIVE_LAYOUT_MISMATCH" = "De bestandsindeling van %@ is niet compatibel met de geselecteerde pakketbeheerder. De installatie is geblokkeerd.";
+"ARCHIVE_INVALID" = "Het archief voor %@ is ongeldig of onvolledig en kon niet veilig worden geïnspecteerd.";
+"ARCHIVE_IDENTITY_MISMATCH" = "Het archief voor %@ komt niet overeen met de geselecteerde pakketnaam, versie of architectuur. De installatie is geblokkeerd.";
+"ARCHIVE_UNVERIFIED" = "Cydia kon de bestandsindeling van %@ niet volledig verifiëren. Controleer de compatibiliteit van het pakket voordat u doorgaat.";

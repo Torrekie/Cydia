@@ -28,6 +28,7 @@
 #include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/ProgressEventCell.h"
 #include "Cydia/RebootCompat.h"
 #include "Cydia/TransactionOutcomePolicy.hpp"
@@ -55,22 +56,19 @@ static UITraitCollection *CydiaProgressTerminalTraits(void) {
         UIUserInterfaceStyleDark];
 }
 
-/* Package::name is a CYString view over the temporary Package pool.  A
- * resolver call commonly creates a short-lived Package, so returning that
- * no-copy view would leave the progress model holding bytes after the pool is
- * destroyed.  Materialize the display name while the Package is still alive.
- */
-static NSString *CydiaOwnedPackageDisplayName(Package *package) {
-    if (package == nil)
-        return nil;
-
-    NSString *name([package name]);
-    if (name == nil)
-        return nil;
-
-    NSMutableString *owned([[NSMutableString alloc] initWithCapacity:[name length]]);
-    [owned appendString:name];
-    return [owned copy];
+/* Transaction metadata owns the exact selected/removed version, so progress
+ * after a cache reload cannot substitute a newer candidate's architecture. */
+static NSString *CydiaOwnedPackageDisplayName(const CydiaAPT::TransactionData &transaction,
+                                               NSString *identifier) {
+    const char *name([identifier UTF8String]);
+    if (name == NULL) return nil;
+    const CydiaAPT::TransactionPackageData *package(CydiaAPT::FindTransactionPackage(transaction, name));
+    if (package == NULL) return nil;
+    NSString *displayName([NSString stringWithUTF8String:package->displayName.c_str()]);
+    NSString *caption(CydiaPackageArchitectureCaption(
+        [NSString stringWithUTF8String:package->identity.versionArchitecture.c_str()],
+        CydiaPackageRegisteredArchitectureNames(transaction.registeredArchitectures)));
+    return [CydiaPackageNameWithArchitectureCaption(displayName, caption) copy];
 }
 
 static std::string FileFingerprint(const char *path) {
@@ -153,13 +151,10 @@ static std::string FileFingerprint(const char *path) {
 }
 
 - (id) initWithDatabase:(Database *)database delegate:(id)delegate {
-    __weak Database *weakDatabase(database);
+    const CydiaAPT::TransactionData transaction([database transactionData]);
     CydiaProgressViewModel *model([[CydiaProgressViewModel alloc]
         initWithPackageNameResolver:^NSString *(NSString *identifier) {
-            if (![weakDatabase hasPackages])
-                return nil;
-            Package *package([weakDatabase packageWithName:identifier]);
-            return CydiaOwnedPackageDisplayName(package);
+            return CydiaOwnedPackageDisplayName(transaction, identifier);
         }]);
     return [self initWithProgressModel:model database:database delegate:delegate];
 }

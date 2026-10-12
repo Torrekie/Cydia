@@ -107,3 +107,7 @@
 "KEY_IMPORT_NO_FILE" = "尚未选择密钥文件。";
 "KEY_IMPORT_SOURCE_CHANGED" = "软件源已更改。请重新选择并检查密钥。";
 "KEY_IMPORT_PARTIAL" = "密钥已保存，但无法更新软件源配置。重试前请检查软件源设置。";
+"ARCHIVE_LAYOUT_MISMATCH" = "%@ 的文件布局与所选的包管理器不兼容。已阻止安装。";
+"ARCHIVE_INVALID" = "%@ 的归档文件无效或不完整，无法安全检查。";
+"ARCHIVE_IDENTITY_MISMATCH" = "%@ 的归档文件与所选软件包的名称、版本或架构不匹配。已阻止安装。";
+"ARCHIVE_UNVERIFIED" = "Cydia 无法完全验证 %@ 的文件布局。请在继续前确认软件包的兼容性。";

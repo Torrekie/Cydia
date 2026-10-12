@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ jest wstrzymany. Wyłącz „Ignoruj uaktualnienia” w ustawieniach pakietu przed jego zmianą.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ jest oznaczony jako niezbędny (Essential). Cydia nie usunie go ani jego konfiguracji.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ jest oznaczony jako chroniony (Protected). Cydia nie usunie go ani jego konfiguracji.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Natywna · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Dodatkowa · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Niezależna od architektury · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Nieobsługiwana · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Architektura tego pakietu nie jest włączona w wybranym menedżerze pakietów.";
+"PACKAGE_VERSION_UNAVAILABLE" = "Wybrana wersja pakietu nie jest już dostępna. Wczytaj ponownie informacje o pakiecie i sprawdź zmiany.";
+
+"PACKAGE_LOOKUP_TITLE" = "Pakiet niedostępny";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Wybierz architekturę";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Pakiet dostępny";
+"PACKAGE_LOOKUP_INVALID" = "Nazwa pakietu lub architektura w tym odnośniku jest nieprawidłowa.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Tego pakietu nie ma w aktualnych informacjach o pakietach. Sprawdź i odśwież źródła.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Brak odpowiedniej wersji dla tego pakietu i tej architektury.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Ten odnośnik pasuje do kilku architektur pakietu. Wybierz pakiet, który chcesz wyświetlić.";
+"PACKAGE_LOOKUP_REQUESTED" = "Żądany pakiet";
+"PACKAGE_LOOKUP_REGISTERED" = "Skonfigurowane architektury";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Dostępne pakiety";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Informacje o architekturach są obecnie niedostępne.";

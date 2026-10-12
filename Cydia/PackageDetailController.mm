@@ -138,6 +138,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 @interface CydiaPackageDetailHeaderView : UIView
 @property(nonatomic, strong, readonly) UIImageView *iconView;
 @property(nonatomic, strong, readonly) UILabel *nameLabel;
+@property(nonatomic, strong, readonly) UILabel *architectureLabel;
 @property(nonatomic, strong, readonly) UILabel *versionLabel;
 @property(nonatomic, strong, readonly) UILabel *sizeLabel;
 - (instancetype)initWithViewModel:(CydiaPackageDetailViewModel *)viewModel
@@ -170,6 +171,14 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         _nameLabel.text = [viewModel displayName];
         _nameLabel.accessibilityIdentifier = @"cydia.package.header.name";
 
+        _architectureLabel = [[UILabel alloc] init];
+        _architectureLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
+        _architectureLabel.adjustsFontForContentSizeCategory = YES;
+        _architectureLabel.numberOfLines = 0;
+        _architectureLabel.text = [viewModel architectureCaption];
+        _architectureLabel.hidden = [_architectureLabel.text length] == 0;
+        _architectureLabel.accessibilityIdentifier = @"cydia.package.header.architecture";
+
         _versionLabel = [[UILabel alloc] init];
         _versionLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
         _versionLabel.adjustsFontForContentSizeCategory = YES;
@@ -191,7 +200,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         metadata.spacing = 8.0;
 
         UIStackView *text([[UIStackView alloc]
-            initWithArrangedSubviews:@[_nameLabel, metadata]]);
+            initWithArrangedSubviews:@[_nameLabel, _architectureLabel, metadata]]);
         text.translatesAutoresizingMaskIntoConstraints = NO;
         text.axis = UILayoutConstraintAxisVertical;
         text.alignment = UIStackViewAlignmentFill;
@@ -231,6 +240,9 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     CGFloat sizeHeight(std::ceil([_sizeLabel
         sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)].height));
     CGFloat textHeight(nameHeight + 7.0 + std::max(versionHeight, sizeHeight));
+    if (!_architectureLabel.hidden)
+        textHeight += 7.0 + std::ceil([_architectureLabel
+            sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)].height);
     return std::ceil(margins.top + std::max<CGFloat>(64.0, textHeight) + margins.bottom);
 }
 
@@ -242,6 +254,8 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                                        traitCollection:traits];
     _nameLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
                                        traitCollection:traits];
+    _architectureLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                                               traitCollection:traits];
     _versionLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleCommercialSecondaryLabel
                                           traitCollection:traits];
     _sizeLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleCommercialSecondaryLabel
@@ -1028,7 +1042,7 @@ dispatch:
         alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet]);
     for (CydiaPackageDetailVersionChoice *choice in [action versions]) {
         NSMutableArray *details([NSMutableArray array]);
-        if ([choice architecture] != nil) [details addObject:[choice architecture]];
+        if ([choice architectureCaption] != nil) [details addObject:[choice architectureCaption]];
         NSString *priority([[NSBundle mainBundle] localizedStringForKey:@"PACKAGE_PRIORITY"
             value:@"PACKAGE_PRIORITY" table:@"Actions"]);
         [details addObject:[NSString stringWithFormat:priority, (long)[choice priority]]];

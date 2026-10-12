@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@已被保持。更改前请先在软件包设置中关闭“忽略更新”。";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@被标记为必需（Essential）。Cydia 不会移除或彻底清除此软件包。";
 "PACKAGE_PROTECTED_ISSUE" = "%@被标记为受保护（Protected）。Cydia 不会移除或彻底清除此软件包。";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "原生 · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "额外 · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "与架构无关 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "不支持 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "所选软件包管理器未启用此软件包的架构。";
+"PACKAGE_VERSION_UNAVAILABLE" = "所选软件包版本已不可用。请重新载入软件包信息并检查更改。";
+
+"PACKAGE_LOOKUP_TITLE" = "软件包不可用";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "选择架构";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "软件包可用";
+"PACKAGE_LOOKUP_INVALID" = "此链接中的软件包名称或架构无效。";
+"PACKAGE_LOOKUP_NOT_FOUND" = "当前软件包信息中没有此软件包。请检查并刷新软件源。";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "此软件包和架构没有符合条件的可用版本。";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "此链接匹配多个软件包架构。请选择要查看的软件包。";
+"PACKAGE_LOOKUP_REQUESTED" = "请求的软件包";
+"PACKAGE_LOOKUP_REGISTERED" = "已配置的架构";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "可用软件包";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "目前无法获取架构信息。";

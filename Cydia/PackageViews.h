@@ -35,6 +35,7 @@
 @interface PackageCell : CyteTableViewCell <CyteTableViewCellDelegate> {
     _H<UIImage> icon_;
     _H<NSString> name_;
+    _H<NSString> architectureCaption_;
     _H<NSString> description_;
     bool commercial_;
     _H<NSString> source_;
@@ -46,6 +47,7 @@
 }
 
 - (PackageCell *) init;
++ (NSString *) architectureCaptionForPackage:(Package *)package;
 - (void) setPackage:(Package *)package asSummary:(bool)summary;
 - (void) drawContentRect:(CGRect)rect;
 

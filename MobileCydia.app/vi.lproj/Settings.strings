@@ -107,3 +107,7 @@
 "KEY_IMPORT_NO_FILE" = "Chưa chọn tệp khóa.";
 "KEY_IMPORT_SOURCE_CHANGED" = "Nguồn đã thay đổi. Hãy chọn lại và kiểm tra khóa.";
 "KEY_IMPORT_PARTIAL" = "Khóa đã được lưu nhưng không cập nhật được cấu hình nguồn. Hãy kiểm tra cài đặt nguồn trước khi thử lại.";
+"ARCHIVE_LAYOUT_MISMATCH" = "Cấu trúc tệp của %@ không tương thích với trình quản lý gói đã chọn. Quá trình cài đặt đã bị chặn.";
+"ARCHIVE_INVALID" = "Tệp lưu trữ của %@ không hợp lệ hoặc chưa đầy đủ nên không thể kiểm tra an toàn.";
+"ARCHIVE_IDENTITY_MISMATCH" = "Tệp lưu trữ của %@ không khớp với tên, phiên bản hoặc kiến trúc gói đã chọn. Quá trình cài đặt đã bị chặn.";
+"ARCHIVE_UNVERIFIED" = "Cydia không thể xác minh đầy đủ cấu trúc tệp của %@. Hãy xem xét tính tương thích của gói trước khi tiếp tục.";

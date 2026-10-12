@@ -29,6 +29,7 @@
 #include "Cydia/ConfirmationViewModel.h"
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageArchitecturePresentation.h"
 #include "CyteKit/Localize.h"
 
 #include <dispatch/dispatch.h>
@@ -87,20 +88,19 @@ NSString *ClauseDescription(CydiaConfirmationClause *clause) {
     return description;
 }
 
-/* Package::name is backed by the Package-owned CYPool.  Confirmation keeps
- * package display names after its resolver's temporary Package is released,
- * so copy the characters before that pool can be destroyed. */
-NSString *OwnedPackageDisplayName(Package *package) {
-    if (package == nil)
-        return nil;
-
-    NSString *name([package name]);
-    if (name == nil)
-        return nil;
-
-    NSMutableString *owned([[NSMutableString alloc] initWithCapacity:[name length]]);
-    [owned appendString:name];
-    return [owned copy];
+/* Transaction metadata owns the exact selected/removed version, so progress
+ * after a cache reload cannot substitute a newer candidate's architecture. */
+static NSString *OwnedPackageDisplayName(const CydiaAPT::TransactionData &transaction,
+                                               NSString *identifier) {
+    const char *name([identifier UTF8String]);
+    if (name == NULL) return nil;
+    const CydiaAPT::TransactionPackageData *package(CydiaAPT::FindTransactionPackage(transaction, name));
+    if (package == NULL) return nil;
+    NSString *displayName([NSString stringWithUTF8String:package->displayName.c_str()]);
+    NSString *caption(CydiaPackageArchitectureCaption(
+        [NSString stringWithUTF8String:package->identity.versionArchitecture.c_str()],
+        CydiaPackageRegisteredArchitectureNames(transaction.registeredArchitectures)));
+    return [CydiaPackageNameWithArchitectureCaption(displayName, caption) copy];
 }
 
 NSString *VisibleClauseDescription(CydiaConfirmationClause *clause) {
@@ -325,8 +325,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     if ((self = [super init]) != nil) {
         const CydiaAPT::TransactionData transaction([database transactionData]);
         CydiaConfirmationPackageNameResolver resolver = ^NSString *(NSString *identity) {
-            Package *package([database packageWithName:identity]);
-            return OwnedPackageDisplayName(package);
+            return OwnedPackageDisplayName(transaction, identity);
         };
         CydiaConfirmationViewModel *viewModel([[CydiaConfirmationViewModel alloc]
             initWithTransactionData:transaction
@@ -706,7 +705,9 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
                                               VisibleClauseDescription(clause));
             NSString *kind([[section issue] kind]);
             NSString *messageKey([@{@"held":@"PACKAGE_HELD_ISSUE", @"protected_removal":@"PACKAGE_PROTECTED_ISSUE",
-                @"essential_removal":@"PACKAGE_ESSENTIAL_ISSUE"} objectForKey:kind]);
+                @"essential_removal":@"PACKAGE_ESSENTIAL_ISSUE",
+                @"unsupported_architecture":@"PACKAGE_ARCHITECTURE_UNSUPPORTED",
+                @"unavailable_version":@"PACKAGE_VERSION_UNAVAILABLE"} objectForKey:kind]);
             if (messageKey != nil) visible = [NSString stringWithFormat:[[NSBundle mainBundle]
                 localizedStringForKey:messageKey value:messageKey table:@"Actions"],
                 [[[section issue] package] displayName] ?: @""];

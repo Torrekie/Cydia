@@ -109,3 +109,7 @@
 
 "KEY_IMPORT_SOURCE_CHANGED" = "La fuente ha cambiado. Selecciónala de nuevo y revisa la clave.";
 "KEY_IMPORT_PARTIAL" = "La clave se ha guardado, pero no se pudo actualizar la configuración de la fuente. Revisa los ajustes de la fuente antes de intentarlo de nuevo.";
+"ARCHIVE_LAYOUT_MISMATCH" = "La estructura de archivos de %@ es incompatible con el gestor de paquetes seleccionado. Se ha bloqueado la instalación.";
+"ARCHIVE_INVALID" = "El archivo del paquete %@ no es válido o está incompleto y no se ha podido inspeccionar de forma segura.";
+"ARCHIVE_IDENTITY_MISMATCH" = "El archivo del paquete %@ no coincide con el nombre, la versión o la arquitectura del paquete seleccionado. Se ha bloqueado la instalación.";
+"ARCHIVE_UNVERIFIED" = "Cydia no ha podido verificar por completo la estructura de archivos de %@. Revisa la compatibilidad del paquete antes de continuar.";

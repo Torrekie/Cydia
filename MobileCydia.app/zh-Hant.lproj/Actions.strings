@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@已被保留。變更前請先在套件設定中關閉「忽略升級項目」。";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@被標記為必要（Essential）。Cydia 不會移除或徹底清除此套件。";
 "PACKAGE_PROTECTED_ISSUE" = "%@被標記為受保護（Protected）。Cydia 不會移除或徹底清除此套件。";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "原生 · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "額外 · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "與架構無關 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "不支援 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "所選套件管理員尚未啟用此套件的架構。";
+"PACKAGE_VERSION_UNAVAILABLE" = "所選套件版本已無法取得。請重新載入套件資訊並檢查變更。";
+
+"PACKAGE_LOOKUP_TITLE" = "套件無法使用";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "選擇架構";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "套件可用";
+"PACKAGE_LOOKUP_INVALID" = "此連結中的套件名稱或架構無效。";
+"PACKAGE_LOOKUP_NOT_FOUND" = "目前的套件資訊中沒有此套件。請檢查並重新整理來源。";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "此套件與架構沒有符合條件的可用版本。";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "此連結符合多個套件架構。請選擇要檢視的套件。";
+"PACKAGE_LOOKUP_REQUESTED" = "請求的套件";
+"PACKAGE_LOOKUP_REGISTERED" = "已設定的架構";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "可用套件";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "目前無法取得架構資訊。";

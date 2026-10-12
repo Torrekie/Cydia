@@ -4,6 +4,7 @@
  */
 
 #import "Cydia/PackageDetailViewModel.h"
+#import "Cydia/PackageArchitecturePresentation.h"
 
 #include <ctime>
 
@@ -59,6 +60,8 @@
 - (nullable NSArray *)applications;
 - (nullable NSArray *)downgrades;
 @optional
+- (nullable NSString *)fullVersion;
+- (BOOL) architectureSupported;
 - (BOOL) protectedPackage;
 - (BOOL) canReinstall;
 - (BOOL) hasSavedConfiguration;
@@ -345,12 +348,14 @@ NSDictionary *SourceSnapshot(id source) {
 
 
 @interface CydiaPackageDetailVersionChoice ()
-- (nullable instancetype)initWithPackage:(id<CydiaPackageDetailPackageSource>)package;
+- (nullable instancetype)initWithPackage:(id<CydiaPackageDetailPackageSource>)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures;
 @end
 
 @implementation CydiaPackageDetailVersionChoice
 
-- (nullable instancetype)initWithPackage:(id<CydiaPackageDetailPackageSource>)package {
+- (nullable instancetype)initWithPackage:(id<CydiaPackageDetailPackageSource>)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures {
     if (![package respondsToSelector:@selector(id)] ||
         ![package respondsToSelector:@selector(latest)])
         return nil;
@@ -361,7 +366,11 @@ NSDictionary *SourceSnapshot(id source) {
     if ((self = [super init]) != nil) {
         _identity = identity;
         _version = version;
+        _fullVersion = [([package respondsToSelector:@selector(fullVersion)] ?
+            StringOrNil([package fullVersion]) : version) copy];
+        _version = _fullVersion;
         _architecture = [package respondsToSelector:@selector(architecture)] ? StringOrNil([package architecture]) : nil;
+        _architectureCaption = [CydiaPackageArchitectureCaption(_architecture, registeredArchitectures) copy];
         _priority = [package respondsToSelector:@selector(versionPriority)] ? [package versionPriority] : 0;
         _candidate = [package respondsToSelector:@selector(policyCandidate)] && [package policyCandidate];
         _installed = [package respondsToSelector:@selector(selectedVersionInstalled)] && [package selectedVersionInstalled];
@@ -397,6 +406,18 @@ NSDictionary *SourceSnapshot(id source) {
 @implementation CydiaPackageDetailViewModel
 
 - (nullable instancetype)initWithPackage:(Package *)package {
+    return [self initWithPackage:package registeredArchitectures:@[]];
+}
+
+- (nullable instancetype)initWithPackage:(Package *)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures {
+    return [self initWithPackage:package registeredArchitectures:registeredArchitectures
+        versionArchitecture:nil];
+}
+
+- (nullable instancetype)initWithPackage:(Package *)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
+                    versionArchitecture:(nullable NSString *)versionArchitecture {
     if (package == nil)
         return nil;
     id<CydiaPackageDetailPackageSource> sourcePackage((id)package);
@@ -416,6 +437,8 @@ NSDictionary *SourceSnapshot(id source) {
         _dpkgIdentity = [dpkgIdentity copy];
         _displayName = [(StringOrNil([sourcePackage name]) ?: identity) copy];
         _latestVersion = StringOrNil([sourcePackage latest]);
+        _fullVersion = [([sourcePackage respondsToSelector:@selector(fullVersion)] ?
+            StringOrNil([sourcePackage fullVersion]) : _latestVersion) copy];
         _installedVersion = StringOrNil([sourcePackage installed]);
         NSString *md5sum([sourcePackage respondsToSelector:@selector(md5sum)] ?
             StringOrNil([sourcePackage md5sum]) : nil);
@@ -426,6 +449,7 @@ NSDictionary *SourceSnapshot(id source) {
         time_t upgraded([sourcePackage respondsToSelector:@selector(upgraded)] ?
             [sourcePackage upgraded] : 0);
         _architecture = StringOrNil([sourcePackage architecture]);
+        _architectureCaption = [CydiaPackageArchitectureCaption(_architecture, registeredArchitectures) copy];
         _multiArch = StringOrNil([sourcePackage multiArch]);
         _rawSection = StringOrNil([sourcePackage section]);
         NSString *simpleSection(StringOrNil([sourcePackage simpleSection]));
@@ -574,10 +598,15 @@ NSDictionary *SourceSnapshot(id source) {
             [sourcePackage availableVersions] : [sourcePackage downgrades]);
         if ([legacyDowngrades isKindOfClass:[NSArray class]]) {
             for (id value in legacyDowngrades) {
+                id<CydiaPackageDetailPackageSource> versionPackage(value);
+                if ([versionPackage respondsToSelector:@selector(architectureSupported)] &&
+                    ![versionPackage architectureSupported]) continue;
                 CydiaPackageDetailVersionChoice *choice(
                     [[CydiaPackageDetailVersionChoice alloc]
-                        initWithPackage:(id<CydiaPackageDetailPackageSource>)value]);
-                if (choice != nil)
+                        initWithPackage:(id<CydiaPackageDetailPackageSource>)value
+                        registeredArchitectures:registeredArchitectures]);
+                if (choice != nil && (versionArchitecture == nil ||
+                    [[choice architecture] isEqualToString:versionArchitecture]))
                     [versions addObject:choice];
             }
         }
@@ -591,7 +620,9 @@ NSDictionary *SourceSnapshot(id source) {
             [sourcePackage versionAvailable] : _source != nil);
         const NSInteger comparison([sourcePackage respondsToSelector:@selector(versionComparison)] ?
             [sourcePackage versionComparison] : (_upgradable ? 1 : 0));
-        if (!_held && available) {
+        const BOOL supported(![sourcePackage respondsToSelector:@selector(architectureSupported)] ||
+            [sourcePackage architectureSupported]);
+        if (!_held && available && supported) {
             if (_upgradable)
                 [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                     initWithKind:CydiaPackageDetailModifyActionKindUpgrade key:@"UPGRADE" versions:@[]]];

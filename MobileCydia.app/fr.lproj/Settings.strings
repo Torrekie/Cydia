@@ -109,3 +109,7 @@
 
 "KEY_IMPORT_SOURCE_CHANGED" = "La source a changé. Sélectionnez-la de nouveau et examinez la clé.";
 "KEY_IMPORT_PARTIAL" = "La clé a été enregistrée, mais la configuration de sa source n’a pas pu être mise à jour. Vérifiez les réglages de la source avant de réessayer.";
+"ARCHIVE_LAYOUT_MISMATCH" = "La disposition des fichiers de %@ est incompatible avec le gestionnaire de paquets sélectionné. L’installation a été bloquée.";
+"ARCHIVE_INVALID" = "L’archive de %@ est invalide ou incomplète et n’a pas pu être inspectée de manière sûre.";
+"ARCHIVE_IDENTITY_MISMATCH" = "L’archive de %@ ne correspond pas au nom, à la version ou à l’architecture du paquet sélectionné. L’installation a été bloquée.";
+"ARCHIVE_UNVERIFIED" = "Cydia n’a pas pu vérifier entièrement la disposition des fichiers de %@. Vérifiez la compatibilité du paquet avant de continuer.";

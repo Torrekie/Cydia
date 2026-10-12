@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ está retido. Desative «Ignorar Atualizações» nas definições do pacote antes de o alterar.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ está marcado como essencial (Essential). O Cydia não o irá remover nem purgar.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ está marcado como protegido (Protected). O Cydia não o irá remover nem purgar.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Nativa · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Adicional · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Independente da arquitetura · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Não suportada · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "A arquitetura deste pacote não está ativada no gestor de pacotes selecionado.";
+"PACKAGE_VERSION_UNAVAILABLE" = "A versão selecionada do pacote já não está disponível. Recarregue as informações do pacote e reveja as alterações.";
+
+"PACKAGE_LOOKUP_TITLE" = "Pacote indisponível";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Escolher arquitetura";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Pacote disponível";
+"PACKAGE_LOOKUP_INVALID" = "O nome do pacote ou a arquitetura nesta ligação é inválido.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Este pacote não consta das informações atuais. Verifique as suas origens e atualize-as.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Não existe uma versão elegível disponível para este pacote e esta arquitetura.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Esta ligação corresponde a mais de uma arquitetura de pacote. Escolha o pacote que pretende ver.";
+"PACKAGE_LOOKUP_REQUESTED" = "Pacote pedido";
+"PACKAGE_LOOKUP_REGISTERED" = "Arquiteturas configuradas";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Pacotes disponíveis";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "As informações de arquitetura estão atualmente indisponíveis.";

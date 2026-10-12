@@ -121,6 +121,43 @@ the supported external tools (`dpkg`, `dpkg-query`, `dpkg-deb`, `uicache`,
 `apt-key`, `gpgv` and `gpg`) through a protected Cydia-owned configuration file.
 Override targets must pass executable and ownership checks.
 
+The dpkg registration list and APT acquisition list have separate roles.
+Cache reloads requery dpkg's native and foreign architectures without changing
+either registration or source architecture options. A failed query disables
+package changes; the previous verified acquisition state remains available
+for browsing. Changes to dpkg's architecture file invalidate a reviewed queue.
+Downloading an architecture's indexes does not authorize installing it.
+
+An unqualified package link selects only native or `all` versions. A concrete
+qualifier selects that actual version architecture, even when APT stores
+native and `all` versions in the same bucket. The user-facing `:any` selector
+requires an unambiguous eligible variant or an explicit choice; dependency
+`:any`, `Multi-Arch`, versioned `Provides` and alternatives are evaluated by
+APT in their original dependency context. Version actions match the full
+Debian version, including its epoch, and architecture. Multiarch views show
+native, additional and architecture-independent captions; ordinary singlearch
+views retain their historical appearance. Unsupported installed packages
+remain inspectable and removable subject to existing package protections.
+
+Package layout is checked independently of architecture and repository
+membership. The installed Cydia layout supplies the default payload prefix.
+Distributions using a different prefix can declare
+`Cydia::Package-Install-Prefix` as an absolute path in their protected APT
+configuration. If the configured dpkg installation root already contains that
+prefix, archive paths are checked relative to that root. Custom executable or
+administration-directory locations do not imply a different payload layout.
+
+Every downloaded or cached archive is associated with its exact planned APT
+version. Before dpkg starts, Cydia verifies its Package, Version and Architecture
+fields and inspects bounded archive paths and links. Demonstrated layout
+mismatches, invalid archives, incomplete inspection and inconsistent identities
+stop the transaction, including when the affected archive is a dependency.
+Valid prefixed `all` packages, structural directories and shared user files
+are supported. Maintainer scripts and uncertain shared destinations remain
+explicitly unverified and produce a warning after complete inspection; this
+check does not establish script safety. No package conversion, architecture
+rewriting or custom publisher field is required.
+
 Some package distributions place a protected dpkg database below root-owned
 directories that are writable by an administrator group. During installation,
 the root maintscript initializes Cydia's private database-access policy from

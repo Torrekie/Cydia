@@ -74,6 +74,7 @@ DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
+PACKAGE_ARCHIVE_POLICY_TEST := $(BUILD_DIR)/tests/PackageArchivePolicyTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
 DPKG_VERSION_POLICY_TEST := $(BUILD_DIR)/tests/DpkgVersionPolicyTests
 UI_ROUTE_CONTEXT_TEST := $(BUILD_DIR)/tests/UIRouteContextTests
@@ -99,6 +100,16 @@ ERROR_VIEW_MODEL_TEST := $(BUILD_DIR)/tests/ErrorViewModelTests
 YIELD_TO_SELECTOR_TEST := $(BUILD_DIR)/tests/YieldToSelectorTests
 .PHONY: verify-repository-hygiene
 verify: verify-repository-hygiene
+verify: verify-package-archive-policy
+.PHONY: verify-package-archive-policy
+$(PACKAGE_ARCHIVE_POLICY_TEST): tests/PackageArchivePolicyTests.cpp \
+		Cydia/PackageArchivePolicy.cpp Cydia/PackageArchivePolicy.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/PackageArchivePolicyTests.cpp Cydia/PackageArchivePolicy.cpp -o $@
+
+verify-package-archive-policy: $(PACKAGE_ARCHIVE_POLICY_TEST)
+	@$<
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 
@@ -865,7 +876,8 @@ verify-ui-restoration-state: $(UI_RESTORATION_STATE_TEST)
 	@$<
 
 $(PACKAGE_DETAIL_VIEW_MODEL_TEST): tests/PackageDetailViewModelTests.mm \
-		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm
+		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm \
+		Cydia/PackageArchitecturePresentation.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
 		tests/PackageDetailViewModelTests.mm Cydia/PackageDetailViewModel.mm \
@@ -969,7 +981,7 @@ verify-package-detail-controller-simulator:
 
 $(CONFIRMATION_VIEW_MODEL_TEST): tests/ConfirmationViewModelTests.mm \
 		Cydia/ConfirmationViewModel.h Cydia/ConfirmationViewModel.mm \
-		Cydia/AptCompatibility.hpp
+		Cydia/AptCompatibility.hpp Cydia/PackageArchitecturePresentation.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks \
 		-Wall -Wextra -I. tests/ConfirmationViewModelTests.mm \
@@ -1153,7 +1165,8 @@ endif
 ifeq ($(HOST_OS),Darwin)
 $(PROGRESS_VIEW_MODEL_TEST): tests/ProgressViewModelTests.mm \
 		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm \
-		Cydia/ProgressData.h Cydia/ProgressData.mm Cydia/ProgressEvent.h
+		Cydia/ProgressData.h Cydia/ProgressData.mm Cydia/ProgressEvent.h \
+		Cydia/PackageArchitecturePresentation.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra \
 		-Wno-unused-parameter -I. \

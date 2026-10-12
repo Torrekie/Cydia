@@ -28,6 +28,11 @@ namespace CydiaAPT {
 namespace {
 std::string gArchitecture;
 std::vector<std::string> gArchitectures;
+std::vector<std::string> gRegisteredArchitectures;
+bool gExplicitAcquisitionArchitectures(false);
+bool gArchitectureQueryFailed(false);
+const std::string gArchitectureQueryErrorCode("architecture_query_failed");
+const std::string gArchitectureQueryError("Unable to query the selected dpkg's native and foreign architectures.");
 std::string gSourceListPath;
 std::string gSourcePartsDirectory;
 std::string gManagedSourceListPath;
@@ -38,6 +43,7 @@ std::string gAptConfigOverride;
 std::string gPrivilegedHelperPath;
 std::string gDpkgAdminDirectory;
 std::string gDpkgRootDirectory;
+std::string gPackageInstallPrefix;
 std::string gDpkgChrootDirectory;
 std::vector<std::string> gDpkgOptions;
 bool gMutationEnvironmentValid(false);
@@ -72,6 +78,7 @@ void ApplyBootstrapConfiguration(const InitializationOptions &options) {
         _config->Set("Dir::State::extended_states", options.bootstrapExtendedStatesPath);
     _config->Set("Dir::Log", options.logDirectory);
     _config->Set("Dir::Bin::dpkg", options.dpkgPath);
+    _config->Set("Cydia::Package-Install-Prefix", options.packageInstallPrefix.empty() ? "/" : options.packageInstallPrefix);
     /* Embedded APT's compile-time /usr/bin default belongs to a rooted
      * build. Seed sibling tools from the selected native dpkg location;
      * apt.conf and protected executable overrides still take precedence. */
@@ -118,6 +125,9 @@ void ResolveCompressionTools(const InitializationOptions &options) {
 void ResetRuntimeState() {
     gArchitecture.clear();
     gArchitectures.clear();
+    gRegisteredArchitectures.clear();
+    gExplicitAcquisitionArchitectures = false;
+    gArchitectureQueryFailed = false;
     gSourceListPath.clear();
     gSourcePartsDirectory.clear();
     gManagedSourceListPath.clear();
@@ -128,6 +138,7 @@ void ResetRuntimeState() {
     gPrivilegedHelperPath.clear();
     gDpkgAdminDirectory.clear();
     gDpkgRootDirectory.clear();
+    gPackageInstallPrefix.clear();
     gDpkgChrootDirectory.clear();
     gDpkgOptions.clear();
     gMutationEnvironmentValid = false;
@@ -404,6 +415,18 @@ void ResolveDpkgEnvironment(const InitializationOptions &options) {
     }
     if (!declaredAdmin.empty() && !PathsReferToSameDirectory(declaredAdmin, gDpkgAdminDirectory))
         InvalidateMutations("contradictory_dpkg_admin", "APT and the configured dpkg options select different package databases.");
+
+    gPackageInstallPrefix = NormalizeAbsolutePath(_config->Find("Cydia::Package-Install-Prefix"));
+    if (gPackageInstallPrefix.empty())
+        InvalidateMutations("invalid_package_prefix", "The selected package layout prefix must be an absolute path.");
+    /* An explicitly relocated dpkg root can already include the selected
+     * prefix. Compare lexical namespace boundaries, never architecture names
+     * or unrelated custom admin/tool paths. A different installation root
+     * hosts the same layout within that root. */
+    if (gDpkgRootDirectory != "/" && IsPathUnderRootDirectory(gPackageInstallPrefix, gDpkgRootDirectory)) {
+        gPackageInstallPrefix.erase(0, gDpkgRootDirectory.size());
+        if (gPackageInstallPrefix.empty()) gPackageInstallPrefix = "/";
+    }
 }
 
 void ApplyTrustedExecutableOverrides(const InitializationOptions &options) {
@@ -454,8 +477,7 @@ bool QueryDpkgArchitectures(std::vector<std::string> &discovered) {
     std::string excess;
     if (!(nativeInput >> architecture) || (nativeInput >> excess) || !IsArchitectureName(architecture))
         return false;
-    _config->Set("APT::Architecture", architecture);
-    discovered.push_back(architecture);
+    std::vector<std::string> queried(1, architecture);
 
     arguments.back() = "--print-foreign-architectures";
     std::string foreign;
@@ -465,8 +487,36 @@ bool QueryDpkgArchitectures(std::vector<std::string> &discovered) {
     while (foreignInput >> architecture) {
         if (!IsArchitectureName(architecture))
             return false;
-        discovered.push_back(architecture);
+        if (std::find(queried.begin(), queried.end(), architecture) == queried.end())
+            queried.push_back(architecture);
     }
+    discovered.swap(queried);
+    return true;
+}
+
+bool RefreshRegisteredArchitectures() {
+    std::vector<std::string> discovered;
+    if (!QueryDpkgArchitectures(discovered)) {
+        // Query failures are recoverable without clearing errors from the
+        // selected paths, dpkg options, or protected executable settings.
+        gArchitectureQueryFailed = true;
+        return false;
+    }
+
+    // Neither dpkg output nor the APT defaults are published until both
+    // probes have succeeded. An explicit acquisition list is independent of
+    // the architectures dpkg currently permits installing.
+    gRegisteredArchitectures.swap(discovered);
+    gArchitecture = gRegisteredArchitectures.front();
+    _config->Set("APT::Architecture", gArchitecture);
+    if (!gExplicitAcquisitionArchitectures) {
+        _config->Clear("APT::Architectures");
+        for (std::size_t index(0); index != gRegisteredArchitectures.size(); ++index) {
+            const std::string key("APT::Architectures::" + std::to_string(index));
+            _config->Set(key.c_str(), gRegisteredArchitectures[index]);
+        }
+    }
+    gArchitectureQueryFailed = false;
     return true;
 }
 
@@ -570,19 +620,8 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     /* Query the real dpkg without invoking the privileged wrapper. An
      * explicit APT::Architectures list remains the bootstrap's acquisition
      * policy; only an absent list is populated from dpkg's foreign state. */
-    if (!options.nativeDpkgPath.empty()) {
-        std::vector<std::string> discovered;
-        if (!QueryDpkgArchitectures(discovered))
-            InvalidateMutations("architecture_query_failed", "Unable to query the selected dpkg's native and foreign architectures.");
-        if (_config->FindVector("APT::Architectures").empty()) {
-            if (discovered.empty())
-                discovered.push_back(_config->Find("APT::Architecture"));
-            for (std::size_t index(0); index != discovered.size(); ++index) {
-                const std::string key("APT::Architectures::" + std::to_string(index));
-                _config->Set(key.c_str(), discovered[index]);
-            }
-        }
-    }
+    gExplicitAcquisitionArchitectures = !_config->FindVector("APT::Architectures").empty();
+    RefreshRegisteredArchitectures();
     /* Only the privileged execution endpoint is Cydia-owned. The real
      * configured executable and all options remain in the descriptor. */
     _config->Set("Dir::Bin::dpkg", options.dpkgPath);
@@ -671,6 +710,21 @@ const std::vector<std::string> &Architectures() {
     return gArchitectures;
 }
 
+const std::vector<std::string> &RegisteredArchitectures() {
+    return gRegisteredArchitectures;
+}
+
+bool RefreshArchitectures() {
+    if (_config == NULL || _system == NULL) {
+        gArchitectureQueryFailed = true;
+        return false;
+    }
+    if (!RefreshRegisteredArchitectures())
+        return false;
+    MaterializeArchitectures(gArchitecture);
+    return true;
+}
+
 const std::string &SourceListPath() {
     return gSourceListPath;
 }
@@ -690,11 +744,16 @@ const std::string &AptConfigOverride() { return gAptConfigOverride; }
 const std::string &PrivilegedHelperPath() { return gPrivilegedHelperPath; }
 const std::string &DpkgAdminDirectory() { return gDpkgAdminDirectory; }
 const std::string &DpkgRootDirectory() { return gDpkgRootDirectory; }
+const std::string &PackageInstallPrefix() { return gPackageInstallPrefix; }
 const std::string &DpkgChrootDirectory() { return gDpkgChrootDirectory; }
 const std::vector<std::string> &DpkgOptions() { return gDpkgOptions; }
-bool MutationEnvironmentValid() { return gMutationEnvironmentValid; }
-const std::string &RuntimeError() { return gRuntimeError; }
-const std::string &RuntimeErrorCode() { return gRuntimeErrorCode; }
+bool MutationEnvironmentValid() { return gMutationEnvironmentValid && !gArchitectureQueryFailed; }
+const std::string &RuntimeError() {
+    return gRuntimeError.empty() && gArchitectureQueryFailed ? gArchitectureQueryError : gRuntimeError;
+}
+const std::string &RuntimeErrorCode() {
+    return gRuntimeErrorCode.empty() && gArchitectureQueryFailed ? gArchitectureQueryErrorCode : gRuntimeErrorCode;
+}
 const std::string &ExtendedStatesPath() { return gExtendedStatesPath; }
 const std::string &MethodsDirectory() { return gMethodsDirectory; }
 const std::string &ListsDirectory() { return gListsDirectory; }
@@ -705,8 +764,8 @@ bool IsArchitectureSupported(const std::string &architecture) {
     if (architecture == "all")
         return true;
     return !architecture.empty() &&
-        std::find(gArchitectures.begin(), gArchitectures.end(), architecture) !=
-            gArchitectures.end();
+        std::find(gRegisteredArchitectures.begin(), gRegisteredArchitectures.end(), architecture) !=
+            gRegisteredArchitectures.end();
 }
 
 std::string SourceArchitectureOption() {

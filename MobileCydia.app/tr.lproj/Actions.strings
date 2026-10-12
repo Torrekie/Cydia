@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ beklemeye alınmış. Değiştirmeden önce paket ayarlarında “Güncellemeleri Yoksay” seçeneğini kapatın.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ temel (Essential) olarak işaretlenmiş. Cydia bu paketi kaldırmaz veya yapılandırmasıyla birlikte silmez.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ korumalı (Protected) olarak işaretlenmiş. Cydia bu paketi kaldırmaz veya yapılandırmasıyla birlikte silmez.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Yerel · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Ek · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Mimariden bağımsız · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Desteklenmiyor · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Bu paketin mimarisi seçili paket yöneticisinde etkin değil.";
+"PACKAGE_VERSION_UNAVAILABLE" = "Seçilen paket sürümü artık kullanılamıyor. Paket bilgilerini yeniden yükleyip değişiklikleri inceleyin.";
+
+"PACKAGE_LOOKUP_TITLE" = "Paket kullanılamıyor";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Mimari seçin";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Paket kullanılabilir";
+"PACKAGE_LOOKUP_INVALID" = "Bu bağlantıdaki paket adı veya mimari geçersiz.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Bu paket mevcut paket bilgilerinde bulunmuyor. Kaynaklarınızı kontrol edip yenileyin.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Bu paket ve mimari için uygun bir sürüm yok.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Bu bağlantı birden fazla paket mimarisiyle eşleşiyor. Görüntülemek istediğiniz paketi seçin.";
+"PACKAGE_LOOKUP_REQUESTED" = "İstenen paket";
+"PACKAGE_LOOKUP_REGISTERED" = "Yapılandırılmış mimariler";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Kullanılabilir paketler";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Mimari bilgileri şu anda kullanılamıyor.";

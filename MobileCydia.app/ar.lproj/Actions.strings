@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ معلّقة. أوقف «تجاهل الترقيات» في إعدادات الحزمة قبل تغييرها.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ مصنّفة أساسية (Essential). لن يزيلها Cydia أو يحذف ملفات إعدادها.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ مصنّفة محمية (Protected). لن يزيلها Cydia أو يحذف ملفات إعدادها.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "أصلي · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "إضافي · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "مستقل عن البنية · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "غير مدعوم · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "بنية هذه الحزمة غير مفعّلة في مدير الحزم المحدد.";
+"PACKAGE_VERSION_UNAVAILABLE" = "لم يعد إصدار الحزمة المحدد متاحًا. أعد تحميل معلومات الحزمة وراجع التغييرات.";
+
+"PACKAGE_LOOKUP_TITLE" = "الحزمة غير متاحة";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "اختيار البنية";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "الحزمة متاحة";
+"PACKAGE_LOOKUP_INVALID" = "اسم الحزمة أو البنية في هذا الرابط غير صالح.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "هذه الحزمة غير موجودة في معلومات الحزم الحالية. تحقق من مصادرك وحدّثها.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "لا يتوفر إصدار مناسب لهذه الحزمة وهذه البنية.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "يطابق هذا الرابط أكثر من بنية للحزمة. اختر الحزمة التي تريد عرضها.";
+"PACKAGE_LOOKUP_REQUESTED" = "الحزمة المطلوبة";
+"PACKAGE_LOOKUP_REGISTERED" = "البنى المهيأة";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "الحزم المتاحة";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "معلومات البنية غير متاحة حاليًا.";

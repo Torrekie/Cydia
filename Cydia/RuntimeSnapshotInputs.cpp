@@ -68,6 +68,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
     };
     if (scope == SnapshotScope::PackageState &&
         (!add(environment.dpkgAdmin + "/status", false, false, true) ||
+         !add(environment.dpkgAdmin + "/arch", false, true, false, false, true) ||
          !add(environment.dpkgAdmin + "/updates", true, true, false, false, true) ||
          !add(environment.extendedStates, false, true, true) ||
          !add(environment.preferences, false, true, true) ||

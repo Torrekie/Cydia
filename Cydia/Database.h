@@ -91,6 +91,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (bool) hasPackages;
 
 - (FILE *) input;
+- (CydiaAPT::PackageLookupResult) lookupPackage:(NSString *)name;
 - (Package *) packageWithName:(NSString *)name;
 - (CydiaAPT::PackageSnapshot) packageSnapshot:(CydiaAPT::PackageHandle)handle;
 - (CydiaAPT::PackageRecordData) packageRecord:(CydiaAPT::PackageHandle)handle;
@@ -106,12 +107,13 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (bool) hasPendingPackageChanges;
 - (void) clearSelections;
 - (bool) prepareDistUpgrade;
-- (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle;
-- (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle;
-- (bool) reinstallPackageHandle:(CydiaAPT::PackageHandle)handle;
-- (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle;
-- (bool) purgePackageHandle:(CydiaAPT::PackageHandle)handle;
-- (bool) setPackageHandle:(CydiaAPT::PackageHandle)handle held:(bool)held;
+// Acquire the operation lock before the database monitor; reject handles from an old cache.
+- (bool) clearPackageHandle:(CydiaAPT::PackageHandle)handle expectedEra:(unsigned)expectedEra;
+- (bool) installPackageHandle:(CydiaAPT::PackageHandle)handle expectedEra:(unsigned)expectedEra;
+- (bool) reinstallPackageHandle:(CydiaAPT::PackageHandle)handle expectedEra:(unsigned)expectedEra;
+- (bool) removePackageHandle:(CydiaAPT::PackageHandle)handle expectedEra:(unsigned)expectedEra;
+- (bool) purgePackageHandle:(CydiaAPT::PackageHandle)handle expectedEra:(unsigned)expectedEra;
+- (bool) setPackageHandle:(CydiaAPT::PackageHandle)handle held:(bool)held expectedEra:(unsigned)expectedEra;
 
 - (NSArray *) packages;
 - (NSArray *) sources;

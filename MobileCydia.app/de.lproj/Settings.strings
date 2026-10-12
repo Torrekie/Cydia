@@ -109,3 +109,7 @@
 
 "KEY_IMPORT_SOURCE_CHANGED" = "Die Paketquelle hat sich geändert. Wähle sie erneut aus und prüfe den Schlüssel.";
 "KEY_IMPORT_PARTIAL" = "Der Schlüssel wurde gespeichert, aber die Paketquellenkonfiguration konnte nicht aktualisiert werden. Prüfe die Quelleneinstellungen, bevor du es erneut versuchst.";
+"ARCHIVE_LAYOUT_MISMATCH" = "Die Dateistruktur von %@ ist mit der ausgewählten Paketverwaltung nicht kompatibel. Die Installation wurde verhindert.";
+"ARCHIVE_INVALID" = "Das Archiv für %@ ist ungültig oder unvollständig und konnte nicht sicher geprüft werden.";
+"ARCHIVE_IDENTITY_MISMATCH" = "Das Archiv für %@ stimmt nicht mit dem ausgewählten Paketnamen, der Version oder der Architektur überein. Die Installation wurde verhindert.";
+"ARCHIVE_UNVERIFIED" = "Cydia konnte die Dateistruktur von %@ nicht vollständig überprüfen. Prüfen Sie die Paketkompatibilität, bevor Sie fortfahren.";

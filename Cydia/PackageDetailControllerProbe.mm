@@ -10,6 +10,8 @@
 #include "Cydia/PackageDetailController.h"
 #include "Cydia/PackageControllers.h"
 #include "Cydia/PackageDepictionView.h"
+#include "Cydia/PackageUnavailableController.h"
+#include "Cydia/PackageUnavailableProbe.h"
 #include "Cydia/UIRouteContext.h"
 #include "Cydia/UIColor+Cydia.h"
 #include "CyteKit/Localize.h"
@@ -23,6 +25,7 @@
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section;
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath;
+- (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action;
 @end
 
 @interface CydiaPackageProbeAddress : NSObject
@@ -75,6 +78,7 @@
 @property(nonatomic, copy) NSString *latestValue;
 @property(nonatomic, copy) NSString *installedValue;
 @property(nonatomic, copy) NSString *architectureValue;
+@property(nonatomic, copy) NSArray<NSString *> *registeredArchitecturesValue;
 @property(nonatomic, copy) NSString *multiArchValue;
 @property(nonatomic, copy) NSString *rawSectionValue;
 @property(nonatomic, copy) NSString *sectionValue;
@@ -113,8 +117,12 @@
 - (NSString *)dpkgId { return _dpkgIdentityValue; }
 - (NSString *)name { return _nameValue; }
 - (NSString *)latest { return _latestValue; }
+- (NSString *)fullVersion { return _latestValue; }
+- (BOOL)architectureSupported { return ![_architectureValue isEqualToString:@"unsupported"]; }
+- (BOOL)canReinstall { return _sourceValue != nil && [self architectureSupported]; }
 - (NSString *)installed { return _installedValue; }
 - (NSString *)architecture { return _architectureValue; }
+- (NSArray<NSString *> *)registeredArchitectures { return _registeredArchitecturesValue ?: @[]; }
 - (NSString *)multiArch { return _multiArchValue; }
 - (NSString *)section { return _rawSectionValue; }
 - (NSString *)simpleSection { return _simpleSectionValue; }
@@ -141,6 +149,7 @@
 - (CydiaPackageProbeSource *)source { return _sourceValue; }
 - (NSArray *)applications { return _applicationsValue; }
 - (NSArray *)downgrades { return _downgradesValue; }
+- (NSArray *)availableVersions { return _downgradesValue ?: @[]; }
 - (NSString *)getField:(NSString *)name { return [_fieldsValue objectForKey:name]; }
 - (NSString *)getRecord { return _recordValue; }
 - (NSArray *)tags { return _tagsValue; }
@@ -305,6 +314,7 @@ static CydiaPackageProbePackage *CydiaPackageProbeFullPackage(NSString *phase) {
     CydiaPackageProbePackage *downgrade([[CydiaPackageProbePackage alloc] init]);
     downgrade.identityValue = @"runtime:iphoneos-arm64";
     downgrade.latestValue = @"2:0.9";
+    downgrade.architectureValue = package.architectureValue;
     package.downgradesValue = @[downgrade];
     package.iconValue = CydiaPackageProbeIcon();
     return package;
@@ -410,6 +420,7 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
     UINavigationController *navigation_;
     CydiaPackageDetailProbeDelegate *delegate_;
     CydiaPackageDetailProbeDatabase *database_;
+    CydiaPackageUnavailableProbe *unavailableProbe_;
     NSString *phase_;
     NSString *controllerToken_;
     NSString *modelToken_;
@@ -472,8 +483,27 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
     depictionResourceRejectedSource_ = @"";
     depictionResourceProbeError_ = @"";
     depictionFacadeText_ = @"";
-    id package([phase isEqualToString:@"sparse"] ?
+    CydiaPackageProbePackage *package([phase isEqualToString:@"sparse"] ?
         CydiaPackageProbeSparsePackage() : CydiaPackageProbeFullPackage(phase));
+    const BOOL architecturePhase([phase hasPrefix:@"arch-"]);
+    if (architecturePhase) {
+        CydiaPackageProbePackage *fixture(package);
+        fixture.architectureValue = [phase isEqualToString:@"arch-foreign"] ? @"iphoneos-arm" :
+            ([phase isEqualToString:@"arch-all"] || [phase isEqualToString:@"arch-single-all"]) ? @"all" :
+            [phase isEqualToString:@"arch-unsupported"] ? @"unsupported" : @"iphoneos-arm64";
+        fixture.identityValue = [@"runtime:" stringByAppendingString:fixture.architectureValue];
+        fixture.aptIdentityValue = fixture.identityValue;
+        fixture.dpkgIdentityValue = fixture.identityValue;
+        fixture.nameValue = @"Runtime Package";
+        fixture.registeredArchitecturesValue = [phase hasPrefix:@"arch-single"] ||
+            [phase isEqualToString:@"arch-unsupported"] ? @[@"iphoneos-arm64"] :
+            @[@"iphoneos-arm64", @"iphoneos-arm"];
+        fixture.heldValue = NO;
+        fixture.modeValue = nil;
+        CydiaPackageProbePackage *version([fixture.downgradesValue firstObject]);
+        version.identityValue = fixture.identityValue;
+        version.architectureValue = fixture.architectureValue;
+    }
     delegate_ = [[CydiaPackageDetailProbeDelegate alloc] init];
     database_ = [[CydiaPackageDetailProbeDatabase alloc] init];
     database_.package = package;
@@ -481,6 +511,7 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
         initWithDatabase:(Database *)database_
         forPackage:[package id]
         withReferrer:@"cydia://package/probe-origin"];
+    unavailableProbe_ = nil;
     [controller_ setDelegate:delegate_];
     viewModel_ = [controller_ viewModel];
     controllerToken_ = [[NSUUID UUID] UUIDString];
@@ -587,6 +618,22 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
 }
 
 - (void)probeTick {
+    for (NSString *phase in @[@"arch-native", @"arch-foreign", @"arch-all",
+            @"arch-single", @"arch-single-all", @"arch-unsupported"])
+        if ([self consumeMarker:[@"cydia-package-detail-probe-" stringByAppendingString:phase]])
+            [self installPhase:phase];
+    if ([self consumeMarker:@"cydia-package-detail-probe-versions"])
+        for (CydiaPackageDetailModifyAction *action in [viewModel_ modifyActions])
+            if (action.kind == CydiaPackageDetailModifyActionKindVersions) {
+                [controller_ selectModifyAction:action];
+                settleTicks_ = 4;
+                break;
+            }
+    if ([self consumeMarker:@"cydia-package-detail-probe-unavailable"]) {
+        unavailableProbe_ = [[CydiaPackageUnavailableProbe alloc] init];
+        [navigation_ pushViewController:unavailableProbe_.controller animated:NO];
+        settleTicks_ = 3;
+    }
     if ([self consumeMarker:@"cydia-package-detail-probe-top"]) {
         UITableView *table([controller_ valueForKey:@"tableView"]);
         [table setContentOffset:CGPointMake(0.0, -table.adjustedContentInset.top)
@@ -671,6 +718,7 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
     UILabel *headerName([controller_ valueForKeyPath:@"packageHeaderView.nameLabel"]);
     UILabel *headerVersion([controller_ valueForKeyPath:@"packageHeaderView.versionLabel"]);
     UILabel *headerSize([controller_ valueForKeyPath:@"packageHeaderView.sizeLabel"]);
+    UILabel *headerArchitecture([controller_ valueForKeyPath:@"packageHeaderView.architectureLabel"]);
     NSMutableArray<NSDictionary *> *accessibilityElements([NSMutableArray arrayWithArray:@[
         CydiaPackageProbeAccessibilityElement(@"cydia.package.header.icon",
             [viewModel_ displayName], nil, UIAccessibilityTraitImage),
@@ -687,6 +735,12 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
         @"cydia.package.header.version",
         @"cydia.package.header.size",
     ]]);
+    if (!headerArchitecture.hidden) {
+        [accessibilityOrder insertObject:@"cydia.package.header.architecture" atIndex:2];
+        [accessibilityElements insertObject:CydiaPackageProbeAccessibilityElement(
+            @"cydia.package.header.architecture", headerArchitecture.text, nil,
+            UIAccessibilityTraitStaticText) atIndex:2];
+    }
     BOOL rowsFit(YES);
     BOOL rowsMeetTouchTarget(YES);
     BOOL rowIconsFit(YES);
@@ -763,7 +817,9 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
         navigation_.view.bounds, depictionFrame));
     UIImageView *headerIcon([controller_ valueForKeyPath:@"packageHeaderView.iconView"]);
     BOOL headerLabelsFit(YES);
-    for (UILabel *label in @[headerName, headerVersion, headerSize]) {
+    NSMutableArray *headerLabels([NSMutableArray arrayWithArray:@[headerName, headerVersion, headerSize]]);
+    if (!headerArchitecture.hidden) [headerLabels addObject:headerArchitecture];
+    for (UILabel *label in headerLabels) {
         CGRect labelFrame([label convertRect:label.bounds toView:header]);
         CGSize required([label sizeThatFits:CGSizeMake(
             std::max<CGFloat>(1.0, CGRectGetWidth(label.bounds)), CGFLOAT_MAX)]);
@@ -813,6 +869,10 @@ static NSDictionary *CydiaPackageProbeAccessibilityElement(
         @"navigationURL": [[controller_ navigationURL] absoluteString] ?: @"",
         @"displayName": [viewModel_ displayName],
         @"architecture": [viewModel_ architecture] ?: @"",
+        @"architectureCaption": headerArchitecture.text ?: @"",
+        @"architectureCaptionVisible": @(!headerArchitecture.hidden),
+        @"unavailableProbe": unavailableProbe_.results ?: @{},
+        @"visibleControllerClass": NSStringFromClass([navigation_.topViewController class]),
         @"multiArch": [viewModel_ multiArch] ?: @"",
         @"primaryModifyKey": [viewModel_ primaryModifyTitleLocalizationKey] ?: @"",
         @"localizedQueueTitle": UCLocalize("PACKAGE_QUEUE"),

@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ נמצאת בהקפאה. יש לכבות את „התעלם משדרוגים” בהגדרות החבילה לפני שינויה.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ מסומנת כחיונית (Essential). Cydia לא יסיר אותה או את ההגדרות שלה.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ מסומנת כמוגנת (Protected). Cydia לא יסיר אותה או את ההגדרות שלה.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "מקורית · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "נוספת · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "בלתי תלוי בארכיטקטורה · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "לא נתמכת · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "הארכיטקטורה של חבילה זו אינה מופעלת במנהל החבילות שנבחר.";
+"PACKAGE_VERSION_UNAVAILABLE" = "גרסת החבילה שנבחרה אינה זמינה עוד. יש לטעון מחדש את פרטי החבילה ולבדוק את השינויים.";
+
+"PACKAGE_LOOKUP_TITLE" = "החבילה אינה זמינה";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "בחירת ארכיטקטורה";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "החבילה זמינה";
+"PACKAGE_LOOKUP_INVALID" = "שם החבילה או הארכיטקטורה בקישור זה אינם תקינים.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "חבילה זו אינה מופיעה במידע הנוכחי על החבילות. יש לבדוק את המקורות ולרענן אותם.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "אין גרסה מתאימה זמינה לחבילה ולארכיטקטורה זו.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "קישור זה מתאים ליותר מארכיטקטורת חבילה אחת. יש לבחור את החבילה שברצונך להציג.";
+"PACKAGE_LOOKUP_REQUESTED" = "החבילה המבוקשת";
+"PACKAGE_LOOKUP_REGISTERED" = "ארכיטקטורות מוגדרות";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "חבילות זמינות";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "מידע על ארכיטקטורות אינו זמין כרגע.";

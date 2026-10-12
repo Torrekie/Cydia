@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ถูกระงับการเปลี่ยนแปลง โปรดปิด “ละเว้นการอัพเกรด” ในการตั้งค่าแพ็กเกจก่อนเปลี่ยนแปลง";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ถูกระบุว่าจำเป็น (Essential) Cydia จะไม่ลบแพ็กเกจนี้หรือไฟล์การตั้งค่า";
 "PACKAGE_PROTECTED_ISSUE" = "%@ถูกระบุว่าได้รับการป้องกัน (Protected) Cydia จะไม่ลบแพ็กเกจนี้หรือไฟล์การตั้งค่า";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "หลัก · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "เพิ่มเติม · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "ไม่ขึ้นกับสถาปัตยกรรม · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "ไม่รองรับ · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "สถาปัตยกรรมของแพ็คเกจนี้ยังไม่ได้เปิดใช้งานในตัวจัดการแพ็คเกจที่เลือก";
+"PACKAGE_VERSION_UNAVAILABLE" = "เวอร์ชันแพ็คเกจที่เลือกไม่พร้อมใช้งานอีกต่อไป โปรดโหลดข้อมูลแพ็คเกจใหม่และตรวจสอบการเปลี่ยนแปลง";
+
+"PACKAGE_LOOKUP_TITLE" = "แพ็คเกจไม่พร้อมใช้งาน";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "เลือกสถาปัตยกรรม";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "แพ็คเกจพร้อมใช้งาน";
+"PACKAGE_LOOKUP_INVALID" = "ชื่อแพ็คเกจหรือสถาปัตยกรรมในลิงก์นี้ไม่ถูกต้อง";
+"PACKAGE_LOOKUP_NOT_FOUND" = "ไม่พบแพ็คเกจนี้ในข้อมูลแพ็คเกจปัจจุบัน โปรดตรวจสอบและรีเฟรชแหล่งของคุณ";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "ไม่มีเวอร์ชันที่เหมาะสมสำหรับแพ็คเกจและสถาปัตยกรรมนี้";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "ลิงก์นี้ตรงกับสถาปัตยกรรมของแพ็คเกจมากกว่าหนึ่งแบบ โปรดเลือกแพ็คเกจที่ต้องการดู";
+"PACKAGE_LOOKUP_REQUESTED" = "แพ็คเกจที่ร้องขอ";
+"PACKAGE_LOOKUP_REGISTERED" = "สถาปัตยกรรมที่ตั้งค่าไว้";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "แพ็คเกจที่พร้อมใช้งาน";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "ข้อมูลสถาปัตยกรรมไม่พร้อมใช้งานในขณะนี้";

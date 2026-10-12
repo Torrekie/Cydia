@@ -6,13 +6,14 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 : "${APT_INTEGRATION_TESTS_BUILD_DIR:?native APT build directory is required}"
 ACTION_DRIVER="$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-actions"
 python3 "$PROJECT_DIR/tests/BuildAptBackendPolicyTest.py"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-archive-reader"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-mmap-backing"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-runtime-state"
 TESTDIR="$PROJECT_DIR/apt64/test/integration"
 TESTDIRECTORY="$TESTDIR"
 . "$TESTDIR/framework"
 setupenvironment
-configarchitecture 'amd64' 'i386'
+configarchitecture 'amd64' 'i386' 'armhf'
 configcompression '.'
 insertinstalledpackage 'target' 'amd64' '2'
 insertinstalledpackage 'held-target' 'amd64' '2' '' 'optional' 'hold ok installed'
@@ -29,6 +30,72 @@ insertpackage 'unstable' 'essential-target' 'amd64' '2' 'Essential: yes'
 insertpackage 'unstable' 'protected-target' 'amd64' '2' 'Protected: yes'
 insertpackage 'unstable' 'missing-reinstall' 'amd64' '3'
 insertpackage 'unstable' 'virtual-consumer' 'amd64' '1' 'Depends: unprovided-virtual'
+insertpackage 'unstable' 'foreign-only' 'i386' '1'
+insertpackage 'unstable' 'mixed-layout' 'all' '1'
+insertpackage 'unstable' 'mixed-layout' 'amd64' '2'
+insertpackage 'unstable' 'portable' 'all' '1'
+insertpackage 'unstable' 'native-only' 'amd64' '1'
+insertinstalledpackage 'transition' 'all' '1' 'Name: Portable transition'
+insertpackage 'unstable' 'transition' 'all' '1' 'Name: Portable transition'
+insertpackage 'unstable' 'transition' 'amd64' '2' 'Name: Native transition'
+insertinstalledpackage 'portable-config' 'all' '1' 'Name: Old portable configuration' 'optional' 'deinstall ok config-files'
+insertpackage 'unstable' 'portable-config' 'amd64' '2' 'Name: New native configuration'
+insertpackage 'unstable' 'coinstall' 'amd64' '1' 'Multi-Arch: same'
+insertpackage 'unstable' 'coinstall' 'i386' '1' 'Multi-Arch: same'
+insertpackage 'unstable' 'allowed-runtime' 'i386' '1' 'Multi-Arch: allowed'
+insertpackage 'unstable' 'foreign-runtime' 'i386' '1' 'Multi-Arch: foreign'
+insertpackage 'unstable' 'qualified-consumer' 'amd64' '1' 'Depends: allowed-runtime:any, coinstall:i386, foreign-runtime, portable'
+insertpackage 'unstable' 'unqualified-runtime-consumer' 'amd64' '1' 'Depends: native-only:any'
+insertpackage 'unstable' 'unsupported' 'armhf' '1'
+insertpackage 'unstable' 'unsupported-consumer' 'amd64' '1' 'Depends: unsupported:armhf'
+insertinstalledpackage 'unsupported-installed' 'armhf' '1'
+insertpackage 'unstable' 'unsupported-installed' 'armhf' '1'
+insertpackage 'unstable' 'unsupported-installed' 'armhf' '2'
+insertinstalledpackage 'negative-installed' 'amd64' '1'
+insertinstalledpackage 'negative-foreign' 'armhf' '1'
+insertpackage 'unstable' 'negative-installed' 'amd64' '1'
+insertpackage 'unstable' 'negative-foreign' 'armhf' '1'
+insertpackage 'unstable' 'negative-only' 'amd64' '1'
+insertpackage 'unstable' 'negative-consumer' 'amd64' '1' 'Depends: negative-only'
+# Real archives exercise the complete transaction gate, including a dependency
+# whose Architecture: all label does not make a rootless payload rooted-safe.
+mkdir -p archive-build/archive-parent/DEBIAN archive-build/archive-parent/usr/share/archive-parent
+mkdir -p archive-build/archive-layout-dependency/DEBIAN archive-build/archive-layout-dependency/var/jb/usr/share/archive-layout-dependency
+mkdir -p aptarchive/pool/archive-policy
+cat >archive-build/archive-parent/DEBIAN/control <<'EOF'
+Package: archive-parent
+Version: 1
+Architecture: all
+Maintainer: Fixture <fixture@example.invalid>
+Depends: archive-layout-dependency
+Description: Archive preflight parent
+EOF
+cat >archive-build/archive-parent/DEBIAN/postinst <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod 755 archive-build/archive-parent/DEBIAN/postinst
+cat >archive-build/archive-layout-dependency/DEBIAN/control <<'EOF'
+Package: archive-layout-dependency
+Version: 1
+Architecture: all
+Maintainer: Fixture <fixture@example.invalid>
+Description: Deliberately incompatible archive layout
+EOF
+printf 'parent fixture\n' >archive-build/archive-parent/usr/share/archive-parent/payload
+printf 'rootless fixture\n' >archive-build/archive-layout-dependency/var/jb/usr/share/archive-layout-dependency/payload
+for package in archive-parent archive-layout-dependency; do
+    testsuccess dpkg-deb --root-owner-group -Zgzip --build "archive-build/$package" "aptarchive/pool/archive-policy/${package}_1_all.deb"
+done
+(cd aptarchive && aptftparchive packages pool/archive-policy) >>aptarchive/dists/unstable/main/binary-amd64/Packages
+export CYDIA_APT_PREFLIGHT_DPKG_MARKER="$TMPWORKINGDIRECTORY/dpkg-was-invoked"
+export CYDIA_APT_PREFLIGHT_DPKG_SENTINEL="$TMPWORKINGDIRECTORY/rootdir/usr/bin/cydia-dpkg-sentinel"
+cat >"$CYDIA_APT_PREFLIGHT_DPKG_SENTINEL" <<'EOF'
+#!/bin/sh
+: >"$CYDIA_APT_PREFLIGHT_DPKG_MARKER"
+exit 97
+EOF
+chmod 755 "$CYDIA_APT_PREFLIGHT_DPKG_SENTINEL"
 mkdir -p rootdir/var/lib/apt
 cat >rootdir/var/lib/apt/extended_states <<'EOF'
 Package: target
@@ -40,8 +107,18 @@ cat >rootdir/etc/apt/preferences <<'EOF'
 Package: target
 Pin: version 1
 Pin-Priority: 1001
+
+Package: negative-installed negative-foreign negative-only
+Pin: version *
+Pin-Priority: -1
 EOF
 setupaptarchive
 # APT retains process-wide configuration allocations. Check invalid accesses in
 # the frontend fixture without treating those library globals as fixture leaks.
 ASAN_OPTIONS=detect_leaks=0 testsuccess runapt "$ACTION_DRIVER"
+# APT's already-cached fast path must receive the same inspection. Remove the
+# source archives so this second invocation can only use the cached payloads.
+cp aptarchive/pool/archive-policy/*.deb rootdir/var/cache/apt/archives/
+mv aptarchive/pool/archive-policy aptarchive/pool/archive-policy-saved
+ASAN_OPTIONS=detect_leaks=0 testsuccess runapt "$ACTION_DRIVER" --cached-preflight
+test ! -e "$CYDIA_APT_PREFLIGHT_DPKG_MARKER"

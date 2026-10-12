@@ -141,8 +141,6 @@ extern "C" {
 #include "Cydia/URLProtocol.h"
 /* }}} */
 
-const char *common_arch=NULL;
-
 #define lprintf(args...) fprintf(stderr, args)
 
 #define ForRelease 1
@@ -1024,6 +1022,8 @@ int main(int argc, char *argv[]) {
     aptOptions.dpkgStatusPath = packagePaths.DpkgStatusPath();
     aptOptions.dpkgPath = packagePaths.CydoPath();
     aptOptions.nativeDpkgPath = packagePaths.DpkgBinaryPath();
+    aptOptions.packageInstallPrefix = packagePaths.layout() ==
+        CydiaRuntime::PackageDatabaseLayout::Rootless ? "/var/jb" : "/";
     aptOptions.privateRuntimeConfigurationPath = packagePaths.CydiaStateDirectory() + "/runtime.conf";
     aptOptions.helperPath = packagePaths.CydoPath();
     aptOptions.bootstrapExtendedStatesPath = packagePaths.AptExtendedStatesPath();
@@ -1041,7 +1041,6 @@ int main(int argc, char *argv[]) {
     CydiaRuntime::PrivilegedClient::ConfigureLockBridge(packagePaths.CydoPath(),
         CydiaRuntime::PrivilegedClient::CurrentExpectedEnvironment());
     NSLog(@"Common Arch: %s\n", architecture.c_str());
-    common_arch = CydiaAPT::Architecture().c_str();
 
     mkdir([Cache("archives") UTF8String], 0755);
     mkdir([Cache("archives/partial") UTF8String], 0755);

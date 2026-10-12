@@ -9,6 +9,7 @@
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/AptBackend.hpp"
+#include "Cydia/PackageArchivePolicy.hpp"
 
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/algorithms.h>
@@ -26,6 +27,11 @@ namespace Internal {
 class PackageRegistry;
 class SourceRegistry;
 
+struct PreparedArchiveData {
+    CydiaPackages::ArchiveIdentity identity;
+    std::string package;
+};
+
 class AptBackend {
   private:
     pkgAcquireStatus *status_;
@@ -40,6 +46,11 @@ class AptBackend {
     std::unique_ptr<PackageRegistry> packages_;
     std::unique_ptr<SourceRegistry> sources_;
     std::map<std::string, bool> originalAutoInstalled_;
+    std::map<const pkgAcquire::Item *, PreparedArchiveData> preparedArchives_;
+    std::string preparedPlan_;
+    std::string preparedPrefix_;
+    bool archivesPrepared_ = false;
+    void validateArchives(FetchResultData &result);
 
   public:
     explicit AptBackend(pkgAcquireStatus &status);
@@ -64,9 +75,11 @@ class AptBackend {
     bool prepareArchives();
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
-    PackageManagerResult runPackageManager(int statusFd);
+    PackageManagerResult runPackageManager(int statusFd, FetchResultData *archiveValidation = NULL,
+                                          bool *started = NULL);
     UpdateResultData updateLists(pkgAcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
+    PackageLookupResult lookupPackage(const std::string &name, const std::string &preferredArchitecture);
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
     std::vector<PackageHandle> versionHandles(PackageHandle handle);

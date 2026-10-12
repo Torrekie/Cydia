@@ -17,7 +17,6 @@
 @class Database;
 @class Source;
 
-extern const char *common_arch;
 extern NSString *App_;
 extern time_t now_;
 
@@ -64,10 +63,13 @@ struct ParsedPackage {
     CYString name_;
     CYString transform_;
     CYString latest_;
+    CYString fullVersion_;
     CYString installed_;
     CYString selectedArchitecture_;
+    CYString installedArchitecture_;
     CYString section_;
     CydiaAPT::MultiArchMode multiArch_;
+    __strong NSArray<NSString *> *registeredArchitectures_;
     time_t upgraded_;
 
     __strong NSString *section$_;
@@ -84,6 +86,8 @@ struct ParsedPackage {
 - (void) parse;
 - (NSArray *) relations;
 - (NSString *) architecture;
+- (NSString *) installedArchitecture;
+- (NSArray<NSString *> *) registeredArchitectures;
 - (NSString *) getField:(NSString *)name;
 - (NSString *) getRecord;
 - (NSArray *) downgrades;
@@ -105,6 +109,7 @@ struct ParsedPackage {
 - (bool) setSubscribed:(bool)subscribed;
 - (BOOL) ignored;
 - (NSString *) latest;
+- (NSString *) fullVersion;
 - (NSString *) installed;
 - (BOOL) uninstalled;
 - (BOOL) upgradableAndEssential:(BOOL)essential;
@@ -113,6 +118,7 @@ struct ParsedPackage {
 - (BOOL) canReinstall;
 - (BOOL) hasSavedConfiguration;
 - (BOOL) versionAvailable;
+- (BOOL) architectureSupported;
 - (BOOL) policyCandidate;
 - (BOOL) selectedVersionInstalled;
 - (NSInteger) versionPriority;

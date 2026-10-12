@@ -24,6 +24,7 @@
 #include "Cydia/AdvancedSettingsController.h"
 #include "Cydia/KeyringImportController.h"
 #include "Cydia/PackageControllers.h"
+#include "Cydia/PackageUnavailableController.h"
 #include "Cydia/PackageFeatureControllers.h"
 #include "Cydia/PackageSupportController.h"
 #include "Cydia/PackageViews.h"
@@ -50,6 +51,8 @@ static BOOL CydiaPackageRouteMatchesController(UIViewController *controller,
                                                NSString *identity) {
     if ([controller isKindOfClass:[UINavigationController class]])
         controller = [(UINavigationController *) controller topViewController];
+    if ([controller isKindOfClass:[PackageUnavailableController class]])
+        return NO;
     if (![identity isKindOfClass:[NSString class]] ||
         ![controller respondsToSelector:@selector(navigationURL)])
         return NO;
@@ -152,7 +155,10 @@ static UIViewController *CydiaExternalPresentationHost(UIViewController *control
 }
 
 - (CyteViewController *) pageForPackage:(NSString *)name withReferrer:(NSString *)referrer {
-    return [[CYPackageController alloc] initWithDatabase:database_ forPackage:name withReferrer:referrer];
+    CyteViewController *page([[CYPackageController alloc] initWithDatabase:database_
+        forPackage:name withReferrer:referrer]);
+    return page ?: [[PackageUnavailableController alloc] initWithDatabase:database_
+        forPackage:name withReferrer:referrer];
 }
 
 - (CyteViewController *) _pageForRoute:(CydiaUIRouteDispatchResult *)route

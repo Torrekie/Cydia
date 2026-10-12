@@ -107,3 +107,7 @@
 "KEY_IMPORT_NO_FILE" = "尚未選取金鑰檔案。";
 "KEY_IMPORT_SOURCE_CHANGED" = "來源已更改。請重新選取並檢查金鑰。";
 "KEY_IMPORT_PARTIAL" = "金鑰已儲存，但無法更新來源設定。重試前請檢查來源設定。";
+"ARCHIVE_LAYOUT_MISMATCH" = "%@ 的檔案配置與所選的套件管理器不相容。已阻止安裝。";
+"ARCHIVE_INVALID" = "%@ 的封存檔無效或不完整，無法安全檢查。";
+"ARCHIVE_IDENTITY_MISMATCH" = "%@ 的封存檔與所選套件的名稱、版本或架構不符。已阻止安裝。";
+"ARCHIVE_UNVERIFIED" = "Cydia 無法完全驗證 %@ 的檔案配置。請在繼續前確認套件的相容性。";

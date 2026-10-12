@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@ удерживается. Отключите «Пропускать обновления» в настройках пакета перед его изменением.";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@ отмечен как необходимый (Essential). Cydia не удалит его, в том числе вместе с конфигурацией.";
 "PACKAGE_PROTECTED_ISSUE" = "%@ отмечен как защищённый (Protected). Cydia не удалит его, в том числе вместе с конфигурацией.";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "Основная · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "Дополнительная · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "Независимая от архитектуры · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Неподдерживаемая · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Архитектура этого пакета не включена в выбранном менеджере пакетов.";
+"PACKAGE_VERSION_UNAVAILABLE" = "Выбранная версия пакета больше недоступна. Обновите сведения о пакете и проверьте изменения.";
+
+"PACKAGE_LOOKUP_TITLE" = "Пакет недоступен";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "Выбор архитектуры";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "Пакет доступен";
+"PACKAGE_LOOKUP_INVALID" = "Имя пакета или архитектура в этой ссылке недопустимы.";
+"PACKAGE_LOOKUP_NOT_FOUND" = "Этого пакета нет в текущих сведениях о пакетах. Проверьте и обновите источники.";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "Для этого пакета и архитектуры нет доступной подходящей версии.";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "Этой ссылке соответствуют несколько архитектур пакета. Выберите пакет для просмотра.";
+"PACKAGE_LOOKUP_REQUESTED" = "Запрошенный пакет";
+"PACKAGE_LOOKUP_REGISTERED" = "Настроенные архитектуры";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "Доступные пакеты";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Сведения об архитектурах сейчас недоступны.";

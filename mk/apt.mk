@@ -64,6 +64,8 @@ apt_api_sources := \
     Cydia/AptCompatibility.cpp \
     Cydia/AptRuntime.cpp \
     Cydia/AptVersionPolicy.cpp \
+    Cydia/PackageArchiveReader.cpp \
+    Cydia/BootstrapAccessController.mm \
     Cydia/CapabilityController.mm \
     Cydia/KeyringImportController.mm \
     Cydia/PrivilegedConfig.cpp \
@@ -76,9 +78,13 @@ apt_api_sources := \
     Cydia/ConfirmationViewModel.mm \
     Cydia/Database.mm \
     Cydia/DatabaseStatus.mm \
+    Cydia/FetchDiagnostics.mm \
     Cydia/Package+Metadata.mm \
     Cydia/Package+Operations.mm \
     Cydia/Package.mm \
+    Cydia/PackageControllers.mm \
+    Cydia/PackageUnavailableController.mm \
+    Cydia/PackageUnavailableProbe.mm \
     Cydia/ProgressController.mm \
     Cydia/ProgressEvent.mm \
     Cydia/Relations.mm \

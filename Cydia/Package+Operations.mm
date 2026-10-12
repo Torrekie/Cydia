@@ -1,7 +1,7 @@
 #include "Cydia/Package.h"
 #include "Cydia/Database.h"
 #include "Cydia/DpkgRunner.h"
-#include "Cydia/PackageDatabasePaths.hpp"
+#include "Cydia/AptRuntime.hpp"
 #include "CyteKit/Localize.h"
 #include "CyteKit/RegEx.hpp"
 
@@ -14,15 +14,17 @@
 @implementation Package (Operations)
 
 - (NSArray *) files {
-    const CydiaRuntime::PackageDatabasePaths &paths(CydiaRuntime::PackageDatabasePaths::Current());
-    const std::string queryPath(paths.BootstrapBinaryPath("dpkg-query"));
+    @synchronized (database_) {
+    if ([database_ era] != era_ || !handle_.valid()) return nil;
+    const std::string queryPath(CydiaAPT::DpkgQueryExecutablePath());
+    const std::string admin(CydiaAPT::DpkgAdminDirectory());
     const char *name([[self dpkgId] UTF8String]);
-    if (queryPath.empty() || name == NULL || name[0] == '\0')
+    if (queryPath.empty() || admin.empty() || name == NULL || name[0] == '\0')
         return nil;
 
     std::string output;
     CydiaRuntime::Dpkg::Runner runner(queryPath);
-    const CydiaRuntime::Dpkg::Result result(runner.RunAndCapture({"--listfiles", name}, &output));
+    const CydiaRuntime::Dpkg::Result result(runner.RunAndCapture({"--admindir=" + admin, "--listfiles", name}, &output));
     if (!result.succeeded())
         return nil;
 
@@ -47,6 +49,7 @@
     }
 
     return files;
+    }
 }
 
 - (NSString *) state {
@@ -173,45 +176,27 @@
 
 
 - (void) clear {
-@synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid())
-        return;
-
-    (void) [database_ clearPackageHandle:handle_];
-} }
+    (void) [database_ clearPackageHandle:handle_ expectedEra:era_];
+}
 
 - (bool) install {
-@synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid())
-        return false;
-
-    return [database_ installPackageHandle:handle_];
-} }
+    return [database_ installPackageHandle:handle_ expectedEra:era_];
+}
 
 - (bool) reinstall {
-@synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid()) return false;
-    return [database_ reinstallPackageHandle:handle_];
-} }
+    return [database_ reinstallPackageHandle:handle_ expectedEra:era_];
+}
 
 - (bool) remove {
-@synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid())
-        return false;
-
-    return [database_ removePackageHandle:handle_];
-} }
+    return [database_ removePackageHandle:handle_ expectedEra:era_];
+}
 
 - (bool) purge {
-@synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid()) return false;
-    return [database_ purgePackageHandle:handle_];
-} }
+    return [database_ purgePackageHandle:handle_ expectedEra:era_];
+}
 
 - (bool) setHeld:(bool)held {
-@synchronized (database_) {
-    if ([database_ era] != era_ || !handle_.valid()) return false;
-    return [database_ setPackageHandle:handle_ held:held];
-} }
+    return [database_ setPackageHandle:handle_ held:held expectedEra:era_];
+}
 
 @end

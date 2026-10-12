@@ -59,7 +59,10 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 
 @property(nonatomic, copy, readonly) NSString *identity;
 @property(nonatomic, copy, readonly) NSString *version;
+/* Exact Debian version, including its epoch. */
+@property(nonatomic, copy, readonly) NSString *fullVersion;
 @property(nonatomic, copy, readonly, nullable) NSString *architecture;
+@property(nonatomic, copy, readonly, nullable) NSString *architectureCaption;
 @property(nonatomic, readonly) NSInteger priority;
 @property(nonatomic, readonly) BOOL candidate;
 @property(nonatomic, readonly) BOOL installed;
@@ -92,8 +95,10 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 @property(nonatomic, copy, readonly, nullable) NSString *dpkgIdentity;
 @property(nonatomic, copy, readonly) NSString *displayName;
 @property(nonatomic, copy, readonly, nullable) NSString *latestVersion;
+@property(nonatomic, copy, readonly, nullable) NSString *fullVersion;
 @property(nonatomic, copy, readonly, nullable) NSString *installedVersion;
 @property(nonatomic, copy, readonly, nullable) NSString *architecture;
+@property(nonatomic, copy, readonly, nullable) NSString *architectureCaption;
 @property(nonatomic, copy, readonly, nullable) NSString *multiArch;
 @property(nonatomic, copy, readonly, nullable) NSString *rawSection;
 @property(nonatomic, copy, readonly, nullable) NSString *localizedSection;
@@ -141,7 +146,12 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
-- (nullable instancetype)initWithPackage:(Package *)package NS_DESIGNATED_INITIALIZER;
+- (nullable instancetype)initWithPackage:(Package *)package;
+- (nullable instancetype)initWithPackage:(Package *)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures;
+- (nullable instancetype)initWithPackage:(Package *)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
+                    versionArchitecture:(nullable NSString *)versionArchitecture NS_DESIGNATED_INITIALIZER;
 
 @end
 

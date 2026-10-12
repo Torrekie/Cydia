@@ -174,9 +174,9 @@ fi
 
 for token in \
         'CydiaOwnedPackageDisplayName' \
-        'NSMutableString' \
-        '[owned appendString:name]' \
-        'return CydiaOwnedPackageDisplayName(package)' \
+        'const CydiaAPT::TransactionData transaction([database transactionData])' \
+        'CydiaAPT::FindTransactionPackage(transaction, name)' \
+        'return CydiaOwnedPackageDisplayName(transaction, identifier)' \
         'numberOfLines = 0' \
         'lineBreakMode = NSLineBreakByWordWrapping' \
         'layoutMarginsGuide' \
@@ -193,7 +193,7 @@ for token in \
         'CydiaColorRoleSecondaryLabel' \
         'CydiaColorRoleBackground'; do
     case "$token" in
-        CydiaOwnedPackageDisplayName|NSMutableString|'[owned appendString:name]'|'return CydiaOwnedPackageDisplayName(package)')
+        CydiaOwnedPackageDisplayName|'const CydiaAPT::TransactionData transaction([database transactionData])'|'CydiaAPT::FindTransactionPackage(transaction, name)'|'return CydiaOwnedPackageDisplayName(transaction, identifier)')
             grep -Fq "$token" "$source" || fail "missing package-name ownership contract: $token" ;;
         *)
             grep -Fq "$token" "$cell" || fail "missing event-cell contract: $token" ;;

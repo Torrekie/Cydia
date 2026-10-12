@@ -30,9 +30,11 @@
 #include "Cydia/ExternalURLPolicy.h"
 #include "Cydia/LegacyUICompatibilityNativeCaller.h"
 #include "Cydia/Package.h"
+#include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/PackageDetailViewModel.h"
 #include "Cydia/PackageLegacyIconLoader.h"
 #include "Cydia/PackageViews.h"
+#include "Cydia/PackageUnavailableController.h"
 #include "Cydia/Section.h"
 #include "Cydia/UIRouteContext.h"
 #define ProfileTimes 0
@@ -65,6 +67,15 @@
 @end
 
 namespace {
+
+NSString *PackageVersionArchitectureFilter(NSString *name, Package *package) {
+    const CydiaAPT::PackageSelector selector(CydiaAPT::ParsePackageSelector([name UTF8String]));
+    if (selector.kind == CydiaAPT::PackageSelectorKind::Native)
+        return [[package registeredArchitectures] firstObject];
+    if (selector.kind == CydiaAPT::PackageSelectorKind::ExactArchitecture)
+        return [NSString stringWithUTF8String:selector.architecture.c_str()];
+    return nil;
+}
 
 NSURL *PackageRouteURL(NSString *URLString) {
     if (![URLString isKindOfClass:[NSString class]] || [URLString length] == 0)
@@ -161,8 +172,13 @@ NSURL *PackageRouteURL(NSString *URLString) {
      * immutable route identity immediately before every mutating action so a
      * visible button cannot silently become a no-op after that refresh. */
     Package *current([database_ packageWithName:name_]);
-    if (current == nil)
+    if (current == nil || ![[current fullVersion] isEqualToString:[[self viewModel] fullVersion]] ||
+        ![[current architecture] isEqual:[[self viewModel] architecture]]) {
+        /* A refresh may replace the candidate or make a formerly unique
+         * selector ambiguous. Show that new state before accepting a click. */
+        [self reloadData];
         return nil;
+    }
     if (package_ != current) {
         package_ = current;
         [self bindLegacyCompatibilitySessionForPackage:current];
@@ -171,7 +187,13 @@ NSURL *PackageRouteURL(NSString *URLString) {
 }
 
 - (void) _clickButtonWithPackage:(Package *)package {
-    [self.delegate installPackage:package];
+    Package *current([self packageForAction]);
+    for (Package *version in [current availableVersions])
+        if ([[version id] isEqualToString:[package id]] &&
+            [[version fullVersion] isEqualToString:[package fullVersion]] &&
+            [[version architecture] isEqual:[package architecture]])
+            return [self.delegate installPackage:version];
+    [self reloadData];
 }
 
 - (void) _clickButtonWithName:(NSString *)name {
@@ -258,14 +280,16 @@ NSURL *PackageRouteURL(NSString *URLString) {
     (void) referrer;
     Package *package([database packageWithName:name]);
     CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
-        [[CydiaPackageDetailViewModel alloc] initWithPackage:package]);
+        [[CydiaPackageDetailViewModel alloc] initWithPackage:package
+            registeredArchitectures:[package registeredArchitectures]
+            versionArchitecture:PackageVersionArchitectureFilter(name, package)]);
     if (viewModel == nil)
         return nil;
     if ((self = [super initWithViewModel:viewModel
                               headerIcon:[package icon]
                                 delegate:self]) != nil) {
         database_ = database;
-        name_ = [[viewModel identity] copy];
+        name_ = [name copy];
         [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
     } return self;
 }
@@ -294,7 +318,9 @@ NSURL *PackageRouteURL(NSString *URLString) {
     sheet_ = nil;
     Package *package([database_ packageWithName:name_]);
     CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
-        [[CydiaPackageDetailViewModel alloc] initWithPackage:package]);
+        [[CydiaPackageDetailViewModel alloc] initWithPackage:package
+            registeredArchitectures:[package registeredArchitectures]
+            versionArchitecture:PackageVersionArchitectureFilter(name_, package)]);
     [self bindLegacyCompatibilitySessionForPackage:package];
     if (viewModel != nil) {
         [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
@@ -308,6 +334,21 @@ NSURL *PackageRouteURL(NSString *URLString) {
         [self startLegacyAlternateIconLoadForViewModel:viewModel];
     } else {
         [self cancelLegacyAlternateIconLoad];
+        package_ = nil;
+        versions_ = @[];
+        buttons_.clear();
+        self.navigationItem.rightBarButtonItem = nil;
+        button_ = nil;
+        PackageUnavailableController *unavailable([[PackageUnavailableController alloc]
+            initWithDatabase:database_ forPackage:name_ withReferrer:nil]);
+        NSMutableArray *stack([self.navigationController.viewControllers mutableCopy]);
+        NSUInteger index([stack indexOfObjectIdenticalTo:self]);
+        if (unavailable != nil && stack != nil && index != NSNotFound) {
+            [unavailable setDelegate:self.delegate];
+            [stack replaceObjectAtIndex:index withObject:unavailable];
+            [self.navigationController setViewControllers:stack animated:NO];
+        }
+        return;
     }
     [super reloadData];
     if ([self isViewLoaded])
@@ -353,8 +394,10 @@ NSURL *PackageRouteURL(NSString *URLString) {
         return;
     for (Package *version in [package availableVersions])
         if ([[version id] isEqualToString:[versionChoice identity]] &&
-            [[version latest] isEqualToString:[versionChoice version]])
+            [[version fullVersion] isEqualToString:[versionChoice fullVersion]] &&
+            [[version architecture] isEqual:[versionChoice architecture]])
             return [self.delegate installPackage:version];
+    [self reloadData];
 }
 
 - (void)packageDetailController:(PackageDetailController *)controller
@@ -502,6 +545,12 @@ NSURL *PackageRouteURL(NSString *URLString) {
 
 - (CGFloat) rowHeight {
     return [self isSummarized] ? 38 : 73;
+}
+
+- (CGFloat) tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void)tableView;
+    Package *package([self packageAtIndexPath:indexPath]);
+    return [self rowHeight] + ([[PackageCell architectureCaptionForPackage:package] length] == 0 ? 0 : 17);
 }
 
 - (id) initWithDatabase:(Database *)database title:(NSString *)title {

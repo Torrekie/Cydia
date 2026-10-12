@@ -12,3 +12,22 @@
 "PACKAGE_HELD_ISSUE" = "%@は保留されています。変更する前にパッケージの設定で「アップグレードを適用しない」をオフにしてください。";
 "PACKAGE_ESSENTIAL_ISSUE" = "%@は必須（Essential）に指定されています。Cydia では削除や設定を含む完全削除はできません。";
 "PACKAGE_PROTECTED_ISSUE" = "%@は保護対象（Protected）に指定されています。Cydia では削除や設定を含む完全削除はできません。";
+
+"PACKAGE_ARCHITECTURE_NATIVE" = "標準 · %@";
+"PACKAGE_ARCHITECTURE_FOREIGN" = "追加 · %@";
+"PACKAGE_ARCHITECTURE_ALL" = "アーキテクチャ非依存 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "未対応 · %@";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "このパッケージのアーキテクチャは、選択したパッケージマネージャーで有効になっていません。";
+"PACKAGE_VERSION_UNAVAILABLE" = "選択したパッケージのバージョンは利用できなくなりました。パッケージ情報を再読み込みし、変更内容を確認してください。";
+
+"PACKAGE_LOOKUP_TITLE" = "パッケージを利用できません";
+"PACKAGE_LOOKUP_AMBIGUOUS_TITLE" = "アーキテクチャを選択";
+"PACKAGE_LOOKUP_AVAILABLE_TITLE" = "パッケージを利用できます";
+"PACKAGE_LOOKUP_INVALID" = "このリンクのパッケージ名またはアーキテクチャが無効です。";
+"PACKAGE_LOOKUP_NOT_FOUND" = "現在のパッケージ情報にこのパッケージはありません。ソースを確認し、更新してください。";
+"PACKAGE_LOOKUP_NO_ELIGIBLE" = "このパッケージとアーキテクチャに対応する、選択可能なバージョンはありません。";
+"PACKAGE_LOOKUP_AMBIGUOUS" = "このリンクは複数のパッケージアーキテクチャに一致します。表示するパッケージを選択してください。";
+"PACKAGE_LOOKUP_REQUESTED" = "要求されたパッケージ";
+"PACKAGE_LOOKUP_REGISTERED" = "設定済みのアーキテクチャ";
+"PACKAGE_LOOKUP_ALTERNATIVES" = "利用可能なパッケージ";
+"PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "現在、アーキテクチャ情報を取得できません。";
