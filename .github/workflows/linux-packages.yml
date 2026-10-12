@@ -152,6 +152,7 @@ jobs:
             verify-runtime-snapshot verify-repository-trust-proof verify-runtime-access \
             verify-application-identity verify-transaction-outcome-policy \
             verify-capabilities verify-shared-config-lifecycle verify-private-state \
+            verify-legacy-cydia-source-alias \
             verify-keyring-import verify-recovery-plan
 
       - name: Build ${{ matrix.layout }} packages

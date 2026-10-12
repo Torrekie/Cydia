@@ -3,6 +3,7 @@
 #include "Cydia/FirmwareMarkerPermissions.hpp"
 #include "Cydia/InstalledRuntimePolicy.hpp"
 #include "Cydia/LegacySourceHandoff.hpp"
+#include "Cydia/LegacyCydiaSourceAlias.hpp"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivateStateDirectory.hpp"
 #include "Cydia/PrivateMetadataMigration.hpp"
@@ -174,6 +175,16 @@ int main(int argc, const char *argv[]) {
             !EnsureOwnedPrivateDirectory(library, owner, group)) {
         perror("Cydia private mobile directories");
         return 1;
+    }
+    const std::string admin(CydiaRuntime::InstalledPolicy::InstallerAdminDirectory(getenv("DPKG_ADMINDIR"), argv[0]));
+    // This compatibility alias belongs to the running device's home and APT
+    // layout. An alternate installation root cannot authorize host changes.
+    const char *installationRoot(getenv("DPKG_ROOT"));
+    const bool hostInstallation(installationRoot == NULL || installationRoot[0] == '\0' || strcmp(installationRoot, "/") == 0);
+    if (hostInstallation && CydiaRuntime::MaterializeLegacyCydiaSourceAlias(paths, home, owner, group, admin) ==
+            CydiaRuntime::LegacyCydiaSourceAliasResult::Refused) {
+        fprintf(stderr, "cydia: optional legacy source cache alias migration could not be completed: %s; no repositories were removed\n",
+            strerror(errno));
     }
     if (!MigrateMetadata(cache, library, owner, group) ||
             !MigrateMetadata(paths.CydiaStateDirectory(), library, owner, group)) {

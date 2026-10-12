@@ -323,3 +323,26 @@ The maintscript also initializes an absent source-protection policy with an
 empty selection. No official distribution source is inferred. Existing
 selections and invalid policies remain untouched; editing through delegated
 source-file links retains its separate read-only boundary.
+
+On rootful upgrades, the maintscript recognizes Cydia's historical
+`cydia.list` link to the mobile account's private Cydia source cache. When the
+alias, cache and administrator metadata can be verified, it replaces only that
+link with an administrator-owned regular file containing the exact existing
+bytes. The original cache remains intact. This makes those existing definitions
+manageable through ordinary APT source operations without reintroducing a
+private repository registry or a default repository list. Foreign package
+ownership, diversions, other managers' aliases and unsafe objects prevent this
+optional migration; Cydia reports the refusal and preserves the existing alias.
+Rootless aliases retain their existing read-only policy.
+
+The old source handoff could disable `cydia.list` during an upgrade when another
+source document existed. Current maintscripts preserve shared source files.
+Historical disabled backups are not automatically reactivated: they may contain
+repositories deliberately removed by the administrator. The narrowly verified
+sole-source recovery remains separate from the cache-alias migration.
+
+The Sources page retains source-list read failures and provides localized
+diagnostic and repository-settings links after the initial error is dismissed.
+A valid empty source configuration continues to display normally. Missing
+downloaded indexes affect package availability, but configured source documents
+are still represented independently of those indexes.

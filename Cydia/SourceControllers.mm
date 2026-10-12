@@ -687,6 +687,7 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
     _H<UITableView, 2> list_;
     _H<NSMutableArray> sources_;
     NSArray<CydiaSourceDefinition *> *definitions_;
+    NSArray<NSString *> *sourceDiagnostics_;
     __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilitySession_;
 }
 - (void) invalidateLegacyCompatibilitySession {
@@ -871,17 +872,39 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
 - (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [list_ setEditing:NO]; [self reloadData]; }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated]; }
 - (void)viewDidDisappear:(BOOL)animated { [super viewDidDisappear:animated]; [self invalidateLegacyCompatibilitySession]; }
-- (void)releaseSubviews { list_ = nil; sources_ = nil; definitions_ = nil; [super releaseSubviews]; }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 1 : [sources_ count]; }
-- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return section == 1 ? UCLocalize("INDIVIDUAL_SOURCES") : nil; }
+- (void)releaseSubviews { list_ = nil; sources_ = nil; definitions_ = nil; sourceDiagnostics_ = nil; [super releaseSubviews]; }
+- (NSInteger)sourceSection { return sourceDiagnostics_.count == 0 ? 1 : 2; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return [self sourceSection] + 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
+    if (sourceDiagnostics_.count != 0 && section == 0) return 2;
+    return section == [self sourceSection] ? [sources_ count] : 1;
+}
+- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
+    if (sourceDiagnostics_.count != 0 && section == 0) return SourceUI(@"SOURCE_FILE_ERRORS");
+    return section == [self sourceSection] ? UCLocalize("INDIVIDUAL_SOURCES") : nil;
+}
+- (CGFloat)tableView:(UITableView *)table heightForRowAtIndexPath:(NSIndexPath *)path {
+    return sourceDiagnostics_.count != 0 && path.section == 0 ? UITableViewAutomaticDimension : 53;
+}
+- (CGFloat)tableView:(UITableView *)table estimatedHeightForRowAtIndexPath:(NSIndexPath *)path {
+    return sourceDiagnostics_.count != 0 && path.section == 0 && path.row == 0 ? 100 : 53;
+}
 - (Source *)sourceAtIndexPath:(NSIndexPath *)path {
     @synchronized (database_) {
-        if ([database_ era] != era_ || path.section != 1 || path.row >= [sources_ count]) return nil;
+        if ([database_ era] != era_ || path.section != [self sourceSection] || path.row >= [sources_ count]) return nil;
         return [sources_ objectAtIndex:path.row];
     }
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    if (sourceDiagnostics_.count != 0 && path.section == 0) {
+        UITableViewCell *cell([table dequeueReusableCellWithIdentifier:@"SourceFailureCell"]);
+        if (cell == nil) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"SourceFailureCell"];
+        StyleSourceCell(cell);
+        cell.textLabel.text = path.row == 0 ? SourceUI(@"SOURCE_FILE_ERRORS") : SourceUI(@"SOURCE_REPOSITORY_SETTINGS");
+        cell.detailTextLabel.text = path.row == 0 ? SourceUI(@"SOURCE_FILE_UNAVAILABLE") : nil;
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        return cell;
+    }
     SourceCell *cell((SourceCell *)[table dequeueReusableCellWithIdentifier:@"SourceCell"]);
     if (cell == nil) cell = [[SourceCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"SourceCell"];
     Source *source([self sourceAtIndexPath:path]);
@@ -890,8 +913,17 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
     return cell;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    if (sourceDiagnostics_.count != 0 && path.section == 0) {
+        CyteViewController *controller;
+        if (path.row == 0)
+            controller = [[CydiaSourceDefinitionDetailsController alloc] initWithDiagnostic:[sourceDiagnostics_ componentsJoinedByString:@"\n\n"]];
+        else
+            controller = [[CydiaRepositorySettingsController alloc] initWithDatabase:database_ advancedAccess:NO];
+        controller.delegate = self.delegate; [self.navigationController pushViewController:controller animated:YES];
+        return;
+    }
     Source *source([self sourceAtIndexPath:path]);
-    if (path.section == 1 && source == nil) { SourceMessage(self, SourceUI(@"SOURCE_RELOAD_REQUIRED")); [self reloadData]; return; }
+    if (path.section == [self sourceSection] && source == nil) { SourceMessage(self, SourceUI(@"SOURCE_RELOAD_REQUIRED")); [self reloadData]; return; }
     [self bindLegacyCompatibilitySessionForSource:source];
     SectionsController *controller([[SectionsController alloc] initWithDatabase:database_ source:source]);
     controller.delegate = self.delegate; [self.navigationController pushViewController:controller animated:YES];
@@ -945,11 +977,18 @@ static NSString *DraftForDestination(const CydiaSources::StoredDocument &expecte
 - (void)tableView:(UITableView *)table didEndEditingRowAtIndexPath:(NSIndexPath *)path { [self updateButtonsForEditingStatusAnimated:YES]; }
 - (void)reloadData {
     NSString *key([legacyCompatibilitySession_ sourceKey]); [self invalidateLegacyCompatibilitySession]; [super reloadData];
+    BOOL sourceLoadFailed(NO); NSString *sourceLoadDiagnostic(nil);
     @synchronized (database_) {
         era_ = [database_ era]; sources_ = [[database_ sources] mutableCopy];
         [sources_ sortUsingSelector:@selector(compareByName:)];
+        sourceLoadFailed = [database_ sourceLoadFailed]; sourceLoadDiagnostic = [database_ sourceLoadDiagnostic];
     }
-    definitions_ = CydiaReadSourceDefinitions();
+    NSArray<NSString *> *documentDiagnostics(nil);
+    definitions_ = CydiaReadSourceDefinitions(&documentDiagnostics);
+    NSMutableArray<NSString *> *diagnostics([documentDiagnostics mutableCopy]);
+    if (sourceLoadFailed)
+        [diagnostics addObject:sourceLoadDiagnostic.length != 0 ? sourceLoadDiagnostic : SourceUI(@"SOURCE_FILE_UNAVAILABLE")];
+    sourceDiagnostics_ = diagnostics;
     [list_ reloadData]; [self updateButtonsForEditingStatusAnimated:NO];
     if (key != nil) for (Source *source in (NSArray *)sources_) if ([[source key] isEqual:key]) { [self bindLegacyCompatibilitySessionForSource:source]; break; }
 }

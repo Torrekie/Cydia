@@ -68,6 +68,8 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 
     SourceMap sourceMap_;
     _H<NSMutableArray> sourceList_;
+    BOOL sourceLoadFailed_;
+    _H<NSString> sourceLoadDiagnostic_;
 
     _H<NSArray> packages_;
 
@@ -113,6 +115,8 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 
 - (NSArray *) packages;
 - (NSArray *) sources;
+- (BOOL) sourceLoadFailed;
+- (NSString *) sourceLoadDiagnostic;
 - (Source *) sourceWithKey:(NSString *)key;
 - (Source *) sourceWithFileID:(unsigned long)identifier;
 - (std::vector<CydiaAPT::SourceHandle>) sourceHandles;

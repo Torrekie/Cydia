@@ -581,6 +581,16 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return sourceList_;
 }
 
+- (BOOL) sourceLoadFailed {
+@synchronized (self) {
+    return sourceLoadFailed_;
+} }
+
+- (NSString *) sourceLoadDiagnostic {
+@synchronized (self) {
+    return sourceLoadDiagnostic_;
+} }
+
 - (Source *) sourceWithKey:(NSString *)key {
     for (Source *source in [self sources]) {
         if ([[source key] isEqualToString:key])
@@ -610,7 +620,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->sourceFileIDs(handle);
 }
 
-- (bool) popErrorWithTitle:(NSString *)title {
+- (bool) popErrorWithTitle:(NSString *)title diagnostics:(NSMutableArray<NSString *> *)diagnostics {
     bool fatal(false);
 
     const std::vector<CydiaAPT::ErrorData> errors(apt_->drainErrors());
@@ -620,10 +630,16 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
         lprintf("%c:[%s]\n", item->warning ? 'W' : 'E', item->message.c_str());
 
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:item->message.c_str()] ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
+        NSString *message([NSString stringWithUTF8String:item->message.c_str()] ?: @"");
+        [diagnostics addObject:message];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:message ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
     }
 
     return fatal;
+}
+
+- (bool) popErrorWithTitle:(NSString *)title {
+    return [self popErrorWithTitle:title diagnostics:nil];
 }
 
 - (bool) popErrorWithTitle:(NSString *)title forOperation:(bool)success {
@@ -639,6 +655,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
     sourceMap_.clear();
     [sourceList_ removeAllObjects];
+    sourceLoadFailed_ = NO;
+    sourceLoadDiagnostic_ = nil;
 
     apt_->discardErrors();
 
@@ -662,8 +680,17 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     [self recheckRepositoryTrust];
 
     _profile(reloadDataWithInvocation$ReadMainList)
-    if ([self popErrorWithTitle:title forOperation:apt_->loadSources()])
+    const bool sourcesLoaded(apt_->loadSources());
+    NSMutableArray<NSString *> *sourceErrors([NSMutableArray array]);
+    const bool sourceErrorsFatal([self popErrorWithTitle:title diagnostics:sourceErrors]);
+    if (!sourcesLoaded || sourceErrorsFatal) {
+        // The source list was cleared for this generation. Keep the failure
+        // visible after the progress alert is dismissed; an empty display is
+        // not evidence that the administrator's repositories were removed.
+        sourceLoadFailed_ = YES;
+        sourceLoadDiagnostic_ = [sourceErrors componentsJoinedByString:@"\n\n"];
         return;
+    }
     _end
 
     std::vector<CydiaAPT::SourceHandle> sourceHandles;

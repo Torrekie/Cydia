@@ -68,6 +68,7 @@ PRIVILEGED_CLIENT_TEST := $(BUILD_DIR)/tests/PrivilegedClientTests
 CAPABILITY_PREVIEW_TEST := $(BUILD_DIR)/tests/CapabilityPreviewTests
 PRIVATE_STATE_DIRECTORY_TEST := $(BUILD_DIR)/tests/PrivateStateDirectoryTests
 LEGACY_SOURCE_HANDOFF_TEST := $(BUILD_DIR)/tests/LegacySourceHandoffTests
+LEGACY_CYDIA_SOURCE_ALIAS_TEST := $(BUILD_DIR)/tests/LegacyCydiaSourceAliasTests
 DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
@@ -485,6 +486,18 @@ $(LEGACY_SOURCE_HANDOFF_TEST): tests/LegacySourceHandoffTests.cpp \
 		Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-legacy-source-handoff: $(LEGACY_SOURCE_HANDOFF_TEST)
+	@$<
+
+$(LEGACY_CYDIA_SOURCE_ALIAS_TEST): tests/LegacyCydiaSourceAliasTests.cpp \
+		Cydia/LegacyCydiaSourceAlias.cpp Cydia/LegacyCydiaSourceAlias.hpp \
+		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		$(filter %.cpp,$^) -o $@
+
+.PHONY: verify-legacy-cydia-source-alias
+verify: verify-legacy-cydia-source-alias
+verify-legacy-cydia-source-alias: $(LEGACY_CYDIA_SOURCE_ALIAS_TEST)
 	@$<
 
 verify-apt-source-isolation: $(APT_SOURCE_CONTRACT_SCRIPT) $(LEGACY_SOURCE_HANDOFF_TEST)
