@@ -1,16 +1,25 @@
-# Embedded APT and dpkg compatibility
+# APT providers and dpkg compatibility
 
-Cydia intentionally embeds APT and executes dpkg as an external program. The
-application must be rebuildable from one reviewed APT source revision, while
-the dpkg integration must tolerate newer runtime implementations without
-linking against dpkg's private C library.
+Cydia's target scope is an optional frontend for the selected distribution's
+package-management environment. A working, supported bootstrap APT takes
+precedence over the bundled recovery implementation; its policies must remain
+authoritative unless the administrator explicitly overrides them. The
+[runtime provider design](runtime-providers.md) records the required migration,
+policy precedence, recovery boundaries, and acceptance criteria.
+
+The implementation described below still embeds APT and executes dpkg as an
+external program. It does not yet select an external APT backend. The bundled
+backend must remain reproducible from a reviewed source revision, and dpkg
+integration must tolerate supported runtime implementations without linking
+against dpkg's private C library. ICU currently comes from Apple's system
+`libicucore`; there is no bundled ICU runtime or bootstrap ICU selector yet.
 
 ## Adding and editing sources
 
 Sources keeps its URL alert, with **Add Source**, **Advanced…**, and **Cancel**.
 An ordinary flat source is checked and saved without a separate generic review
-screen. An unsigned source under the inherited Warning policy requires an
-explicit warning acknowledgment. Advanced opens a native form; cancelling it
+screen. An unsigned source under the current Cydia-default Warning policy
+requires an explicit warning acknowledgment. Advanced opens a native form; cancelling it
 returns to the original URL draft. Repository editing remains in Settings.
 
 | Operation | Behavior |
@@ -33,7 +42,8 @@ package, or grants trust. Hidden directory listings and unavailable key data
 retain manual entry/import as the fallback. Local key generation cannot replace
 a missing publisher public key.
 
-Allow/Warning/Error remains an inherited Settings policy. Invalid signatures,
+The current source editor inherits Allow/Warning/Error from Cydia Settings,
+not from the distribution's APT implementation. Invalid signatures,
 hash mismatches and known authenticated-to-unsigned transitions cannot silently
 be treated as ordinary unsigned sources. A selected candidate key must
 authenticate the checked source even under Allow or Warning. Package archive
@@ -291,9 +301,11 @@ commit.
 
 ## Compatibility boundary
 
-The migration keeps APT embedded but removes APT types from UI and model-facing
-headers. Cydia-owned package, source, transaction, progress, and error values
-cross the backend boundary today. `AptBackend.hpp` is a façade over the private
+The implemented boundary keeps APT embedded but removes APT types from UI and
+model-facing headers. It is the starting point for the planned provider
+migration, not an external-provider implementation. Cydia-owned package,
+source, transaction, progress, and error values cross the backend boundary
+today. `AptBackend.hpp` is a façade over the private
 `AptBackendInternal.hpp` storage; acquire status uses the opaque
 `DatabaseStatus` façade. Raw cache iterators and acquisition objects remain
 private to the APT adapter and cannot outlive its cache generation.
