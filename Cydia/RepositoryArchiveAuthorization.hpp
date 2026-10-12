@@ -20,6 +20,17 @@ struct RepositoryArchiveAuthorizationResult {
 using RepositoryArchiveAuthorizationHandler = std::function<RepositoryArchiveAuthorizationResult(
     const RepositoryArchiveAuthorizationRequest &, const std::function<bool()> &)>;
 void SetRepositoryArchiveAuthorizationHandler(RepositoryArchiveAuthorizationHandler handler);
+// A lexical, same-thread override for an isolated worker operation. Nested
+// scopes restore their predecessor; concurrent app handlers remain untouched.
+class ScopedRepositoryArchiveAuthorizationHandler {
+    RepositoryArchiveAuthorizationHandler handler_;
+    const RepositoryArchiveAuthorizationHandler *previous_;
+public:
+    explicit ScopedRepositoryArchiveAuthorizationHandler(RepositoryArchiveAuthorizationHandler handler);
+    ~ScopedRepositoryArchiveAuthorizationHandler();
+    ScopedRepositoryArchiveAuthorizationHandler(const ScopedRepositoryArchiveAuthorizationHandler &) = delete;
+    ScopedRepositoryArchiveAuthorizationHandler &operator=(const ScopedRepositoryArchiveAuthorizationHandler &) = delete;
+};
 void ConfigureRepositoryArchiveAuthorization();
 
 /* Call only off the main thread. The account UI owns consent and sign-in.

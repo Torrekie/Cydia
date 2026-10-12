@@ -20,11 +20,28 @@ package is not a provider registration or a protocol adapter.
 
 The Cydia side includes the remote facade, source-check routing, native progress
 and cancellation bridge, Settings controls, immutable confirmation and a
-privileged parent executor. It does not include a distribution adapter/server.
+privileged parent executor. A reusable bounded server dispatcher is available
+for adapters; it requires independently supplied admission, acquisition,
+review and parent-execution hooks and does not itself implement a distribution
+adapter. Progress carries source activity separately from display diagnostics,
+so source spinners can follow a worker without exposing transport credentials.
 There is no completed Remorix adapter or production end-to-end acceptance claim.
 APT 2.7.9 remains statically linked into the application and privileged helper;
 the recovery backend still runs inside the application. A separate bundled
 recovery worker is not implemented. dpkg remains an external component.
+
+Recovery preparation includes a nonexecuting libapt package-manager recorder
+and a helper-owned authority capture module. The recorder preserves explicit
+operation ordering and exact archive/index identities; it refuses configured
+hooks, external planners, pending global effects and unmodeled crossgrades.
+The native backend binds those identities to libapt's actual archive selection.
+Review does not download archives or alter existing final/partial cache files,
+and ambiguous source records cannot silently select the first matching origin.
+Its result is input to independent parent review, never execution authority.
+Authority capture fingerprints protected configuration, components and methods,
+and requires an independent dependency/loadability inspection before it can
+report a usable recovery environment. These modules do not activate a worker
+or change the existing recovery execution path.
 
 Runtime getters resolve the adopted descriptor. Embedded mutation setters
 refuse while it is active, and resetting it requires fresh embedded
@@ -63,6 +80,13 @@ upstream English messages if no usable libintl is available.
 | Settings | Automatic/Cydia Recovery, cached provider identity/version/status, asynchronous Check Again and distinct fallback explanations | Retain truthful state; never probe while rendering cells or claim an unselected provider is active |
 | Remorix packages | The registration/protocol contract and Cydia client exist; no Remorix adapter or new APT/dpkg package is supplied | Publish localized APT/dpkg and a tested adapter without making Remorix a requirement for Cydia |
 | Commercial sources | Native accounts and exact archive authorization with ordinary hash/layout checks; no purchase API | Complete vendor-authorized account/download acceptance separately from public-source access |
+
+The provider protocol also supports bounded paid-archive grants during an
+approved fetch. Cydia derives each request from its retained source/index proof,
+rechecks that proof around native account authorization, and sends only the
+resulting HTTPS download URL to the worker. Credentials remain in Cydia. This
+does not authorize purchases or prove vendor compatibility, and recovery must
+install its scoped authorization bridge before advertising the capability.
 
 ## Remorix distribution contract
 

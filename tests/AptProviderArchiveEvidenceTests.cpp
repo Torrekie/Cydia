@@ -132,6 +132,30 @@ void SourceAndIndexBinding() {
     Fixture cancelled;
     Require(!cancelled.Capture(&error, [] { return true; }) && error == "provider_cancelled", "capture cancellation ignored");
 }
+void AuthorizationBeforeDownload() {
+    Fixture fixture;
+    auto &archive = fixture.review.execution.archives.front();
+    fixture.record.insert(fixture.record.size() - 1, "Tag: role::enduser, cydia::commercial\n");
+    archive.recordSize = fixture.record.size(); archive.sourceIndexIdentity = "SHA256:" + SHA256(fixture.record);
+    Write(archive.sourceIndexPath, fixture.record);
+    std::string error; auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    Require(unlink(archive.path.c_str()) == 0, "remove undownloaded archive fixture");
+    CydiaRuntime::RepositoryArchiveAuthorizationRequest request; bool commercial(false);
+    Require(snapshot->AuthorizationRequest(archive, &request, &commercial, {}, &error) && commercial &&
+        request.sourceURL == archive.sourceURI && request.package == "sample" && request.version == "1" && request.architecture == "all",
+        "grant identity must derive from verified record without needing the archive");
+    auto forged = archive; forged.package.architecture = "amd64";
+    Require(!snapshot->AuthorizationRequest(forged, &request, &commercial, {}, &error) && request.package.empty(),
+        "unreviewed identity cannot solicit account authorization");
+    Require(!snapshot->AuthorizationRequest(archive, &request, &commercial, [] { return true; }, &error) && request.package.empty(),
+        "cancelled authorization proof leaves no identity");
+    Write(archive.sourceIndexPath, fixture.record + "\n");
+    Require(!snapshot->AuthorizationRequest(archive, &request, &commercial, {}, &error) && request.package.empty(),
+        "changed source index cannot solicit account authorization");
+    Fixture ordinary; auto publicSource = ordinary.Capture(&error); Require(publicSource != nullptr, error.c_str());
+    Require(publicSource->AuthorizationRequest(ordinary.review.execution.archives.front(), &request, &commercial, {}, &error) && !commercial,
+        "ordinary package does not become commercial from a worker claim");
+}
 void SeparateAllArchitectureIndex() {
     Fixture fixture;
     auto &archive = fixture.review.execution.archives.front();
@@ -147,6 +171,6 @@ void SeparateAllArchitectureIndex() {
 } // namespace
 
 int main() {
-    ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex();
+    ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
     std::cout << "[apt-provider-archive-evidence] PASS\n";
 }

@@ -18,6 +18,11 @@ fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-selection"
 # index case must run, never silently skip an unavailable decoder.
 command -v gzip >/dev/null
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-archive-evidence"
+"$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-worker-progress"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-plan"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-backend"
+"$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-authority"
+fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-authority"
 TESTDIR="$PROJECT_DIR/apt64/test/integration"
 TESTDIRECTORY="$TESTDIR"
 . "$TESTDIR/framework"

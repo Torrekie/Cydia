@@ -15,11 +15,15 @@ struct BrokerArchiveEvidence {
 struct BrokerOptions {
     std::string helperPath, extendedStatesPath;
     RegistrationIdentity authority;
+    std::uint64_t capabilities = 0;
     ReviewPolicy policy;
     // Cydia independently resolves these against the selected source/index
     // snapshot. cydo additionally stages/rechecks the bytes before unpack.
     std::function<BrokerArchiveEvidence(const ReviewedTransaction &,
         const std::vector<ArchiveManifest> &, const RequestControl &)> archives;
+    // Rechecks retained parent source/index proof, then calls the native account
+    // service. Never derive credentials or an account identity from worker data.
+    std::function<ArchiveAuthorizationReply(const ArchiveManifest &, const RequestControl &)> authorizeArchive;
 };
 
 class Broker {

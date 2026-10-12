@@ -22,6 +22,8 @@
 #include <memory>
 
 namespace CydiaAPT {
+struct RecoveryCaptureResult;
+struct RuntimeDescriptor;
 namespace Internal {
 
 class PackageRegistry;
@@ -82,6 +84,11 @@ class AptBackend {
     bool minimizeUpgrade();
     bool cleanArchives();
     bool prepareArchives();
+    // Recording-only preview; independent of prepareArchives and manager_.
+    // The caller holds the process-wide APT configuration/cache gate.
+    RecoveryCaptureResult captureRecoveryReview(const RuntimeDescriptor &runtime,
+        const Provider::Binding &binding, const CydiaPackages::ArchiveLayout &layout,
+        const std::function<bool()> &cancelled = {});
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
     PackageManagerResult runPackageManager(int statusFd, FetchResultData *archiveValidation = NULL,

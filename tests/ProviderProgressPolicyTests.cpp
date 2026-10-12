@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/ProviderProgressPolicy.hpp"
+#include "Cydia/SourceFetchActivity.hpp"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -40,5 +41,22 @@ int main() {
     state.Begin(true);
     Require(!state.wasCancelled() && state.cancellable() && !state.Poll(false),
         "a new operation does not inherit cancellation");
+    CydiaAPT::SourceFetchActivity activity;
+    std::string directory;
+    const std::string base("https://repo.invalid/dists/stable/i18n");
+    Require(activity.Set(true, base + "/Translation-en", &directory) && directory == base,
+        "first download starts source directory activity");
+    Require(!activity.Set(true, base + "/Translation-en", &directory) &&
+            !activity.Set(true, base + "/Translation-fr", &directory) && activity.items().size() == 2,
+        "duplicate callbacks and sibling downloads do not restart the source");
+    Require(!activity.Set(false, base + "/Translation-en", &directory) && activity.items().size() == 1,
+        "one completed sibling cannot stop an active source");
+    Require(activity.Set(false, base + "/Translation-fr", &directory) && directory == base && activity.items().empty(),
+        "the last sibling stops the source");
+    Require(!activity.Set(false, base + "/Translation-fr", &directory), "duplicate completion is ignored");
+    Require(activity.Set(true, base + "/Translation-fr", &directory), "a later refresh can restart activity");
+    activity.Clear();
+    Require(activity.items().empty() && !activity.Set(false, base + "/Translation-fr", &directory),
+        "operation reset removes all activity without stale completions");
     std::puts("[provider-progress] bounded counters and operation cancellation passed");
 }

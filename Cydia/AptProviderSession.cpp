@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderSession.hpp"
+#include "Cydia/RedactedURL.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -91,12 +92,13 @@ bool ReviewedOperation(Operation operation) {
         operation == Operation::RunPackageManager;
 }
 
-bool ParentOperationAllowed(Operation parent, Operation active, bool locked) {
+bool ParentOperationAllowed(Operation parent, Operation active, bool locked, std::uint64_t capabilities) {
     switch (parent) {
         case Operation::AcquireFrontendLock: return active == Operation::LockForTransaction && !locked;
         case Operation::ReleaseFrontendLock: return active == Operation::UnlockForTransaction && locked;
         case Operation::ExecuteDpkg: case Operation::CommitExtendedState:
             return active == Operation::RunPackageManager && locked;
+        case Operation::AuthorizeArchive: return active == Operation::RunFetcher && locked && (capabilities & AuthorizedArchiveGrants);
         case Operation::CaptureStateSnapshot: return active != Operation::Hello;
         default: return false;
     }
@@ -303,7 +305,7 @@ public:
                  bool cancelling, Deadline deadline) {
         if (!ValidRequestBinding(request) || !SameBinding(request.binding, current) ||
             request.sequence != lastParentSequence + 1 ||
-            !ParentOperationAllowed(request.operation, operation, locked)) return Fail("provider_invalid_parent_request");
+            !ParentOperationAllowed(request.operation, operation, locked, provider.capabilities)) return Fail("provider_invalid_parent_request");
         ++lastParentSequence;
         const bool mutation(request.operation == Operation::ExecuteDpkg || request.operation == Operation::CommitExtendedState);
         if (mutation) {
@@ -317,8 +319,13 @@ public:
                     return Fail("provider_invalid_state_request");
             }
         }
+        if (request.operation == Operation::AuthorizeArchive) {
+            ArchiveAuthorizationRequest grant;
+            if (!Decode(request.payload, &grant) || !SameBinding(grant.binding, current))
+                return Fail("provider_invalid_authorization_request");
+        }
         Message response;
-        if (cancelling && (mutation || request.operation == Operation::AcquireFrontendLock)) {
+        if (cancelling && (mutation || request.operation == Operation::AcquireFrontendLock || request.operation == Operation::AuthorizeArchive)) {
             response.errorCode = "provider_cancelled";
         } else if (!callbacks.parentRequest) {
             response.errorCode = "provider_parent_operation_unavailable";
@@ -333,6 +340,10 @@ public:
                 mutated = previouslyMutated || execution.started;
                 pendingEffects = previouslyPending || execution.started;
                 executionStarted = executionStarted || execution.started;
+            }
+            if (request.operation == Operation::AuthorizeArchive && response.succeeded) {
+                ArchiveAuthorizationReply grant;
+                if (!Decode(response.payload, &grant)) return Fail("provider_invalid_authorization_reply");
             }
             if (mutation && !response.succeeded) unknownEffects = true;
             if (response.succeeded && request.operation == Operation::AcquireFrontendLock) locked = true;
@@ -458,8 +469,11 @@ public:
             } else if (message.kind == MessageKind::Event) {
                 ProgressEvent progress;
                 if (handshake || message.sequence != request.sequence || message.operation != Operation::Progress ||
-                    !SameBinding(message.binding, current) || !Decode(message.payload, &progress))
+                    !SameBinding(message.binding, current) || !Decode(message.payload, &progress) || !ValidProgressEvent(progress))
                     return Fail("provider_invalid_progress");
+                progress.type = CydiaRuntime::RedactDiagnosticURLs(progress.type);
+                progress.package = CydiaRuntime::RedactDiagnosticURLs(progress.package);
+                progress.message = CydiaRuntime::RedactDiagnosticURLs(progress.message);
                 if (callbacks.progress) {
                     try { callbacks.progress(progress); }
                     catch (...) { return Fail("provider_progress_callback_failed"); }

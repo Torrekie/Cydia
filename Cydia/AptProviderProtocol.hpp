@@ -8,6 +8,7 @@
 #include "Cydia/SourcePreflight.hpp"
 #include "Cydia/PrivilegedRuntime.hpp"
 #include "Cydia/PackageArchivePolicy.hpp"
+#include "Cydia/RepositoryArchiveAuthorization.hpp"
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -36,7 +37,7 @@ enum class Operation {
     SourceSnapshot, SourceField, SourceFileIDs, SourcePreflight, SourceResource,
     SetSecurityMode, RefreshArchitectures, Cancel,
     AcquireFrontendLock, ReleaseFrontendLock, ExecuteDpkg, CommitExtendedState,
-    CaptureStateSnapshot, Progress,
+    CaptureStateSnapshot, Progress, AuthorizeArchive,
 };
 
 enum Capability : std::uint64_t {
@@ -155,14 +156,26 @@ struct ParentExecutionReply {
     int exitCode = -1, signal = 0, launchError = 0;
     bool started = false;
 };
+// This capability transports only a short-lived grant for an already approved
+// archive ID. The parent derives source and package identity from its evidence.
+bool ValidIdentityToken(const std::string &value);
+struct ArchiveAuthorizationRequest { Binding binding; std::string archive; };
+using ArchiveAuthorizationReply = CydiaRuntime::RepositoryArchiveAuthorizationResult;
+bool ValidArchiveAuthorizationReply(const ArchiveAuthorizationReply &reply);
+
 struct ExtendedStateRequest {
     Binding binding;
     std::vector<AutoInstalledDelta> changes;
 };
+enum class SourceActivity : std::uint32_t { None, Started, Finished };
 struct ProgressEvent {
     std::string type, package, message;
     std::uint64_t current = 0, total = 0;
     bool cancellable = false;
+    SourceActivity sourceActivity = SourceActivity::None;
+    // Transport identity only, never diagnostic text. It may contain private
+    // credentials and is used solely to match an existing source's activity.
+    std::string sourceURI;
 };
 
 /* Payload mapping follows AptBackend's value API: no-argument operations use
@@ -189,6 +202,11 @@ struct ProgressEvent {
  * Parent requests have a separate strictly increasing sequence starting at 1;
  * progress events use their active request sequence. Cancel encodes the active
  * request sequence and returns its own reply as well as settling that request.
+ * AuthorizeArchive is negotiated by AuthorizedArchiveGrants and valid only
+ * during RunFetcher under the current approved review and parent lock. Its
+ * payload contains only ArchiveAuthorizationRequest; the parent derives the
+ * account request from retained source/index proof. The typed reply carries
+ * a short-lived HTTPS grant or a failure status, never account credentials.
  * CaptureStateSnapshot returns a parent-verified Environment. Only its package
  * state identity may change within the session; the next cache reply may adopt
  * that approved identity. Other environment changes require a fresh probe.
@@ -326,7 +344,8 @@ template<> struct Codec<Type> { \
 };
 CYDIA_PROVIDER_ENUM(Availability, Availability::Broken)
 CYDIA_PROVIDER_ENUM(MessageKind, MessageKind::ParentResponse)
-CYDIA_PROVIDER_ENUM(Operation, Operation::Progress)
+CYDIA_PROVIDER_ENUM(Operation, Operation::AuthorizeArchive)
+CYDIA_PROVIDER_ENUM(CydiaRuntime::RepositoryArchiveAuthorizationStatus, CydiaRuntime::RepositoryArchiveAuthorizationStatus::Cancelled)
 CYDIA_PROVIDER_ENUM(PackageManagerResult, PackageManagerResult::Completed)
 CYDIA_PROVIDER_ENUM(PackageSelectorKind, PackageSelectorKind::Any)
 CYDIA_PROVIDER_ENUM(PackageLookupStatus, PackageLookupStatus::Ambiguous)
@@ -337,6 +356,7 @@ CYDIA_PROVIDER_ENUM(SourceArchitectureAvailability, SourceArchitectureAvailabili
 CYDIA_PROVIDER_ENUM(RepositorySecurityMode, RepositorySecurityMode::Distribution)
 CYDIA_PROVIDER_ENUM(CydiaSources::Format, CydiaSources::Format::Deb822)
 CYDIA_PROVIDER_ENUM(ExecutionAction, ExecutionAction::Deconfigure)
+CYDIA_PROVIDER_ENUM(SourceActivity, SourceActivity::Finished)
 #undef CYDIA_PROVIDER_ENUM
 
 // Field order below is the normative v2 schema. Reuse all Cydia value fields,
@@ -420,8 +440,30 @@ CYDIA_PROVIDER_VALUE(CacheReply, v.opened, v.binding)
 CYDIA_PROVIDER_VALUE(ParentExecutionRequest, v.binding, v.batch, v.action, v.actions, v.arguments)
 CYDIA_PROVIDER_VALUE(ParentExecutionReply, v.exitCode, v.signal, v.launchError, v.started)
 CYDIA_PROVIDER_VALUE(ExtendedStateRequest, v.binding, v.changes)
-CYDIA_PROVIDER_VALUE(ProgressEvent, v.type, v.package, v.message, v.current, v.total, v.cancellable)
+CYDIA_PROVIDER_VALUE(ProgressEvent, v.type, v.package, v.message, v.current, v.total, v.cancellable, v.sourceActivity, v.sourceURI)
 #undef CYDIA_PROVIDER_VALUE
+
+// Grant payloads have much tighter limits than general cache records. Check
+// lengths before allocating; a URL is sensitive transport, never diagnostics.
+template<> struct Codec<ArchiveAuthorizationRequest> {
+    static bool write(Writer &w, const ArchiveAuthorizationRequest &v) {
+        return ValidIdentityToken(v.archive) && w(v.binding, v.archive);
+    }
+    static bool read(Reader &r, ArchiveAuthorizationRequest &v) {
+        std::uint64_t n;
+        return r(v.binding) && r.integer(&n, 4) && n <= 512 && r.bytes(n, &v.archive) && ValidIdentityToken(v.archive);
+    }
+};
+template<> struct Codec<ArchiveAuthorizationReply> {
+    static bool write(Writer &w, const ArchiveAuthorizationReply &v) {
+        return ValidArchiveAuthorizationReply(v) && w(v.status, v.transportURL, v.message);
+    }
+    static bool read(Reader &r, ArchiveAuthorizationReply &v) {
+        std::uint64_t n;
+        return r(v.status) && r.integer(&n, 4) && n <= 32768 && r.bytes(n, &v.transportURL) &&
+            r.integer(&n, 4) && n <= 4096 && r.bytes(n, &v.message) && ValidArchiveAuthorizationReply(v);
+    }
+};
 
 template<class T> bool Encode(const T &value, std::string *bytes) {
     if (bytes == NULL) return false;
@@ -447,6 +489,7 @@ bool DecodeFrame(const std::string &bytes, Message *message);
 bool ValidIdentityToken(const std::string &value);
 bool ValidChallenge(const std::string &value);
 bool ValidEnvironment(const Environment &environment);
+bool ValidProgressEvent(const ProgressEvent &event);
 bool ValidHello(const Hello &hello);
 bool SameEnvironment(const Environment &left, const Environment &right);
 bool Compatible(const Info &info, const Environment &expected, std::string *reason);

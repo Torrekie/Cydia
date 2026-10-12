@@ -133,7 +133,9 @@ bool StageAuthorizedArchives(pkgAcquire &fetcher, pkgAcquireStatus &status,
         if (grant.status == RepositoryArchiveAuthorizationStatus::NotRequired) continue;
         if (grant.status == RepositoryArchiveAuthorizationStatus::Cancelled) return false;
         if (grant.status != RepositoryArchiveAuthorizationStatus::Authorized)
-            return Failure(result, expected, grant.message, "repository_authorization_required");
+            return Failure(result, expected, grant.message,
+                grant.status == RepositoryArchiveAuthorizationStatus::Unsupported ?
+                    "repository_authorization_required" : "repository_authorization_failed");
         if (!hashes.usable() || archive->FileSize == 0)
             return Failure(result, expected, "The authorized archive has no usable repository integrity information.", "archive_missing_hashes");
         const URI transport(grant.transportURL);

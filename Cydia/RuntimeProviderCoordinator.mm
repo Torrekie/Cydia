@@ -117,6 +117,7 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
         broker.helperPath = selection.snapshot.runtime.privilegedHelperPath;
         broker.extendedStatesPath = selection.snapshot.runtime.extendedStatesPath;
         broker.authority = selection.snapshot.identity;
+        broker.capabilities = selection.probe.info.capabilities;
         broker.policy.environment = selection.hello.expected;
         broker.policy.layout.prefix = selection.snapshot.runtime.packageInstallPrefix;
         if (broker.policy.layout.prefix == "/") broker.policy.layout.foreignPrefixes.push_back("/var/jb");
@@ -129,6 +130,22 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
             if (!context || !context->archives) evidence.errorCode = "provider_archive_review_missing";
             else context->archives->Verify(archives, &evidence.archives, control.cancelled, &evidence.errorCode);
             return evidence;
+        };
+        broker.authorizeArchive = [weak](const P::ArchiveManifest &archive, const P::RequestControl &control) {
+            P::ArchiveAuthorizationReply result;
+            auto context(weak.lock());
+            CydiaRuntime::RepositoryArchiveAuthorizationRequest request;
+            bool commercial(false); std::string error;
+            if (!context || !context->archives || !context->archives->AuthorizationRequest(
+                archive, &request, &commercial, control.cancelled, &error)) return result;
+            if (!commercial) {
+                result.status = CydiaRuntime::RepositoryArchiveAuthorizationStatus::NotRequired; return result;
+            }
+            result = CydiaRuntime::AuthorizeRepositoryArchive(request, control.cancelled);
+            CydiaRuntime::RepositoryArchiveAuthorizationRequest rechecked; bool stillCommercial(false);
+            if (!context->archives->AuthorizationRequest(archive, &rechecked, &stillCommercial, control.cancelled, &error) ||
+                !stillCommercial) return P::ArchiveAuthorizationReply();
+            return result;
         };
         context->broker.reset(new P::Broker(broker));
         P::SessionCallbacks callbacks;

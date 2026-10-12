@@ -21,6 +21,11 @@ public:
     static std::shared_ptr<ArchiveEvidenceSnapshot> Capture(const RuntimeDescriptor &runtime,
         const ReviewedTransaction &review, const std::string &protectedExecutableSearchPath,
         const std::function<bool()> &cancelled, std::string *error);
+    // Before a download, recheck retained source/index evidence and derive the
+    // account request from those exact records. No archive file is needed yet.
+    bool AuthorizationRequest(const ArchiveManifest &requested,
+        CydiaRuntime::RepositoryArchiveAuthorizationRequest *request, bool *commercial,
+        const std::function<bool()> &cancelled, std::string *error) const;
     bool Verify(const std::vector<ArchiveManifest> &requested,
         std::vector<VerifiedArchiveEvidence> *evidence,
         const std::function<bool()> &cancelled, std::string *error) const;

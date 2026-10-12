@@ -95,7 +95,8 @@ P::Message Reply(const P::Message &request) {
 
 enum class Mode {
     Normal, Malformed, ChangedBinding, Cancel, IgnoreCancel, ChangedState, ApprovedState,
-    LostExecution, CompletedExecution, FailedExecution, MultipleBatches, FalseStarted, BlockedWrite
+    LostExecution, CompletedExecution, FailedExecution, MultipleBatches, FalseStarted, BlockedWrite, Progress,
+    Authorization, AuthorizationUnsupported, AuthorizationWrongPhase, AuthorizationWrongBinding
 };
 
 struct Peer {
@@ -143,7 +144,9 @@ struct Peer {
         P::Hello decoded;
         if (!P::Decode(hello.payload, &decoded) || !P::ValidHello(decoded)) return;
         P::Message greeting(Reply(hello));
-        const P::Info info(Provider());
+        P::Info info(Provider());
+        if (mode == Mode::Authorization || mode == Mode::AuthorizationWrongPhase || mode == Mode::AuthorizationWrongBinding)
+            info.capabilities |= P::AuthorizedArchiveGrants;
         if (!P::Encode(info, &greeting.payload) || !Send(server, greeting)) return;
         std::uint64_t parentSequence(0);
         bool managerReturned(false);
@@ -168,7 +171,23 @@ struct Peer {
                     break;
                 }
                 case P::Operation::CacheState: {
+                    if (mode == Mode::AuthorizationWrongPhase) {
+                        P::ArchiveAuthorizationRequest grant; grant.binding = request.binding; grant.archive = "sample";
+                        std::string payload; P::Message reply;
+                        if (!P::Encode(grant, &payload) || !Reverse(request, P::Operation::AuthorizeArchive, ++parentSequence, payload, &reply)) return;
+                    }
                     if (managerReturned) { shutdown(server, SHUT_RDWR); return; }
+                    if (mode == Mode::Progress) {
+                        P::ProgressEvent event;
+                        event.message = "Upstream diagnostic https://name:secret@repo.invalid/private?token=secret";
+                        event.type = "Status"; event.current = 10; event.total = 20; event.cancellable = true;
+                        event.sourceActivity = P::SourceActivity::Started;
+                        event.sourceURI = "https://name:secret@repo.invalid/dists/stable/Release";
+                        P::Message progress;
+                        progress.kind = P::MessageKind::Event; progress.sequence = request.sequence;
+                        progress.operation = P::Operation::Progress; progress.binding = request.binding;
+                        if (!P::Encode(event, &progress.payload) || !Send(server, progress)) return;
+                    }
                     CydiaAPT::CacheStateSummary cache; cache.installs = 3;
                     if (!P::Encode(cache, &response.payload)) return;
                     if (mode == Mode::ChangedBinding) response.binding.policyIdentity = "unexpected-policy";
@@ -187,6 +206,18 @@ struct Peer {
                     if (!Reverse(request, P::Operation::AcquireFrontendLock, ++parentSequence, "", &lock)) return;
                     denied = !lock.succeeded;
                     if (!P::Encode(lock.succeeded, &response.payload)) return;
+                    break;
+                }
+                case P::Operation::RunFetcher: {
+                    P::ArchiveAuthorizationRequest grant; grant.binding = request.binding; grant.archive = "sample";
+                    if (mode == Mode::AuthorizationWrongBinding) ++grant.binding.selectionRevision;
+                    std::string payload; P::Message granted;
+                    if (!P::Encode(grant, &payload) || !Reverse(request, P::Operation::AuthorizeArchive, ++parentSequence, payload, &granted)) return;
+                    P::ArchiveAuthorizationReply result;
+                    if (!granted.succeeded || !P::Decode(granted.payload, &result) ||
+                        result.status != CydiaRuntime::RepositoryArchiveAuthorizationStatus::Authorized) return;
+                    CydiaAPT::FetchResultData fetched; fetched.completed = true;
+                    if (!P::Encode(fetched, &response.payload)) return;
                     break;
                 }
                 case P::Operation::RunPackageManager: {
@@ -231,7 +262,10 @@ struct Peer {
 };
 
 void Start(P::Session *session, Peer *peer, const P::SessionCallbacks &callbacks = P::SessionCallbacks()) {
-    P::Info provider(Provider()); P::Hello hello; hello.expected = provider.environment;
+    P::Info provider(Provider());
+    if (peer->mode == Mode::Authorization || peer->mode == Mode::AuthorizationWrongPhase || peer->mode == Mode::AuthorizationWrongBinding)
+        provider.capabilities |= P::AuthorizedArchiveGrants;
+    P::Hello hello; hello.expected = provider.environment;
     hello.options.repositorySecurityMode = CydiaAPT::RepositorySecurityMode::Distribution;
     Require(session->StartConnected(peer->TakeClient(), provider, hello, callbacks, 1000), "normal session handshake");
     Require(P::ValidChallenge(session->binding().session), "session generates a bounded fresh challenge");
@@ -285,6 +319,22 @@ void InvalidFramesAndState() {
         Require(session.Call(P::Operation::OpenCache, "", &reply) && session.binding().cacheEpoch == 2 &&
             session.binding().packageStateIdentity == "verified-state-v2", "only a parent-verified state transition is accepted");
     }
+}
+
+void SourceProgress() {
+    Peer peer(Mode::Progress); P::Session session; P::SessionCallbacks callbacks;
+    unsigned received = 0;
+    callbacks.progress = [&](const P::ProgressEvent &event) {
+        ++received;
+        Require(event.message == "Upstream diagnostic https://repo.invalid/[redacted]" &&
+                event.type == "Status" && event.current == 10 && event.total == 20 && event.cancellable,
+                "progress diagnostics retain upstream text while redacting transport secrets");
+        Require(event.sourceURI == "https://name:secret@repo.invalid/dists/stable/Release" &&
+                event.sourceActivity == P::SourceActivity::Started,
+                "activity identity is preserved separately for source matching");
+    };
+    Start(&session, &peer, callbacks); P::Message reply;
+    Require(session.Call(P::Operation::CacheState, "", &reply) && received == 1, "structured source activity delivered");
 }
 
 void Cancellation() {
@@ -349,6 +399,30 @@ void SettledMutation() {
     }
 }
 
+void ArchiveAuthorization() {
+    for (auto mode : {Mode::Authorization, Mode::AuthorizationUnsupported, Mode::AuthorizationWrongPhase, Mode::AuthorizationWrongBinding}) {
+        Peer peer(mode); P::Session session; P::SessionCallbacks callbacks; unsigned grants = 0;
+        callbacks.parentRequest = [&](const P::Message &request, P::Message *reply, const P::RequestControl &) {
+            if (request.operation == P::Operation::AcquireFrontendLock) { reply->succeeded = true; return; }
+            Require(request.operation == P::Operation::AuthorizeArchive, "only scoped authorization reaches callback");
+            P::ArchiveAuthorizationRequest grant; Require(P::Decode(request.payload, &grant) && grant.archive == "sample" &&
+                P::SameBinding(grant.binding, session.binding()), "grant uses live review and exact archive ID");
+            ++grants; P::ArchiveAuthorizationReply result; result.status = CydiaRuntime::RepositoryArchiveAuthorizationStatus::Authorized;
+            result.transportURL = "https://cdn.invalid/file?token=secret";
+            reply->succeeded = P::Encode(result, &reply->payload);
+        };
+        Start(&session, &peer, callbacks); P::Message reply;
+        Require(session.Call(P::Operation::TransactionData, "", &reply) && session.Call(P::Operation::LockForTransaction, "", &reply),
+            "authorization fixture review and parent lock");
+        std::string interval; P::Encode(std::uint32_t(100), &interval);
+        const bool received = session.Call(mode == Mode::AuthorizationWrongPhase ? P::Operation::CacheState : P::Operation::RunFetcher,
+            interval, &reply, 1000);
+        if (mode == Mode::Authorization) Require(received && reply.succeeded && grants == 1 && !session.mutationStarted(),
+            "approved fetch may request a grant without starting mutation");
+        else Require(!received && grants == 0 && !session.active() && !session.indeterminate(),
+            "unnegotiated, wrong-phase and stale-binding grants fail before callback");
+    }
+}
 void LostMutation() {
     Peer peer(Mode::LostExecution); P::Session session; P::SessionCallbacks callbacks;
     callbacks.parentRequest = [](const P::Message &request, P::Message *reply, const P::RequestControl &) {
@@ -368,6 +442,6 @@ void LostMutation() {
 } // namespace
 
 int main() {
-    NormalAndAuthority(); InvalidFramesAndState(); Cancellation(); LostMutation(); SettledMutation();
+    NormalAndAuthority(); InvalidFramesAndState(); SourceProgress(); Cancellation(); LostMutation(); SettledMutation(); ArchiveAuthorization();
     std::puts("[apt-provider-session] handshake, binding, authority, cancellation and indeterminate outcomes passed");
 }

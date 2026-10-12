@@ -63,6 +63,21 @@ bool SameEnvironment(const Environment &left, const Environment &right) {
     return Encode(left, &a) && Encode(right, &b) && a == b;
 }
 
+bool ValidProgressEvent(const ProgressEvent &event) {
+    if (event.sourceActivity == SourceActivity::None) return event.sourceURI.empty();
+    if (event.sourceActivity != SourceActivity::Started && event.sourceActivity != SourceActivity::Finished) return false;
+    if (event.sourceURI.empty() || event.sourceURI.size() > 32768) return false;
+    const auto colon(event.sourceURI.find(':'));
+    if (colon == std::string::npos || colon == 0) return false;
+    for (std::size_t i = 0; i != event.sourceURI.size(); ++i) {
+        const unsigned char c(event.sourceURI[i]);
+        if (c < 32 || c == 127) return false;
+        if (i < colon && !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (i && ((c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.')))) return false;
+    }
+    return true;
+}
+
 bool ValidIdentityToken(const std::string &value) {
     if (value.empty() || value.size() > 512) return false;
     for (const unsigned char character : value)
@@ -141,12 +156,26 @@ bool SameBinding(const Binding &left, const Binding &right) {
     return Encode(left, &a) && Encode(right, &b) && a == b;
 }
 
+bool ValidArchiveAuthorizationReply(const ArchiveAuthorizationReply &reply) {
+    using Status = CydiaRuntime::RepositoryArchiveAuthorizationStatus;
+    if (static_cast<unsigned>(reply.status) > static_cast<unsigned>(Status::Cancelled) ||
+        reply.transportURL.size() > 32768 || reply.message.size() > 4096 || reply.message.find('\0') != std::string::npos) return false;
+    if (reply.status != Status::Authorized) return reply.transportURL.empty();
+    const auto &url = reply.transportURL;
+    if (url.compare(0, 8, "https://") != 0) return false;
+    for (const unsigned char c : url) if (c <= 32 || c == 127 || c == '\\') return false;
+    const auto end = url.find_first_of("/?#", 8);
+    const std::string authority = url.substr(8, end == std::string::npos ? end : end - 8);
+    return !authority.empty() && authority.find_first_of("@%") == std::string::npos &&
+        authority.front() != ':' && url.find('#') == std::string::npos;
+}
+
 bool ValidRequestBinding(const Message &request) {
     if (request.version != ProtocolVersion || request.sequence == 0 ||
         (request.kind != MessageKind::Request && request.kind != MessageKind::ParentRequest) ||
-        static_cast<unsigned>(request.operation) > static_cast<unsigned>(Operation::Progress)) return false;
-    const bool parentOperation = request.operation >= Operation::AcquireFrontendLock &&
-        request.operation <= Operation::CaptureStateSnapshot;
+        static_cast<unsigned>(request.operation) > static_cast<unsigned>(Operation::AuthorizeArchive)) return false;
+    const bool parentOperation = (request.operation >= Operation::AcquireFrontendLock &&
+        request.operation <= Operation::CaptureStateSnapshot) || request.operation == Operation::AuthorizeArchive;
     if (parentOperation != (request.kind == MessageKind::ParentRequest) ||
         request.operation == Operation::Progress) return false;
     if (request.operation == Operation::Hello) return true;
@@ -161,6 +190,7 @@ bool ValidRequestBinding(const Message &request) {
         case Operation::RunPackageManager:
         case Operation::ExecuteDpkg:
         case Operation::CommitExtendedState:
+        case Operation::AuthorizeArchive:
             return binding.cacheEpoch != 0 && !binding.review.empty();
         case Operation::Reset:
         case Operation::DrainErrors:

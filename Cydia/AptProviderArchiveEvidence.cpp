@@ -188,6 +188,7 @@ struct Range {
     ArchiveManifest archive;
     std::uint64_t begin = 0, end = 0;
     std::string bytes;
+    bool commercial = false;
 };
 // The decoder receives only a retained descriptor, and absolute trusted tools
 // with fixed arguments. No APT compressor options or policy are consulted.
@@ -253,7 +254,7 @@ bool Decimal(const std::string &text, std::uint64_t *value) {
     }
     return true;
 }
-bool Record(const std::string &bytes, const ArchiveManifest &archive, std::string *error) {
+bool Record(const std::string &bytes, const ArchiveManifest &archive, std::string *error, bool *commercial) {
     std::map<std::string, std::string> fields;
     std::string previous; bool ended = false; std::size_t start = 0;
     while (start < bytes.size()) {
@@ -292,6 +293,7 @@ bool Record(const std::string &bytes, const ArchiveManifest &archive, std::strin
     }
     if ((!hashes.count("SHA256") && !hashes.count("SHA512")) || hashes != archive.hashes)
         return Fail(error, "provider_index_hash_mismatch");
+    *commercial = Has(Words(fields["tag"]), "cydia::commercial");
     return true;
 }
 bool ReadRecords(const File &file, const std::string &compression, const std::map<std::string, std::string> &decoders,
@@ -309,7 +311,7 @@ bool ReadRecords(const File &file, const std::string &compression, const std::ma
         }
         offset += count; return true;
     }, cancelled, error)) return false;
-    for (const auto &range : *ranges) {
+    for (auto &range : *ranges) {
         const auto &archive = range.archive;
         const std::size_t prefix = archive.recordOffset - range.begin;
         if (archive.recordOffset + archive.recordSize > offset || range.bytes.size() < prefix + archive.recordSize)
@@ -325,7 +327,7 @@ bool ReadRecords(const File &file, const std::string &compression, const std::ma
             !(record.size() >= 4 && record.compare(record.size() - 4, 4, "\r\n\r\n") == 0) &&
             !(record.back() == '\n' && (!after.empty() && (after[0] == '\n' || after.compare(0, 2, "\r\n") == 0))))
             return Fail(error, "provider_index_record_boundary");
-        if (!Record(record, archive, error)) return false;
+        if (!Record(record, archive, error, &range.commercial)) return false;
     }
     return true;
 }
@@ -339,6 +341,7 @@ public:
     std::map<std::string, std::string> decoders;
     std::map<std::string, Index> indexes;
     std::map<std::string, ArchiveManifest> archives;
+    std::set<std::string> commercial;
 };
 ArchiveEvidenceSnapshot::ArchiveEvidenceSnapshot() : implementation_(new Implementation) {}
 ArchiveEvidenceSnapshot::~ArchiveEvidenceSnapshot() {}
@@ -394,6 +397,8 @@ std::shared_ptr<ArchiveEvidenceSnapshot> ArchiveEvidenceSnapshot::Capture(const 
             if (error && error->empty()) *error = "provider_archive_index_changed";
             return nullptr;
         }
+        for (const auto &range : index.ranges)
+            if (range.commercial) capture.commercial.insert(range.archive.identifier);
         // The exact record fields are now represented by the validated
         // immutable manifest. Do not retain whole decoded indexes in memory.
         index.ranges.clear();
@@ -403,6 +408,33 @@ std::shared_ptr<ArchiveEvidenceSnapshot> ArchiveEvidenceSnapshot::Capture(const 
     }
     if (error) error->clear();
     return result;
+}
+
+bool ArchiveEvidenceSnapshot::AuthorizationRequest(const ArchiveManifest &requested,
+    CydiaRuntime::RepositoryArchiveAuthorizationRequest *request, bool *commercial,
+    const std::function<bool()> &cancelled, std::string *error) const {
+    if (error) error->clear();
+    if (!request || !commercial) return Fail(error, "provider_archive_evidence_missing");
+    *request = CydiaRuntime::RepositoryArchiveAuthorizationRequest(); *commercial = false;
+    ErrorScope errors;
+    const auto &capture = *implementation_;
+    const auto found = capture.archives.find(requested.identifier);
+    if (found == capture.archives.end() || !SameArchive(requested, found->second))
+        return Fail(error, "provider_archive_not_reviewed");
+    if (Cancelled(cancelled, error)) return false;
+    if (!SameSources(capture.sources, CydiaSources::ReadEffectiveDocuments(capture.locations)))
+        return Fail(error, "provider_archive_sources_changed");
+    const auto index = capture.indexes.find(found->second.sourceIndexPath);
+    std::map<std::string, std::string> hashes;
+    if (index == capture.indexes.end() || !Hash(*index->second.file, &hashes, cancelled, error)) return false;
+    if ("SHA256:" + hashes["SHA256"] != index->second.hash) return Fail(error, "provider_archive_index_changed");
+    if (!SameSources(capture.sources, CydiaSources::ReadEffectiveDocuments(capture.locations)))
+        return Fail(error, "provider_archive_sources_changed");
+    const auto &archive = found->second;
+    request->sourceURL = archive.sourceURI; request->package = archive.package.package;
+    request->version = archive.package.version; request->architecture = archive.package.architecture;
+    *commercial = capture.commercial.count(archive.identifier) != 0;
+    return true;
 }
 
 bool ArchiveEvidenceSnapshot::Verify(const std::vector<ArchiveManifest> &requested,

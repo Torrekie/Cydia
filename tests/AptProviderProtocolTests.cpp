@@ -103,6 +103,17 @@ void PackageValues() {
     options.repositorySecurityMode = RepositorySecurityMode::Distribution;
     Require(RoundTrip(options).repositorySecurityMode == RepositorySecurityMode::Distribution,
             "initialization lost distribution inheritance");
+    P::ProgressEvent progress;
+    progress.sourceActivity = P::SourceActivity::Started;
+    progress.sourceURI = "https://repo.invalid/dists/stable/Release";
+    progress.current = 12; progress.total = 37; progress.cancellable = true;
+    const auto activity(RoundTrip(progress));
+    Require(activity.sourceURI == progress.sourceURI && activity.sourceActivity == P::SourceActivity::Started &&
+            activity.current == 12 && P::ValidProgressEvent(activity), "source activity identity was lost");
+    progress.sourceActivity = P::SourceActivity::None;
+    Require(!P::ValidProgressEvent(progress), "activity-free source identity accepted");
+    progress.sourceActivity = P::SourceActivity::Finished; progress.sourceURI += '\n';
+    Require(!P::ValidProgressEvent(progress), "control byte accepted in activity URI");
 }
 void RejectionAndBinding() {
     ErrorData before = {"unchanged", true, "unchanged_code"}; std::string encoded;

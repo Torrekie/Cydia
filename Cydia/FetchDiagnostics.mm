@@ -47,7 +47,8 @@ NSString *CydiaAPTDiagnosticMessage(const CydiaAPT::ErrorData &diagnostic) {
 }
 
 NSString *CydiaFetchDiagnosticMessage(const CydiaAPT::FetchFailureData &diagnostic) {
-    if (diagnostic.reason == "invalid_download_grant")
+    if (diagnostic.reason == "invalid_download_grant" ||
+        (diagnostic.reason == "repository_authorization_failed" && diagnostic.error.empty()))
         return [[NSBundle mainBundle] localizedStringForKey:@"ACCOUNT_REQUEST_FAILED" value:nil table:@"Accounts"];
     if (diagnostic.reason == "repository_authorization_required" && diagnostic.error.empty())
         return [[NSBundle mainBundle] localizedStringForKey:@"ACCOUNT_UNSUPPORTED" value:nil table:@"Accounts"];

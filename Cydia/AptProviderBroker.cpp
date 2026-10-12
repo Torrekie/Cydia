@@ -3,6 +3,8 @@
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/ExtendedState.hpp"
+#include "Cydia/RedactedURL.hpp"
+#include <chrono>
 #include <algorithm>
 #include <cerrno>
 #include <fcntl.h>
@@ -130,6 +132,43 @@ public:
         }
         reply->succeeded = Encode(result, &reply->payload);
     }
+    void AuthorizeArchive(const Message &message, Message *reply, const RequestControl &control) {
+        ArchiveAuthorizationRequest request;
+        if (!(options.capabilities & AuthorizedArchiveGrants) || !options.authorizeArchive || lock < 0 ||
+            !authorization.active() || committed || started || !SameBinding(message.binding, approved.binding) ||
+            !Decode(message.payload, &request) || !SameBinding(request.binding, approved.binding)) {
+            Fail("provider_authorization_not_approved"); return;
+        }
+        const auto found = std::find_if(approved.execution.archives.begin(), approved.execution.archives.end(),
+            [&](const ArchiveManifest &archive) { return archive.identifier == request.archive; });
+        if (found == approved.execution.archives.end()) { Fail("provider_archive_not_reviewed"); return; }
+        using Clock = std::chrono::steady_clock;
+        const auto deadline = Clock::now() + std::chrono::milliseconds(std::min(60000u,
+            control.remainingMilliseconds ? control.remainingMilliseconds() : 60000u));
+        RequestControl bounded;
+        bounded.remainingMilliseconds = [deadline, &control]() {
+            const auto now = Clock::now();
+            if (now >= deadline) return 0u;
+            const auto left = static_cast<unsigned>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
+            return control.remainingMilliseconds ? std::min(left, control.remainingMilliseconds()) : left;
+        };
+        bounded.cancelled = [&bounded, &control]() { return Cancelled(control) || !bounded.remainingMilliseconds(); };
+        ArchiveAuthorizationReply result;
+        if (Cancelled(bounded)) result.status = CydiaRuntime::RepositoryArchiveAuthorizationStatus::Cancelled;
+        else {
+            DpkgState state;
+            if (!Capture(&state, bounded) || state.packageStateIdentity != approved.binding.packageStateIdentity) {
+                Fail("provider_execution_state_changed"); return;
+            }
+            result = options.authorizeArchive(*found, bounded);
+            if (Cancelled(bounded)) {
+                result = ArchiveAuthorizationReply(); result.status = CydiaRuntime::RepositoryArchiveAuthorizationStatus::Cancelled;
+            }
+        }
+        result.message = CydiaRuntime::RedactDiagnosticURLs(result.message);
+        if (!ValidArchiveAuthorizationReply(result)) { Fail("provider_invalid_authorization_reply"); return; }
+        reply->succeeded = Encode(result, &reply->payload);
+    }
     bool Commit(const Message &message, const RequestControl &control) {
         ExtendedStateRequest request; std::map<std::string, bool> proposed, expected;
         if (committed || !authorization.complete() || !Decode(message.payload, &request) ||
@@ -224,6 +263,7 @@ void Broker::HandleParentRequest(const Message &request, Message *reply, const R
             if (reply->succeeded) value.environment = updated;
             break;
         }
+        case Operation::AuthorizeArchive: value.AuthorizeArchive(request, reply, control); break;
         case Operation::ExecuteDpkg: value.Execute(request, reply, control); break;
         case Operation::CommitExtendedState: reply->succeeded = value.Commit(request, control); break;
         default: value.Fail("provider_parent_operation_unsupported"); break;

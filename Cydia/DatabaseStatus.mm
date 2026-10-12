@@ -13,6 +13,7 @@
 #include "Cydia/Database.h"
 #include "Cydia/ProgressEvent.h"
 #include "Cydia/ProviderProgressPolicy.hpp"
+#include "Cydia/SourceFetchActivity.hpp"
 #include "Cydia/RedactedURL.hpp"
 #include "CyteKit/Localize.h"
 
@@ -248,18 +249,12 @@ class SourceStatus : public CancelStatus {
   private:
     __weak NSObject<FetchDelegate> *delegate_;
     __weak Database *database_;
-    std::set<std::string> fetches_;
+    SourceFetchActivity activity_;
 
     void Set(bool fetch, const std::string &uri) {
-        if (fetch) {
-            if (!fetches_.insert(uri).second)
-                return;
-        } else if (fetches_.erase(uri) == 0)
-            return;
-
-        const std::string::size_type slash(uri.rfind('/'));
-        if (slash != std::string::npos)
-            [database_ setFetch:fetch forURI:uri.substr(0, slash).c_str()];
+        std::string directory;
+        if (activity_.Set(fetch, uri, &directory))
+            [database_ setFetch:fetch forURI:directory.c_str()];
     }
 
     void Set(bool fetch, pkgAcquire::Item *item) {
@@ -277,18 +272,19 @@ class SourceStatus : public CancelStatus {
 
     void ProviderStarted(bool cancellable) override {
         (void) cancellable;
-        fetches_.clear();
+        activity_.Clear();
         [database_ resetFetch];
     }
 
     void ProviderUpdated(const Provider::ProgressEvent &event) override {
-        // FetchDelegate has only per-URI activity callbacks. The protocol's
-        // package field is not a URI; final typed results carry diagnostics.
         (void) UpdateProviderCancellation(event.cancellable);
+        // This identity is never presented as a diagnostic or written to logs.
+        if (event.sourceActivity != Provider::SourceActivity::None)
+            Set(event.sourceActivity == Provider::SourceActivity::Started, event.sourceURI);
     }
 
     void ProviderStopped() override {
-        fetches_.clear();
+        activity_.Clear();
         [database_ resetFetch];
     }
 
@@ -323,7 +319,7 @@ class SourceStatus : public CancelStatus {
         }
 
         std::vector<std::string> stops;
-        std::set_difference(fetches_.begin(), fetches_.end(), fetches.begin(), fetches.end(), std::back_insert_iterator<std::vector<std::string> >(stops));
+        std::set_difference(activity_.items().begin(), activity_.items().end(), fetches.begin(), fetches.end(), std::back_insert_iterator<std::vector<std::string> >(stops));
         for (std::vector<std::string>::const_iterator stop(stops.begin()); stop != stops.end(); ++stop)
             Set(false, *stop);
         return ![delegate_ isSourceCancelled];
@@ -331,6 +327,7 @@ class SourceStatus : public CancelStatus {
 
     virtual void Stop() {
         pkgAcquireStatus::Stop();
+        activity_.Clear();
         [database_ resetFetch];
     }
 };
