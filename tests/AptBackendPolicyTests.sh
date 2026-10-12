@@ -24,6 +24,8 @@ ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-bac
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-authority"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-authority"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-trust"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-evidence"
+fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-capture"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-dependencies"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-worker"
 TESTDIR="$PROJECT_DIR/apt64/test/integration"

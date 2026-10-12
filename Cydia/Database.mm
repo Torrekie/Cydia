@@ -7,13 +7,14 @@
 #include "Cydia/FetchDiagnostics.h"
 #include "Cydia/DatabaseStatus.h"
 #include "Cydia/DatabaseRuntimeInternal.h"
+#include "Cydia/DatabaseConfigurationInternal.h"
 #include "Cydia/DatabaseSnapshots.h"
 
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/AptBackend.hpp"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/DpkgRunner.h"
-#include "Cydia/DpkgStatusParser.hpp"
+#include "Cydia/DpkgConffile.hpp"
 #include "Cydia/Package.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PackageMetadata.hpp"
@@ -73,7 +74,6 @@ static bool DpkgJournalNeedsRecovery() {
 
 static NSString * const kCydiaProgressEventTypeError = @"Error";
 static NSString * const kCydiaProgressEventTypeInformation = @"Information";
-static NSString * const kCydiaProgressEventTypeStatus = @"Status";
 static NSString * const kCydiaProgressEventTypeWarning = @"Warning";
 
 namespace {
@@ -253,56 +253,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (void) _readStatus:(NSNumber *)fd {
     boost::fdistream is([fd intValue]);
     std::string line;
-
-    static RegEx conffile_r("status: [^ ]* : conffile-prompt : (.*?) *");
-
     while (std::getline(is, line)) {
-        @autoreleasepool {
-
-        const char *data(line.c_str());
-        size_t size(line.size());
-        lprintf("S:%s\n", data);
-
-        if (conffile_r(data, size)) {
-            // status: /fail : conffile-prompt : '/fail' '/fail.dpkg-new' 1 1
-            [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:conffile_r[1] waitUntilDone:YES];
-        } else if (strncmp(data, "status: ", 8) == 0) {
-            // status: <package>: {unpacked,half-configured,installed}
-            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 8)] ofType:kCydiaProgressEventTypeStatus]);
-            [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-        } else if (strncmp(data, "processing: ", 12) == 0) {
-            // processing: configure: config-test
-            CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:(data + 12)] ofType:kCydiaProgressEventTypeStatus]);
-            [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-        } else {
-            CydiaRuntime::Dpkg::PackageManagerProgressRecord record;
-            if (!CydiaRuntime::Dpkg::ParsePackageManagerProgress(line, &record)) {
-                lprintf("E:unknown status\n");
-                continue;
-            }
-
-            NSString *package = [NSString stringWithUTF8String:record.package.c_str()];
-            if ([package isEqualToString:@"dpkg-exec"])
-                package = nil;
-
-            [progress_ performSelectorOnMainThread:@selector(setProgressPercent:) withObject:[NSNumber numberWithDouble:(record.percent / 100)] waitUntilDone:YES];
-
-            NSString *string = [NSString stringWithUTF8String:record.message.c_str()];
-
-            if (record.type == "pmerror") {
-                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:kCydiaProgressEventTypeError forPackage:package]);
-                [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-            } else if (record.type == "pmstatus") {
-                CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:string ofType:kCydiaProgressEventTypeStatus forPackage:package]);
-                [progress_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
-            } else if (record.type == "pmconffile")
-                [delegate_ performSelectorOnMainThread:@selector(setConfigurationData:) withObject:string waitUntilDone:YES];
-            else
-                lprintf("E:unknown pmstatus\n");
-        }
-        }
+        @autoreleasepool { [self _processDpkgStatusLine:line]; }
     }
-
     _assume(false);
 }
 
@@ -383,6 +336,8 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         _assert(close(fds[0]) != -1);
 
         input_ = fdopen(fds[1], "a");
+
+        [self initializeConfigurationPrompts];
 
         _assert(pipe(fds) != -1);
         _assert(dup2(fds[1], 1) != -1);
@@ -1050,7 +1005,17 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     [self recheckRepositoryTrust];
     CydiaAPT::FetchResultData finalArchives;
     bool started(false);
-    const CydiaAPT::PackageManagerResult result(apt_->runPackageManager(statusfd_, &finalArchives, &started));
+    CydiaAPT::PackageManagerResult result(CydiaAPT::PackageManagerResult::Failed);
+    {
+        // The worker path creates a separate pair for every brokered child.
+        // Legacy libapt exposes only the complete run here, so keep its scope
+        // transaction-sized rather than claiming individual-child isolation.
+        CydiaRuntime::Dpkg::ConffileExecution conffiles(CydiaAPT::DpkgOptions(), !runtime_->remote());
+        CydiaRuntime::Dpkg::ScopedConffileStandardInput standardInput(conffiles);
+        if (conffiles.valid() && standardInput.valid())
+            result = apt_->runPackageManager(conffiles.enabled() ? conffiles.statusDescriptor() : statusfd_, &finalArchives, &started);
+        conffiles.Finish();
+    }
     RestartSubstrate_ = started && substrate;
     transactionResult_.packageManagerStarted = started;
     if (!finalArchives.failures.empty()) {

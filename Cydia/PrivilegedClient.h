@@ -83,11 +83,14 @@ struct DpkgExecutionResult {
     bool started;
     bool indeterminate; // Helper transport disappeared without a verified pre-launch denial.
 };
-// Uses a separate inherited request channel; dpkg stdin/stdout/status-fd retain
-// their existing conffile/progress behavior. No transaction timeout or kill.
+// Uses a separate inherited request channel. With the native UI bridge,
+// interactive dpkg gets private per-child input/status channels; argvOptions
+// supplies independently retained options, never worker-invented UI policy.
+// No transaction timeout or kill.
 DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::string &command,
     const Privileged::Request &wrappedRequest, int statusFd,
-    const std::string *input = nullptr);
+    const std::string *input = nullptr,
+    const std::vector<std::string> &argvOptions = std::vector<std::string>());
 // Compatibility bridge for Cydia's own explicit hold/configure actions. This
 // is never exposed as a reverse-RPC operation to an external provider worker.
 Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int statusFd = -1,

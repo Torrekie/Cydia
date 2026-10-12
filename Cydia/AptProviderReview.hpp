@@ -31,6 +31,12 @@ struct VerifiedArchiveEvidence {
     std::string fileIdentity;
 };
 
+// Compare a complete requested archive set with independently observed parent
+// evidence. This does not authorize a mutation or retain protected copies.
+bool VerifyReviewedArchiveEvidence(const std::vector<ArchiveManifest> &expected,
+    const std::vector<VerifiedArchiveEvidence> &observed,
+    const std::set<std::string> &approvedWarnings, std::string *error);
+
 struct ParentExecutionEvidence {
     Binding binding;
     bool frontendLockHeld = false;

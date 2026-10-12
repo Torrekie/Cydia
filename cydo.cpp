@@ -519,8 +519,8 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
                 (!fields[1].empty() && !APTRecovery::ParseIdentity(fields[1], &expected))) {
                 error.code = "recovery_authority_invalid"; return RecoverySnapshotReply(error);
             }
-            // The package inventory is not dependency/loadability proof. This
-            // remains unavailable until a Cydia-owned inspector is supplied.
+            // The package inventory alone is not dependency/loadability
+            // proof. The Cydia-owned inspector independently verifies it.
             if (!APTRecovery::ResolveInstalledAuthority(paths, callerUID, preferences,
                 fields[1].empty() ? nullptr : &expected, &recoveryAuthority, &error)) return RecoverySnapshotReply(error);
             brokerEnvironment = Provider::BrokerEnvironment(recoveryAuthority);

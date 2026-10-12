@@ -33,6 +33,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <fcntl.h>
+#include <objc/runtime.h>
 #include <unistd.h>
 
 #define ForRelease 1
@@ -47,6 +48,9 @@
 #define _end }
 #define PrintTimes() do {} while (false)
 #define lprintf(args...) fprintf(stderr, args)
+
+static char CydiaConfigurationAlertKey;
+static char CydiaConfigurationPromptKey;
 
 /* A run-scoped, opt-in trace for the ordinary package Confirmation delegate.
  * The native compatibility journal cannot observe this legacy package path,
@@ -313,13 +317,11 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
     NSString *context([alert context]);
 
     if ([context isEqualToString:@"conffile"]) {
-        FILE *input = [database_ input];
-        if (button == [alert cancelButtonIndex])
-            fprintf(input, "N\n");
-        else if (button == [alert firstOtherButtonIndex])
-            fprintf(input, "Y\n");
-        fflush(input);
-
+        NSDictionary *prompt = objc_getAssociatedObject(alert, &CydiaConfigurationPromptKey);
+        if (button == [alert cancelButtonIndex] || button == [alert firstOtherButtonIndex])
+            [database_ answerConfigurationPrompt:prompt keepOld:button == [alert cancelButtonIndex]];
+        if (objc_getAssociatedObject(self, &CydiaConfigurationAlertKey) == alert)
+            objc_setAssociatedObject(self, &CydiaConfigurationAlertKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
     } else if ([context isEqualToString:@"fixhalf"]) {
         [alert dismissWithClickedButtonIndex:-1 animated:YES];
@@ -343,16 +345,24 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
     }
 }
 
-- (void) setConfigurationData:(NSString *)data {
-    static RegEx conffile_r("'(.*)' '(.*)' ([01]) ([01])");
+- (void) dismissConfigurationPrompt:(NSDictionary *)prompt {
+    UIAlertView *alert = objc_getAssociatedObject(self, &CydiaConfigurationAlertKey);
+    if (!alert) return;
+    NSDictionary *shown = objc_getAssociatedObject(alert, &CydiaConfigurationPromptKey);
+    if (![[shown objectForKey:@"execution"] isEqual:[prompt objectForKey:@"execution"]] ||
+        ![[shown objectForKey:@"question"] isEqual:[prompt objectForKey:@"question"]]) return;
+    [alert dismissWithClickedButtonIndex:-1 animated:YES];
+    objc_setAssociatedObject(self, &CydiaConfigurationAlertKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 
-    if (!conffile_r(data)) {
-        lprintf("E:invalid conffile\n");
-        return;
-    }
-
-    NSString *ofile = conffile_r[1];
-    //NSString *nfile = conffile_r[2];
+- (void) setConfigurationPrompt:(NSDictionary *)prompt {
+    // The child may have applied its native automatic choice or exited while
+    // this main-thread presentation was queued. A status notification alone
+    // cannot keep a question alive after its execution has settled.
+    if (![database_ isConfigurationPromptCurrent:prompt]) return;
+    UIAlertView *previous = objc_getAssociatedObject(self, &CydiaConfigurationAlertKey);
+    if (previous) [previous dismissWithClickedButtonIndex:-1 animated:YES];
+    NSString *ofile = [prompt objectForKey:@"path"];
 
     UIAlertView *alert = [[UIAlertView alloc]
         initWithTitle:UCLocalize("CONFIGURATION_UPGRADE")
@@ -367,6 +377,8 @@ static void CydiaTransactionDelegateTrace(NSString *event, BOOL hasClear, BOOL c
 
     [alert setContext:@"conffile"];
     [alert setNumberOfRows:2];
+    objc_setAssociatedObject(alert, &CydiaConfigurationPromptKey, prompt, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, &CydiaConfigurationAlertKey, alert, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [alert show];
 }
 

@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/DpkgConffile.hpp"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include <apt-pkg/fileutl.h>
@@ -446,12 +447,15 @@ bool ReadRecoverySnapshot(const std::string &helperPath, const CydiaAPT::Recover
 
 
 DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::string &command,
-    const Privileged::Request &request, int statusFd, const std::string *input) {
+    const Privileged::Request &request, int statusFd, const std::string *input,
+    const std::vector<std::string> &argvOptions) {
     DpkgExecutionResult result = {{Dpkg::ResultKind::LaunchFailed, -1, EINVAL}, false, false};
     const auto payload = Privileged::SerializeRequest(request);
     if ((command != "--cydia-provider-dpkg" && command != "--cydia-provider-direct") ||
         helperPath.empty() || payload.empty() || payload.size() > 8 * 1024 * 1024 || statusFd < -1 ||
         (statusFd >= 0 && (statusFd < 3 || fcntl(statusFd, F_GETFD) < 0))) return result;
+    Dpkg::ConffileExecution conffiles(argvOptions, input == nullptr && statusFd >= 3);
+    if (!conffiles.valid()) { result.result.error = EBUSY; return result; }
     int channel[2], in[2] = {-1, -1};
     if (!MakePair(channel, true)) { result.result.error = errno; return result; }
     if (input && !MakePair(in, true)) { result.result.error = errno; Close(channel[0]); Close(channel[1]); return result; }
@@ -478,6 +482,10 @@ DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::st
     if (input && !error) error = posix_spawn_file_actions_adddup2(&actions, in[0], STDIN_FILENO);
     if (input && !error) error = posix_spawn_file_actions_addclose(&actions, in[0]);
     if (input && !error) error = posix_spawn_file_actions_addclose(&actions, in[1]);
+    if (conffiles.enabled() && !error) error = posix_spawn_file_actions_adddup2(&actions, conffiles.inputDescriptor(), STDIN_FILENO);
+    if (conffiles.enabled() && !error) error = posix_spawn_file_actions_addclose(&actions, conffiles.inputDescriptor());
+    if (conffiles.enabled() && !error) error = posix_spawn_file_actions_adddup2(&actions, conffiles.statusDescriptor(), statusFd);
+    if (conffiles.enabled() && !error) error = posix_spawn_file_actions_addclose(&actions, conffiles.statusDescriptor());
     std::vector<std::string> storage{helperPath, command, std::to_string(channel[1])};
     std::vector<char *> argv; for (auto &word : storage) argv.push_back(&word[0]); argv.push_back(nullptr);
     pid_t child = -1;
@@ -486,6 +494,7 @@ DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::st
     for (const int descriptor : duplicates) close(descriptor);
     Close(channel[1]); Close(in[0]);
     if (error) { Close(channel[0]); Close(in[1]); result.result.error = error; return result; }
+    conffiles.ChildStarted();
     const auto writeAll = [](int fd, const std::string &bytes, bool socket) {
         std::size_t offset = 0;
         while (offset < bytes.size()) {
@@ -508,6 +517,7 @@ DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::st
     if (input) { if (sent) writeAll(in[1], *input, true); Close(in[1]); }
     int status = 0; pid_t waited;
     do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
+    conffiles.Finish();
     char marker[2] = {}; const ssize_t count = recv(channel[0], marker, sizeof(marker), MSG_DONTWAIT);
     Close(channel[0]); result.started = count == 1 && marker[0] == 'S';
     result.indeterminate = !result.started && !(count == 1 && marker[0] == 'N');
@@ -521,7 +531,22 @@ DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::st
 Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int statusFd, const std::string *input) {
     if (!providerAuthority.active) {
         Dpkg::Runner runner(CydiaAPT::PrivilegedHelperPath());
-        return input ? runner.RunWithInput(arguments, *input, statusFd) : runner.Run(arguments, statusFd);
+        if (input) return runner.RunWithInput(arguments, *input, statusFd);
+        Dpkg::ConffileExecution conffiles(arguments, statusFd >= 3);
+        Dpkg::ScopedConffileStandardInput standardInput(conffiles);
+        if (!conffiles.valid() || !standardInput.valid()) return {Dpkg::ResultKind::LaunchFailed, -1, EIO};
+        // This direct configure path runs exactly one child. APT's legacy
+        // in-process transaction is scoped separately by Database.
+        auto values = arguments;
+        if (conffiles.enabled()) {
+            for (std::size_t i = 0; i < values.size(); ++i) {
+                if (values[i] == "--status-fd" && i + 1 < values.size()) values[++i] = std::to_string(conffiles.statusDescriptor());
+                else if (values[i].compare(0, 12, "--status-fd=") == 0)
+                    values[i] = "--status-fd=" + std::to_string(conffiles.statusDescriptor());
+            }
+        }
+        const auto result = runner.Run(values, conffiles.enabled() ? conffiles.statusDescriptor() : statusFd);
+        conffiles.Finish(); return result;
     }
     auto values = arguments;
     if (!values.empty() && values.front() == providerAuthority.expected.dpkg) values.erase(values.begin());
@@ -535,7 +560,7 @@ Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int stat
     if (!CydiaAPT::Provider::Encode(values, &payload) ||
         !SelectedAuthorityPayload(payload, &request.payload))
         return {Dpkg::ResultKind::LaunchFailed, -1, EINVAL};
-    return RunProviderDpkg(providerAuthority.helper, "--cydia-provider-direct", request, statusFd, input).result;
+    return RunProviderDpkg(providerAuthority.helper, "--cydia-provider-direct", request, statusFd, input, arguments).result;
 }
 
 void ConfigureLockBridge(const std::string &helperPath,

@@ -118,11 +118,18 @@ public:
             for (const auto &action : approved.execution.actions)
                 if (action.identifier == id && action.action == ExecutionAction::Unpack) ids.insert(action.archive);
         for (const auto &archive : approved.execution.archives) if (ids.count(archive.identifier)) needed.push_back(archive);
-        if (!needed.empty()) {
+        // Check every downloaded archive before the first mutation, even when
+        // APT first schedules a removal or an already-pending configuration.
+        // A bad later archive must not leave those earlier changes applied.
+        const auto &requestedArchives = started ? needed : approved.execution.archives;
+        if (!requestedArchives.empty()) {
             if (!options.archives) { deny("provider_archive_evidence_unavailable"); return; }
-            auto proof = options.archives(approved, needed, control);
+            auto proof = options.archives(approved, requestedArchives, control);
             if (!proof.errorCode.empty()) { deny(proof.errorCode.c_str()); return; }
-            evidence.archives = std::move(proof.archives);
+            if (!VerifyReviewedArchiveEvidence(requestedArchives, proof.archives,
+                approvedPolicy.unverifiedArchiveWarningsAccepted, &error)) { deny(error.c_str()); return; }
+            for (auto &archive : proof.archives)
+                if (ids.count(archive.archive.identifier)) evidence.archives.push_back(std::move(archive));
         }
         AuthorizedExecution batch;
         if (Cancelled(control) || !authorization.Authorize(request, evidence, &batch, &error)) { deny(error.empty() ? "provider_cancelled" : error.c_str()); return; }
@@ -131,7 +138,8 @@ public:
         for (const auto &archive : batch.archives) execution.archives.push_back(archive.archive);
         std::string payload;
         if (!EncodeBrokerDpkg(execution, &payload)) { Invalidate(); deny("provider_invalid_execution_request"); return; }
-        const auto child = Client::RunProviderDpkg(options.helperPath, "--cydia-provider-dpkg", Request(payload), status);
+        const auto child = Client::RunProviderDpkg(options.helperPath, "--cydia-provider-dpkg", Request(payload), status,
+            nullptr, approvedPolicy.protectedDpkgOptions);
         result.started = child.started || child.indeterminate; started = started || result.started;
         result.exitCode = child.result.kind == CydiaRuntime::Dpkg::ResultKind::Exited ? child.result.code : -1;
         result.signal = child.result.kind == CydiaRuntime::Dpkg::ResultKind::Signaled ? child.result.code : 0;

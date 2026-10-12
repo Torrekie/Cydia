@@ -363,28 +363,45 @@ bool ReviewAuthorization::Authorize(const ParentExecutionRequest &request, const
                 !selected.count(prior.identifier)) return Fail(error, "provider_batch_out_of_order");
         }
     }
-    std::map<std::string, const VerifiedArchiveEvidence *> evidenceByArchive;
-    for (const auto &archive : evidence.archives)
-        if (!evidenceByArchive.emplace(archive.archive.identifier, &archive).second)
-            return Fail(error, "provider_duplicate_archive_evidence");
-    std::set<std::string> neededArchives;
+    std::vector<ArchiveManifest> neededArchives;
     for (const auto action : ordered) if (action->action == ExecutionAction::Unpack) {
-        const auto &expected = archives_.at(action->archive);
-        const auto observed = evidenceByArchive.find(expected.identifier);
-        if (observed == evidenceByArchive.end()) return Fail(error, "provider_archive_evidence_missing");
-        const auto &checked = *observed->second;
-        const auto &inspection = checked.inspection;
-        const bool allowed = inspection.status == CydiaPackages::ArchivePolicyStatus::Accepted ||
-            (inspection.status == CydiaPackages::ArchivePolicyStatus::Unverified &&
-                policy_.unverifiedArchiveWarningsAccepted.count(expected.identifier));
-        if (!Equal(expected, checked.archive) || !ValidIdentityToken(checked.fileIdentity) ||
-            !inspection.identityVerified || !inspection.complete || !allowed)
-            return Fail(error, "provider_archive_evidence_changed");
-        neededArchives.insert(expected.identifier); result.archives.push_back(checked);
+        neededArchives.push_back(archives_.at(action->archive));
     }
-    if (neededArchives.size() != evidenceByArchive.size()) return Fail(error, "provider_unexpected_archive_evidence");
+    if (!VerifyReviewedArchiveEvidence(neededArchives, evidence.archives,
+        policy_.unverifiedArchiveWarningsAccepted, error)) return false;
+    for (const auto &archive : neededArchives)
+        for (const auto &checked : evidence.archives)
+            if (checked.archive.identifier == archive.identifier) result.archives.push_back(checked);
     result.actions.assign(selected.begin(), selected.end());
     pending_ = result; ++nextBatch_; *authorized = std::move(result);
+    if (error) error->clear();
+    return true;
+}
+
+bool VerifyReviewedArchiveEvidence(const std::vector<ArchiveManifest> &expected,
+    const std::vector<VerifiedArchiveEvidence> &observed,
+    const std::set<std::string> &approvedWarnings, std::string *error) {
+    if (expected.size() > MaximumCollectionItems || observed.size() > MaximumCollectionItems)
+        return Fail(error, "provider_invalid_archive_manifest");
+    std::map<std::string, const VerifiedArchiveEvidence *> evidence;
+    for (const auto &archive : observed)
+        if (!evidence.emplace(archive.archive.identifier, &archive).second)
+            return Fail(error, "provider_duplicate_archive_evidence");
+    std::set<std::string> requested;
+    for (const auto &archive : expected) {
+        if (!requested.insert(archive.identifier).second)
+            return Fail(error, "provider_invalid_archive_manifest");
+        const auto found = evidence.find(archive.identifier);
+        if (found == evidence.end()) return Fail(error, "provider_archive_evidence_missing");
+        const auto &checked = *found->second;
+        const auto &inspection = checked.inspection;
+        const bool allowed = inspection.status == CydiaPackages::ArchivePolicyStatus::Accepted ||
+            (inspection.status == CydiaPackages::ArchivePolicyStatus::Unverified && approvedWarnings.count(archive.identifier));
+        if (!Equal(archive, checked.archive) || !ValidIdentityToken(checked.fileIdentity) ||
+            !inspection.identityVerified || !inspection.complete || !allowed)
+            return Fail(error, "provider_archive_evidence_changed");
+    }
+    if (requested.size() != evidence.size()) return Fail(error, "provider_unexpected_archive_evidence");
     if (error) error->clear();
     return true;
 }

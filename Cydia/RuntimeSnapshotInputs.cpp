@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/RuntimeSnapshotInputs.hpp"
+#include "Cydia/AptProviderTriggerEvidence.hpp"
 #include "Cydia/SourceDocumentStore.hpp"
 #include <algorithm>
 #include <set>
@@ -39,6 +40,45 @@ void SignedByFiles(const CydiaSources::Definition &definition, CydiaSources::For
         while (tokens >> token) if (!token.empty() && token[0] == '/') paths->insert(token);
     }
 }
+bool TriggerInputs(const Environment &environment, SnapshotCapture capture,
+                   std::vector<Evidence> *inputs, Error *error) {
+    namespace T = CydiaAPT::Provider;
+    if (capture == CaptureEvidence) {
+        std::string reason; bool synchronized = false;
+        if (T::CaptureProtectedTriggerFiles(environment, inputs, &synchronized, &reason)) return true;
+        if (error) { error->code = reason; error->message = "Cannot capture the native dpkg trigger state."; }
+        return false;
+    }
+    // The existing injected reader is data-only fixture coverage, never a way
+    // for production callers to claim a native lock or authorize trigger work.
+    const std::string path = environment.dpkgAdmin + "/triggers";
+    Evidence directory;
+    if (!capture(path, true, true, &directory, error)) return false;
+    directory.adminAccess = true; inputs->push_back(directory);
+    if (directory.absent) return true;
+    if (directory.entries.size() > T::MaximumTriggerRegistryFiles)
+        return Fail(error, "provider_trigger_evidence_limit", "The native trigger registry exceeds the reader limits.");
+    std::size_t remaining = T::MaximumTriggerEvidenceBytes;
+    std::set<std::string> names;
+    for (const auto &name : directory.entries) {
+        if (name.empty() || name.size() > 256 || name == "." || name == ".." ||
+            name.find('/') != std::string::npos || !names.insert(name).second)
+            return Fail(error, "provider_trigger_input_invalid", "Invalid native trigger registry membership.");
+        Evidence file;
+        if (!capture(path + '/' + name, false, false, &file, error)) return false;
+        if (file.bytes.size() > remaining || (name == "Unincorp" && file.bytes.size() > T::MaximumDeferredTriggerBytes))
+            return Fail(error, "provider_trigger_evidence_limit", "The native trigger registry exceeds the reader limits.");
+        remaining -= file.bytes.size(); file.adminAccess = true; inputs->push_back(file);
+    }
+    for (const char *name : {"File", "Unincorp", "Lock"}) {
+        if (names.count(name)) continue;
+        Evidence file;
+        if (!capture(path + '/' + name, false, true, &file, error)) return false;
+        if (!file.absent) return Fail(error, "provider_trigger_state_changed", "The native trigger registry changed.");
+        file.adminAccess = true; inputs->push_back(file);
+    }
+    return true;
+}
 }
 bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
                           std::vector<Evidence> *inputs, Error *error, SnapshotCapture capture, SnapshotCapture sharedCapture, SnapshotCapture sourceCapture) {
@@ -73,6 +113,18 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
          !add(environment.extendedStates, false, true, true) ||
          !add(environment.preferences, false, true, true) ||
          !add(environment.preferencesParts, true, true))) return false;
+    if (scope == SnapshotScope::PackageState) {
+        std::vector<Evidence> triggers;
+        if (!TriggerInputs(environment, capture, &triggers, error)) return false;
+        for (const auto &input : triggers) {
+            // Lock is synchronization, not registry data. Generic evidence
+            // rechecks reopen files; closing that inode could drop another
+            // thread's POSIX capture lock. Membership still binds its presence.
+            if (input.path == environment.dpkgAdmin + "/triggers/Lock") continue;
+            if (seen.insert({input.path, input.directory}).second) inputs->push_back(input);
+            else if (!add(input.path, input.directory, input.absent, false, false, true)) return false;
+        }
+    }
     if (!add(environment.sourceList, false, true, false, true) || !add(environment.sourceParts, true, true) ||
         !add(environment.trusted, false, true) || !add(environment.trustedParts, true, true)) return false;
     // Directory evidence includes membership, so additions, deletions and

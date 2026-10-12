@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/DpkgConffile.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include <apt-pkg/fileutl.h>
 #include <cerrno>
@@ -10,6 +11,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -56,6 +58,21 @@ int Helper(int argc, char **argv) {
             char input[4];
             return read(STDIN_FILENO, input, sizeof(input)) == 4 && std::string(input, 4) == "hold" &&
                 WriteAll(channel, "S") ? 0 : 34;
+        }
+        if (request.payload.compare(0, 9, "conffile:") == 0) {
+            const auto separator = request.payload.find(':', 9);
+            if (separator == std::string::npos) return 37;
+            const int status = std::atoi(request.payload.substr(9, separator - 9).c_str());
+            const auto mode = request.payload.substr(separator + 1);
+            if (!WriteAll(channel, "S") || !WriteAll(status,
+                "status: /etc/with spaces.conf : conffile-prompt : '/etc/with spaces.conf' '/etc/with spaces.conf.dpkg-new' 1 1 \n")) return 38;
+            pollfd input{STDIN_FILENO, POLLIN, 0};
+            const int ready = poll(&input, 1, mode == "automatic" ? 200 : 4000);
+            if (mode == "automatic") return ready == 0 ? 0 : 39;
+            char answer[2];
+            if (ready != 1 || read(STDIN_FILENO, answer, sizeof(answer)) != 2 ||
+                answer[0] != (mode == "new" ? 'Y' : 'N') || answer[1] != '\n') return 40;
+            return WriteAll(status, "status: sample: installed\n") ? 0 : 41;
         }
         return 35;
     }
@@ -268,6 +285,37 @@ int main(int argc, char **argv) {
     execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, -1, &input);
     Expect(execution.result.succeeded() && execution.started && !execution.indeterminate,
         "protected request does not consume dpkg selection input");
+    // Exercise the actual helper spawn seam: private status + stdin, inherited
+    // request channel, old question rejection and known automatic policy.
+    int statusPipe[2]; Expect(pipe(statusPipe) == 0, "fixture status pipe");
+    Expect(fcntl(statusPipe[0], F_SETFL, O_NONBLOCK) == 0, "nonblocking fixture status");
+    Dpkg::ConffilePrompt previous;
+    unsigned questionCount = 0;
+    bool keepOld = true;
+    Dpkg::ConffileCallbacks conffiles;
+    conffiles.question = [&](const Dpkg::ConffilePrompt &question) {
+        if (previous.question)
+            Expect(!Dpkg::AnswerConffilePrompt(previous.execution, previous.question, true), "prior child answer must be stale");
+        Expect(question.oldPath == "/etc/with spaces.conf", "helper prompt preserves filename spaces");
+        Expect(Dpkg::AnswerConffilePrompt(question.execution, question.question, keepOld), "reply through isolated helper stdin");
+        previous = question; ++questionCount;
+    };
+    Dpkg::SetConffileCallbacks(conffiles);
+    request.payload = "conffile:" + std::to_string(statusPipe[1]) + ":old";
+    execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, statusPipe[1]);
+    Expect(execution.result.succeeded() && questionCount == 1 && execution.started, "interactive keep-old helper");
+    keepOld = false;
+    request.payload = "conffile:" + std::to_string(statusPipe[1]) + ":new";
+    execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, statusPipe[1]);
+    Expect(execution.result.succeeded() && questionCount == 2, "interactive accept-new helper");
+    request.payload = "conffile:" + std::to_string(statusPipe[1]) + ":automatic";
+    execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, statusPipe[1], nullptr,
+        {"--force-confdef", "--force-confold"});
+    Expect(execution.result.succeeded() && questionCount == 2, "known automatic policy receives no UI answer");
+    Expect(!Dpkg::AnswerConffilePrompt(previous.execution, previous.question, true), "settled helper question cannot queue input");
+    char unused;
+    Expect(read(statusPipe[0], &unused, 1) < 0 && errno == EAGAIN, "private status never enters an untagged global pipe");
+    Dpkg::SetConffileCallbacks({}); close(statusPipe[0]); close(statusPipe[1]);
     std::cout << "[verify-privileged-client][ ok ] bounded duplex I/O, descriptor validation and frontend-owned locks\n";
     return 0;
 }

@@ -35,7 +35,8 @@ class RuntimeProviderCoordinator;
 
 @protocol DatabaseDelegate
 - (void) repairWithSelector:(SEL)selector;
-- (void) setConfigurationData:(NSString *)data;
+- (void) setConfigurationPrompt:(NSDictionary *)prompt;
+- (void) dismissConfigurationPrompt:(NSDictionary *)prompt;
 - (void) addProgressEventOnMainThread:(CydiaProgressEvent *)event forTask:(NSString *)task;
 @end
 
@@ -154,6 +155,11 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (void) setFetch:(bool)fetch forURI:(const char *)uri;
 - (void) resetFetch;
 
+@end
+
+@interface Database (Configuration)
+- (BOOL) isConfigurationPromptCurrent:(NSDictionary *)prompt;
+- (BOOL) answerConfigurationPrompt:(NSDictionary *)prompt keepOld:(BOOL)keepOld;
 @end
 
 @interface Database (SourceOperations)

@@ -28,7 +28,7 @@ int OpenProviderLock(const std::string &, const Privileged::Request &, Privilege
     char name[] = "/tmp/cydia-grant-lock-XXXXXX";
     const int fd = mkstemp(name); if (fd >= 0) unlink(name); return fd;
 }
-DpkgExecutionResult RunProviderDpkg(const std::string &, const std::string &, const Privileged::Request &, int, const std::string *) {
+DpkgExecutionResult RunProviderDpkg(const std::string &, const std::string &, const Privileged::Request &, int, const std::string *, const std::vector<std::string> &) {
     Require(false, "authorization must never execute dpkg"); return {};
 }
 bool ReadProviderSnapshot(const std::string &, const std::string &, const P::RegistrationIdentity *,
@@ -207,5 +207,62 @@ void ArchiveDecoderAuthorityRouting() {
     Require(unresolved.archiveDecoderSearchPath.empty() && unresolved.executableSearchPath.empty(),
         "unresolved broker has no ambient executable or decoder search path");
 }
+void AllArchivesBeforeFirstMutation() {
+    for (unsigned variant = 0; variant != 5; ++variant) {
+        Fixture fixture;
+        auto second = fixture.review.execution.archives.front();
+        second.identifier = "later"; second.package.package = "later";
+        second.path = "/fixture/archives/later.deb"; second.filename = "pool/later.deb";
+        second.recordOffset = 512;
+        fixture.review.execution.archives.push_back(second);
+        const auto identity = CydiaAPT::BuildPackageIdentity("later", "amd64", "all", "amd64", CydiaAPT::MultiArchMode::None);
+        fixture.review.transaction.installs.push_back(identity.routingName);
+        fixture.review.transaction.packages[identity.routingName] = {identity, "1", "later"};
+        P::ReviewedAction unpack; unpack.identifier = 3; unpack.action = P::ExecutionAction::Unpack;
+        unpack.package = second.package; unpack.archive = second.identifier;
+        P::ReviewedAction configure; configure.identifier = 4; configure.action = P::ExecutionAction::Configure;
+        configure.package = second.package;
+        fixture.review.execution.actions.push_back(unpack); fixture.review.execution.actions.push_back(configure);
+        // APT may remove a conflicting installed package before either unpack.
+        const auto old = CydiaAPT::BuildPackageIdentity("old", "amd64", "amd64", "amd64", CydiaAPT::MultiArchMode::None);
+        fixture.review.transaction.removes.push_back(old.routingName);
+        fixture.review.transaction.packages[old.routingName] = {old, "1", "old"};
+        P::ReviewedAction remove; remove.identifier = 5; remove.action = P::ExecutionAction::Remove;
+        remove.package = {"old", "1", "amd64"};
+        fixture.review.execution.actions.insert(fixture.review.execution.actions.begin(), remove);
+        P::DpkgPackageState installed; installed.package = remove.package;
+        installed.selection = P::DpkgSelection::Install; installed.status = P::DpkgPackageStatus::Installed;
+        state.packages.emplace("old:amd64", installed);
+        unsigned checks = 0;
+        fixture.options.archives = [&](const P::ReviewedTransaction &, const std::vector<P::ArchiveManifest> &archives,
+                                      const P::RequestControl &) {
+            ++checks;
+            Require(archives.size() == 2 && archives[0].identifier == "approved" && archives[1].identifier == "later",
+                "first removal must verify every later approved archive");
+            P::BrokerArchiveEvidence proof;
+            for (const auto &archive : archives) {
+                P::VerifiedArchiveEvidence item; item.archive = archive; item.fileIdentity = "opened:" + archive.identifier;
+                item.inspection.status = CydiaPackages::ArchivePolicyStatus::Accepted;
+                item.inspection.identityVerified = item.inspection.complete = true;
+                proof.archives.push_back(item);
+            }
+            if (variant == 0) proof.errorCode = "fixture_later_archive_unreadable";
+            if (variant == 1) proof.archives.pop_back();
+            if (variant == 2) proof.archives.back().archive.hashes["SHA256"][0] = 'c';
+            if (variant == 3) proof.archives.back().inspection.complete = false;
+            if (variant == 4) proof.archives.push_back(proof.archives.back());
+            return proof;
+        };
+        P::Broker broker(fixture.options); fixture.Ready(broker); broker.SetStatusDescriptor(8);
+        auto request = fixture.Request(P::Operation::ExecuteDpkg);
+        P::ParentExecutionRequest execution; execution.binding = fixture.review.binding;
+        execution.batch = 1; execution.action = P::ExecutionAction::Remove; execution.actions = {5};
+        execution.arguments = {"--status-fd", "99", "--no-triggers", "--force-depends", "--abort-after=1", "--remove", "old:amd64"};
+        Require(P::Encode(execution, &request.payload), "encode first removal");
+        P::Message reply; broker.HandleParentRequest(request, &reply, {}); P::ParentExecutionReply denied;
+        Require(reply.succeeded && P::Decode(reply.payload, &denied) && !denied.started && denied.launchError != 0 &&
+            checks == 1 && !broker.mutationStarted(), "bad later archive denies the first mutation without launching dpkg");
+    }
 }
-int main() { AcceptedAndDenied(); RecoveryAuthorityRouting(); ArchiveDecoderAuthorityRouting(); std::cout << "[apt-provider-broker-authorization] PASS\n"; }
+}
+int main() { AcceptedAndDenied(); RecoveryAuthorityRouting(); ArchiveDecoderAuthorityRouting(); AllArchivesBeforeFirstMutation(); std::cout << "[apt-provider-broker-authorization] PASS\n"; }

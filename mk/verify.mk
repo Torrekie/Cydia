@@ -84,6 +84,8 @@ APT_PROVIDER_AUTHORIZATION_TEST := $(BUILD_DIR)/tests/AptProviderArchiveAuthoriz
 APT_PROVIDER_LAUNCH_TEST := $(BUILD_DIR)/tests/AptProviderLaunchTests
 APT_RECOVERY_SNAPSHOT_TEST := $(BUILD_DIR)/tests/AptRecoverySnapshotTests
 APT_RECOVERY_MACHO_TEST := $(BUILD_DIR)/tests/AptRecoveryMachOTests
+APT_TRANSACTION_LEASE_TEST := $(BUILD_DIR)/tests/AptProviderTransactionLeaseTests
+DPKG_CONFFILE_TEST := $(BUILD_DIR)/tests/DpkgConffileTests
 APT_PROVIDER_BROKER_AUTHORIZATION_TEST := $(BUILD_DIR)/tests/AptProviderBrokerAuthorizationTests
 APT_PROVIDER_REVIEW_TEST := $(BUILD_DIR)/tests/AptProviderReviewTests
 APT_PROVIDER_DPKG_STATE_TEST := $(BUILD_DIR)/tests/AptProviderDpkgStateTests
@@ -240,6 +242,15 @@ $(APT_PROVIDER_REVIEW_TEST): tests/AptProviderReviewTests.cpp Cydia/AptProviderR
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
 		tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderProtocol.cpp \
 		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -o $@
+$(APT_TRANSACTION_LEASE_TEST): tests/AptProviderTransactionLeaseTests.cpp \
+		Cydia/AptProviderTransactionLease.cpp Cydia/AptProviderTransactionLease.hpp \
+		Cydia/AptProviderComponentSuccession.cpp Cydia/AptProviderComponentSuccession.hpp \
+		Cydia/AptProviderReview.cpp Cydia/AptProviderReview.hpp Cydia/AptProviderProtocol.cpp \
+		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp Cydia/ExtendedState.cpp \
+		Cydia/ApplicationSession.hpp Cydia/PackageArchiveReader.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
 $(PROVIDER_PROGRESS_TEST): tests/ProviderProgressPolicyTests.cpp Cydia/ProviderProgressPolicy.hpp Cydia/SourceFetchActivity.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $< -o $@
@@ -250,7 +261,7 @@ $(APT_PROVIDER_DPKG_STATE_TEST): tests/AptProviderDpkgStateTests.cpp Cydia/AptPr
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
 		tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/ExtendedState.cpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp -o $@
-verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_RECOVERY_MACHO_TEST) $(APT_RECOVERY_SNAPSHOT_TEST) $(APT_PROVIDER_LAUNCH_TEST) $(APT_PROVIDER_SESSION_TEST) $(APT_PROVIDER_SERVER_TEST) $(APT_PROVIDER_TRANSPORT_TEST) $(APT_PROVIDER_AUTHORIZATION_TEST) $(APT_PROVIDER_BROKER_AUTHORIZATION_TEST) $(APT_BACKEND_FACADE_TEST) $(APT_PROVIDER_REVIEW_TEST) $(APT_PROVIDER_DPKG_STATE_TEST) $(PROVIDER_PROGRESS_TEST)
+verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_RECOVERY_MACHO_TEST) $(APT_RECOVERY_SNAPSHOT_TEST) $(APT_PROVIDER_LAUNCH_TEST) $(APT_PROVIDER_SESSION_TEST) $(APT_PROVIDER_SERVER_TEST) $(APT_PROVIDER_TRANSPORT_TEST) $(APT_PROVIDER_AUTHORIZATION_TEST) $(APT_PROVIDER_BROKER_AUTHORIZATION_TEST) $(APT_BACKEND_FACADE_TEST) $(APT_PROVIDER_REVIEW_TEST) $(APT_TRANSACTION_LEASE_TEST) $(APT_PROVIDER_DPKG_STATE_TEST) $(PROVIDER_PROGRESS_TEST)
 	@$<
 	@$(APT_RECOVERY_MACHO_TEST)
 	@$(APT_RECOVERY_SNAPSHOT_TEST)
@@ -262,6 +273,7 @@ verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_RECOVERY_MACHO_TEST) $(APT_RECOV
 	@$(APT_PROVIDER_BROKER_AUTHORIZATION_TEST)
 	@$(APT_BACKEND_FACADE_TEST)
 	@$(APT_PROVIDER_REVIEW_TEST)
+	@$(APT_TRANSACTION_LEASE_TEST)
 	@$(APT_PROVIDER_DPKG_STATE_TEST)
 	@$(PROVIDER_PROGRESS_TEST)
 
@@ -528,10 +540,11 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderDpkgState.cpp Cydia/ExtendedState.cpp \
 		Cydia/AptRecoverySnapshot.cpp Cydia/AptRecoverySnapshot.hpp \
 		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp \
+		Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp \
 		tests/apt-stubs/apt-pkg/fileutl.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -Itests/apt-stubs -I. \
-		-x c++ $(filter %.cpp %.mm,$^) -o $@
+		-x c++ $(filter %.cpp %.mm,$^) -pthread -o $@
 
 $(CAPABILITY_PREVIEW_TEST): tests/CapabilityPreviewTests.cpp Cydia/CapabilityPreview.cpp Cydia/CapabilityPreview.hpp
 	@mkdir -p $(dir $@)
@@ -601,10 +614,11 @@ verify-private-state: $(PRIVATE_STATE_DIRECTORY_TEST)
 RUNTIME_SNAPSHOT_TEST := $(BUILD_DIR)/tests/RuntimeSnapshotInputsTests
 $(RUNTIME_SNAPSHOT_TEST): tests/RuntimeSnapshotInputsTests.cpp Cydia/RuntimeSnapshotInputs.cpp \
 		Cydia/RuntimeSnapshotInputs.hpp Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp \
+		Cydia/AptProviderTriggerEvidenceCapture.cpp Cydia/AptProviderTriggerEvidence.hpp \
 		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++17 -Wall -Wextra -Werror -I. \
-		$(filter %.cpp,$^) -o $@
+		$(filter %.cpp,$^) -pthread -o $@
 .PHONY: verify-runtime-snapshot
 verify: verify-runtime-snapshot
 verify-runtime-snapshot: $(RUNTIME_SNAPSHOT_TEST)
@@ -710,6 +724,14 @@ $(DPKG_STATUS_TEST): tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp 
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
 		tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp -o $@
+$(DPKG_CONFFILE_TEST): tests/DpkgConffileTests.cpp Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp \
+		Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -pthread -o $@
+.PHONY: verify-dpkg-conffile
+verify: verify-dpkg-conffile
+verify-dpkg-conffile: $(DPKG_CONFFILE_TEST)
+	@$<
 
 verify-dpkg-status: $(DPKG_STATUS_TEST)
 	@$<

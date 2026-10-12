@@ -101,6 +101,12 @@ apt_api_sources := \
     Cydia/AptProviderDpkgStateCapture.cpp \
     Cydia/AptProviderProtocol.cpp \
     Cydia/AptProviderReview.cpp \
+    Cydia/AptProviderComponentSuccession.cpp \
+    Cydia/AptProviderTransactionLease.cpp \
+    Cydia/AptProviderTriggerEvidenceCapture.cpp \
+    Cydia/AptProviderTriggerEvidence.cpp \
+    Cydia/AptProviderTriggerEvidenceProtected.cpp \
+    Cydia/RuntimeSnapshotInputs.cpp \
     Cydia/AptProviderSession.cpp \
     Cydia/AptRuntime.cpp \
     Cydia/SourceAddController+Discovery.mm \

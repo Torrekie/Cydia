@@ -7,6 +7,7 @@ recovery_worker_sources := \
     Cydia/RepositoryArchiveAuthorization.cpp Cydia/AptCompatibility.cpp Cydia/AptVersionPolicy.cpp \
     Cydia/AptRuntime.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp \
     Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/RuntimeSnapshotInputs.cpp Cydia/APTMemoryCompat.cpp Cydia/APTSrvCompat.cpp \
+    Cydia/AptProviderTriggerEvidenceCapture.cpp \
     Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptProviderServer.cpp \
     Cydia/AptProviderServerTransport.cpp Cydia/AptProviderArchiveAuthorization.cpp Cydia/AptWorkerAcquireStatus.cpp \
     Cydia/PackageIdentity.cpp Cydia/PackageArchivePolicy.cpp Cydia/PackageArchiveReader.cpp \

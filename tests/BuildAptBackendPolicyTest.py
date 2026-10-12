@@ -33,6 +33,9 @@ def main():
                "Cydia/PackageArchivePolicy.cpp", "Cydia/PackageArchiveReader.cpp",
                "Cydia/RepositorySecurityPolicy.cpp"]
     def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=(), extra_compile_flags=()):
+        driver_sources = list(driver_sources)
+        if "Cydia/RuntimeSnapshotInputs.cpp" in driver_sources and "Cydia/AptProviderTriggerEvidenceCapture.cpp" not in driver_sources:
+            driver_sources.append("Cydia/AptProviderTriggerEvidenceCapture.cpp")
         command = shlex.split(os.environ.get("CXX", "c++")) + ["-std=c++17", "-g"]
         if sanitize:
             command += ["-fsanitize=address", "-fno-omit-frame-pointer"]
@@ -114,6 +117,13 @@ def main():
                     "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp", "Cydia/PackageDatabasePaths.cpp",
                     "Cydia/RepositorySecurityPolicy.cpp"],
                    "cydia-recovery-trust")
+    compile_driver(["tests/AptProviderTriggerEvidenceTests.cpp", "Cydia/AptProviderTriggerEvidence.cpp",
+                    "Cydia/ExtendedState.cpp"], "cydia-provider-trigger-evidence", sanitize=True)
+    compile_driver(["tests/AptProviderTriggerEvidenceCaptureTests.cpp", "Cydia/AptProviderTriggerEvidence.cpp",
+                    "Cydia/AptProviderTriggerEvidenceProtected.cpp", "Cydia/RuntimeSnapshotInputs.cpp",
+                    "Cydia/ExtendedState.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
+                    "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp", "Cydia/RepositorySecurityPolicy.cpp"],
+                   "cydia-provider-trigger-capture")
     worker_sources = sources[1:] + [
         "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp", "Cydia/AptRecoveryPackageManager.cpp",
         "Cydia/SourcePreflight.cpp", "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",

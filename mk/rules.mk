@@ -223,6 +223,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
         Cydia/SharedStateFile.hpp Cydia/ReadOnlySourceAlias.hpp Cydia/SourceReaderGroups.hpp Cydia/DpkgAdminAccess.hpp \
 		Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp Cydia/RuntimeState.cpp Cydia/RuntimeState.hpp \
 		Cydia/RuntimeSnapshotInputs.cpp Cydia/RuntimeSnapshotInputs.hpp \
+		Cydia/AptProviderTriggerEvidenceCapture.cpp Cydia/AptProviderTriggerEvidence.hpp \
 		Cydia/KeyringImport.cpp Cydia/KeyringImportPrivileged.cpp Cydia/KeyringImport.hpp \
 		Cydia/KeyringVerifier.cpp Cydia/KeyringVerifier.hpp \
 		Cydia/RecoveryPlan.cpp Cydia/RecoveryPlan.hpp Cydia/RecoveryPrivileged.cpp Cydia/RecoveryPrivileged.hpp \

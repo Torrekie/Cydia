@@ -91,6 +91,27 @@ int main() {
     const std::string architecturePath(environment.dpkgAdmin + "/arch");
     assert(Find(state, architecturePath)->absent && Find(state, architecturePath)->adminAccess);
     assert(!Find(state, architecturePath)->sharedState && !Find(trust, architecturePath));
+    const std::string triggerDirectory(environment.dpkgAdmin + "/triggers");
+    assert(Find(state, triggerDirectory)->absent && Find(state, triggerDirectory)->adminAccess && !Find(trust, triggerDirectory));
+    const std::string beforeTriggers(Frame(state)), triggerTrust(Frame(trust));
+    assert(std::filesystem::create_directory(triggerDirectory));
+    Write(triggerDirectory + "/File", "/usr/share/icons icons:all/noawait\n");
+    Write(triggerDirectory + "/update-cache", "cache:amd64\ncache:i386/noawait\n");
+    Write(triggerDirectory + "/Unincorp", "update-cache requester:all -\n");
+    auto triggers = Capture(environment, SnapshotScope::PackageState);
+    assert(Frame(triggers) != beforeTriggers && !Find(triggers, triggerDirectory + "/Lock"));
+    assert(Find(triggers, triggerDirectory + "/File")->bytes == "/usr/share/icons icons:all/noawait\n");
+    assert(Find(triggers, triggerDirectory + "/Unincorp")->adminAccess && Frame(Capture(environment, SnapshotScope::RepositoryTrust)) == triggerTrust);
+    const std::string beforeQueue(Frame(triggers));
+    Write(triggerDirectory + "/Unincorp", "update-cache requester:i386\n");
+    assert(Frame(Capture(environment, SnapshotScope::PackageState)) != beforeQueue);
+    triggers = Capture(environment, SnapshotScope::PackageState);
+    Write(triggerDirectory + "/Unincorp.new", "unfinished native journal bytes");
+    assert(Frame(Capture(environment, SnapshotScope::PackageState)) != Frame(triggers));
+    assert(Find(Capture(environment, SnapshotScope::PackageState), triggerDirectory + "/Unincorp.new"));
+    assert(Frame(Capture(environment, SnapshotScope::RepositoryTrust)) == triggerTrust);
+    assert(std::filesystem::remove_all(triggerDirectory) == 5);
+    state = Capture(environment, SnapshotScope::PackageState);
     // Adding, editing or deleting dpkg registration invalidates a reviewed
     // package plan, without pretending that repository authentication changed.
     const std::string withoutArchitecture(Frame(state)), architectureTrust(Frame(trust));

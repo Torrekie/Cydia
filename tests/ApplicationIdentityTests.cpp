@@ -48,6 +48,37 @@ int main(int argc, char **argv) {
     Require(ParseApplicationSession(SerializeApplicationSession(session), &parsed) &&
         parsed.process == session.process && parsed.admin == session.admin && parsed.graceDeadline == 0,
         "preserve exact outgoing process and administrator identity");
+    auto alternate(session);
+    alternate.process.hash += second.substr(0, 40);
+    Require(ParseApplicationSession(SerializeApplicationSession(alternate), &parsed) &&
+        parsed.process == alternate.process && ApplicationSessionAllows(parsed, alternate.process, 9000000, true),
+        "continue the same application with primary and alternate signing directories");
+    Require(!ApplicationSessionAllows(parsed, session.process, 9000000, true),
+        "one matching directory cannot substitute for the exact running directory set");
+    for (const auto &badHash : {first.substr(0, 40) + first.substr(0, 40),
+                               second.substr(0, 40) + first.substr(0, 40), std::string(39, '0'),
+                               std::string(64, '0'), std::string(40, 'F'), std::string(40, 'z'),
+                               std::string(7 * 40, '0')}) {
+        auto invalid(alternate); invalid.process.hash = badHash;
+        Require(!ParseApplicationSession(SerializeApplicationSession(invalid), &parsed),
+            "reject duplicate, reordered, malformed and excessive signing directories");
+    }
+    for (const auto &badNumber : {std::string(), std::string("1"), std::string("0123"),
+                                 std::string("-123"), std::string("2147483648"), std::string("123x")}) {
+        auto invalid(session); invalid.process.pid = badNumber;
+        Require(!ParseApplicationSession(SerializeApplicationSession(invalid), &parsed),
+            "reject an invalid application PID");
+    }
+    for (const auto &badTime : {std::string("100"), std::string("100.1000000"), std::string("100.-1"),
+                               std::string("0100.25"), std::string("100.025"), std::string("0.25"),
+                               std::string("100.25.1"), std::string("9223372036854775808.0")}) {
+        for (bool boot : {false, true}) {
+            auto invalid(session); (boot ? invalid.process.boot : invalid.process.start) = badTime;
+            Require(!ParseApplicationSession(SerializeApplicationSession(invalid), &parsed),
+                "reject malformed boot and process start generation times");
+        }
+    }
+    Require(ParseApplicationSession(SerializeApplicationSession(session), &parsed), "restore single-directory fixture");
     Require(ApplicationSessionAllows(parsed, session.process, 9000000, true) &&
         !ApplicationSessionAllows(parsed, session.process, 9000000, false),
         "long transaction authorization requires this process's actual frontend lock");
@@ -61,7 +92,7 @@ int main(int argc, char **argv) {
         Require(!ApplicationSessionAllows(parsed, other, 9000000, true), "deny PID reuse, boot changes and different code/processes");
         *field = before;
     }
-    Require(!ParseApplicationSession(SerializeFields({"123", "100", "200", first.substr(0,40), "/bootstrap/dpkg", "18446744073709551616"}), &parsed),
+    Require(!ParseApplicationSession(SerializeFields({"123", "100.0", "200.0", first.substr(0,40), "/bootstrap/dpkg", "18446744073709551616"}), &parsed),
         "reject overflowing continuation deadlines");
     std::cout << "[application-identity] PASS: package manifest and bounded upgrade continuation\n";
 }

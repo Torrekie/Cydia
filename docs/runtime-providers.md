@@ -72,12 +72,17 @@ archive contents before its existing authenticated helper stages and rechecks
 them for dpkg. A provider token or a successful worker reply alone cannot
 authorize execution or establish completion. Explicit processing of the complete
 current pending-trigger set includes independently derived waiter transitions.
+Package-state snapshots also fingerprint native trigger-directory membership,
+registries and deferred-journal bytes. A bounded read holds the existing native
+trigger lock when present; it never creates or rewrites trigger files.
 New trigger activations and automatic deconfiguration remain unsupported;
 unproved effects are rejected. Replacing a bound executable, dependency or
 configuration during a transaction also invalidates current authority. A
-transaction-scoped successor-authority design is required before this path
-can support upgrades to its own active runtime safely; successful protocol
-fixtures do not establish that compatibility.
+pure transaction lease and component-succession model binds retained archives,
+application generation, lock inode, approved unpack generations and complete
+loader evidence. Persistent cydo ownership and protected evidence producers
+remain required before this path can upgrade its active runtime safely;
+successful model fixtures do not establish that production compatibility.
 
 Cydia-owned locale conversion and regular expressions prefer validated
 bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
@@ -270,8 +275,10 @@ decoder paths, without invoking the bundled resolver or adopting its policy.
 Custom `Acquire::IndexTargets` paths and alternate list naming are not supported
 by this proof and must not be treated as verified.
 
-Before an unpack batch, the parent rechecks retained source/index evidence and
-downloaded archive size, hashes, control identity and layout. The privileged
+Before the first mutation, the parent checks every approved downloaded archive's
+source/index evidence, size, hashes, control identity and layout. This includes
+archives scheduled after an earlier removal or pending configuration. Unpack
+batches still recheck their exact archives. The privileged
 broker then copies approved archives into a root-owned private staging directory,
 checks them again, and substitutes only those protected copies into validated
 dpkg operands. The parent owns the frontend lock, authorizes exact reviewed
@@ -279,6 +286,18 @@ batches, and verifies structured dpkg state before and after execution. Shared
 automatic-package state is committed only for approved deltas after verified
 completion. Cancellation cannot turn a started dpkg operation into a safe retry;
 the actual child must settle and uncertain effects require a new review.
+
+Brokered dpkg children have separate configuration-question input/status
+channels. Keep Old/Accept New replies bind to one child and one question;
+settlement or subsequent status invalidates the alert. Paths containing spaces
+are supported. Exact forced-old/new options suppress unnecessary questions;
+unknown native configuration and `--force-confdef` alone do not establish an
+automatic choice. An unreadable question closes that child's input and reports
+failure rather than guessing a response. The transitional in-process APT path
+has transaction-level isolation because it exposes no individual child boundary.
+Upstream's notification precedes its native automatic decision, so per-question
+input readiness within a single child remains a separate native interface
+requirement; lifecycle tokens do not prove that dpkg is waiting for input.
 
 ## Distribution policy and explicit overrides
 
@@ -496,6 +515,9 @@ APT/ICU provider migration or public-source support.
 | `CyteKit/RegEx.hpp`, `Collation.hpp`, `Package.mm`, `Package+Metadata.mm`, `MessageLocaleConversion.mm` | ICU adapter and handle ownership, coherent collation and locale behavior |
 | `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/recovery.mk`, `mk/package.mk`, `cydia.control` | Separate recovery worker and private methods are packaged; complete signature/compression/ICU/libintl payloads remain separate inputs; package ID and distribution ownership are preserved |
 | `PackageArchivePolicy.*`, `PackageArchiveReader.*` | Bounded exact payload-file bytes and numeric metadata can be captured without extraction; this is a foundation for independently verified component succession, not execution authority |
+| `AptProviderTransactionLease.*`, `AptProviderComponentSuccession.*` | Pure admission, staged-hash, successor-generation, closure-binding and settlement models; persistent helper ownership and protected evidence production remain required |
+| `AptProviderTriggerEvidence*`, `RuntimeSnapshotInputs.*` | Bounded protected registry capture and canonical native syntax; package-state snapshots bind registry bytes, while execution effect coverage remains restricted |
+| `DpkgConffile.*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Child/question-scoped configuration replies, space-containing paths, forced-choice suppression and stale-alert invalidation; native per-question readiness remains unproved |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
 | `DatabaseStatus.mm`, `ProgressEvent.mm`, acquisition protocol | Redacted display URLs, typed account/transport failures and protected short-lived grants |
@@ -535,8 +557,11 @@ Current limits are explicit:
   The broker rejects effects it cannot independently establish; the protocol's
   action enum and visible review rows are not a claim of complete dpkg coverage.
 - Upgrading an active component invalidates the original authority. Exact archive
-  payload evidence does not yet provide retained execution authority or verify
-  the installed successor's loader closure; those are remaining Cydia work.
+  payload evidence and pure lease/succession models do not yet install retained
+  execution authority or verify the installed successor's loader closure;
+  those are remaining Cydia integration work. Native dpkg configuration graphs
+  require a binary-bound distribution declaration or supported introspection;
+  APT options do not establish dpkg's compiled configuration search policy.
 - No real Remorix adapter, full external-provider end-to-end acceptance or
   vendor-authorized commercial-download acceptance has been completed by these
   interfaces. Remorix APT/dpkg patches, adapter packages and optional CLI helpers
