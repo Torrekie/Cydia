@@ -49,12 +49,13 @@ ProviderTransaction::~ProviderTransaction() = default;
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
 ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> implementation) : implementation_(std::move(implementation)) {}
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper, const Privileged::Request &request,
-    const std::string &digest, std::string *error, unsigned, const std::function<bool()> &) {
+    const std::string &digest, std::string *error, unsigned, const std::function<bool()> &, bool scopedChildren) {
     Require(transactionMock.enabled, "archive denial must precede persistent transaction admission");
     ++transactionMock.starts; std::vector<std::string> fields;
     Require(helper == "/fixture/cydo" && P::Decode(request.payload, &fields) && fields.size() == 3 && fields[0] == "CYDIA-BROKER-1" &&
         P::DecodeTransactionBegin(fields[2], &transactionMock.begin) && P::TransactionBeginDigest(transactionMock.begin) == digest,
         "broker sends canonical exact Begin digest and retained review");
+    Require(scopedChildren == bool(transactionMock.begin.reviewedEffects), "Begin explicitly negotiates its approved child mode");
     Require(transactionMock.begin.extendedState == transactionMock.baseline, "Begin retains original extended-state baseline");
     if (transactionMock.rejectBegin) { if (error) *error = transactionMock.beginError; return {}; }
     return std::unique_ptr<ProviderTransaction>(new ProviderTransaction(std::unique_ptr<Implementation>(new Implementation)));
@@ -98,7 +99,7 @@ ProviderTransactionResult ProviderTransaction::Request(P::TransactionChannel::Op
 bool ProviderTransaction::Close(std::string *, unsigned) { ++transactionMock.closes; return true; }
 #else
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &, const Privileged::Request &,
-    const std::string &, std::string *, unsigned, const std::function<bool()> &) {
+    const std::string &, std::string *, unsigned, const std::function<bool()> &, bool) {
     Require(false, "archive denial must precede persistent transaction admission"); return {};
 }
 ProviderTransactionResult ProviderTransaction::Request(P::TransactionChannel::Operation, const std::string &, int,
@@ -110,7 +111,8 @@ bool ProviderTransaction::Close(std::string *, unsigned) { return true; }
 bool Result::succeeded() const { return !launchError && !exitCode && !termSignal && !outputLimitExceeded; }
 Result Run(const std::string &, const std::string &command, const Privileged::Request &, std::size_t, unsigned) {
     Result result{};
-    if (command == "--cydia-provider-state") Require(P::EncodeBrokerState(state, &result.output), "fixture state encoding");
+    if (command == "--cydia-provider-state" || command == "--cydia-provider-state-effects")
+        Require(P::EncodeBrokerState(state, &result.output), "fixture state encoding");
     else if (command == "--cydia-provider-extended-read") {
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
         if (transactionMock.enabled) result.output = transactionMock.baseline;
@@ -534,13 +536,57 @@ void CommitCannotInventCompletion() {
         broker.Invalidate(); Require(!broker.complete() && broker.indeterminate() == uncertain, "cleanup preserves Commit uncertainty");
     }
 }
+void FiniteReviewCannotDowngrade() {
+    Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
+    fixture.options.finiteTriggerEffects = true; fixture.options.capabilities |= P::FiniteTriggerEffects;
+    transactionMock.rejectBegin = true; transactionMock.beginError = "provider_native_configuration_missing";
+    auto effects = std::make_shared<P::TriggerEffectEnvelope>(); effects->identity.assign(64, 'a');
+    effects->initialCheckpoint.assign(64, 'b'); effects->nativeAuthorityIdentity.assign(64, 'c');
+    effects->primaryReview = fixture.review; effects->recipients = {{"sample:all@1", {"sample", "1", "all"}}};
+    effects->awaiters = effects->recipients; effects->incoming = {"sample:all@1"};
+    P::Broker broker(fixture.options); fixture.Ready(broker, false);
+    Require(!broker.Approve(fixture.review, {{"sample", "amd64", true}}), "finite session cannot approve a legacy review");
+    Require(broker.Approve(fixture.review, {{"sample", "amd64", true}}, {}, {}, effects), "native immutable finite review approved");
+    broker.SetStatusDescriptor(8);
+    const auto denied = ExecuteLifecycle(fixture, broker, 1, 1);
+    Require(!denied.started && denied.launchError && transactionMock.starts == 1 && !transactionMock.legacyExecutions &&
+        !broker.mutationStarted(), "missing declaration cannot downgrade finite approval or start a legacy child");
+}
 #endif
 }
+void CanonicalBeginApproval() {
+    Fixture fixture; P::TransactionBeginRequest original, decoded; original.review = fixture.review;
+    original.additionalActions = {1, 2}; original.archiveWarnings = {"approved"};
+    original.changes = {{"sample", "amd64", true}}; original.extendedState = "baseline\n";
+    std::string bytes;
+    Require(P::EncodeTransactionBegin(original, &bytes) && P::DecodeTransactionBegin(bytes, &decoded) &&
+        !decoded.reviewedEffects && decoded.extendedState == original.extendedState, "valid bound Begin encodes and roundtrips");
+    Require(!P::DecodeTransactionBegin(bytes + "x", &decoded), "Begin rejects trailing data");
+    auto effects = std::make_shared<P::TriggerEffectEnvelope>(); effects->identity.assign(64, 'a');
+    effects->initialCheckpoint.assign(64, 'b'); effects->primaryReview = fixture.review;
+    effects->nativeAuthorityIdentity.assign(64, 'c');
+    effects->recipients = {{"sample:all@1", {"sample", "1", "all"}}}; effects->awaiters = effects->recipients;
+    effects->incoming = {"sample:all@1"}; original.reviewedEffects = effects;
+    Require(P::EncodeTransactionBegin(original, &bytes) && P::DecodeTransactionBegin(bytes, &decoded) &&
+        decoded.reviewedEffects && decoded.reviewedEffects->identity == effects->identity &&
+        decoded.reviewedEffects->recipients.size() == 1, "finite immutable approval roundtrips with primary review");
+    const P::ExecutionPackage epoch{"cache", "2:1.0~rc1+vendor-3", "amd64"};
+    effects->recipients["cache:amd64@2:1.0~rc1+vendor-3"] = epoch;
+    effects->awaiters = effects->recipients;
+    Require(P::EncodeTransactionBegin(original, &bytes) && P::DecodeTransactionBegin(bytes, &decoded),
+        "native approval preserves Debian epoch, prerelease and revision version syntax");
+    effects->primaryReview.binding.review = "another-review";
+    Require(!P::EncodeTransactionBegin(original, &bytes), "effect approval cannot bind a different primary review");
+    effects->primaryReview = fixture.review; effects->recipients.begin()->second.version = "2";
+    Require(!P::EncodeTransactionBegin(original, &bytes), "generation key cannot conceal different version");
+}
 int main() {
+    CanonicalBeginApproval();
     AcceptedAndDenied(); RecoveryAuthorityRouting(); ArchiveDecoderAuthorityRouting(); AllArchivesBeforeFirstMutation();
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
     BeginFailuresNeverDowngrade(); MissingDeclarationKeepsLegacy(); RetainedOwnerIgnoresOriginalArchives();
     CompletionAndUncertaintySurviveCleanup(); CommitCannotInventCompletion();
+    FiniteReviewCannotDowngrade();
 #endif
     std::cout << "[apt-provider-broker-authorization] PASS\n";
 }

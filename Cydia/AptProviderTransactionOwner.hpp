@@ -32,6 +32,9 @@ struct TransactionOwnerOptions {
     // or status stream. The service must bind each scope to the shown pass and
     // its exact targets before this factory returns; it grants no target authority.
     std::function<bool(const TriggerDrainPlan &, TransactionEffectChildChannels *, std::string *)> effectChildChannels;
+    // Finite mode obtains primary descriptors only after preceding drains have
+    // settled and released their scopes. Legacy mode retains passed descriptors.
+    std::function<bool(const ParentExecutionRequest &, TransactionEffectChildChannels *, std::string *)> primaryChildChannels;
     // Kernel process identity/UID capture owned by cydo; never a channel field.
     std::function<bool(CydiaRuntime::Privileged::ApplicationProcessIdentity *, uid_t *, std::string *)> authenticate;
     // Uses cydo's existing direct child executor with separately validated

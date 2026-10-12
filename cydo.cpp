@@ -32,6 +32,7 @@
 #include "Cydia/AptMessages.h"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderTransactionService.hpp"
+#include "Cydia/AptProviderTriggerCapture.hpp"
 #include <locale.h>
 #include <set>
 
@@ -194,6 +195,8 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
         command != "--cydia-key-package-files" && command != "--cydia-key-package-read" &&
         command != "--cydia-extended-state-read" && command != "--cydia-open-lock" &&
         command != "--cydia-provider-lock" && command != "--cydia-provider-state" &&
+        command != "--cydia-provider-effect-ready" && command != "--cydia-provider-state-effects" &&
+        command != "--cydia-provider-review-effects" &&
         command != "--cydia-provider-snapshot" && command != "--cydia-recovery-snapshot" && command != "--cydia-provider-extended-read" &&
         command != "--cydia-provider-route") return false;
     if (command == "--cydia-provider-route") {
@@ -574,7 +577,9 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     const bool providerDpkg = command == "--cydia-provider-dpkg";
     const bool providerDirect = command == "--cydia-provider-direct";
     const bool providerState = command == "--cydia-provider-state";
-    const bool provider = providerSnapshot || recoverySnapshot || providerDpkg || providerDirect || providerState ||
+    const bool providerEffects = command == "--cydia-provider-effect-ready" || command == "--cydia-provider-state-effects" ||
+        command == "--cydia-provider-review-effects";
+    const bool provider = providerSnapshot || recoverySnapshot || providerDpkg || providerDirect || providerState || providerEffects ||
         command == "--cydia-provider-lock" || command == "--cydia-provider-route" ||
         command == "--cydia-provider-extended-read" || command == "--cydia-provider-extended-commit";
     int providerRequestDescriptor = -1;
@@ -625,8 +630,11 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             if (!APTRecovery::ResolveInstalledAuthority(paths, callerUID, preferences,
                 fields[1].empty() ? nullptr : &expected, &recoveryAuthority, &error)) return RecoverySnapshotReply(error);
             brokerEnvironment = Provider::BrokerEnvironment(recoveryAuthority);
-        } else if (!Provider::ResolveBrokerRequest(paths, providerRequest, callerUID, &brokerEnvironment, &providerRequest.payload, &error))
-            return Denied(error);
+        } else {
+            const Privileged::Request wrapped(providerRequest);
+            if (!Provider::ResolveBrokerRequest(paths, wrapped, callerUID, &brokerEnvironment, &providerRequest.payload, &error) ||
+                !Provider::BindResolvedBrokerRuntime(wrapped, &brokerEnvironment)) return Denied(error);
+        }
         if (command == "--cydia-provider-route") {
             if (argc != 3) return EX_DATAERR;
             command = argv[2]; argv[1] = argv[2]; argv[2] = nullptr; --argc;
@@ -675,7 +683,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     Privileged::Request request;
     if (provider) {
         environment = brokerEnvironment.environment; request = providerRequest;
-        if (!dedicated && !providerSnapshot && !recoverySnapshot && !providerDpkg && !providerDirect && !providerState) return EX_NOPERM;
+        if (!dedicated && !providerSnapshot && !recoverySnapshot && !providerDpkg && !providerDirect && !providerState && !providerEffects) return EX_NOPERM;
     } else if (dedicated) {
         if (!Privileged::ReadRequest(STDIN_FILENO, &request, &error) ||
             !Privileged::ResolveEnvironment(paths, request.expected, &environment, &error)) return Denied(error);
@@ -719,6 +727,24 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             if (argc != 2 || !request.payload.empty() ||
                 !Provider::CaptureDpkgStateForParent(environment, parent, &captured, &reason) ||
                 !Provider::EncodeBrokerState(captured, &output)) return EX_TEMPFAIL;
+            return fwrite(output.data(), 1, output.size(), stdout) == output.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
+        }
+        if (providerEffects) {
+            std::string reason, output; bool captured = false;
+            if (argc != 2) return EX_DATAERR;
+            if (command == "--cydia-provider-effect-ready")
+                captured = request.payload.empty() && Provider::NativeTriggerEffectsReady(paths, brokerEnvironment, &reason);
+            else if (command == "--cydia-provider-state-effects") {
+                Provider::DpkgState state;
+                captured = request.payload.empty() && Provider::CaptureEffectAwareDpkgState(paths, brokerEnvironment, &state, &reason) &&
+                    Provider::EncodeBrokerState(state, &output);
+            } else {
+                Provider::ReviewedTransaction review; Provider::TriggerEffectEnvelope effects;
+                captured = Provider::Decode(request.payload, &review) &&
+                    Provider::CaptureReviewedTriggerEffects(paths, brokerEnvironment, review, &effects, &reason) &&
+                    Provider::EncodeTriggerEffectEnvelope(effects, &output);
+            }
+            if (!captured) { error.code = reason.empty() ? "provider_trigger_capture_failed" : reason; return Denied(error); }
             return fwrite(output.data(), 1, output.size(), stdout) == output.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
         }
         if (providerDpkg) {

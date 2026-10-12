@@ -131,6 +131,7 @@ bool ValidEnvironment(const Environment &environment) {
 bool ValidHello(const Hello &hello) {
     return hello.protocolVersion == ProtocolVersion && ValidChallenge(hello.challenge) && Path(hello.registrationPath, true) &&
         (hello.requiredCapabilities & RequiredCapabilities) == RequiredCapabilities &&
+        (!hello.finiteTriggerEffects || (hello.requiredCapabilities & FiniteTriggerEffects) != 0) &&
         (hello.options.repositorySecurityMode == RepositorySecurityMode::Distribution ||
             (hello.requiredCapabilities & ExplicitSecurityOverrides) != 0) &&
         ValidEnvironment(hello.expected);
@@ -141,6 +142,7 @@ bool Compatible(const Info &info, const Environment &expected, std::string *reas
     if (info.availability != Availability::Ready) failure = "provider_unavailable";
     else if (info.protocolVersion != ProtocolVersion) failure = "provider_protocol_unsupported";
     else if ((info.capabilities & RequiredCapabilities) != RequiredCapabilities) failure = "provider_capabilities_incomplete";
+    else if (info.finiteTriggerEffects && !(info.capabilities & FiniteTriggerEffects)) failure = "provider_capabilities_incomplete";
     else if (!ValidIdentityToken(info.identifier) || info.implementationVersion.empty() ||
              !ValidIdentityToken(info.libraryIdentity) || !ValidIdentityToken(info.frontendIdentity))
         failure = "provider_identity_incomplete";
@@ -223,6 +225,7 @@ bool ValidateHelloReply(const Hello &hello, const Message &reply, Info *info) {
     Info candidate;
     if (!Decode(reply.payload, &candidate) || !Compatible(candidate, hello.expected, NULL) ||
         (candidate.capabilities & hello.requiredCapabilities) != hello.requiredCapabilities ||
+        candidate.finiteTriggerEffects != hello.finiteTriggerEffects ||
         reply.binding.providerIdentifier != candidate.identifier ||
         reply.binding.configurationIdentity != candidate.environment.configurationIdentity ||
         reply.binding.policyIdentity != candidate.environment.policyIdentity ||

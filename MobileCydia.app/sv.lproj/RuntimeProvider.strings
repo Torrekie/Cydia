@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Rensa fullständigt";
 "REVIEW_TRIGGERS" = "Bearbeta utlösare";
 "REVIEW_DECONFIGURE" = "Avkonfigurera";
+"REVIEW_PROCESSING" = "Bearbetning efter installation";
+"REVIEW_PROCESSING_HELP" = "Dessa paket kan utföra uppgifter efter installationen eller vänta på dem. Tryck för att visa eller dölja listan.";
 "RECOVERY_REVIEW" = "Cydias inbyggda APT tillämpar de valda säkerhetsinställningarna för källor. Policyerna som är inbyggda i distributionens APT kan skilja sig åt.";
 "RUNTIME_TITLE" = "APT-miljö";
 "AUTOMATIC" = "Automatiskt";

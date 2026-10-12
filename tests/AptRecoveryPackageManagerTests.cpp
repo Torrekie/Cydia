@@ -58,7 +58,7 @@ struct Fixture {
     CydiaPackages::ArchiveLayout layout = {"/", {"/var/jb"}};
     pkgCacheFile cache;
     std::unique_ptr<pkgRecords> records;
-    Fixture() {
+    explicit Fixture(const std::string &pending = "") {
         char pattern[] = "/tmp/cydia-recovery-recording-XXXXXX";
         const char *made = mkdtemp(pattern); Require(made, "create fixture"); root = made;
         for (const char *path : {"etc", "etc/parts", "lists", "lists/partial", "archives", "archives/partial", "log"})
@@ -85,6 +85,8 @@ struct Fixture {
             "Package: legacy-other\nStatus: install ok installed\nVersion: 3\nArchitecture: armhf\nDescription: other\n\n"
             "Package: residual\nStatus: deinstall ok config-files\nVersion: 1\nArchitecture: amd64\nDescription: residual\n\n"
             "Package: residual-only\nStatus: deinstall ok config-files\nVersion: 4\nArchitecture: all\nDescription: residual\n\n";
+        if (!pending.empty()) statusBytes += "Package: cache\nStatus: " + pending +
+            "\nVersion: 1\nArchitecture: amd64\nDescription: cache fixture\nTriggers-Pending: refresh\n\n";
         Write(root + "/status", statusBytes); Write(root + "/extended_states", "");
         unsetenv("APT_CONFIG"); _config->Clear(); _error->Discard();
         _config->Set("Dir", "/"); _config->Set("Dir::Etc", root + "/etc");
@@ -140,8 +142,8 @@ struct Fixture {
             Require(manager.BindArchive(version, record, root + "/archives/" + package.Name() + '_' + version.Arch() + ".deb", &error), error.c_str());
         }
     }
-    RecoveryCaptureResult Capture(AptRecoveryPackageManager &manager, const std::function<bool()> &cancelled = {}) {
-        return manager.Capture(static_cast<pkgSourceList &>(cache), *records, runtime, Transaction(), binding, layout, cancelled);
+    RecoveryCaptureResult Capture(AptRecoveryPackageManager &manager, const std::function<bool()> &cancelled = {}, bool finiteEffects = false) {
+        return manager.Capture(static_cast<pkgSourceList &>(cache), *records, runtime, Transaction(), binding, layout, cancelled, finiteEffects);
     }
     void Unchanged() {
         Require(Read(root + "/status") == statusBytes && Read(root + "/extended_states").empty(), "recording mutated package state");
@@ -280,6 +282,45 @@ void ResidualConfigurationPurge() {
         result.review.execution.archives.empty(), "residual purge must retain exact local status version/arch without an archive");
     fixture.AcceptReview(result.review); fixture.Unchanged();
 }
+void FiniteTriggerRecording() {
+    for (const char *state : {"install ok triggers-pending", "install ok triggers-awaited"}) {
+        for (bool finite : {false, true}) {
+            Fixture fixture(state); fixture.Select("top", "amd64");
+            AptRecoveryPackageManager manager(fixture.cache.GetDepCache()); fixture.Bind(manager);
+            const auto result = fixture.Capture(manager, {}, finite);
+            if (!finite) Require(result.status != RecoveryCaptureStatus::Recorded &&
+                result.errorCode == "recovery_pending_effects_unsupported", "legacy mode still refuses pending trigger state");
+            else {
+                Require(result.status == RecoveryCaptureStatus::Recorded, result.errorCode.c_str());
+                Require(Action(result.review, "base", P::ExecutionAction::Configure) < Action(result.review, "top", P::ExecutionAction::Unpack),
+                    "finite trigger mode preserves primary Pre-Depends barriers");
+                for (const auto &action : result.review.execution.actions)
+                    Require(action.action != P::ExecutionAction::Triggers && action.package.package != "cache",
+                        "kept trigger recipient never receives a once-only primary action");
+                fixture.AcceptReview(result.review);
+            }
+            fixture.Unchanged();
+        }
+    }
+    {
+        Fixture fixture; fixture.Select("top", "amd64"); _config->Set("DPkg::TriggersPending", true);
+        AptRecoveryPackageManager manager(fixture.cache.GetDepCache()); fixture.Bind(manager);
+        const auto before = ConfigurationBytes(); const auto result = fixture.Capture(manager, {}, true);
+        Require(result.status == RecoveryCaptureStatus::Recorded && before == ConfigurationBytes(),
+            "negotiated parent ledger replaces unqualified native pending markers without changing configuration");
+        for (const auto &action : result.review.execution.actions)
+            Require(action.action != P::ExecutionAction::Triggers, "no legacy trigger action survives finite mode");
+        fixture.AcceptReview(result.review); fixture.Unchanged();
+    }
+    for (const char *state : {"install ok half-configured", "install reinstreq triggers-pending"}) {
+        Fixture fixture(state); fixture.Select("top", "amd64");
+        AptRecoveryPackageManager manager(fixture.cache.GetDepCache()); fixture.Bind(manager);
+        const auto result = fixture.Capture(manager, {}, true);
+        Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == "recovery_pending_effects_unsupported",
+            "finite trigger mode cannot admit unrelated pending configuration or reinstall-required state");
+        fixture.Unchanged();
+    }
+}
 void Refusals() {
     for (unsigned variant = 0; variant < 11; ++variant) {
         Fixture fixture; fixture.Select("portable", "amd64", "1:3.0~rc1-2");
@@ -305,6 +346,6 @@ void Refusals() {
 }
 int main() {
     OrderedInstallAndProvenance(); ConfigurationRestoration(); DependencyCycleRecording();
-    RemovalUsesInstalledVersion(); ResidualConfigurationPurge(); Refusals();
+    RemovalUsesInstalledVersion(); ResidualConfigurationPurge(); FiniteTriggerRecording(); Refusals();
     std::cout << "[apt-recovery-recording] native ordering/provenance/refusal fixtures passed\n";
 }

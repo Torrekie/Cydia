@@ -2,6 +2,27 @@
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 namespace CydiaAPT { namespace Provider {
+bool BindResolvedBrokerRuntime(const CydiaRuntime::Privileged::Request &request, BrokerEnvironment *selected) {
+    std::vector<std::string> fields;
+    if (!selected || !Decode(request.payload, &fields) || fields.size() != 3) return false;
+    auto &binding = selected->runtime.binding;
+    if (fields[0] == "CYDIA-BROKER-1") {
+        RegistrationIdentity authority;
+        if (!ParseRegistrationIdentity(fields[1], &authority)) return false;
+        binding.providerIdentifier = authority.providerIdentifier;
+        binding.configurationIdentity = authority.configurationIdentity; binding.policyIdentity = authority.policyIdentity;
+        binding.methodsIdentity = authority.methodsIdentity; binding.libraryIdentity = authority.libraryIdentity;
+        binding.frontendIdentity = authority.frontendIdentity;
+    } else if (fields[0] == "CYDIA-RECOVERY-BROKER-1") {
+        Recovery::RequestAuthority authority;
+        if (!Recovery::ParseRequestAuthority(fields[1], &authority)) return false;
+        binding.providerIdentifier = Recovery::ProviderIdentifier();
+        binding.configurationIdentity = authority.identity.configuration; binding.policyIdentity = authority.identity.policy;
+        binding.methodsIdentity = authority.identity.methods; binding.libraryIdentity = authority.identity.libraries;
+        binding.frontendIdentity = authority.identity.frontend;
+    } else return false;
+    return true;
+}
 namespace {
 std::string Words(const std::vector<std::string> &values) {
     std::string result;

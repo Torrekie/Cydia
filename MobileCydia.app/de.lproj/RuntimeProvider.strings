@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Vollständig entfernen";
 "REVIEW_TRIGGERS" = "Trigger verarbeiten";
 "REVIEW_DECONFIGURE" = "Dekonfigurieren";
+"REVIEW_PROCESSING" = "Verarbeitung nach der Installation";
+"REVIEW_PROCESSING_HELP" = "Diese Pakete können Aufgaben nach der Installation ausführen oder auf deren Ausführung warten. Tippen Sie, um die Liste ein- oder auszublenden.";
 "RECOVERY_REVIEW" = "Das mit Cydia gelieferte APT wendet die gewählten Sicherheitseinstellungen für Paketquellen an. Die einkompilierten APT-Richtlinien Ihrer Distribution können davon abweichen.";
 "RUNTIME_TITLE" = "APT-Laufzeitumgebung";
 "AUTOMATIC" = "Automatisch";

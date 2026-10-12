@@ -88,7 +88,7 @@ class AptBackend {
     // The caller holds the process-wide APT configuration/cache gate.
     RecoveryCaptureResult captureRecoveryReview(const RuntimeDescriptor &runtime,
         const Provider::Binding &binding, const CydiaPackages::ArchiveLayout &layout,
-        const std::function<bool()> &cancelled = {});
+        const std::function<bool()> &cancelled = {}, bool finiteEffects = false);
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
     PackageManagerResult runPackageManager(int statusFd, FetchResultData *archiveValidation = NULL,

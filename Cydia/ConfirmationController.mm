@@ -283,6 +283,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 @property (nonatomic, copy) NSArray<CydiaConfirmationTableSection *> *sections;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UIAlertController *essentialAlert;
+@property (nonatomic) BOOL processingExpanded;
 - (void) configureWithViewModel:(CydiaConfirmationViewModel *)viewModel;
 @end
 
@@ -346,6 +347,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             [sections addObject:[CydiaConfirmationTableSection providerOperationsWithCount:_transactionReview.operations.count]];
         if (_transactionReview.archiveWarningRows.count)
             [sections addObject:[CydiaConfirmationTableSection archiveWarningsWithCount:_transactionReview.archiveWarningRows.count]];
+        if (_transactionReview.processingRows.count)
+            [sections addObject:[CydiaConfirmationTableSection processing]];
         _sections = [sections copy];
     }
     return self;
@@ -589,7 +592,10 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     (void) tableView;
     if (section < 0 || static_cast<NSUInteger>(section) >= [_sections count])
         return 0;
-    return static_cast<NSInteger>([[_sections objectAtIndex:section] rowCount]);
+    CydiaConfirmationTableSection *tableSection(_sections[section]);
+    if (tableSection.kind == CydiaConfirmationTableSectionKindProcessing)
+        return 1 + (_processingExpanded ? _transactionReview.processingRows.count : 0);
+    return static_cast<NSInteger>(tableSection.rowCount);
 }
 
 - (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
@@ -621,6 +627,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             return CydiaRuntimeProviderLocalize(@"REVIEW_OPERATIONS");
         case CydiaConfirmationTableSectionKindArchiveWarnings:
             return UCLocalize("WARNING");
+        case CydiaConfirmationTableSectionKindProcessing:
+            return CydiaRuntimeProviderLocalize(@"REVIEW_PROCESSING");
         case CydiaConfirmationTableSectionKindSizes:
             return UCLocalize("STATISTICS");
         case CydiaConfirmationTableSectionKindModifications:
@@ -654,6 +662,21 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     switch ([section kind]) {
+        case CydiaConfirmationTableSectionKindProcessing:
+            if (indexPath.row == 0) {
+                titleLabel.text = CydiaRuntimeProviderLocalize(@"REVIEW_PROCESSING");
+                detailLabel.text = CydiaRuntimeProviderLocalize(@"REVIEW_PROCESSING_HELP");
+                cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+                cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+                cell.accessibilityIdentifier = @"cydia.confirmation.processing";
+                cell.accessibilityTraits = UIAccessibilityTraitButton;
+            } else {
+                NSDictionary *package(_transactionReview.processingRows[indexPath.row - 1]);
+                titleLabel.text = package[@"title"]; detailLabel.text = package[@"detail"];
+                cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.confirmation.processing.%ld", (long)indexPath.row];
+            }
+            cell.accessibilityLabel = [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), titleLabel.text, detailLabel.text];
+            break;
         case CydiaConfirmationTableSectionKindRuntimeNotice:
             titleLabel.text = _transactionReview.runtimeNotice;
             cell.accessibilityIdentifier = @"cydia.confirmation.runtime-policy";
@@ -771,6 +794,16 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     if ([section kind] == CydiaConfirmationTableSectionKindQueue)
         [self continueQueuingButtonClicked];
+    else if ([section kind] == CydiaConfirmationTableSectionKindProcessing && indexPath.row == 0) {
+        NSMutableArray<NSIndexPath *> *rows([NSMutableArray arrayWithCapacity:_transactionReview.processingRows.count]);
+        for (NSUInteger row = 1; row <= _transactionReview.processingRows.count; ++row)
+            [rows addObject:[NSIndexPath indexPathForRow:row inSection:indexPath.section]];
+        [tableView beginUpdates];
+        _processingExpanded = !_processingExpanded;
+        if (_processingExpanded) [tableView insertRowsAtIndexPaths:rows withRowAnimation:UITableViewRowAnimationAutomatic];
+        else [tableView deleteRowsAtIndexPaths:rows withRowAnimation:UITableViewRowAnimationAutomatic];
+        [tableView endUpdates];
+    }
 }
 
 - (void) tableView:(UITableView *)tableView

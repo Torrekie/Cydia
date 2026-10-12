@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Tamamen Kaldır";
 "REVIEW_TRIGGERS" = "Tetikleyicileri İşle";
 "REVIEW_DECONFIGURE" = "Yapılandırmayı Geri Al";
+"REVIEW_PROCESSING" = "Kurulum Sonrası İşlemler";
+"REVIEW_PROCESSING_HELP" = "Bu paketler kurulum sonrası görevleri çalıştırabilir veya bu görevleri bekleyebilir. Listeyi göstermek veya gizlemek için dokunun.";
 "RECOVERY_REVIEW" = "Cydia ile gelen APT, seçilen kaynak güvenliği ayarlarını uygular. Dağıtımınızın APT’sine derlenmiş ilkeler farklı olabilir.";
 "RUNTIME_TITLE" = "APT Çalışma Ortamı";
 "AUTOMATIC" = "Otomatik";

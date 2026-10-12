@@ -40,7 +40,7 @@ class AptRecoveryPackageManager final : public pkgDPkgPM {
         std::string path;
     };
     std::map<unsigned long, ArchiveBinding> archives_;
-    bool capturing_ = false, consumed_ = false;
+    bool capturing_ = false, consumed_ = false, finiteEffects_ = false;
     std::function<bool()> cancelled_;
     std::string refusal_;
     bool Proceed();
@@ -58,10 +58,14 @@ public:
      * Binding also seeds libapt's FileNames for a pre-download preview. */
     bool BindArchive(pkgCache::VerIterator version, pkgCache::VerFileIterator record,
         const std::string &path, std::string *errorCode = nullptr);
+    // finiteEffects is an explicitly accepted provider session mode. It
+    // permits trigger-only pending states and omits libapt's unqualified
+    // trigger markers; the parent's independently reviewed ledger owns them.
+    // All other pending actions, hooks and unsupported policies still refuse.
     RecoveryCaptureResult Capture(pkgSourceList &sources, pkgRecords &records,
         const RuntimeDescriptor &runtime, const TransactionData &transaction,
         const Provider::Binding &binding, const CydiaPackages::ArchiveLayout &layout,
-        const std::function<bool()> &cancelled = {});
+        const std::function<bool()> &cancelled = {}, bool finiteEffects = false);
 };
 } // namespace CydiaAPT
 #endif

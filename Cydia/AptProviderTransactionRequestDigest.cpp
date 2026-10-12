@@ -4,7 +4,7 @@
 namespace CydiaAPT { namespace Provider {
 std::string TransactionBeginDigest(const TransactionBeginRequest &value) {
     std::string bytes; if (!EncodeTransactionBegin(value, &bytes)) return {};
-    const char domain[] = "CYDIA-TRANSACTION-REVIEW-1";
+    const char domain[] = "CYDIA-TRANSACTION-REVIEW-2";
     Hashes hashes(Hashes::SHA256SUM);
     if (!hashes.Add(domain, sizeof(domain)-1) || !hashes.Add(bytes.data(), bytes.size())) return {};
     return hashes.GetHashString(Hashes::SHA256SUM).HashValue();

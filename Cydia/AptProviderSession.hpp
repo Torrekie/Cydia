@@ -81,6 +81,7 @@ public:
     // Independent of historical mutation and indeterminate-outcome latches.
     bool lastCallExecutionStarted() const;
     bool parentLockHeld() const;
+    bool finiteTriggerEffects() const;
     const Binding &binding() const;
     const Info &info() const;
     const std::string &lastError() const;

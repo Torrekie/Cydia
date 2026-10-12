@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Volledig verwijderen";
 "REVIEW_TRIGGERS" = "Triggers verwerken";
 "REVIEW_DECONFIGURE" = "Deconfigureren";
+"REVIEW_PROCESSING" = "Verwerking na installatie";
+"REVIEW_PROCESSING_HELP" = "Deze pakketten kunnen taken na de installatie uitvoeren of daarop wachten. Tik om de lijst te tonen of te verbergen.";
 "RECOVERY_REVIEW" = "De ingebouwde APT van Cydia past de geselecteerde beveiligingsinstellingen voor bronnen toe. Het beleid dat in de APT van je distributie is ingebouwd, kan hiervan afwijken.";
 "RUNTIME_TITLE" = "APT-omgeving";
 "AUTOMATIC" = "Automatisch";

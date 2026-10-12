@@ -195,9 +195,9 @@ bool Graph(const TriggerEffectCheckpoint &checkpoint, const TriggerEffectEnvelop
     return true;
 }
 std::string EnvelopeIdentity(const TriggerEffectEnvelope &envelope) {
-    std::string bytes("CYDIA-TRIGGER-EFFECT-ENVELOPE-1"), review;
+    std::string bytes("CYDIA-TRIGGER-EFFECT-ENVELOPE-2"), review;
     if (!Encode(envelope.primaryReview, &review)) return "";
-    Frame(&bytes, envelope.initialCheckpoint); Frame(&bytes, review);
+    Frame(&bytes, envelope.initialCheckpoint); Frame(&bytes, envelope.nativeAuthorityIdentity); Frame(&bytes, review);
     for (const auto *pool : {&envelope.recipients, &envelope.awaiters}) {
         for (const auto &package : *pool) { Frame(&bytes, package.first); Frame(&bytes, Generation(package.second)); }
         Frame(&bytes, "");
@@ -298,7 +298,7 @@ std::string TriggerEffectCheckpointIdentity(const TriggerEffectCheckpoint &check
     return Hash(bytes);
 }
 bool BuildTriggerEffectEnvelope(const ReviewedTransaction &review, const TriggerEffectCheckpoint &checkpoint,
-    TriggerEffectEnvelope *envelope, std::string *error) {
+    TriggerEffectEnvelope *envelope, std::string *error, const std::string &nativeAuthorityIdentity) {
     if (!envelope) return Fail(error, "provider_trigger_envelope_invalid");
     *envelope = TriggerEffectEnvelope(); Interests interests;
     if (!Checkpoint(checkpoint, &interests, error) || checkpoint.identity != TriggerEffectCheckpointIdentity(checkpoint) ||
@@ -306,6 +306,8 @@ bool BuildTriggerEffectEnvelope(const ReviewedTransaction &review, const Trigger
         review.execution.actions.size() > MaximumTriggerEffectPackages || review.execution.archives.size() > MaximumTriggerEffectPackages)
         return Fail(error, "provider_trigger_envelope_invalid");
     TriggerEffectEnvelope result; result.initialCheckpoint = checkpoint.identity; result.primaryReview = review;
+    if (!nativeAuthorityIdentity.empty() && !Digest(nativeAuthorityIdentity)) return Fail(error, "provider_trigger_envelope_invalid");
+    result.nativeAuthorityIdentity = nativeAuthorityIdentity;
     for (const auto &interest : checkpoint.registry.state.interests) {
         const auto &package = Resolve(checkpoint.packages, interest.package)->package;
         result.recipients.emplace(Generation(package), package);
@@ -356,7 +358,7 @@ bool TriggerEffectLedger::Begin(const TriggerEffectEnvelope &envelope, const Tri
     if (initialized_) return Reject(error, "provider_trigger_ledger_reused");
     initialized_ = true;
     TriggerEffectEnvelope actual;
-    if (!BuildTriggerEffectEnvelope(envelope.primaryReview, checkpoint, &actual, error) || actual.identity != envelope.identity ||
+    if (!BuildTriggerEffectEnvelope(envelope.primaryReview, checkpoint, &actual, error, envelope.nativeAuthorityIdentity) || actual.identity != envelope.identity ||
         EnvelopeIdentity(envelope) != envelope.identity) return Reject(error, "provider_trigger_envelope_changed");
     envelope_ = envelope; current_ = checkpoint; active_ = true;
     seenGraphs_.insert(GraphIdentity(current_)); if (error) error->clear(); return true;

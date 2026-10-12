@@ -12,10 +12,12 @@
 #include <iostream>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #if defined(CYDIA_TRANSACTION_OWNER_TESTING)
 #include "Cydia/AptProviderTransactionOwner.hpp"
 #include "Cydia/AptProviderNativeDpkgAuthority.hpp"
+#include "Cydia/AptProviderTriggerCapture.hpp"
 #include "Cydia/RuntimeState.hpp"
 #endif
 
@@ -213,8 +215,20 @@ void OwnerChild(Fixture &fixture, const P::TransactionOwnerOptions &provided, un
         channels->started = [&] { ++effectStarts; };
         channels->settled = [&, descriptors](const P::ParentExecutionReply &reply) {
             Require(reply.started, "effect channel closes only after actual child was reaped");
-            for (int fd : *descriptors) close(fd); ++effectSettlements;
+            for (int fd : *descriptors) close(fd);
+            ++effectSettlements;
         };
+        return true;
+    };
+    if (effects && mode != 7) options.primaryChildChannels = [&](const P::ParentExecutionRequest &request,
+        P::TransactionEffectChildChannels *channels, std::string *) {
+        Require(request.actions.size() == 1, "fresh primary scope is tied to exact primary action");
+        auto descriptors = std::make_shared<std::vector<int>>(4);
+        Require(socketpair(AF_UNIX, SOCK_STREAM, 0, descriptors->data()) == 0 && pipe(descriptors->data() + 2) == 0,
+            "primary scope uses production socket stdin shape");
+        channels->inputDescriptor = (*descriptors)[0]; channels->statusDescriptor = (*descriptors)[3];
+        channels->started = [] {};
+        channels->settled = [descriptors](const P::ParentExecutionReply &) { for (int fd : *descriptors) close(fd); };
         return true;
     };
     options.execute = [&](const std::string &, const std::vector<std::string> &arguments, int, int,
@@ -337,24 +351,27 @@ void OwnerTransactions() {
         Require(CydiaRuntime::Privileged::RuntimeSnapshot(environment, &options.review.binding.packageStateIdentity, &ignored), "initial full native snapshot");
         options.selected.runtime.binding.packageStateIdentity = options.review.binding.packageStateIdentity;
         options.policy.environment.packageStateIdentity = options.review.binding.packageStateIdentity;
+        fixtureAuthority = P::NativeDpkgAuthority(); fixtureAuthorityAvailable = true;
+        fixtureAuthority.configurationIdentity = Hash("fixture native graph\n"); fixtureAuthority.platformIdentity = std::string(64, 'a');
+        CydiaRuntime::Privileged::Evidence config;
+        Require(CydiaRuntime::Privileged::CaptureEvidence(fixture.root + "/native.conf", false, false, &config, &ignored), "capture fixture declaration");
+        fixtureAuthority.configurationEvidence = {config}; fixtureAuthority.componentPaths = {environment.dpkg, environment.dpkgQuery};
+        std::vector<P::InstalledComponentEvidence> initialComponents;
+        for (const auto &path : fixtureAuthority.componentPaths) {
+            P::InstalledComponentEvidence file; std::string error;
+            Require(P::CaptureTransactionComponent(path, &file, &error), "capture fixture executable bytes");
+            fixtureAuthority.executorGenerations[path].insert(file.file.sha256);
+            initialComponents.push_back(file);
+        }
         if (mode >= 6) {
             std::string error; P::DpkgState initial; P::TriggerEffectCheckpoint checkpoint; P::TriggerCaptureLock held; held.descriptor = lock;
             Require(P::ParseDpkgState("cache\t1\tamd64\tinstall ok installed\tno\t\t\n", "amd64\n", "",
                 options.review.binding.packageStateIdentity, &initial, &error) &&
                 P::CaptureTriggerEffectCheckpoint(environment, initial, held, &checkpoint, &error), "capture native review recipients");
             auto approved = std::make_shared<P::TriggerEffectEnvelope>();
-            Require(P::BuildTriggerEffectEnvelope(options.review, checkpoint, approved.get(), &error), "build immutable native-reviewed effect pool");
+            Require(P::BuildTriggerEffectEnvelope(options.review, checkpoint, approved.get(), &error,
+                P::TriggerNativeAuthorityIdentity(fixtureAuthority, initialComponents)), "build immutable native-reviewed effect pool");
             options.reviewedEffects = approved;
-        }
-        fixtureAuthority = P::NativeDpkgAuthority(); fixtureAuthorityAvailable = true;
-        fixtureAuthority.configurationIdentity = Hash("fixture native graph\n"); fixtureAuthority.platformIdentity = std::string(64, 'a');
-        CydiaRuntime::Privileged::Evidence config;
-        Require(CydiaRuntime::Privileged::CaptureEvidence(fixture.root + "/native.conf", false, false, &config, &ignored), "capture fixture declaration");
-        fixtureAuthority.configurationEvidence = {config}; fixtureAuthority.componentPaths = {environment.dpkg, environment.dpkgQuery};
-        for (const auto &path : fixtureAuthority.componentPaths) {
-            P::InstalledComponentEvidence file; std::string error;
-            Require(P::CaptureTransactionComponent(path, &file, &error), "capture fixture executable bytes");
-            fixtureAuthority.executorGenerations[path].insert(file.file.sha256);
         }
         const pid_t child = fork(); Require(child >= 0, "fork direct helper owner");
         if (child == 0) { close(lock); OwnerChild(fixture, options, mode); _exit(0); }

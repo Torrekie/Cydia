@@ -58,7 +58,49 @@ int main() {
     Check((fcntl(received[0], F_GETFD) & FD_CLOEXEC) && (fcntl(received[1], F_GETFD) & FD_CLOEXEC), "received descriptors CLOEXEC");
     Check(write(input[1], "N\n", 2) == 2 && write(received[1], "status", 6) == 6, "descriptor roles usable");
     char buffer[8]; Check(read(received[0], buffer, 2) == 2 && read(status[0], buffer, 6) == 6, "descriptor contents delivered");
-    for (const int fd : received) close(fd); received.clear();
+    for (const int fd : received) close(fd);
+    received.clear();
+    // Linux exposes both anonymous-pipe ends as one inode; Darwin exposes
+    // endpoint identities. fstat cannot infer a Darwin pipe's peer endpoint.
+#if defined(__linux__)
+    Check(!ValidChildDescriptors(input[0], input[1]), "one pipe inode cannot share child input and status");
+#endif
+    int interactive[2]; Pair(interactive);
+    Check(ValidChildDescriptors(interactive[0], status[1]), "production Unix stream input is supported");
+    const int duplicate = dup(interactive[0]);
+    Check(duplicate >= 3 && !ValidChildDescriptors(interactive[0], duplicate), "duplicate socket object cannot serve both roles");
+    close(duplicate);
+    close(interactive[0]); close(interactive[1]);
+    ChildDescriptor primary; primary.primaryBatch = 1; primary.primaryActions = {4, 5};
+    ChildDescriptor parsed; std::string purpose;
+    Check(EncodeChildDescriptor(primary, &purpose) && DecodeChildDescriptor(purpose, &parsed) && parsed.primaryActions == primary.primaryActions,
+        "bounded exact primary purpose roundtrip");
+    primary.primaryActions.push_back(4); Check(!EncodeChildDescriptor(primary, &encoded), "duplicate primary actions refused");
+    ChildDescriptor trigger; trigger.purpose = ChildPurpose::TriggerDrain;
+    trigger.envelopeIdentity = "approved-envelope"; trigger.checkpointIdentity = "native-checkpoint";
+    trigger.pass = 2; trigger.primaryCheckpoint = 1; trigger.targets.push_back({"sample", "1:2.0-3", "all"});
+    Check(EncodeChildDescriptor(trigger, &encoded) && DecodeChildDescriptor(encoded, &parsed) && parsed.targets[0].architecture == "all" && parsed.pass == 2,
+        "trigger purpose binds exact generation, pass and checkpoint");
+    trigger.targets.push_back(trigger.targets.front()); Check(!EncodeChildDescriptor(trigger, &encoded), "duplicate trigger targets refused");
+    trigger.targets.clear(); Check(!EncodeChildDescriptor(trigger, &encoded), "empty drain requires explicit deferred incorporation");
+    trigger.incorporateDeferred = true; Check(EncodeChildDescriptor(trigger, &encoded), "native deferred-only scope is representable");
+    auto scoped = Request(Operation::Execute); scoped.scopedChildren = true;
+    Check(sender.Send(scoped) && receiver.Receive(&decoded, &received) && received.empty() && decoded.scopedChildren,
+        "finite outer Execute carries no channels");
+    scoped.event = Event::ChildNeeded; scoped.childOrdinal = 1; scoped.childDescriptor = purpose;
+    Check(sender.Send(scoped) && receiver.Receive(&decoded, &received) && decoded.childOrdinal == 1,
+        "needed event binds scoped child ordinal");
+    scoped.event = Event::ChildChannels; scoped.success = true;
+    Check(sender.Send(scoped, {input[0], status[1]}) && receiver.Receive(&decoded, &received) && received.size() == 2,
+        "negotiated response transfers fresh descriptors");
+    for (int descriptor : received) close(descriptor);
+    received.clear();
+    auto wrongScope = scoped; wrongScope.childOrdinal = 0;
+    Check(!Encode(wrongScope, &encoded), "child frame cannot omit ordinal");
+    wrongScope = scoped; wrongScope.scopedChildren = false;
+    Check(!Encode(wrongScope, &encoded), "legacy transaction cannot inject child messages");
+    wrongScope = scoped; wrongScope.operation = Operation::Commit;
+    Check(!Encode(wrongScope, &encoded), "Commit cannot negotiate a dpkg child");
     for (const auto &bad : std::vector<std::string>{"8388609:", "01:x,", "1:x;", "3:ab"}) {
         Pair(sockets); Channel channel(sockets[0]); SendRaw(sockets[1], bad); close(sockets[1]);
         Check(!channel.Receive(&decoded, &received, 200) && !channel.valid() && received.empty(), "reject invalid/truncated outer frame");

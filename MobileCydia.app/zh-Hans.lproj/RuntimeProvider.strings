@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "清除";
 "REVIEW_TRIGGERS" = "处理触发器";
 "REVIEW_DECONFIGURE" = "取消配置";
+"REVIEW_PROCESSING" = "安装后处理";
+"REVIEW_PROCESSING_HELP" = "这些软件包可能需要执行或等待安装后的任务。轻点以显示或隐藏列表。";
 "RECOVERY_REVIEW" = "Cydia 内置的 APT 将应用所选的软件源安全设置。您所用发行环境编译进 APT 的策略可能有所不同。";
 "RUNTIME_TITLE" = "APT 运行环境";
 "AUTOMATIC" = "自动";

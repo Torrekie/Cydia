@@ -483,6 +483,7 @@ bool Session::indeterminate() const { return implementation_->uncertain; }
 bool Session::mutationStarted() const { return implementation_->mutated; }
 bool Session::lastCallExecutionStarted() const { return implementation_->executionStarted; }
 bool Session::parentLockHeld() const { return implementation_->locked; }
+bool Session::finiteTriggerEffects() const { return implementation_->ready && implementation_->provider.finiteTriggerEffects; }
 const Binding &Session::binding() const { return implementation_->current; }
 const Info &Session::info() const { return implementation_->provider; }
 const std::string &Session::lastError() const { return implementation_->error; }

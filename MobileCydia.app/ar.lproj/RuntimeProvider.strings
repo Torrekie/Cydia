@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "إزالة كاملة";
 "REVIEW_TRIGGERS" = "معالجة المشغّلات";
 "REVIEW_DECONFIGURE" = "إلغاء التهيئة";
+"REVIEW_PROCESSING" = "معالجة ما بعد التثبيت";
+"REVIEW_PROCESSING_HELP" = "قد تنفّذ هذه الحزم مهام ما بعد التثبيت أو تنتظر تنفيذها. اضغط لإظهار القائمة أو إخفائها.";
 "RECOVERY_REVIEW" = "سيطبّق APT المضمّن مع Cydia إعدادات أمان المصادر المحددة. قد تختلف سياسات APT المضمّنة في توزيعتك.";
 "RUNTIME_TITLE" = "بيئة تشغيل APT";
 "AUTOMATIC" = "تلقائي";

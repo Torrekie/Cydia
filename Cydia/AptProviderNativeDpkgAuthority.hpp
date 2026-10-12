@@ -22,6 +22,9 @@ struct NativeDpkgAuthority {
 // through. Missing/unsupported graph refuses transaction-owner admission.
 bool ResolveNativeDpkgAuthority(const BrokerEnvironment &, const ReviewedTransaction &,
     NativeDpkgAuthority *, std::string *error, const std::function<bool()> &cancelled = {});
+bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &, const BrokerEnvironment &,
+    const ReviewedTransaction &, NativeDpkgAuthority *, std::string *error,
+    const std::function<bool()> &cancelled = {});
 bool RevalidateNativeDpkgAuthority(const NativeDpkgAuthority &,
     const std::vector<InstalledComponentEvidence> &, std::string *error);
 bool CaptureNativeDpkgClosure(const NativeDpkgAuthority &, const std::string &executable,

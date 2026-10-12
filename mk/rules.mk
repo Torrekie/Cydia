@@ -215,11 +215,13 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptRecoveryDependencyInspector.cpp Cydia/AptRecoveryMachO.cpp \
 		Cydia/AptProviderComponentCapture.cpp Cydia/AptProviderComponentSuccession.cpp \
 		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionRequest.cpp \
+		Cydia/AptProviderTransactionResult.cpp \
 		Cydia/AptProviderTransactionRequestDigest.cpp \
 		Cydia/AptProviderTransactionFiles.cpp Cydia/AptProviderTransactionLease.cpp \
 		Cydia/AptProviderTransactionOwner.cpp Cydia/AptProviderTransactionService.cpp \
 		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderArchiveEvidence.cpp \
 		Cydia/AptProviderTriggerEffects.cpp Cydia/AptProviderTriggerMetadata.cpp \
+		Cydia/AptProviderTriggerCapture.cpp Cydia/AptProviderTriggerApproval.cpp \
 		Cydia/AptProviderTriggerEvidence.cpp Cydia/AptProviderTriggerEvidenceProtected.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 		Cydia/AptProviderDpkgState.cpp Cydia/AptProviderDpkgStateCapture.cpp Cydia/PackageIdentity.cpp \

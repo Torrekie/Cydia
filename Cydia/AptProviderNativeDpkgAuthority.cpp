@@ -103,9 +103,12 @@ struct Graph {
 }
 bool ResolveNativeDpkgAuthority(const BrokerEnvironment &selected, const ReviewedTransaction &review,
     NativeDpkgAuthority *result, std::string *error, const std::function<bool()> &cancelled) {
+    return ResolveNativeDpkgAuthority(CydiaRuntime::PackageDatabasePaths::Current(), selected, review, result, error, cancelled);
+}
+bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths, const BrokerEnvironment &selected,
+    const ReviewedTransaction &review, NativeDpkgAuthority *result, std::string *error, const std::function<bool()> &cancelled) {
     if (!result) return Fail(error, "provider_native_configuration_invalid");
     *result = NativeDpkgAuthority();
-    const auto &paths = CydiaRuntime::PackageDatabasePaths::Current();
     const auto &data = paths.DpkgDataDirectory(); const auto slash = data.rfind('/');
     if (slash == std::string::npos) return Fail(error, "provider_native_configuration_missing");
     P::Evidence declaration; P::Error ignored; bool found = false;

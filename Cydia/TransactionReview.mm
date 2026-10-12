@@ -2,6 +2,7 @@
 #include "Cydia/TransactionReview.h"
 #include "Cydia/RuntimeProviderStatus.h"
 #include "Cydia/PackageArchitecturePresentation.h"
+#include "Cydia/AptProviderTransactionRequest.hpp"
 
 namespace {
 NSString *PackageName(const CydiaAPT::Provider::ExecutionPackage &package, NSArray<NSString *> *architectures) {
@@ -20,9 +21,15 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
     std::set<std::uint64_t> actions_;
     std::set<std::string> archiveWarnings_;
     std::string transactionBytes_;
+    std::string effectsIdentity_;
 }
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
     providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review {
+    return [self initWithTransaction:transaction providerReview:review reviewedEffects:nullptr];
+}
+- (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
+    reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects {
     if ((self = [super init])) {
         transaction_ = transaction;
         CydiaAPT::Provider::Encode(transaction_, &transactionBytes_);
@@ -54,6 +61,22 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
                     @"detail": [NSString stringWithFormat:CydiaRuntimeProviderLocalize(@"ARCHIVE_REVIEW_LIMITS"), identity]}];
             }
         _archiveWarningRows = [warnings copy];
+        NSMutableArray *processing([NSMutableArray array]);
+        if (effects) {
+            std::string bytes, primary, shown;
+            if (!review || !CydiaAPT::Provider::EncodeTriggerEffectEnvelope(*effects, &bytes) ||
+                !CydiaAPT::Provider::Encode(*review, &primary) ||
+                !CydiaAPT::Provider::Encode(effects->primaryReview, &shown) || primary != shown) return nil;
+            auto packages(effects->recipients);
+            packages.insert(effects->awaiters.begin(), effects->awaiters.end());
+            for (const auto &item : packages) {
+                NSString *name(PackageName(item.second, architectures)), *version(Version(item.second));
+                if (!name || !version) return nil;
+                [processing addObject:@{@"title": name, @"detail": version}];
+            }
+            effectsIdentity_ = effects->identity;
+        }
+        _processingRows = [processing copy];
         _runtimeNotice = review ? @"" : CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW");
     }
     return self;
@@ -61,6 +84,7 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
 - (const CydiaAPT::TransactionData &)transaction { return transaction_; }
 - (const std::set<std::uint64_t> &)displayedActions { return actions_; }
 - (const std::set<std::string> &)displayedArchiveWarnings { return archiveWarnings_; }
+- (const std::string &)displayedEffectsIdentity { return effectsIdentity_; }
 - (bool)matchesTransaction:(const CydiaAPT::TransactionData &)transaction {
     std::string bytes;
     return !transactionBytes_.empty() && CydiaAPT::Provider::Encode(transaction, &bytes) && transactionBytes_ == bytes;

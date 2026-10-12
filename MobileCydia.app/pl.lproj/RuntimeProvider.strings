@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Usuń całkowicie";
 "REVIEW_TRIGGERS" = "Przetwórz wyzwalacze";
 "REVIEW_DECONFIGURE" = "Cofnij konfigurację";
+"REVIEW_PROCESSING" = "Przetwarzanie po instalacji";
+"REVIEW_PROCESSING_HELP" = "Te pakiety mogą wykonywać zadania po instalacji lub czekać na ich wykonanie. Stuknij, aby pokazać lub ukryć listę.";
 "RECOVERY_REVIEW" = "APT dołączone do Cydii zastosuje wybrane ustawienia zabezpieczeń źródeł. Zasady wkompilowane w APT Twojej dystrybucji mogą się różnić.";
 "RUNTIME_TITLE" = "Środowisko APT";
 "AUTOMATIC" = "Automatycznie";

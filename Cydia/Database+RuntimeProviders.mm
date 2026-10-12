@@ -128,7 +128,8 @@ NSError *Error(NSString *text) {
             ofType:@"Error"] forTask:UCLocalize("PREPARE_ARCHIVES")];
         return false;
     }
-    CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:runtime_->review()]);
+    CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:runtime_->review()
+        reviewedEffects:runtime_->reviewedEffects()]);
     @synchronized(runtimeStatusLock_) { confirmationReview_ = review; confirmationApproved_ = NO; }
     return review != nil;
 }
@@ -143,7 +144,8 @@ NSError *Error(NSString *text) {
         @synchronized(runtimeStatusLock_) {
             if (review != nil && review == confirmationReview_ && !confirmationApproved_) {
                 std::string error;
-                accepted = runtime_->ApproveReview(*apt_, [review displayedActions], [review displayedArchiveWarnings], &error);
+                accepted = runtime_->ApproveReview(*apt_, [review displayedActions], [review displayedArchiveWarnings], &error,
+                    [review displayedEffectsIdentity]);
                 confirmationApproved_ = accepted;
             }
         }

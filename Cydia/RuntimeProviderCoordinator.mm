@@ -2,8 +2,10 @@
 #include "Cydia/RuntimeProviderCoordinator.hpp"
 #include "Cydia/AptProviderArchiveEvidence.hpp"
 #include "Cydia/AptProviderBroker.hpp"
+#include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderSession.hpp"
 #include "Cydia/AptProviderLaunch.hpp"
+#include "Cydia/AptProviderTransactionRequest.hpp"
 #include "Cydia/AptRecoverySnapshot.hpp"
 #include "Cydia/DatabaseStatus.h"
 #include "Cydia/PrivilegedClient.h"
@@ -44,7 +46,7 @@ struct RemoteCandidate {
     RuntimeDescriptor descriptor;
 };
 RemoteCandidate StartCandidate(AcquireStatus &progress, const RuntimeDescriptor &runtime,
-    const std::string &executable, const P::ProbeResult &probe, const P::Hello &hello,
+    const std::string &executable, const P::ProbeResult &probe, P::Hello hello,
     P::BrokerOptions broker, const std::shared_ptr<const P::RecoveryLaunchCapsule> &capsule = {}) {
     RemoteCandidate result; result.context = std::make_shared<SessionContext>();
     broker.helperPath = runtime.privilegedHelperPath; broker.extendedStatesPath = runtime.extendedStatesPath;
@@ -52,6 +54,17 @@ RemoteCandidate StartCandidate(AcquireStatus &progress, const RuntimeDescriptor 
     broker.policy.layout.prefix = runtime.packageInstallPrefix;
     if (broker.policy.layout.prefix == "/") broker.policy.layout.foreignPrefixes.push_back("/var/jb");
     broker.policy.protectedDpkgOptions = runtime.dpkgOptions;
+    if (probe.info.capabilities & P::FiniteTriggerEffects) {
+        CydiaRuntime::Privileged::Request ready; ready.expected = hello.expected.paths;
+        const bool wrapped = broker.recoveryAuthority ? P::BrokerRequestPayload(*broker.recoveryAuthority, "", &ready.payload) :
+            P::BrokerRequestPayload(broker.authority, "", &ready.payload);
+        // Support is optional. Select it only after the native protected graph
+        // has independently passed; an installed declaration alone is not readiness.
+        hello.finiteTriggerEffects = wrapped && Client::Run(runtime.privilegedHelperPath,
+            "--cydia-provider-effect-ready", ready, 65536, 4000).succeeded();
+        if (hello.finiteTriggerEffects) hello.requiredCapabilities |= P::FiniteTriggerEffects;
+        broker.finiteTriggerEffects = hello.finiteTriggerEffects;
+    }
     const std::weak_ptr<SessionContext> weak(result.context);
     broker.archives = [weak](const P::ReviewedTransaction &, const std::vector<P::ArchiveManifest> &archives,
         const P::RequestControl &control) {
@@ -175,6 +188,7 @@ public:
     bool recoveryWorker = false;
     CydiaRuntimeProviderStatus *__strong status;
     P::ReviewedTransaction reviewed;
+    std::shared_ptr<const P::TriggerEffectEnvelope> reviewedEffects;
     std::vector<AutoInstalledDelta> deltas;
     std::string reviewBytes;
     bool captured = false, approved = false, initialized = false;
@@ -183,7 +197,7 @@ public:
         state:CydiaRuntimeProviderStateUnchecked providerName:nil providerVersion:nil aptVersion:nil diagnostic:nil]) {}
 
     void ClearReview() {
-        captured = approved = false; reviewed = P::ReviewedTransaction(); deltas.clear(); reviewBytes.clear();
+        captured = approved = false; reviewed = P::ReviewedTransaction(); reviewedEffects.reset(); deltas.clear(); reviewBytes.clear();
         if (context) context->archives.reset();
     }
 };
@@ -356,15 +370,17 @@ bool RuntimeProviderCoordinator::CaptureReview(AptBackend &backend, TransactionD
     state.context->archives = P::ArchiveEvidenceSnapshot::Capture(*ActiveRuntimeDescriptor(), state.reviewed,
         state.recoveryWorker ? state.recovery.acquisitionSearchPath : state.selected.executableSearchPath, {}, error);
     state.captured = state.context->archives != nullptr;
+    if (state.captured) state.captured = state.context->broker->CaptureEffects(state.reviewed, &state.reviewedEffects, error);
     return state.captured;
 }
 bool RuntimeProviderCoordinator::ApproveReview(AptBackend &backend, const std::set<std::uint64_t> &shownActions,
-    const std::set<std::string> &shownWarnings, std::string *error) {
+    const std::set<std::string> &shownWarnings, std::string *error, const std::string &shownEffectsIdentity) {
     auto &state(*implementation_);
-    if (!state.captured || state.approved || !ReviewUnchanged(backend)) {
+    if (!state.captured || state.approved || !ReviewUnchanged(backend) ||
+        shownEffectsIdentity != (state.reviewedEffects ? state.reviewedEffects->identity : "")) {
         if (error) *error = "provider_review_changed"; return false;
     }
-    if (remote() && !state.context->broker->Approve(state.reviewed, state.deltas, shownActions, shownWarnings)) {
+    if (remote() && !state.context->broker->Approve(state.reviewed, state.deltas, shownActions, shownWarnings, state.reviewedEffects)) {
         if (error) *error = state.context->broker->errorCode(); return false;
     }
     state.approved = true; return true;
@@ -377,6 +393,7 @@ bool RuntimeProviderCoordinator::ReviewUnchanged(const AptBackend &backend) cons
     return healthy() && backend.providerReview(&current) && P::Encode(current, &bytes) && bytes == state.reviewBytes;
 }
 void RuntimeProviderCoordinator::InvalidateReview() { implementation_->ClearReview(); }
+const Provider::TriggerEffectEnvelope *RuntimeProviderCoordinator::reviewedEffects() const { return implementation_->reviewedEffects.get(); }
 bool RuntimeProviderCoordinator::executionComplete() const {
     return !remote() || (implementation_->approved && implementation_->context->broker->complete());
 }

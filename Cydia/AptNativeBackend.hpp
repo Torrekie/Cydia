@@ -20,7 +20,7 @@ public:
     virtual UpdateResultData updateListsNative(int pulseInterval) = 0;
     virtual RecoveryCaptureResult captureRecoveryReview(const RuntimeDescriptor &runtime,
         const Provider::Binding &binding, const CydiaPackages::ArchiveLayout &layout,
-        const std::function<bool()> &cancelled = {}) = 0;
+        const std::function<bool()> &cancelled = {}, bool finiteEffects = false) = 0;
 };
 
 // The status and any objects captured by resolver must outlive the backend.

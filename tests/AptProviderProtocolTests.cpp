@@ -223,6 +223,18 @@ void Capabilities() {
     Require(P::Encode(info, &response.payload), "handshake payload encoding");
     P::Info accepted;
     Require(P::ValidateHelloReply(hello, response, &accepted), "matching nonce/provider handshake refused");
+    hello.finiteTriggerEffects = true;
+    Require(!P::ValidHello(hello), "finite effects cannot be selected without capability negotiation");
+    hello.requiredCapabilities |= P::FiniteTriggerEffects;
+    Require(P::ValidHello(RoundTrip(hello)), "explicit finite-effects choice survives bounded codec");
+    Require(!P::ValidateHelloReply(hello, response, &accepted), "legacy provider cannot silently accept finite-effects selection");
+    info.capabilities |= P::FiniteTriggerEffects; Require(P::Encode(info, &response.payload), "encode supported provider");
+    Require(!P::ValidateHelloReply(hello, response, &accepted), "support advertisement is not accepted session selection");
+    info.finiteTriggerEffects = true; Require(P::Encode(info, &response.payload), "encode accepted mode");
+    Require(P::ValidateHelloReply(hello, response, &accepted) && accepted.finiteTriggerEffects, "exact mode echo accepted");
+    hello.finiteTriggerEffects = false;
+    Require(!P::ValidateHelloReply(hello, response, &accepted), "provider cannot enable finite effects without explicit selection");
+    info.finiteTriggerEffects = false; Require(P::Encode(info, &response.payload), "restore legacy mode");
     response.binding.session[0] = 'a';
     Require(!P::ValidateHelloReply(hello, response, &accepted), "another session handshake accepted");
     response.binding.session = hello.challenge; response.binding.review = "unreviewed";

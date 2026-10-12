@@ -96,7 +96,8 @@ P::Message Reply(const P::Message &request) {
 enum class Mode {
     Normal, Malformed, ChangedBinding, Cancel, IgnoreCancel, ChangedState, ApprovedState,
     LostExecution, CompletedExecution, FailedExecution, MultipleBatches, FalseStarted, BlockedWrite, Progress,
-    Authorization, AuthorizationUnsupported, AuthorizationWrongPhase, AuthorizationWrongBinding
+    Authorization, AuthorizationUnsupported, AuthorizationWrongPhase, AuthorizationWrongBinding,
+    FiniteEffects, RefusedFiniteEffects, UnsolicitedFiniteEffects
 };
 
 struct Peer {
@@ -145,6 +146,11 @@ struct Peer {
         if (!P::Decode(hello.payload, &decoded) || !P::ValidHello(decoded)) return;
         P::Message greeting(Reply(hello));
         P::Info info(Provider());
+        if (mode == Mode::FiniteEffects || mode == Mode::RefusedFiniteEffects || mode == Mode::UnsolicitedFiniteEffects) {
+            info.capabilities |= P::FiniteTriggerEffects;
+            info.finiteTriggerEffects = mode == Mode::UnsolicitedFiniteEffects ||
+                (mode == Mode::FiniteEffects && decoded.finiteTriggerEffects);
+        }
         if (mode == Mode::Authorization || mode == Mode::AuthorizationWrongPhase || mode == Mode::AuthorizationWrongBinding)
             info.capabilities |= P::AuthorizedArchiveGrants;
         if (!P::Encode(info, &greeting.payload) || !Send(server, greeting)) return;
@@ -423,6 +429,19 @@ void ArchiveAuthorization() {
             "unnegotiated, wrong-phase and stale-binding grants fail before callback");
     }
 }
+void FiniteEffectsNegotiation() {
+    for (const auto mode : {Mode::FiniteEffects, Mode::RefusedFiniteEffects, Mode::UnsolicitedFiniteEffects}) {
+        Peer peer(mode); P::Session session; auto info = Provider(); info.capabilities |= P::FiniteTriggerEffects;
+        P::Hello hello; hello.expected = info.environment;
+        hello.options.repositorySecurityMode = CydiaAPT::RepositorySecurityMode::Distribution;
+        hello.requiredCapabilities |= P::FiniteTriggerEffects;
+        hello.finiteTriggerEffects = mode != Mode::UnsolicitedFiniteEffects;
+        const bool accepted = session.StartConnected(peer.TakeClient(), info, hello, {}, 1000);
+        Require(accepted == (mode == Mode::FiniteEffects), "session requires an exact finite-effects mode echo");
+        Require(session.finiteTriggerEffects() == accepted, "only accepted active session exposes finite-effects mode");
+        session.Close(); Require(!session.finiteTriggerEffects(), "retired session cannot retain active effect authority");
+    }
+}
 void LostMutation() {
     Peer peer(Mode::LostExecution); P::Session session; P::SessionCallbacks callbacks;
     callbacks.parentRequest = [](const P::Message &request, P::Message *reply, const P::RequestControl &) {
@@ -442,6 +461,6 @@ void LostMutation() {
 } // namespace
 
 int main() {
-    NormalAndAuthority(); InvalidFramesAndState(); SourceProgress(); Cancellation(); LostMutation(); SettledMutation(); ArchiveAuthorization();
+    NormalAndAuthority(); InvalidFramesAndState(); SourceProgress(); Cancellation(); LostMutation(); SettledMutation(); ArchiveAuthorization(); FiniteEffectsNegotiation();
     std::puts("[apt-provider-session] handshake, binding, authority, cancellation and indeterminate outcomes passed");
 }

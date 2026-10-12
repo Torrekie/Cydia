@@ -6,6 +6,7 @@
 #include "Cydia/AptProviderSelection.hpp"
 #include "Cydia/AptProviderSession.hpp"
 #include "Cydia/AptRecoverySnapshot.hpp"
+#include "Cydia/AptProviderTriggerEffects.hpp"
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
@@ -20,6 +21,7 @@ struct BrokerOptions {
     // registration and never borrows its provider/configuration identity.
     std::shared_ptr<const Recovery::RequestAuthority> recoveryAuthority;
     std::uint64_t capabilities = 0;
+    bool finiteTriggerEffects = false; // Accepted immutable session mode, not support alone.
     ReviewPolicy policy;
     // Cydia independently resolves these against the selected source/index
     // snapshot. cydo additionally stages/rechecks the bytes before unpack.
@@ -40,11 +42,15 @@ public:
     Broker &operator=(const Broker &) = delete;
     // Call once after Session::Start supplies the cryptographic session nonce.
     bool BindSession(const Binding &binding);
+    // Read-only parent capture while the preparation frontend lock is held.
+    // The worker never proposes the recipient pool or its approval identity.
+    bool CaptureEffects(const ReviewedTransaction &, std::shared_ptr<const TriggerEffectEnvelope> *, std::string *);
     // Called only by the explicit native confirmation action. Copies the
     // entire manifest and approved auto-state deltas; fetching cannot renew it.
     bool Approve(const ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
                  const std::set<std::uint64_t> &additionalReviewed = std::set<std::uint64_t>(),
-                 const std::set<std::string> &archiveWarningsAccepted = std::set<std::string>());
+                 const std::set<std::string> &archiveWarningsAccepted = std::set<std::string>(),
+                 const std::shared_ptr<const TriggerEffectEnvelope> &effects = {});
     void SetStatusDescriptor(int descriptor);
     void HandleParentRequest(const Message &request, Message *reply, const RequestControl &control);
     // A successful provider result is acceptable only when this is true.

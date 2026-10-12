@@ -7,6 +7,7 @@
 #include "Cydia/DpkgConffile.hpp"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
+#include "Cydia/AptProviderTransactionRequest.hpp"
 #include <apt-pkg/fileutl.h>
 #include <algorithm>
 #include <cerrno>
@@ -600,8 +601,11 @@ public:
     pid_t child;
     std::string nonce, digest;
     std::uint64_t sequence = 0;
+    std::uint64_t childOrdinal = 0, triggerPass = 0;
+    bool scopedChildren = false;
+    std::shared_ptr<const CydiaAPT::Provider::TriggerEffectEnvelope> reviewedEffects;
     bool ready = false, everStarted = false, uncertain = false;
-    Implementation(int socket, pid_t pid, const std::string &review) : channel(socket), child(pid), digest(review) {}
+    Implementation(int socket, pid_t pid, const std::string &review, bool scoped) : channel(socket), child(pid), digest(review), scopedChildren(scoped) {}
     ~Implementation() { End(false); }
     void End(bool mutationPending) {
         ready = false; channel.Close();
@@ -609,14 +613,28 @@ public:
     }
     ProviderTransactionResult Exchange(Transaction::Operation operation, const std::string &payload,
         Dpkg::ConffileExecution *conffiles, const std::function<void()> &started,
-        unsigned timeout, const std::function<bool()> &cancelled) {
+        unsigned timeout, const std::function<bool()> &cancelled, const std::vector<std::string> &options = {}) {
+        namespace Provider = CydiaAPT::Provider;
         ProviderTransactionResult result;
         const bool mutating = operation == Transaction::Operation::Execute || operation == Transaction::Operation::Commit;
         Transaction::Frame request; request.operation = operation; request.sequence = sequence;
         request.nonce = nonce; request.reviewDigest = digest; request.payload = payload;
+        request.scopedChildren = scopedChildren;
         std::vector<int> descriptors;
         if (conffiles) descriptors = {conffiles->inputDescriptor(), conffiles->statusDescriptor()};
         bool sent = false, notified = false, observerFailed = false;
+        bool primarySeen = false, stopped = false, childStarted = false, channelsGranted = false;
+        std::unique_ptr<Dpkg::ConffileExecution> scope;
+        Transaction::Frame childFrame;
+        const auto cancelledNow = [&] {
+            if (stopped || observerFailed) return true;
+            try { return cancelled && cancelled(); } catch (...) { return true; }
+        };
+        const auto notify = [&] {
+            if (notified) return;
+            notified = everStarted = true;
+            if (started) { try { started(); } catch (...) { observerFailed = true; } }
+        };
         const auto fail = [&](const std::string &code) {
             result.errorCode = code; result.started = notified;
             result.indeterminate = mutating && sent; uncertain |= result.indeterminate;
@@ -624,6 +642,7 @@ public:
             // settled. It never supplies a forced answer to break this wait.
             End(result.indeterminate);
             if (conffiles) conffiles->Finish();
+            if (scope) scope->Finish();
             return result;
         };
         if (!channel.Send(request, descriptors, timeout ? timeout : 4000, cancelled, &sent)) return fail(channel.error());
@@ -631,21 +650,83 @@ public:
         if (conffiles) conffiles->ChildStarted();
         for (;;) {
             Transaction::Frame reply; std::vector<int> received;
-            if (!channel.Receive(&reply, &received, mutating ? 0 : (timeout ? timeout : 4000),
-                    mutating ? std::function<bool()>() : cancelled)) return fail(channel.error());
+            // A finite helper cannot start before it receives its first pair.
+            // After channel transfer, a child may have started even before its
+            // notification arrives, so mutation reads must await settlement.
+            const bool waitingForChannels = scopedChildren && operation == Transaction::Operation::Execute && !channelsGranted;
+            if (!channel.Receive(&reply, &received, mutating && !waitingForChannels ? 0 : (timeout ? timeout : 4000),
+                    mutating && (!waitingForChannels || stopped) ? std::function<bool()>() : cancelled)) return fail(channel.error());
             for (const int fd : received) close(fd);
-            if (!received.empty() || reply.operation != operation || reply.sequence != sequence ||
+            if (!received.empty() || reply.operation != operation || reply.sequence != sequence || reply.scopedChildren != scopedChildren ||
                 reply.reviewDigest != digest || reply.event == Transaction::Event::Request ||
                 (operation != Transaction::Operation::Begin && reply.nonce != nonce)) return fail("provider_transaction_binding_invalid");
-            if (reply.event == Transaction::Event::Started) {
-                if (!mutating || notified) return fail("provider_transaction_binding_invalid");
-                notified = true; everStarted = true;
-                // An observer is not allowed to unwind a running mutation or
-                // destroy its input/status channels before it settles.
-                if (started) { try { started(); } catch (...) { observerFailed = true; } }
+            if (static_cast<unsigned>(reply.event) >= static_cast<unsigned>(Transaction::Event::ChildNeeded)) {
+                if (!scopedChildren || operation != Transaction::Operation::Execute || !reviewedEffects)
+                    return fail("provider_transaction_child_invalid");
+                if (reply.event == Transaction::Event::ChildNeeded) {
+                    Transaction::ChildDescriptor descriptor; Provider::ParentExecutionRequest execution;
+                    if (scope || stopped || childOrdinal == UINT64_MAX || reply.childOrdinal != childOrdinal + 1 ||
+                        !Transaction::DecodeChildDescriptor(reply.childDescriptor, &descriptor) || !Provider::Decode(payload, &execution))
+                        return fail("provider_transaction_child_invalid");
+                    if (descriptor.purpose == Transaction::ChildPurpose::Primary) {
+                        if (primarySeen || descriptor.primaryBatch != execution.batch || descriptor.primaryAction != static_cast<unsigned>(execution.action) ||
+                            descriptor.primaryActions != execution.actions) return fail("provider_transaction_child_invalid");
+                        primarySeen = true;
+                    } else {
+                        if (descriptor.envelopeIdentity != reviewedEffects->identity || descriptor.pass <= triggerPass ||
+                            descriptor.primaryCheckpoint > reviewedEffects->primaryReview.execution.actions.size())
+                            return fail("provider_transaction_child_invalid");
+                        for (const auto &target : descriptor.targets) {
+                            const auto found = reviewedEffects->recipients.find(target.package + ':' + target.architecture + '@' + target.version);
+                            if (found == reviewedEffects->recipients.end() || found->second.package != target.package ||
+                                found->second.architecture != target.architecture || found->second.version != target.version)
+                                return fail("provider_transaction_child_invalid");
+                        }
+                        triggerPass = descriptor.pass;
+                    }
+                    childOrdinal = reply.childOrdinal; childFrame = reply; childStarted = false;
+                    auto answer = reply;
+                    if (!cancelledNow()) scope.reset(new Dpkg::ConffileExecution(options));
+                    if (!scope || !scope->enabled() || !scope->valid()) {
+                        if (scope) { scope->Finish(); scope.reset(); }
+                        answer.event = Transaction::Event::ChildDenied; answer.errorCode = cancelledNow() ? "provider_cancelled" : "provider_transaction_channels_unavailable";
+                        stopped = true;
+                        if (!channel.Send(answer, {}, timeout ? timeout : 4000)) return fail(channel.error());
+                    } else {
+                        answer.event = Transaction::Event::ChildChannels; answer.success = true;
+                        channelsGranted = true;
+                        if (!channel.Send(answer, {scope->inputDescriptor(), scope->statusDescriptor()}, timeout ? timeout : 4000)) return fail(channel.error());
+                        scope->ChildStarted();
+                    }
+                    continue;
+                }
+                if (!scope || reply.childOrdinal != childFrame.childOrdinal || reply.childDescriptor != childFrame.childDescriptor)
+                    return fail("provider_transaction_child_invalid");
+                if (reply.event == Transaction::Event::ChildStarted) {
+                    if (childStarted) return fail("provider_transaction_child_invalid");
+                    childStarted = true; notify(); continue;
+                }
+                if (reply.event != Transaction::Event::ChildSettled) return fail("provider_transaction_child_invalid");
+                Provider::ParentExecutionReply settled;
+                if (!Provider::Decode(reply.payload, &settled) || settled.started != childStarted || reply.mutationStarted != childStarted)
+                    return fail("provider_transaction_child_invalid");
+                // The helper reports only after actual reap. Fully close the
+                // question generation before acknowledging the next scope.
+                scope->Finish(); scope.reset();
+                auto answer = reply; answer.payload.clear();
+                stopped = cancelledNow(); answer.event = stopped ? Transaction::Event::ChildCancelled : Transaction::Event::ChildReleased;
+                answer.success = !stopped; answer.errorCode = stopped ? "provider_cancelled" : "";
+                if (!channel.Send(answer, {}, timeout ? timeout : 4000)) return fail(channel.error());
                 continue;
             }
-            if (reply.mutationStarted != notified ||
+            if (reply.event == Transaction::Event::Started) {
+                if (!mutating || notified || (scopedChildren && operation == Transaction::Operation::Execute)) return fail("provider_transaction_binding_invalid");
+                // An observer is not allowed to unwind a running mutation or
+                // destroy its input/status channels before it settles.
+                notify();
+                continue;
+            }
+            if (scope || reply.mutationStarted != notified ||
                 (operation == Transaction::Operation::Execute && reply.success && !notified))
                 return fail("provider_transaction_binding_invalid");
             if (operation == Transaction::Operation::Begin && reply.success) { nonce = reply.nonce; ready = true; }
@@ -663,9 +744,18 @@ ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> impleme
 ProviderTransaction::~ProviderTransaction() { if (valid()) Close(); }
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper,
     const Privileged::Request &request, const std::string &digest, std::string *error,
-    unsigned timeout, const std::function<bool()> &cancelled) {
+    unsigned timeout, const std::function<bool()> &cancelled, bool scopedChildren) {
     const std::string payload = Privileged::SerializeRequest(request);
     Transaction::Frame begin; begin.reviewDigest = digest; begin.payload = payload;
+    begin.scopedChildren = scopedChildren;
+    CydiaAPT::Provider::TransactionBeginRequest approved;
+    if (scopedChildren) {
+        std::vector<std::string> fields;
+        if (!CydiaAPT::Provider::Decode(request.payload, &fields) || fields.size() != 3 ||
+            !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || !approved.reviewedEffects) {
+            if (error) *error = "provider_transaction_review_mismatch"; return nullptr;
+        }
+    }
     std::string encoded;
     if (payload.empty() || !Transaction::Encode(begin, &encoded) || (cancelled && cancelled())) {
         if (error) *error = cancelled && cancelled() ? "provider_cancelled" : "provider_transaction_frame_invalid";
@@ -673,7 +763,8 @@ std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::strin
     }
     int channel = -1; pid_t child = -1;
     if (!SpawnTransaction(helper, &channel, &child, error)) return nullptr;
-    std::unique_ptr<Implementation> implementation(new Implementation(channel, child, digest));
+    std::unique_ptr<Implementation> implementation(new Implementation(channel, child, digest, scopedChildren));
+    implementation->reviewedEffects = approved.reviewedEffects;
     const auto result = implementation->Exchange(Transaction::Operation::Begin, payload, nullptr, {}, timeout, cancelled);
     if (!result.transportValid || !result.success) { if (error) *error = result.errorCode; return nullptr; }
     if (error) error->clear();
@@ -689,11 +780,13 @@ ProviderTransactionResult ProviderTransaction::Request(Transaction::Operation op
     std::unique_ptr<Dpkg::ConffileExecution> conffiles;
     if (operation == Transaction::Operation::Execute) {
         if (statusFd < 3 || fcntl(statusFd, F_GETFD) < 0) return failure;
-        conffiles.reset(new Dpkg::ConffileExecution(options));
-        if (!conffiles->enabled() || !conffiles->valid()) return failure;
+        if (!implementation_->scopedChildren) {
+            conffiles.reset(new Dpkg::ConffileExecution(options));
+            if (!conffiles->enabled() || !conffiles->valid()) return failure;
+        }
     }
     ++implementation_->sequence;
-    return implementation_->Exchange(operation, payload, conffiles.get(), started, timeout, cancelled);
+    return implementation_->Exchange(operation, payload, conffiles.get(), started, timeout, cancelled, options);
 }
 bool ProviderTransaction::Close(std::string *error, unsigned timeout) {
     if (!valid()) { if (error) *error = "provider_transaction_unavailable"; return false; }

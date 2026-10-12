@@ -37,6 +37,7 @@ public:
     Environment environment;
     std::string session, error, originalExtendedState;
     ReviewedTransaction approved;
+    std::shared_ptr<const TriggerEffectEnvelope> reviewedEffects;
     ReviewPolicy approvedPolicy;
     std::vector<AutoInstalledDelta> changes;
     ReviewAuthorization authorization;
@@ -80,7 +81,8 @@ public:
                 state->registeredArchitectures != environment.registeredArchitectures) return Fail("provider_architectures_changed");
             return true;
         }
-        const auto result = Client::Run(options.helperPath, "--cydia-provider-state", Request(""), MaximumMessageBytes, Deadline(control));
+        const auto result = Client::Run(options.helperPath, options.finiteTriggerEffects ? "--cydia-provider-state-effects" :
+            "--cydia-provider-state", Request(""), MaximumMessageBytes, Deadline(control));
         if (!result.succeeded() || !DecodeBrokerState(result.output, state)) return Fail("provider_dpkg_state_unavailable");
         if (state->nativeArchitecture != environment.nativeArchitecture ||
             state->registeredArchitectures != environment.registeredArchitectures) return Fail("provider_architectures_changed");
@@ -95,7 +97,7 @@ public:
     }
     void Invalidate() {
         CloseTransaction(); authorization.Invalidate(); committed = transactionComplete = transactionAttempted = transactionDenied = false;
-        approved = ReviewedTransaction(); changes.clear();
+        approved = ReviewedTransaction(); reviewedEffects.reset(); changes.clear();
     }
     bool BeginTransaction(const RequestControl &control) {
         if (transactionAttempted) return !transactionDenied;
@@ -103,17 +105,18 @@ public:
         TransactionBeginRequest begin; begin.review = approved; begin.additionalActions = approvedPolicy.additionalActionsReviewed;
         begin.archiveWarnings = approvedPolicy.unverifiedArchiveWarningsAccepted; begin.changes = changes;
         begin.extendedState = originalExtendedState;
+        begin.reviewedEffects = reviewedEffects;
         std::string bytes, digest = TransactionBeginDigest(begin);
         if (!EncodeTransactionBegin(begin, &bytes) || digest.empty()) return Fail("provider_invalid_transaction_request");
         std::string code;
         transaction = Client::ProviderTransaction::Start(options.helperPath, Request(bytes), digest, &code,
-            Deadline(control), control.cancelled);
+            Deadline(control), control.cancelled, bool(reviewedEffects));
         if (transaction) { transactionDenied = false; return true; }
         // Existing distributions need not install a declaration merely to use
         // the established restricted executor. Selection happens once before
         // the first mutation; a bad/present graph never falls through, and a
         // retained transaction can never retry through this legacy path.
-        if (code == "provider_native_configuration_missing") { transactionDenied = false; return true; }
+        if (!reviewedEffects && code == "provider_native_configuration_missing") { transactionDenied = false; return true; }
         transactionDenied = true; return Fail(code.empty() ? "provider_transaction_unavailable" : code.c_str());
     }
     bool Acquire(const Message &request, const RequestControl &control) {
@@ -150,7 +153,10 @@ public:
         if (!Capture(&before, control)) { deny(error.c_str()); return; }
         ParentExecutionEvidence evidence; evidence.binding = approved.binding;
         evidence.frontendLockHeld = lock >= 0; evidence.statusDescriptor = status;
-        if (!ApplyDpkgStateEvidence(before, approved, request, &evidence, &error)) { deny(error.c_str()); return; }
+        // The finite owner first drains the independently approved pending
+        // pool, then derives fresh primary evidence. Pre-drain app state is
+        // useful for binding only; it cannot authorize or normalize effects.
+        if (!reviewedEffects && !ApplyDpkgStateEvidence(before, approved, request, &evidence, &error)) { deny(error.c_str()); return; }
         std::vector<ArchiveManifest> needed;
         std::set<std::string> ids;
         for (const auto id : request.actions)
@@ -293,9 +299,28 @@ public:
 
 Broker::Broker(const BrokerOptions &options) : implementation_(new Implementation(options)) {}
 Broker::~Broker() {}
+bool Broker::CaptureEffects(const ReviewedTransaction &review, std::shared_ptr<const TriggerEffectEnvelope> *effects,
+    std::string *error) {
+    auto &value = *implementation_;
+    if (!effects) return false;
+    effects->reset();
+    if (!value.options.finiteTriggerEffects) return true;
+    std::string bytes;
+    if (value.lock < 0 || !value.Bound(review.binding) || !Encode(review, &bytes))
+        return value.Fail("provider_trigger_capture_not_bound");
+    const auto result = Client::Run(value.options.helperPath, "--cydia-provider-review-effects", value.Request(bytes), 8 * 1024 * 1024, 10000);
+    std::shared_ptr<TriggerEffectEnvelope> captured(new TriggerEffectEnvelope()); std::string original, retained;
+    if (!result.succeeded() || !DecodeTriggerEffectEnvelope(result.output, captured.get()) ||
+        !Encode(review, &original) || !Encode(captured->primaryReview, &retained) || original != retained) {
+        if (error) *error = "provider_trigger_capture_failed";
+        return value.Fail("provider_trigger_capture_failed");
+    }
+    *effects = std::move(captured); return true;
+}
 bool Broker::BindSession(const Binding &binding) {
     auto &value = *implementation_;
     if (!value.AuthorityValid() || !value.session.empty() || !ValidChallenge(binding.session) ||
+        (value.options.finiteTriggerEffects && !(value.options.capabilities & FiniteTriggerEffects)) ||
         binding.providerIdentifier != value.ProviderID() ||
         binding.configurationIdentity != value.environment.configurationIdentity ||
         binding.policyIdentity != value.environment.policyIdentity ||
@@ -303,17 +328,22 @@ bool Broker::BindSession(const Binding &binding) {
     value.session = binding.session; return true;
 }
 bool Broker::Approve(const ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
-                     const std::set<std::uint64_t> &additionalReviewed, const std::set<std::string> &warnings) {
+                     const std::set<std::uint64_t> &additionalReviewed, const std::set<std::string> &warnings,
+                     const std::shared_ptr<const TriggerEffectEnvelope> &effects) {
     auto &value = *implementation_;
     if (value.uncertain) return value.Fail("provider_execution_outcome_unknown");
     value.Invalidate(); value.started = value.observedCommit = false;
     auto policy = value.options.policy; policy.environment = value.environment;
+    std::string expected, shown, effectBytes;
+    if (bool(effects) != value.options.finiteTriggerEffects || (effects &&
+        (!Encode(review, &expected) || !Encode(effects->primaryReview, &shown) || expected != shown ||
+            !EncodeTriggerEffectEnvelope(*effects, &effectBytes)))) return value.Fail("provider_trigger_review_changed");
     policy.additionalActionsReviewed = additionalReviewed; policy.unverifiedArchiveWarningsAccepted = warnings;
     std::map<std::string, bool> deltas;
     // Do not approve a manifest known to require effects this parent cannot
     // independently enumerate. Reject before the first otherwise-valid batch.
     for (const auto &action : review.execution.actions)
-        if (action.action == ExecutionAction::Deconfigure)
+        if (action.action == ExecutionAction::Deconfigure || (effects && action.action == ExecutionAction::Triggers))
             return value.Fail("provider_unverified_dpkg_effects");
     if (!value.Bound(review.binding) || !Deltas(changes, &deltas) || !value.authorization.Accept(review, policy, &value.error)) return false;
     // APT stores auto flags under cache/package architecture, which differs
@@ -335,7 +365,8 @@ bool Broker::Approve(const ReviewedTransaction &review, const std::vector<AutoIn
             value.Invalidate(); return value.Fail("provider_unreviewed_auto_state");
         }
     }
-    value.approved = review; value.approvedPolicy = policy; value.changes = changes; value.error.clear(); return true;
+    value.approved = review; value.reviewedEffects = effects;
+    value.approvedPolicy = policy; value.changes = changes; value.error.clear(); return true;
 }
 void Broker::SetStatusDescriptor(int descriptor) { implementation_->status = descriptor; }
 void Broker::HandleParentRequest(const Message &request, Message *reply, const RequestControl &control) {

@@ -3,6 +3,7 @@
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/DpkgConffile.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
+#include "Cydia/AptProviderTransactionRequest.hpp"
 #include <apt-pkg/fileutl.h>
 #include <cerrno>
 #include <chrono>
@@ -45,19 +46,96 @@ bool WriteAll(int fd, const std::string &bytes) {
     }
     return true;
 }
+int ScopedChildren(CydiaAPT::Provider::TransactionChannel::Channel &channel,
+    const CydiaAPT::Provider::TransactionChannel::Frame &request, const std::string &mode,
+    const CydiaAPT::Provider::TransactionBeginRequest &begin, std::uint64_t *ordinal) {
+    namespace P = CydiaAPT::Provider; namespace TC = P::TransactionChannel;
+    P::ParentExecutionRequest execution;
+    if (!P::Decode(request.payload, &execution)) return 80;
+    bool anyStarted = false;
+    for (unsigned index = 0; index != 2; ++index) {
+        TC::ChildDescriptor purpose;
+        if (!index) { purpose.primaryBatch = execution.batch; purpose.primaryAction = static_cast<unsigned>(execution.action); purpose.primaryActions = execution.actions; }
+        else {
+            purpose.purpose = TC::ChildPurpose::TriggerDrain; purpose.envelopeIdentity = begin.reviewedEffects->identity;
+            purpose.checkpointIdentity.assign(64, 'c'); purpose.pass = 1; purpose.primaryCheckpoint = 1;
+            purpose.targets.push_back({"cache", "1", "amd64"});
+        }
+        TC::Frame event = request; event.payload.clear(); event.event = TC::Event::ChildNeeded; event.childOrdinal = ++*ordinal;
+        if (!TC::EncodeChildDescriptor(purpose, &event.childDescriptor)) return 81;
+        if (mode == "scoped-wrong-ordinal") ++event.childOrdinal;
+        if (!channel.Send(event)) return 82;
+        TC::Frame answer; std::vector<int> descriptors;
+        if (!channel.Receive(&answer, &descriptors)) return 0;
+        if (answer.event == TC::Event::ChildDenied) {
+            event = request; event.payload.clear(); event.event = TC::Event::Settled;
+            event.errorCode = "provider_cancelled"; event.mutationStarted = anyStarted;
+            return channel.Send(event) ? 0 : 83;
+        }
+        if (answer.event != TC::Event::ChildChannels || descriptors.size() != 2 || answer.childOrdinal != event.childOrdinal ||
+            answer.childDescriptor != event.childDescriptor || answer.sequence != request.sequence || answer.nonce != request.nonce) return 84;
+        if (mode == "scoped-no-spawn") {
+            for (int fd : descriptors) close(fd);
+            descriptors.clear();
+            P::ParentExecutionReply denied; denied.launchError = EACCES;
+            event.event = TC::Event::ChildSettled; event.success = true;
+            if (!P::Encode(denied, &event.payload) || !channel.Send(event) || !channel.Receive(&answer, &descriptors) ||
+                !descriptors.empty() || answer.event != TC::Event::ChildReleased || answer.mutationStarted) return 93;
+            event = request; event.payload.clear(); event.event = TC::Event::Settled; event.errorCode = "provider_execution_denied";
+            return channel.Send(event) ? 0 : 94;
+        }
+        const pid_t child = fork(); if (child < 0) return 85;
+        if (!child) {
+            channel.Close();
+            if (!WriteAll(descriptors[1], "status: /etc/with spaces.conf : conffile-prompt : '/etc/with spaces.conf' '/etc/with spaces.conf.dpkg-new' 1 1 \n")) _exit(86);
+            char answer[2];
+            if (read(descriptors[0], answer, 2) != 2 || std::string(answer, 2) != "N\n") _exit(87);
+            if (mode == "scoped-loss") std::this_thread::sleep_for(std::chrono::milliseconds(180));
+            _exit(0);
+        }
+        for (int fd : descriptors) close(fd);
+        descriptors.clear();
+        anyStarted = true; event.event = TC::Event::ChildStarted; event.success = event.mutationStarted = true;
+        const bool sent = channel.Send(event);
+        if (mode == "scoped-loss") channel.Close();
+        int state; while (waitpid(child, &state, 0) < 0 && errno == EINTR) {}
+        if (!sent || mode == "scoped-loss") return 0;
+        P::ParentExecutionReply result; result.started = true;
+        result.exitCode = WIFEXITED(state) ? WEXITSTATUS(state) : -1; result.signal = WIFSIGNALED(state) ? WTERMSIG(state) : 0;
+        event.event = TC::Event::ChildSettled;
+        if (!P::Encode(result, &event.payload) || !channel.Send(event) || !channel.Receive(&answer, &descriptors)) return 88;
+        if (!descriptors.empty() || answer.childOrdinal != event.childOrdinal || answer.childDescriptor != event.childDescriptor ||
+            answer.sequence != request.sequence || answer.nonce != request.nonce || answer.mutationStarted != event.mutationStarted) return 89;
+        if (answer.event == TC::Event::ChildCancelled) {
+            event = request; event.payload.clear(); event.event = TC::Event::Settled;
+            event.errorCode = "provider_cancelled"; event.mutationStarted = true;
+            return channel.Send(event) ? 0 : 90;
+        }
+        if (answer.event != TC::Event::ChildReleased) return 91;
+        // A second child is requested only after the first UI scope released.
+    }
+    TC::Frame settled = request; settled.event = TC::Event::Settled; settled.success = settled.mutationStarted = true;
+    settled.payload = "scoped-settled"; return channel.Send(settled) ? 0 : 92;
+}
 int TransactionHelper(int socket) {
     namespace TC = CydiaAPT::Provider::TransactionChannel;
     TC::Channel channel(socket); TC::Frame request; std::vector<int> descriptors;
     if (fcntl(200, F_GETFD) >= 0 || !channel.Receive(&request, &descriptors) || request.operation != TC::Operation::Begin) return 60;
     CydiaRuntime::Privileged::Request begin; CydiaRuntime::Privileged::Error ignored;
     if (!CydiaRuntime::Privileged::ParseRequest(request.payload, &begin, &ignored)) return 61;
-    const auto mode = begin.payload;
+    std::string mode = begin.payload; CydiaAPT::Provider::TransactionBeginRequest approved;
+    if (request.scopedChildren) {
+        std::vector<std::string> fields;
+        if (!CydiaAPT::Provider::Decode(begin.payload, &fields) || fields.size() != 3 ||
+            !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || !approved.reviewedEffects) return 75;
+        mode = approved.extendedState;
+    }
     if (mode == "begin-timeout") { std::this_thread::sleep_for(std::chrono::milliseconds(200)); return 0; }
     TC::Frame reply = request; reply.event = TC::Event::Settled; reply.success = true;
     reply.payload.clear(); reply.nonce = "fake-helper-generated-nonce";
     if (mode == "wrong-digest") reply.reviewDigest = "SHA256:wrong";
     if (!channel.Send(reply)) return 62;
-    std::uint64_t sequence = 0;
+    std::uint64_t sequence = 0, childOrdinal = 0;
     for (;;) {
         descriptors.clear();
         if (!channel.Receive(&request, &descriptors, 4000)) return 0;
@@ -76,6 +154,12 @@ int TransactionHelper(int socket) {
             if (!channel.Send(reply)) return 66;
             reply.event = TC::Event::Settled; reply.payload = "committed";
             if (!channel.Send(reply)) return 67;
+            continue;
+        }
+        if (request.operation == TC::Operation::Execute && request.scopedChildren) {
+            if (!descriptors.empty()) return 76;
+            const int result = ScopedChildren(channel, request, mode, approved, &childOrdinal);
+            if (result || mode != "scoped-normal") return result;
             continue;
         }
         if (request.operation != TC::Operation::Execute || descriptors.size() != 2) return 68;
@@ -425,6 +509,54 @@ int main(int argc, char **argv) {
         request.payload = mode;
         transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError, 40);
         Expect(!transaction && !transactionError.empty(), "Begin cannot publish mismatched or timed-out authority");
+    }
+    for (const std::string mode : {"scoped-normal", "scoped-cancel", "scoped-loss", "scoped-wrong-ordinal", "scoped-no-ui", "scoped-no-spawn"}) {
+        Provider::TransactionBeginRequest approved;
+        auto &binding = approved.review.binding;
+        binding.providerIdentifier = "fixture"; binding.session.assign(64, 'a'); binding.configurationIdentity = "config";
+        binding.policyIdentity = "policy"; binding.packageStateIdentity = "state"; binding.cacheEpoch = binding.selectionRevision = 1; binding.review = "review";
+        Provider::ReviewedAction action; action.identifier = 1; action.action = Provider::ExecutionAction::Configure; action.package = {"sample", "1", "all"};
+        approved.review.execution.actions.push_back(action); approved.extendedState = mode;
+        auto effects = std::make_shared<Provider::TriggerEffectEnvelope>(); effects->identity.assign(64, 'a'); effects->initialCheckpoint.assign(64, 'b');
+        effects->nativeAuthorityIdentity.assign(64, 'd'); effects->primaryReview = approved.review; effects->recipients["cache:amd64@1"] = {"cache", "1", "amd64"};
+        effects->awaiters = effects->recipients; approved.reviewedEffects = effects;
+        std::string beginBytes;
+        Expect(Provider::EncodeTransactionBegin(approved, &beginBytes) &&
+            Provider::Encode(std::vector<std::string>{"CYDIA-BROKER-1", "fixture authority", beginBytes}, &request.payload), "encode scoped fixture approval");
+        transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError, 4000, {}, true);
+        Expect(transaction && transaction->valid(), "explicitly negotiate reviewed finite children");
+        Provider::ParentExecutionRequest child; child.binding = binding; child.batch = 1; child.actions = {1}; child.action = action.action;
+        child.arguments = {"--status-fd=99", "--no-triggers", "--configure", "sample:all"};
+        std::string childBytes; Expect(Provider::Encode(child, &childBytes), "encode scoped primary action");
+        keepOld = true; bool cancelled = false; unsigned notifications = 0; const unsigned beforeQuestions = questionCount;
+        if (mode == "scoped-no-ui") Dpkg::SetConffileCallbacks({});
+        const auto before = std::chrono::steady_clock::now();
+        response = transaction->Request(TC::Operation::Execute, childBytes, statusPipe[1], {}, [&] {
+            ++notifications; if (mode == "scoped-cancel") cancelled = true;
+        }, 20, [&] { return cancelled; });
+        if (mode == "scoped-no-ui") Dpkg::SetConffileCallbacks(conffiles);
+        if (mode == "scoped-normal") {
+            const bool complete = response.transportValid && response.success && response.started && !response.indeterminate &&
+                notifications == 1 && questionCount == beforeQuestions + 2;
+            if (!complete) std::cerr << "[verify-privileged-client][scoped] error=" << response.errorCode
+                << " transport=" << response.transportValid << " success=" << response.success << " started=" << response.started
+                << " indeterminate=" << response.indeterminate << " notifications=" << notifications
+                << " questions=" << questionCount - beforeQuestions << '\n';
+            Expect(complete, "primary and trigger children have separate question generations under one Execute");
+            Expect(transaction->Close(), "close scoped transaction after both channels released");
+        } else if (mode == "scoped-cancel") {
+            Expect(response.transportValid && !response.success && response.started && !response.indeterminate &&
+                notifications == 1 && questionCount == beforeQuestions + 1, "cancellation waits for first settlement and prevents trigger child");
+        } else if (mode == "scoped-no-ui" || mode == "scoped-no-spawn") {
+            Expect(response.transportValid && !response.success && !response.started && !response.indeterminate &&
+                !notifications && questionCount == beforeQuestions, "denied channels or validated no-spawn settlement cannot report a mutation");
+        } else {
+            Expect(!response.transportValid && response.indeterminate && !transaction->valid(), "scope mismatch or lost execution channel remains indeterminate");
+            if (mode == "scoped-loss") Expect(response.started && questionCount == beforeQuestions + 1 &&
+                std::chrono::steady_clock::now() - before >= std::chrono::milliseconds(100), "live scoped child settles beyond timeout without losing its UI input");
+            else Expect(!notifications && questionCount == beforeQuestions, "wrong ordinal cannot obtain a channel pair");
+        }
+        Expect(!Dpkg::AnswerConffilePrompt(previous.execution, previous.question, true), "finished child never leaves an answer for the next scope");
     }
     close(200);
     Dpkg::SetConffileCallbacks({}); close(statusPipe[0]); close(statusPipe[1]);

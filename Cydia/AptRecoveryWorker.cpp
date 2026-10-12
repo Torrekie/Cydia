@@ -297,7 +297,7 @@ int RunWorker(int argc, char *argv[]) {
     info.identifier = ProviderIdentifier(); info.implementationVersion = "cydia-apt-2.7.9";
     info.libraryIdentity = snapshot.identity.libraries; info.frontendIdentity = snapshot.identity.frontend;
     info.environment = SnapshotEnvironment(snapshot);
-    info.capabilities = P::RequiredCapabilities | P::ExplicitSecurityOverrides | P::AuthorizedArchiveGrants;
+    info.capabilities = P::RequiredCapabilities | P::ExplicitSecurityOverrides | P::AuthorizedArchiveGrants | P::FiniteTriggerEffects;
     if (probe) return ProbeFrame(info, deadline) ? 0 : 76;
     P::ServerTransport transport(SessionSocket());
     if (!transport.valid()) return 76;
@@ -308,13 +308,15 @@ int RunWorker(int argc, char *argv[]) {
     const P::ServerRequestContext *active = nullptr;
     std::unique_ptr<P::ScopedWorkerArchiveAuthorization> authorization;
     WorkerTrustProof trust;
+    bool finiteEffects = false;
     hooks.admit = [&](const P::Hello &hello, P::Info *accepted, std::string *code) {
         std::string a, b;
         if (!hello.registrationPath.empty() || !P::SameEnvironment(hello.expected, info.environment) ||
             !P::Encode(hello.options, &a) || !P::Encode(snapshot.startup, &b) || a != b) {
             *code = "recovery_environment_mismatch"; return false;
         }
-        *accepted = info; return true;
+        finiteEffects = hello.finiteTriggerEffects;
+        *accepted = info; accepted->finiteTriggerEffects = finiteEffects; return true;
     };
     hooks.operationContext = [&](const P::ServerRequestContext *context) {
         authorization.reset(); active = context;
@@ -330,7 +332,7 @@ int RunWorker(int argc, char *argv[]) {
         CydiaPackages::ArchiveLayout layout; layout.prefix = snapshot.runtime.packageInstallPrefix;
         if (layout.prefix == "/") layout.foreignPrefixes = {"/var/jb"};
         const auto captured(backend->captureRecoveryReview(snapshot.runtime, binding, layout,
-            active ? active->control.cancelled : std::function<bool()>()));
+            active ? active->control.cancelled : std::function<bool()>(), finiteEffects));
         if (captured.status != RecoveryCaptureStatus::Recorded) { *code = captured.errorCode; return false; }
         retained = captured.review; *manifest = retained.execution; return true;
     };

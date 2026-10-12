@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "הסרה מלאה";
 "REVIEW_TRIGGERS" = "עיבוד טריגרים";
 "REVIEW_DECONFIGURE" = "ביטול הגדרה";
+"REVIEW_PROCESSING" = "עיבוד לאחר ההתקנה";
+"REVIEW_PROCESSING_HELP" = "חבילות אלה עשויות לבצע משימות לאחר ההתקנה או להמתין לביצוען. יש להקיש כדי להציג או להסתיר את הרשימה.";
 "RECOVERY_REVIEW" = "ה־APT המובנה של Cydia יחיל את הגדרות אבטחת המקורות שנבחרו. מדיניות APT המובנית בהפצה שלך עשויה להיות שונה.";
 "RUNTIME_TITLE" = "סביבת הריצה של APT";
 "AUTOMATIC" = "אוטומטי";

@@ -111,7 +111,7 @@ class RemoteBackend final : public BackendImplementation {
         return false;
     }
     template<class T> T value(P::Operation operation, const std::string &payload = std::string()) {
-        P::Message reply; T result{};
+        P::Message reply; T result = T();
         if (!request(operation, payload, &reply) || !decode(reply, &result)) return T();
         return result;
     }

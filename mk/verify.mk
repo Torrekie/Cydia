@@ -214,6 +214,7 @@ $(APT_PROVIDER_AUTHORIZATION_TEST): tests/AptProviderArchiveAuthorizationTests.c
 		Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -pthread -o $@
 apt_provider_broker_authorization_sources := tests/AptProviderBrokerAuthorizationTests.cpp \
 	Cydia/AptProviderTransactionRequest.cpp \
+	Cydia/AptProviderTransactionResult.cpp \
 	Cydia/AptProviderBroker.cpp Cydia/AptProviderBrokerValues.cpp Cydia/AptProviderReview.cpp \
 	Cydia/AptProviderDpkgState.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 	Cydia/ExtendedState.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
@@ -543,6 +544,7 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp \
 		Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp \
 		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp \
+		Cydia/AptProviderTransactionRequest.cpp Cydia/AptProviderTransactionRequest.hpp \
 		tests/apt-stubs/apt-pkg/fileutl.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -Itests/apt-stubs -I. \
@@ -1216,6 +1218,8 @@ verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
 
 $(TRANSACTION_REVIEW_TEST): tests/TransactionReviewTests.mm \
 		Cydia/TransactionReview.mm Cydia/TransactionReview.h \
+		Cydia/AptProviderTransactionRequest.cpp \
+		Cydia/ExtendedState.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \
 		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
 		Cydia/RepositorySecurityPolicy.cpp Cydia/PackageArchitecturePresentation.h

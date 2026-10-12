@@ -21,6 +21,9 @@ struct TransactionServiceOptions {
 // the wrapped Broker request whose inner payload is EncodeTransactionBegin.
 // Capture/Close payload is empty; Execute is Encode(ParentExecutionRequest).
 // Commit is Privileged::SerializeFields({baseline, Encode(ExtendedStateRequest)}).
+// Explicit scoped-child negotiation requires the retained reviewedEffects
+// approval. Both primary and trigger children then acquire independent channel
+// pairs, and must acknowledge settlement/release before another scope opens.
 // Bounded admission/capture; once mutation starts it is always waited/reaped.
 // Transport loss invalidates the lease and never authorizes a retry.
 bool ServeProviderTransaction(int connectedSocket, const CydiaRuntime::PackageDatabasePaths &,

@@ -190,12 +190,39 @@ void EmbeddedRecoveryNotice() {
         [embedded displayedActions].empty() && [embedded displayedArchiveWarnings].empty(),
         "embedded review invented provider approval IDs");
 }
+void ImmutableProcessingPool() {
+    Fixture fixture;
+    auto &binding = fixture.provider.binding;
+    binding.providerIdentifier = "fixture"; binding.session.assign(64, 'a');
+    binding.configurationIdentity = "config"; binding.policyIdentity = "policy"; binding.packageStateIdentity = "state";
+    binding.cacheEpoch = 1; binding.selectionRevision = 1; binding.review = "review";
+    fixture.transaction.registeredArchitectures.push_back("iphoneos-arm");
+    P::TriggerEffectEnvelope effects;
+    effects.identity.assign(64, 'a'); effects.initialCheckpoint.assign(64, 'b'); effects.nativeAuthorityIdentity.assign(64, 'c');
+    effects.primaryReview = fixture.provider;
+    effects.recipients = {{"foreign-package:iphoneos-arm@2.0", {"foreign-package", "2.0", "iphoneos-arm"}}};
+    effects.awaiters = effects.recipients;
+    effects.awaiters.emplace("native-package:iphoneos-arm64@1.0", P::ExecutionPackage{"native-package", "1.0", "iphoneos-arm64"});
+    CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction
+        providerReview:&fixture.provider reviewedEffects:&effects]);
+    Require(review != nil && review.processingRows.count == 2 && [review displayedEffectsIdentity] == effects.identity,
+        "processing approval retains exact union and native authority binding");
+    Row(review.processingRows, 0, @"foreign-package (Additional · iphoneos-arm)", @"2.0");
+    Row(review.processingRows, 1, @"native-package (Native · iphoneos-arm64)", @"1.0");
+    effects.identity.assign(64, 'f'); effects.awaiters.clear();
+    Require([review displayedEffectsIdentity] == std::string(64, 'a') && review.processingRows.count == 2 &&
+        ![review.processingRows isKindOfClass:[NSMutableArray class]], "displayed processing pool cannot mutate with input");
+    effects.awaiters = effects.recipients; effects.primaryReview.binding.review = "different-review";
+    Require([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:&fixture.provider
+        reviewedEffects:&effects] == nil, "processing approval cannot hide a changed primary review");
+}
 }
 
 int main() {
     @autoreleasepool {
         ImmutableOwnedSnapshot(); ChangesInvalidateTheSnapshot(); ExactRowsAndSingleArchitecture();
         DistinctForeignArchitecture(); EveryKnownActionIsVisibleAndUnknownRejected(); EmbeddedRecoveryNotice();
+        ImmutableProcessingPool();
         std::cout << "[transaction-review] PASS\n";
     }
 }

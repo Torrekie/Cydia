@@ -89,12 +89,24 @@ This path requires a complete protected native dpkg declaration, described
 below. Its absence retains the existing restricted executor before any mutation;
 an invalid declaration or failed retained transaction cannot fall through.
 The restricted path still invalidates authority on component/configuration
-replacement. New trigger activations and automatic deconfiguration remain
-unsupported by the advertised provider interface. An opt-in helper-owned
-trigger ledger has protected installed metadata, verified incoming controls,
-separate bounded drain passes and per-child channel requirements. Native review,
-negotiation and service channel integration are required before enabling it.
-Ordinary state capture continues to reject an unresolved deferred journal.
+replacement. Protocol v3 optionally negotiates finite trigger effects after
+the native declaration and loader checks pass. Native preparation captures a
+bounded recipient/awaiter pool before downloading archives. The immutable
+confirmation lists exact versions and architectures in a collapsible processing
+section, and binds native configuration, platform and component generations.
+The helper reconstructs that approval after reacquiring the frontend lock,
+refines incoming relationships from verified archive controls, and derives
+fresh bounded drain passes between the reviewed primary operations. Every
+primary and drain child obtains, settles and releases its own configuration
+input/status scope. Internal passes consume neither primary action IDs nor
+outer request sequence numbers. Cancellation stops at child boundaries;
+an actual child always settles before its scope closes.
+
+Support alone does not select this mode. Legacy capture still refuses an
+unresolved deferred journal and retains its explicit complete trigger batches.
+An approved finite-effects transaction cannot downgrade to the legacy executor.
+Automatic deconfiguration and trigger-only transactions without primary
+operations remain unsupported.
 
 After settlement, Cydia retires the worker, cache handles, grants and review;
 the next normal reload performs fresh discovery. A helper-confirmed final
@@ -114,7 +126,7 @@ upstream English messages if no usable libintl is available.
 | Repository policy | Unsaved preference inherits an accepted external provider; recovery retains Warning; saved choices are preserved | Verify each adapter reproduces its distribution's compiled frontend and library policy |
 | Other APT settings | Expiration policy and explicit language/parallel settings are preserved | Preserve the selected provider's configuration and compiled behavior |
 | Source checks | Preflight, resource requests and discovery use the selected database backend and session | Establish source-check parity for each distribution adapter |
-| dpkg | Selected external tools, parent-owned locks, reviewed batches and authenticated privileged staging | Complete independent trigger/deconfiguration evidence and adapter acceptance |
+| dpkg | Selected external tools, parent-owned locks, reviewed batches, retained staging and negotiated finite trigger effects | Complete independent deconfiguration evidence and adapter acceptance |
 | ICU | Validated bootstrap/Apple service tables; isolated private fallback loader; Apple-owned UIKit collation | Supply reproducible private fallback binaries and matching data |
 | Messages | Converted locale environment, upstream catalog packaging and optional libintl bridge | Supply the private libintl closure for localization when external libraries are broken |
 | Failure handling | Selection and fallback occur at coordinator boundaries; no operation-level retry under another provider | Verify interruption and recovery behavior with real adapters and their dependencies |
@@ -208,6 +220,16 @@ complete private recovery payload remain deliverables. Do not load arbitrary lib
 the UIKit process or require distribution maintainers to install Cydia's APT
 patches. A CLI adapter may cover supported capabilities, but it must prove the
 same preview and transaction guarantees before it is used for mutations.
+
+The current wire schema is version 3. Version 2 adapters must be rebuilt;
+the client does not reinterpret their handshake. Optional `FiniteTriggerEffects`
+support is bit 18, separate from the immutable `Hello.finiteTriggerEffects`
+selection and matching `Info.finiteTriggerEffects` acceptance. Probes leave the
+accepted mode false. Cydia selects it only after native authority readiness;
+advertising support alone preserves legacy behavior. In this mode a review
+contains primary package actions, while the authenticated parent owns the
+approved finite recipient pool and repeatable trigger passes. A mixed review
+containing legacy `Triggers` or automatic `Deconfigure` actions is refused.
 
 Debian recommends `apt-get` and `apt-cache` rather than the interactive `apt`
 interface for automation. This does not make localized terminal output a
@@ -567,14 +589,14 @@ APT/ICU provider migration or public-source support.
 | `AptRuntime.*`, `RuntimeProviderCoordinator.*`, `AptProviderSelection.*`, `MobileCydia.mm` | Startup selection, protected registration and immutable descriptor adoption are implemented; distribution adapters and deployment acceptance remain |
 | `AptBackendFacade.cpp`, `AptBackend*`, `SourcePreflight*`, `AptProviderServer*`, `AptRecoveryWorker*` | Remote value facade, source routing, bounded server and separate native recovery worker are implemented; no distribution adapter or complete private payload is supplied |
 | `apt-extra/apt-2.7.9-cydia.patch`, `AptCompatibility.cpp` | Keep recovery-specific patches private; replace Cydia-only authentication/state hooks in stock-provider adapters |
-| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated authority snapshots, reviewed parent execution, protected archive staging and state settlement are implemented; transaction component succession and trigger/deconfiguration effect coverage remain under development |
+| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated authority snapshots, retained parent execution, protected archive staging, declared component succession and per-child settlement are implemented; independent deconfiguration coverage remains |
 | `RuntimeSnapshotInputs.*`, `Database*`, `TransactionReview.*`, `AptProviderArchiveEvidence.*` | Provider-bound immutable review and independent source/index/archive proof are implemented; custom index-target/list layouts remain unsupported |
 | `SettingsStore.*`, `RuntimeProviderSettingsController.*`, Settings controllers, locale tables | Explicit-choice preservation, Automatic/recovery selection and truthful asynchronous status UI are implemented in all existing locales |
 | `CyteKit/RegEx.hpp`, `Collation.hpp`, `Package.mm`, `Package+Metadata.mm`, `MessageLocaleConversion.mm` | ICU adapter and handle ownership, coherent collation and locale behavior |
 | `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/recovery.mk`, `mk/package.mk`, `cydia.control` | Separate recovery worker and private methods are packaged; complete signature/compression/ICU/libintl payloads remain separate inputs; package ID and distribution ownership are preserved |
 | `PackageArchivePolicy.*`, `PackageArchiveReader.*` | Bounded exact payload-file bytes and numeric metadata can be captured without extraction; this is a foundation for independently verified component succession, not execution authority |
-| `AptProviderTransactionLease.*`, `AptProviderComponentSuccession.*` | Pure admission, staged-hash, successor-generation, closure-binding and settlement models; persistent helper ownership and protected evidence production remain required |
-| `AptProviderTriggerEvidence*`, `RuntimeSnapshotInputs.*` | Bounded protected registry capture and canonical native syntax; package-state snapshots bind registry bytes, while execution effect coverage remains restricted |
+| `AptProviderTransactionOwner.*`, `AptProviderTransactionLease.*`, `AptProviderComponentSuccession.*`, `AptProviderNativeDpkgAuthority.*` | Persistent helper ownership, retained archive copies, native declaration/loader evidence, approved component generations and exact settlement; declaration delivery and real distribution acceptance remain |
+| `AptProviderTrigger*`, `RuntimeSnapshotInputs.*`, transaction channel/service | Protected registry/control capture, immutable native approval, bounded finite drain ledger and separate child scopes; legacy mode remains restricted |
 | `DpkgConffile.*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Child/question-scoped configuration replies, space-containing paths, forced-choice suppression and stale-alert invalidation; native per-question readiness remains unproved |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
@@ -588,7 +610,7 @@ APT/ICU provider migration or public-source support.
 | Contracts and policy | Versioned worker/account models, protected registration, explicit-choice handling and provider-bound snapshots | Demonstrate that real adapters declare their complete environment and reproduce distribution policy |
 | Remorix packages | A client/registration contract that does not require replacing another distribution | Supply localized APT/dpkg and an optional adapter; verify catalogs, ABI/path metadata and dependency closure |
 | Recovery isolation | Separate unprivileged worker, bound read-only capsule, isolated configuration and native acquisition/review | Supply and accept the private payload, complete transaction parity, then retire the transitional in-process fallback; configured hooks remain refused |
-| External transactions | Startup admission, native review, retained authenticated helper ownership, archive copies and declared component succession | Real adapter/device acceptance; native review and service integration for finite trigger effects, and independent deconfiguration proof |
+| External transactions | Startup admission, native review, retained authenticated helper ownership, archive copies, declared component succession and optional finite trigger effects | Real adapter/device acceptance and independent deconfiguration proof |
 | Recovery dependencies and ICU | Bootstrap/Apple ICU selection, private loader interfaces and upstream gettext bridge/catalogs | Supply private ICU/libintl binaries and full dependency/data closure; prove usable recovery when optional bootstrap components fail |
 | Commercial sources | Native accounts, scoped authorization, private archive acquisition and redacted diagnostics | Vendor-accepted callbacks and authorized paid retrieval; any optional Remorix CLI authorization helper remains separate work |
 | UI and release acceptance | Runtime Settings and immutable confirmation in all existing Cydia locales | Verify runtime transitions, failure handling and safe drop-in upgrade/removal with supported provider packages |
@@ -609,8 +631,8 @@ Current limits are explicit:
   are not packaged by the loader interfaces.
 - Independent archive provenance supports ordinary flat and suite/component
   indexes; custom `Acquire::IndexTargets` and alternate list naming are unsupported.
-- Explicit trigger batches must enumerate the complete fresh pending set and
-  retain `--no-triggers`; new activations and automatic deconfiguration remain
+- Legacy explicit trigger batches must enumerate the complete fresh pending set
+  and retain `--no-triggers`; automatic deconfiguration remains
   unsupported. This is a bounded adapter contract, not full implicit trigger parity.
   The broker rejects effects it cannot independently establish; the protocol's
   action enum and visible review rows are not a claim of complete dpkg coverage.

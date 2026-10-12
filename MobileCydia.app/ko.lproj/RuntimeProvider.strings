@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "완전히 제거";
 "REVIEW_TRIGGERS" = "트리거 처리";
 "REVIEW_DECONFIGURE" = "설정 해제";
+"REVIEW_PROCESSING" = "설치 후 처리";
+"REVIEW_PROCESSING_HELP" = "이 패키지들은 설치 후 작업을 실행하거나 해당 작업을 기다릴 수 있습니다. 탭하여 목록을 표시하거나 숨기세요.";
 "RECOVERY_REVIEW" = "Cydia에 포함된 APT가 선택한 소스 보안 설정을 적용합니다. 배포 환경의 APT에 내장된 정책은 다를 수 있습니다.";
 "RUNTIME_TITLE" = "APT 실행 환경";
 "AUTOMATIC" = "자동";

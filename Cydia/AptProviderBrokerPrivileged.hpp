@@ -23,6 +23,9 @@ struct BrokerEnvironment {
     explicit BrokerEnvironment(const RegisteredProviderEnvironment &);
     explicit BrokerEnvironment(const Recovery::Authority &);
 };
+// Call only after independently resolving this exact wrapped request. Binds
+// the already checked authority expectations; it never resolves authority.
+bool BindResolvedBrokerRuntime(const CydiaRuntime::Privileged::Request &, BrokerEnvironment *);
 // Recovery selection always uses the authenticated caller, local installed
 // inventory, and a Cydia-owned inspector. None is supplied by the worker.
 bool ResolveBrokerRequest(const CydiaRuntime::PackageDatabasePaths &paths,

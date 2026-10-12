@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 Torrekie; GPL-3.0-or-later. */
 #include "Cydia/AptProviderTransactionOwner.hpp"
 #include "Cydia/AptProviderNativeDpkgAuthority.hpp"
+#include "Cydia/AptProviderTransactionChannel.hpp"
+#include "Cydia/AptProviderTriggerCapture.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/ExtendedState.hpp"
 #include "Cydia/RuntimeSnapshotInputs.hpp"
@@ -190,13 +192,8 @@ public:
                 TransactionEffectChildChannels &channels; ParentExecutionReply &reply;
                 ~Scope() { if (channels.settled) channels.settled(reply); }
             } scope{channels, reply};
-            struct stat input, status;
-            if (channels.inputDescriptor < 3 || channels.statusDescriptor < 3 || channels.inputDescriptor == channels.statusDescriptor ||
-                !channels.started || !channels.settled || fstat(channels.inputDescriptor, &input) != 0 ||
-                fstat(channels.statusDescriptor, &status) != 0 || !S_ISFIFO(input.st_mode) || !S_ISFIFO(status.st_mode) ||
-                (input.st_dev == status.st_dev && input.st_ino == status.st_ino) ||
-                (fcntl(channels.inputDescriptor, F_GETFL) & O_ACCMODE) != O_RDONLY ||
-                (fcntl(channels.statusDescriptor, F_GETFL) & O_ACCMODE) != O_WRONLY)
+            if (!channels.started || !channels.settled ||
+                !TransactionChannel::ValidChildDescriptors(channels.inputDescriptor, channels.statusDescriptor))
                 return Stop(error, "provider_trigger_child_channels_invalid");
             auto arguments = options.policy.protectedDpkgOptions;
             arguments.insert(arguments.end(), {"--status-fd=" + std::to_string(channels.statusDescriptor), "--no-triggers", "--triggers-only"});
@@ -244,7 +241,7 @@ bool TransactionOwner::Begin(std::string *error, const std::function<bool()> &ca
     if (s.begun) return s.Stop(error, "provider_lease_reused");
     s.begun = true;
     if (o.reviewedEffects) {
-        if (!o.effectChildChannels) return s.Stop(error, "provider_trigger_child_channels_unavailable");
+        if (!o.effectChildChannels || !o.primaryChildChannels) return s.Stop(error, "provider_trigger_child_channels_unavailable");
         if (Wire(o.reviewedEffects->primaryReview) != Wire(o.review)) return s.Stop(error, "provider_trigger_review_changed");
         for (const auto &action : o.review.execution.actions)
             if (action.action == ExecutionAction::Triggers || action.action == ExecutionAction::Deconfigure)
@@ -294,7 +291,8 @@ bool TransactionOwner::Begin(std::string *error, const std::function<bool()> &ca
     if (!s.CaptureContext({}, &context, &state, error, cancel, &checkpoint) ||
         !P::RuntimeSnapshot(environment, &originalState, &ignored) || originalState != o.review.binding.packageStateIdentity ||
         !s.Active(cancel, error)) return s.Stop(error, "provider_lease_admission_changed");
-    if (o.reviewedEffects && (!s.effects.Begin(*o.reviewedEffects, checkpoint, error) ||
+    if (o.reviewedEffects && (o.reviewedEffects->nativeAuthorityIdentity != TriggerNativeAuthorityIdentity(s.native, files) ||
+        o.reviewedEffects->nativeAuthorityIdentity.empty() || !s.effects.Begin(*o.reviewedEffects, checkpoint, error) ||
         !s.effects.RefineIncoming(s.archives.effectControls(), error))) return s.Stop(error, "provider_trigger_review_changed");
     if (!s.lease.Begin(identity, o.review, o.policy, context, s.archives.archives(),
             s.archives.successors(), o.changes, error)) return s.Stop(error, "provider_lease_admission_changed");
@@ -323,12 +321,28 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
     } startedResult{result, observedStart};
     const auto notifyStarted = [&] { observedStart = true; if (started) started(); };
     TransactionLeaseContext before; DpkgState state; TriggerEffectCheckpoint beforeEffects;
-    if (!s.ready || status < 3 || input < 0 || !s.Active(cancel, error) ||
+    if (!s.ready || (!s.options.reviewedEffects && (status < 3 || input < 0)) || !s.Active(cancel, error) ||
         !s.lease.Expects(envelope) || !SameBinding(request.binding, s.options.review.binding) ||
         !s.DrainEffects(result, error, cancel, notifyStarted) ||
         !s.CaptureContext(s.completedUnpacks, &before, &state, error, cancel, &beforeEffects) ||
         (s.options.reviewedEffects && (!s.effects.quiescent() || beforeEffects.identity != s.effects.stateIdentity())))
         return s.Stop(error, "provider_lease_capture_failed");
+    // Earlier drains can have started, but this new scope owns only the
+    // primary child's outcome. StartedResult retains the outer cumulative fact.
+    *result = ParentExecutionReply(); result->launchError = EACCES;
+    TransactionEffectChildChannels primary;
+    struct PrimaryScope {
+        TransactionEffectChildChannels &channels; ParentExecutionReply &reply; bool finished = false;
+        PrimaryScope(TransactionEffectChildChannels &value, ParentExecutionReply &result) : channels(value), reply(result) {}
+        void Finish() { if (!finished && channels.settled) { finished = true; channels.settled(reply); } }
+        ~PrimaryScope() { Finish(); }
+    } primaryScope{primary, *result};
+    if (s.options.reviewedEffects) {
+        if (!s.options.primaryChildChannels(request, &primary, error) || !primary.started || !primary.settled ||
+            !TransactionChannel::ValidChildDescriptors(primary.inputDescriptor, primary.statusDescriptor))
+            return s.Stop(error, "provider_primary_child_channels_invalid");
+        input = primary.inputDescriptor; status = primary.statusDescriptor;
+    }
     ParentExecutionEvidence evidence; evidence.binding = s.options.review.binding; evidence.frontendLockHeld = true;
     evidence.statusDescriptor = status;
     ComponentClosureEvidence closure; AuthorizedExecution batch; P::Error ignored;
@@ -339,6 +353,7 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
         return s.Stop(error, "provider_lease_batch_not_authorized");
     if (s.options.reviewedEffects && !s.effects.PreparePrimary(beforeEffects.identity, batch, error)) {
         ParentExecutionReply denied; denied.launchError = EPERM; std::string ignoredSettlement;
+        *result = denied;
         s.lease.Settle(batch.batch, denied, {}, false, &ignoredSettlement);
         return s.Stop(error, "provider_trigger_primary_not_authorized");
     }
@@ -350,8 +365,10 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
     if (cancel()) result->launchError = ECANCELED;
     else *result = s.options.execute(s.options.selected.environment.dpkg, arguments, input, status, [&] {
         std::string ignoredStart; s.lease.Started(batch.batch, &ignoredStart);
+        if (primary.started) primary.started();
         notifyStarted();
     });
+    primaryScope.Finish();
     s.SynchronizeCancellation();
     auto completed = s.completedUnpacks;
     for (auto id : batch.actions)

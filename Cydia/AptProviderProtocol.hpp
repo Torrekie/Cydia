@@ -15,7 +15,7 @@
 
 namespace CydiaAPT { namespace Provider {
 
-constexpr std::uint32_t ProtocolVersion = 2;
+constexpr std::uint32_t ProtocolVersion = 3;
 constexpr std::size_t MaximumMessageBytes = 32 * 1024 * 1024;
 constexpr std::size_t MaximumStringBytes = 16 * 1024 * 1024;
 constexpr std::size_t MaximumCollectionItems = 100000;
@@ -49,7 +49,7 @@ enum Capability : std::uint64_t {
     RevalidateReviewedState = 1ull << 11, BoundedCancellation = 1ull << 12,
     StructuredProgress = 1ull << 13, SourceManagement = 1ull << 14,
     ExplicitSecurityOverrides = 1ull << 15, AuthorizedArchiveGrants = 1ull << 16,
-    ReviewedExecutionManifest = 1ull << 17,
+    ReviewedExecutionManifest = 1ull << 17, FiniteTriggerEffects = 1ull << 18,
 };
 constexpr std::uint64_t RequiredCapabilities = CacheValues | SourceChecks |
     ArchitecturePolicy | DependencySolver | ExactQueueReview |
@@ -68,6 +68,9 @@ struct Info {
     std::uint32_t protocolVersion = ProtocolVersion;
     Availability availability = Availability::Unsupported;
     std::uint64_t capabilities = 0;
+    // Support is a capability; this is the immutable mode accepted for one
+    // session. Probes leave it false. It grants no parent execution authority.
+    bool finiteTriggerEffects = false;
     std::string identifier, implementationVersion, libraryIdentity, frontendIdentity;
     Environment environment;
     // Stable code plus upstream diagnostic text, never an instruction or UI key.
@@ -77,6 +80,9 @@ struct Info {
 struct Hello {
     std::uint32_t protocolVersion = ProtocolVersion;
     std::uint64_t requiredCapabilities = RequiredCapabilities;
+    // Selected only after the app's native authority check succeeds. A worker
+    // must echo this choice; merely advertising support never enables it.
+    bool finiteTriggerEffects = false;
     std::string challenge; // Fresh caller-generated nonce, echoed in Binding.
     std::string registrationPath; // Protected provider declaration, empty only for explicit legacy/test clients.
     InitializationOptions options;
@@ -359,7 +365,7 @@ CYDIA_PROVIDER_ENUM(ExecutionAction, ExecutionAction::Deconfigure)
 CYDIA_PROVIDER_ENUM(SourceActivity, SourceActivity::Finished)
 #undef CYDIA_PROVIDER_ENUM
 
-// Field order below is the normative v2 schema. Reuse all Cydia value fields,
+// Field order below is the normative v3 schema. Reuse all Cydia value fields,
 // including foreign architecture identities and typed authentication failures.
 #define CYDIA_PROVIDER_VALUE(Type, ...) \
 template<> struct Codec<Type> { \
@@ -417,9 +423,9 @@ CYDIA_PROVIDER_VALUE(CydiaRuntime::Privileged::ExpectedEnvironment, v.aptConfigO
     v.dpkgAdmin, v.dpkg, v.dpkgQuery, v.dpkgDeb, v.sourceList, v.sourceParts)
 CYDIA_PROVIDER_VALUE(Environment, v.paths, v.configurationIdentity, v.policyIdentity, v.methodsIdentity,
     v.packageStateIdentity, v.nativeArchitecture, v.registeredArchitectures, v.acquisitionArchitectures)
-CYDIA_PROVIDER_VALUE(Info, v.protocolVersion, v.availability, v.capabilities, v.identifier,
+CYDIA_PROVIDER_VALUE(Info, v.protocolVersion, v.availability, v.capabilities, v.finiteTriggerEffects, v.identifier,
     v.implementationVersion, v.libraryIdentity, v.frontendIdentity, v.environment, v.errorCode, v.diagnostic)
-CYDIA_PROVIDER_VALUE(Hello, v.protocolVersion, v.requiredCapabilities, v.challenge, v.registrationPath, v.options, v.expected)
+CYDIA_PROVIDER_VALUE(Hello, v.protocolVersion, v.requiredCapabilities, v.finiteTriggerEffects, v.challenge, v.registrationPath, v.options, v.expected)
 CYDIA_PROVIDER_VALUE(Binding, v.providerIdentifier, v.session, v.configurationIdentity,
     v.policyIdentity, v.packageStateIdentity, v.review, v.cacheEpoch, v.selectionRevision)
 CYDIA_PROVIDER_VALUE(Message, v.version, v.kind, v.sequence, v.operation, v.binding,

@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Xóa hoàn toàn";
 "REVIEW_TRIGGERS" = "Xử lý trình kích hoạt";
 "REVIEW_DECONFIGURE" = "Hủy cấu hình";
+"REVIEW_PROCESSING" = "Xử lý sau khi cài đặt";
+"REVIEW_PROCESSING_HELP" = "Các gói này có thể thực hiện hoặc chờ các tác vụ sau khi cài đặt. Chạm để hiện hoặc ẩn danh sách.";
 "RECOVERY_REVIEW" = "APT đi kèm Cydia sẽ áp dụng cài đặt bảo mật nguồn đã chọn. Chính sách được biên dịch sẵn trong APT của bản phân phối có thể khác.";
 "RUNTIME_TITLE" = "Môi trường APT";
 "AUTOMATIC" = "Tự động";

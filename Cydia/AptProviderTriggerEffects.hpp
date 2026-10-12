@@ -74,6 +74,7 @@ bool CaptureTriggerEffectCheckpoint(const CydiaRuntime::Privileged::Environment 
 
 struct TriggerEffectEnvelope {
     std::string identity, initialCheckpoint;
+    std::string nativeAuthorityIdentity;
     ReviewedTransaction primaryReview;
     // Generation keys retain version as well as architecture. Incoming exact
     // identities can be disclosed before download but remain unrefined until a
@@ -82,7 +83,8 @@ struct TriggerEffectEnvelope {
     std::set<std::string> incoming;
 };
 bool BuildTriggerEffectEnvelope(const ReviewedTransaction &, const TriggerEffectCheckpoint &,
-                               TriggerEffectEnvelope *, std::string *error);
+                               TriggerEffectEnvelope *, std::string *error,
+                               const std::string &nativeAuthorityIdentity = {});
 
 struct TriggerDrainPlan {
     std::string envelopeIdentity, checkpointIdentity;

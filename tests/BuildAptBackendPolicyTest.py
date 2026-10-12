@@ -138,10 +138,11 @@ def main():
         "Cydia/PackageIdentity.cpp", "Cydia/PackageArchivePolicy.cpp", "Cydia/PackageArchiveReader.cpp",
         "Cydia/RepositorySecurityPolicy.cpp", "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp",
         "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp", "Cydia/ExtendedState.cpp"]
-    transaction_effect_sources = ["Cydia/AptProviderTriggerEffects.cpp", "Cydia/AptProviderTriggerMetadata.cpp",
+    transaction_effect_sources = ["Cydia/AptProviderTriggerEffects.cpp", "Cydia/AptProviderTriggerMetadata.cpp", "Cydia/AptProviderTriggerApproval.cpp",
         "Cydia/AptProviderTriggerEvidence.cpp", "Cydia/AptProviderTriggerEvidenceProtected.cpp"]
     compile_driver(transaction_files_sources, "cydia-provider-transaction-files", extra_link_flags=["-lz"])
     compile_driver(transaction_files_sources + transaction_effect_sources + ["Cydia/AptProviderTransactionOwner.cpp", "Cydia/AptProviderTransactionLease.cpp",
+        "Cydia/AptProviderTransactionChannel.cpp",
         "Cydia/AptProviderDpkgState.cpp", "Cydia/DpkgRunner.cpp", "Cydia/RuntimeState.cpp",
         "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocumentCommit.cpp"], "cydia-provider-transaction-owner",
         extra_link_flags=["-lz"], extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1"])
@@ -151,6 +152,7 @@ def main():
     compile_driver(["tests/AptProviderTransactionServiceTests.cpp"] + transaction_owner_sources + [
         "Cydia/AptProviderTransactionService.cpp", "Cydia/AptProviderTransactionChannel.cpp",
         "Cydia/AptProviderTransactionRequest.cpp", "Cydia/AptProviderTransactionRequestDigest.cpp",
+        "Cydia/AptProviderTransactionResult.cpp",
         "Cydia/AptProviderBrokerValues.cpp", "Cydia/AptProviderSelectionValues.cpp", "Cydia/AptRecoverySnapshot.cpp"],
         "cydia-provider-transaction-service", extra_link_flags=["-lz"],
         extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1", "-DCYDIA_TRANSACTION_SERVICE_TESTING=1"])
@@ -165,6 +167,7 @@ def main():
         "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PrivilegedRuntime.cpp",
         "Cydia/PackageDatabasePaths.cpp", "Cydia/RepositorySecurityPolicy.cpp", "Cydia/PackageIdentity.cpp",
         "Cydia/DpkgRunner.cpp", "Cydia/AptRecoverySnapshot.cpp", "Cydia/AptProviderTransactionRequest.cpp",
+        "Cydia/AptProviderTransactionResult.cpp",
         "Cydia/AptProviderTransactionRequestDigest.cpp"], "cydia-provider-broker-transaction",
         extra_compile_flags=["-DCYDIA_TRANSACTION_BROKER_TESTING=1"])
     trigger_effect_sources = ["Cydia/AptProviderTriggerEffects.cpp", "Cydia/AptProviderTriggerMetadata.cpp",
@@ -176,6 +179,10 @@ def main():
         "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp", "Cydia/RepositorySecurityPolicy.cpp"]
     compile_driver(["tests/AptProviderTriggerEffectsTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-effects", sanitize=True)
     compile_driver(["tests/AptProviderTriggerMetadataTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-metadata")
+    compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [
+        "Cydia/AptProviderTriggerCapture.cpp", "Cydia/AptProviderTriggerApproval.cpp",
+        "Cydia/AptProviderComponentCapture.cpp", "Cydia/AptProviderComponentSuccession.cpp", "Cydia/AptProviderReview.cpp"],
+        "cydia-provider-trigger-review-capture")
     worker_sources = sources[1:] + [
         "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp", "Cydia/AptRecoveryPackageManager.cpp",
         "Cydia/SourcePreflight.cpp", "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",

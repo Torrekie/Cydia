@@ -279,6 +279,10 @@ public:
                 std::string reason;
                 if (!hooks.buildReview(candidate.transaction, candidate.binding, &candidate.execution, &reason))
                     return Reject(response, reason.empty() ? "provider_review_unavailable" : reason);
+                if (info.finiteTriggerEffects)
+                    for (const auto &action : candidate.execution.actions)
+                        if (action.action == ExecutionAction::Triggers || action.action == ExecutionAction::Deconfigure)
+                            return Reject(response, "provider_trigger_review_unsupported");
                 const auto deltas(backend.autoInstalledDeltas()); std::string deltaBytes;
                 if (!Encode(deltas, &deltaBytes)) return Fail("provider_message_too_large");
                 if (!Result(candidate, response)) return false;
@@ -401,6 +405,8 @@ public:
         if (!hooks.admit(hello, &info, &reason)) { stopped = true; return Reject(response, reason.empty() ? "provider_admission_denied" : reason); }
         if (!Compatible(info, hello.expected, &reason) || (info.capabilities & hello.requiredCapabilities) != hello.requiredCapabilities)
             return Fail("provider_environment_changed");
+        if (info.finiteTriggerEffects != hello.finiteTriggerEffects)
+            return Fail("provider_trigger_mode_mismatch");
         if ((info.capabilities & ExplicitSecurityOverrides) && !hooks.setSecurityMode)
             return Fail("provider_server_hooks_incomplete");
         current.providerIdentifier = info.identifier; current.session = hello.challenge;

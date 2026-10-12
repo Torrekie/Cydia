@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Purger";
 "REVIEW_TRIGGERS" = "Traiter les actions différées";
 "REVIEW_DECONFIGURE" = "Déconfigurer";
+"REVIEW_PROCESSING" = "Traitement après installation";
+"REVIEW_PROCESSING_HELP" = "Ces paquets peuvent exécuter des tâches après l’installation ou attendre leur exécution. Touchez pour afficher ou masquer la liste.";
 "RECOVERY_REVIEW" = "L’APT intégré à Cydia appliquera les réglages de sécurité des sources sélectionnés. Les politiques compilées dans l’APT de votre distribution peuvent être différentes.";
 "RUNTIME_TITLE" = "Environnement APT";
 "AUTOMATIC" = "Automatique";

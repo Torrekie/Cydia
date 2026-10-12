@@ -51,32 +51,9 @@ bool Authenticated(const TransactionServiceOptions &options, std::string *error)
         uid == options.applicationUID && application.pid == std::to_string(getppid()) ? true :
         Fail(error, "provider_lease_authority_changed");
 }
-bool BoundRuntime(const P::Request &request, BrokerEnvironment *selected) {
-    // ResolveBrokerRequest already re-read protected authority and matched this
-    // exact expectation. The expectation is used only after that verification.
-    std::vector<std::string> fields;
-    if (!Decode(request.payload, &fields) || fields.size() != 3) return false;
-    auto &binding = selected->runtime.binding;
-    if (fields[0] == "CYDIA-BROKER-1") {
-        RegistrationIdentity authority;
-        if (!ParseRegistrationIdentity(fields[1], &authority)) return false;
-        binding.providerIdentifier = authority.providerIdentifier;
-        binding.configurationIdentity = authority.configurationIdentity; binding.policyIdentity = authority.policyIdentity;
-        binding.methodsIdentity = authority.methodsIdentity; binding.libraryIdentity = authority.libraryIdentity;
-        binding.frontendIdentity = authority.frontendIdentity;
-    } else if (fields[0] == "CYDIA-RECOVERY-BROKER-1") {
-        Recovery::RequestAuthority authority;
-        if (!Recovery::ParseRequestAuthority(fields[1], &authority)) return false;
-        binding.providerIdentifier = Recovery::ProviderIdentifier();
-        binding.configurationIdentity = authority.identity.configuration; binding.policyIdentity = authority.identity.policy;
-        binding.methodsIdentity = authority.identity.methods; binding.libraryIdentity = authority.identity.libraries;
-        binding.frontendIdentity = authority.identity.frontend;
-    } else return false;
-    return true;
-}
 bool Policy(const CydiaRuntime::PackageDatabasePaths &paths, const TransactionBeginRequest &begin,
     const P::Request &request, BrokerEnvironment *selected, TransactionOwnerOptions *owner, std::string *error) {
-    if (!BoundRuntime(request, selected)) return Fail(error, "provider_authority_changed");
+    if (!BindResolvedBrokerRuntime(request, selected)) return Fail(error, "provider_authority_changed");
     auto &runtime = selected->runtime; auto &policy = owner->policy; P::Error failure;
     if (!P::RuntimeSnapshot(selected->environment, &runtime.binding.packageStateIdentity, &failure))
         return Fail(error, "provider_dpkg_state_unavailable");
@@ -114,6 +91,11 @@ struct Descriptors {
     std::vector<int> values;
     ~Descriptors() { for (int fd : values) close(fd); }
 };
+struct ChildScope {
+    TC::Frame frame;
+    Descriptors descriptors;
+    bool started = false, settled = false;
+};
 }
 bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePaths &paths,
     const TransactionServiceOptions &options, std::string *error) {
@@ -140,7 +122,8 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
     if (!P::ParseRequest(request.payload, &wrapped, &privilegedError) ||
         !ResolveBrokerRequest(paths, wrapped, options.applicationUID, &selected, &payload, &privilegedError))
         return sendFailure(privilegedError.code.empty() ? "provider_authority_changed" : privilegedError.code);
-    if (!DecodeTransactionBegin(payload, &begin) || TransactionBeginDigest(begin) != request.reviewDigest)
+    if (!DecodeTransactionBegin(payload, &begin) || TransactionBeginDigest(begin) != request.reviewDigest ||
+        request.scopedChildren != static_cast<bool>(begin.reviewedEffects))
         return sendFailure("provider_transaction_review_mismatch");
     if (!options.prepareEnvironment || !options.prepareEnvironment(&selected, &failure) || !options.execute)
         return sendFailure(failure.empty() ? "provider_transaction_unavailable" : failure);
@@ -148,9 +131,80 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         return sendFailure(failure.empty() ? "provider_transaction_nonce_failed" : failure);
     ownerOptions.application = options.application; ownerOptions.applicationUID = options.applicationUID;
     ownerOptions.authenticate = options.authenticate; ownerOptions.execute = options.execute; ownerOptions.reviewDigest = request.reviewDigest;
+    const bool scoped = request.scopedChildren;
+    ownerOptions.reviewedEffects = begin.reviewedEffects;
+    TransactionOwner *activeOwner = nullptr;
+    std::uint64_t childOrdinal = 0;
+    bool scopeActive = false, scopeCancelled = false, mutationInRequest = false;
+    const auto childChannels = [&](const TC::ChildDescriptor &description, TransactionEffectChildChannels *channels, std::string *reason) {
+        if (!activeOwner || !channels || scopeActive || scopeCancelled || childOrdinal == UINT64_MAX)
+            return Fail(reason, "provider_transaction_child_invalid");
+        auto scope = std::make_shared<ChildScope>(); scope->frame = request;
+        scope->frame.payload.clear(); scope->frame.event = TC::Event::ChildNeeded;
+        scope->frame.childOrdinal = ++childOrdinal;
+        if (!TC::EncodeChildDescriptor(description, &scope->frame.childDescriptor) || !channel.Send(scope->frame, {}, timeout)) {
+            activeOwner->TransportLost(); return Fail(reason, "provider_transaction_closed");
+        }
+        TC::Frame response;
+        if (!channel.Receive(&response, &scope->descriptors.values, timeout) || !Authenticated(options, reason) ||
+            response.operation != request.operation || response.sequence != request.sequence || response.nonce != request.nonce ||
+            response.reviewDigest != request.reviewDigest || !response.scopedChildren ||
+            response.childOrdinal != scope->frame.childOrdinal || response.childDescriptor != scope->frame.childDescriptor) {
+            activeOwner->TransportLost(); return Fail(reason, "provider_transaction_child_invalid");
+        }
+        if (response.event == TC::Event::ChildDenied) {
+            scopeCancelled = true; activeOwner->Cancel(); return Fail(reason, response.errorCode.c_str());
+        }
+        if (response.event != TC::Event::ChildChannels || scope->descriptors.values.size() != 2 ||
+            !TC::ValidChildDescriptors(scope->descriptors.values[0], scope->descriptors.values[1])) {
+            activeOwner->TransportLost(); return Fail(reason, "provider_transaction_child_invalid");
+        }
+        scopeActive = true;
+        channels->inputDescriptor = scope->descriptors.values[0]; channels->statusDescriptor = scope->descriptors.values[1];
+        channels->started = [&, scope] {
+            if (scope->started || scope->settled) { activeOwner->TransportLost(); return; }
+            scope->started = mutationInRequest = true;
+            auto event = scope->frame; event.event = TC::Event::ChildStarted; event.success = event.mutationStarted = true;
+            if (!channel.Send(event, {}, timeout)) activeOwner->TransportLost();
+        };
+        channels->settled = [&, scope](const ParentExecutionReply &result) {
+            if (scope->settled || result.started != scope->started) { activeOwner->TransportLost(); return; }
+            scope->settled = true;
+            for (int fd : scope->descriptors.values) close(fd);
+            scope->descriptors.values.clear();
+            auto event = scope->frame; event.event = TC::Event::ChildSettled; event.success = true; event.mutationStarted = result.started;
+            TC::Frame response; Descriptors received;
+            if (!Encode(result, &event.payload) || !channel.Send(event, {}, timeout) ||
+                !channel.Receive(&response, &received.values, timeout) || !received.values.empty() || !Authenticated(options, nullptr) ||
+                response.operation != event.operation || response.sequence != event.sequence || response.nonce != event.nonce ||
+                response.reviewDigest != event.reviewDigest || !response.scopedChildren || response.childOrdinal != event.childOrdinal ||
+                response.childDescriptor != event.childDescriptor || response.mutationStarted != event.mutationStarted ||
+                (response.event != TC::Event::ChildReleased && response.event != TC::Event::ChildCancelled)) {
+                activeOwner->TransportLost(); return;
+            }
+            scopeActive = false;
+            if (response.event == TC::Event::ChildCancelled) { scopeCancelled = true; activeOwner->Cancel(); }
+        };
+        return true;
+    };
+    if (scoped) {
+        ownerOptions.primaryChildChannels = [&](const ParentExecutionRequest &execution, TransactionEffectChildChannels *channels, std::string *reason) {
+            TC::ChildDescriptor descriptor; descriptor.primaryBatch = execution.batch;
+            descriptor.primaryAction = static_cast<unsigned>(execution.action); descriptor.primaryActions = execution.actions;
+            return childChannels(descriptor, channels, reason);
+        };
+        ownerOptions.effectChildChannels = [&](const TriggerDrainPlan &plan, TransactionEffectChildChannels *channels, std::string *reason) {
+            TC::ChildDescriptor descriptor; descriptor.purpose = TC::ChildPurpose::TriggerDrain;
+            descriptor.envelopeIdentity = plan.envelopeIdentity; descriptor.checkpointIdentity = plan.checkpointIdentity;
+            descriptor.pass = plan.pass; descriptor.primaryCheckpoint = plan.primaryCheckpoint; descriptor.incorporateDeferred = plan.incorporateDeferred;
+            for (const auto &package : plan.targets) descriptor.targets.push_back({package.package, package.version, package.architecture});
+            return childChannels(descriptor, channels, reason);
+        };
+    }
     TransactionOwner owner(ownerOptions);
+    activeOwner = &owner;
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
-    const auto cancelled = [&]() { return peerClosed() || std::chrono::steady_clock::now() >= deadline; };
+    const auto cancelled = [&]() { return scopeCancelled || peerClosed() || (!mutationInRequest && std::chrono::steady_clock::now() >= deadline); };
     if (!owner.Begin(&failure, cancelled)) return sendFailure(failure);
     TC::Frame reply = request; reply.event = TC::Event::Settled; reply.success = true; reply.payload.clear(); reply.nonce = ownerOptions.nonce;
     if (!channel.Send(reply, {}, timeout)) { owner.TransportLost(); return Fail(error, channel.error().c_str()); }
@@ -162,16 +216,19 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         }
         const bool bound = request.event == TC::Event::Request && request.operation != TC::Operation::Begin &&
             sequence != std::numeric_limits<std::uint64_t>::max() && request.sequence == sequence + 1 &&
-            request.nonce == ownerOptions.nonce && request.reviewDigest == ownerOptions.reviewDigest;
+            request.nonce == ownerOptions.nonce && request.reviewDigest == ownerOptions.reviewDigest && request.scopedChildren == scoped;
         if (!bound || !Authenticated(options, &failure)) {
             owner.Cancel(); return sendFailure(bound ? failure : "provider_transaction_binding_invalid");
         }
         ++sequence; reply = request; reply.event = TC::Event::Settled; reply.payload.clear();
         deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
+        mutationInRequest = false;
         TransactionLeaseEnvelope envelope; envelope.nonce = request.nonce; envelope.reviewDigest = request.reviewDigest; envelope.sequence = sequence;
         bool started = false;
         const auto notifyStarted = [&]() {
             if (started) return; started = true;
+            mutationInRequest = true;
+            if (scoped && request.operation == TC::Operation::Execute) return;
             TC::Frame event = reply; event.event = TC::Event::Started; event.success = true; event.mutationStarted = true;
             if (!channel.Send(event, {}, timeout)) owner.TransportLost();
         };
@@ -180,8 +237,8 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
             DpkgState state; success = owner.Capture(envelope, &state, &failure, cancelled) && EncodeBrokerState(state, &reply.payload);
         } else if (request.operation == TC::Operation::Execute) {
             ParentExecutionRequest execution; TransactionExecutionReply outcome;
-            if (descriptors.values.size() == 2 && descriptors.values[1] >= 3 && Decode(request.payload, &execution)) {
-                success = owner.Execute(envelope, execution, descriptors.values[0], descriptors.values[1],
+            if (((scoped && descriptors.values.empty()) || (!scoped && descriptors.values.size() == 2 && descriptors.values[1] >= 3)) && Decode(request.payload, &execution)) {
+                success = owner.Execute(envelope, execution, scoped ? -1 : descriptors.values[0], scoped ? -1 : descriptors.values[1],
                     &outcome.result, &outcome.state, &failure, cancelled, notifyStarted);
                 if (success && !EncodeTransactionExecutionReply(outcome, &reply.payload)) {
                     success = false; failure = "provider_transaction_result_invalid";
@@ -197,7 +254,7 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         // after its actual child and owner-side state verification settle.
         for (const int fd : descriptors.values) close(fd);
         descriptors.values.clear();
-        reply.success = success; reply.mutationStarted = started; reply.indeterminate = owner.indeterminate();
+        reply.success = success; reply.mutationStarted = started || mutationInRequest; reply.indeterminate = owner.indeterminate();
         if (!success) { reply.payload.clear(); reply.errorCode = failure.empty() ? "provider_transaction_request_invalid" : failure; }
         if (!channel.Send(reply, {}, timeout)) { owner.TransportLost(); return Fail(error, channel.error().c_str()); }
         if (!success) { owner.Cancel(); return Fail(error, reply.errorCode.c_str()); }

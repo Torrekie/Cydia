@@ -6,6 +6,8 @@
 "REVIEW_PURGE" = "Purge";
 "REVIEW_TRIGGERS" = "Process Triggers";
 "REVIEW_DECONFIGURE" = "Deconfigure";
+"REVIEW_PROCESSING" = "Post-installation processing";
+"REVIEW_PROCESSING_HELP" = "These packages may run or wait for post-installation tasks. Tap to show or hide the list.";
 "RECOVERY_REVIEW" = "Cydia’s bundled APT will apply the selected repository security settings. Your distribution’s compiled APT policies may differ.";
 "RUNTIME_TITLE" = "APT Runtime";
 "AUTOMATIC" = "Automatic";

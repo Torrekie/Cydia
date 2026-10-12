@@ -149,6 +149,10 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
     return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindArchiveWarnings
         issue:nil changeGroups:@[] rowCount:count];
 }
++ (instancetype)processing {
+    return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindProcessing
+        issue:nil changeGroups:@[] rowCount:1];
+}
 
 - (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
                          issue:(CydiaConfirmationIssue *)issue

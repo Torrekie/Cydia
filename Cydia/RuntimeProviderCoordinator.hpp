@@ -3,6 +3,7 @@
 #define Cydia_RuntimeProviderCoordinator_HPP
 #include "Cydia/AptBackend.hpp"
 #include "Cydia/AptProviderSelection.hpp"
+#include "Cydia/AptProviderTriggerEffects.hpp"
 #include "Cydia/RuntimeProviderStatus.h"
 #include <memory>
 
@@ -35,7 +36,8 @@ public:
     // this retained value; a later worker reply cannot renew user approval.
     bool CaptureReview(AptBackend &backend, TransactionData *transaction, std::string *error);
     bool ApproveReview(AptBackend &backend, const std::set<std::uint64_t> &shownActions,
-        const std::set<std::string> &shownArchiveWarnings, std::string *error);
+        const std::set<std::string> &shownArchiveWarnings, std::string *error,
+        const std::string &shownEffectsIdentity = {});
     bool ReviewUnchanged(const AptBackend &backend) const;
     void InvalidateReview();
     bool executionComplete() const;
@@ -44,6 +46,7 @@ public:
     // Preserve the outcome; new discovery failure cannot retry the operation.
     void RetireExecution(AptBackend &backend);
     const Provider::ReviewedTransaction *review() const;
+    const Provider::TriggerEffectEnvelope *reviewedEffects() const;
 };
 }
 #endif

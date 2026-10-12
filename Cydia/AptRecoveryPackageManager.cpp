@@ -234,7 +234,7 @@ pkgPackageManager::OrderResult AptRecoveryPackageManager::OrderInstall() {
         if (option.compare(0, 12, "--pre-invoke") == 0 || option.compare(0, 13, "--post-invoke") == 0) {
             refusal_ = "recovery_hooks_unsupported"; return Failed;
         }
-    if (_config->FindB("DPkg::TriggersPending", false) || !_config->FindB("DPkg::NoTriggers", true) ||
+    if ((!finiteEffects_ && _config->FindB("DPkg::TriggersPending", false)) || !_config->FindB("DPkg::NoTriggers", true) ||
         _config->FindB("dpkg::install::recursive", false) || _config->FindB("APT::Force-LoopBreak", false)) {
         refusal_ = "recovery_unbounded_effects_unsupported"; return Failed;
     }
@@ -246,7 +246,9 @@ pkgPackageManager::OrderResult AptRecoveryPackageManager::OrderInstall() {
     // Original Go may expand pending selections and process triggers that the
     // resolver's explicit list omits. Do not silently turn those into a plan.
     for (auto package = Cache.PkgBegin(); !package.end(); ++package) {
-        if (package->CurrentState == pkgCache::State::TriggersPending || package->CurrentState == pkgCache::State::TriggersAwaited ||
+        const bool triggerState = package->CurrentState == pkgCache::State::TriggersPending ||
+            package->CurrentState == pkgCache::State::TriggersAwaited;
+        if ((!finiteEffects_ && triggerState) ||
             (package.State() != pkgCache::PkgIterator::NeedsNothing && Cache[package].Keep()) ||
             ((package->SelectedState == pkgCache::State::DeInstall || package->SelectedState == pkgCache::State::Purge) &&
                 !Cache[package].Delete() && !package.CurrentVer().end())) {
@@ -282,13 +284,13 @@ bool AptRecoveryPackageManager::BindArchive(pkgCache::VerIterator version, pkgCa
 
 RecoveryCaptureResult AptRecoveryPackageManager::Capture(pkgSourceList &sources, pkgRecords &records,
     const RuntimeDescriptor &runtime, const TransactionData &transaction, const P::Binding &binding,
-    const CydiaPackages::ArchiveLayout &layout, const std::function<bool()> &cancelled) {
+    const CydiaPackages::ArchiveLayout &layout, const std::function<bool()> &cancelled, bool finiteEffects) {
     RecoveryCaptureResult result;
     const auto fail = [&](const char *code, RecoveryCaptureStatus status = RecoveryCaptureStatus::Unsupported) {
         result.status = status; result.errorCode = code; result.review = P::ReviewedTransaction(); return result;
     };
     if (consumed_) return fail("recovery_capture_already_consumed");
-    consumed_ = true; cancelled_ = cancelled; capturing_ = true;
+    consumed_ = true; cancelled_ = cancelled; capturing_ = true; finiteEffects_ = finiteEffects;
     struct Stop { AptRecoveryPackageManager *manager; ~Stop() { manager->capturing_ = false; manager->cancelled_ = {}; } } stop{this};
     if (!Proceed()) return fail("recovery_cancelled", RecoveryCaptureStatus::Cancelled);
     P::Message request; request.sequence = 1; request.kind = P::MessageKind::ParentRequest;
@@ -313,6 +315,9 @@ RecoveryCaptureResult AptRecoveryPackageManager::Capture(pkgSourceList &sources,
     std::map<std::string, std::string> indexHashes;
     for (const auto &item : pkgDPkgPM::List) {
         if (!Proceed()) return fail("recovery_cancelled", RecoveryCaptureStatus::Cancelled);
+        // The negotiated parent ledger owns complete, repeatable trigger
+        // passes. An unqualified pending marker is never a primary action ID.
+        if (finiteEffects_ && item.Op == Item::TriggersPending) continue;
         if (result.review.execution.actions.size() == P::MaximumCollectionItems) return fail("recovery_plan_too_large");
         if (item.Pkg.end()) return fail("recovery_pending_effects_unsupported");
         const bool removal = item.Op == Item::Remove || item.Op == Item::Purge;

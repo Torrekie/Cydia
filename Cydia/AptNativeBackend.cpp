@@ -58,8 +58,8 @@ public:
 
     RecoveryCaptureResult captureRecoveryReview(const RuntimeDescriptor &runtime,
             const Provider::Binding &binding, const CydiaPackages::ArchiveLayout &layout,
-            const std::function<bool()> &cancelled) override {
-        return embedded_.captureRecoveryReview(runtime, binding, layout, cancelled);
+            const std::function<bool()> &cancelled, bool finiteTriggerEffects) override {
+        return embedded_.captureRecoveryReview(runtime, binding, layout, cancelled, finiteTriggerEffects);
     }
 
     std::vector<PackageHandle> packageHandles() override { return embedded_.packageHandles(); }

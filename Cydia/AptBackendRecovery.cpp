@@ -104,7 +104,7 @@ bool Matches(pkgAcqArchive &archive, pkgCache::VerIterator version,
 
 RecoveryCaptureResult AptBackend::captureRecoveryReview(const RuntimeDescriptor &runtime,
         const Provider::Binding &binding, const CydiaPackages::ArchiveLayout &layout,
-        const std::function<bool()> &cancelled) {
+        const std::function<bool()> &cancelled, bool finiteEffects) {
     const auto fail = [](const char *code, RecoveryCaptureStatus status = RecoveryCaptureStatus::Unsupported) {
         RecoveryCaptureResult result; result.status = status; result.errorCode = code; return result;
     };
@@ -170,6 +170,6 @@ RecoveryCaptureResult AptBackend::captureRecoveryReview(const RuntimeDescriptor 
     // configuration through ordering so temporary planner-log suppression also
     // cannot leave previously absent keys behind in the app's configuration.
     // No existing manager/fetcher or prepared state is used.
-    return recorder.Capture(sources, records, runtime, transaction, binding, layout, cancelled);
+    return recorder.Capture(sources, records, runtime, transaction, binding, layout, cancelled, finiteEffects);
 }
 }} // namespace CydiaAPT::Internal

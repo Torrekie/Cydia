@@ -114,7 +114,7 @@ P::ParentExecutionReply Success() {
 }
 void ReviewAndWire() {
     Fixture fixture; P::ReviewAuthorization authorization; std::string error, bytes;
-    Require(P::ProtocolVersion == 2 && (P::RequiredCapabilities & P::ReviewedExecutionManifest), "unnegotiated execution manifest");
+    Require(P::ProtocolVersion == 3 && (P::RequiredCapabilities & P::ReviewedExecutionManifest), "unnegotiated execution manifest");
     Require(P::Encode(fixture.review, &bytes), "manifest encoding");
     P::ReviewedTransaction decoded;
     Require(P::Decode(bytes, &decoded) && decoded.execution.archives.size() == 3 &&

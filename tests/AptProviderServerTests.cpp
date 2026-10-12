@@ -133,7 +133,8 @@ struct Fixture {
     bool denySnapshot = false, omitCommit = false, throwEmission = false;
     Fixture() {
         hooks.admit = [this](const P::Hello &hello, P::Info *result, std::string *) {
-            Require(hello.registrationPath == "/distribution/provider.plist", "admission sees registration"); *result = info; return true;
+            Require(hello.registrationPath == "/distribution/provider.plist", "admission sees registration");
+            *result = info; result->finiteTriggerEffects = hello.finiteTriggerEffects; return true;
         };
         hooks.pollControl = [this](std::string *frame, const P::ServerControl &) {
             ++polls; if (!controlFrame.empty() && polls >= cancelAfter) frame->swap(controlFrame); return true;
@@ -213,10 +214,12 @@ struct Fixture {
         }
         return response;
     }
-    void Hello() {
+    void Hello(bool finiteEffects = false) {
         P::Hello hello; hello.challenge = std::string(64, 'a'); hello.expected = info.environment;
         hello.options.repositorySecurityMode = A::RepositorySecurityMode::Distribution;
         hello.registrationPath = "/distribution/provider.plist";
+        hello.finiteTriggerEffects = finiteEffects;
+        if (finiteEffects) hello.requiredCapabilities |= P::FiniteTriggerEffects;
         binding.providerIdentifier = info.identifier; binding.session = hello.challenge;
         binding.configurationIdentity = info.environment.configurationIdentity; binding.policyIdentity = info.environment.policyIdentity;
         binding.packageStateIdentity = info.environment.packageStateIdentity;
@@ -226,6 +229,20 @@ struct Fixture {
     void Review() { Hello(); Call(P::Operation::Reset); Call(P::Operation::TransactionData); }
 };
 
+void FiniteEffectsReviewMode() {
+    for (const bool finite : {false, true}) {
+        Fixture fixture; fixture.info.capabilities |= P::FiniteTriggerEffects;
+        fixture.hooks.buildReview = [](const A::TransactionData &, const P::Binding &, P::ExecutionManifest *manifest, std::string *) {
+            P::ReviewedAction action; action.identifier = 17; action.action = P::ExecutionAction::Triggers;
+            action.package = {"fixture", "1", "native"}; manifest->actions = {action}; return true;
+        };
+        fixture.server.reset(new P::Server(fixture.backend, fixture.hooks));
+        fixture.Hello(finite); fixture.Call(P::Operation::Reset);
+        const auto response = fixture.Call(P::Operation::TransactionData);
+        Require(response.succeeded == !finite, "finite mode rejects mixed legacy trigger actions; advertisement alone preserves legacy review");
+        if (finite) Require(response.errorCode == "provider_trigger_review_unsupported", "finite review refusal retains typed reason");
+    }
+}
 void Framing() {
     P::Message message; message.sequence = 1;
     const std::string wire(Frame(message)); P::ServerFrameReader reader;
@@ -420,6 +437,6 @@ void CancellationAndProgress() {
 }
 }
 int main() {
-    Framing(); DispatchAndReview(); FailureBoundaries(); CancellationAndProgress(); ArchiveAuthorization();
+    Framing(); DispatchAndReview(); FailureBoundaries(); CancellationAndProgress(); ArchiveAuthorization(); FiniteEffectsReviewMode();
     std::cout << "[apt-provider-server] bounded framing, binding, reverse authority and cancellation passed\n";
 }

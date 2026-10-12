@@ -49,6 +49,7 @@ def main():
     runtime_provider_keys = {
         "REVIEW_OPERATIONS", "REVIEW_UNPACK", "REVIEW_CONFIGURE", "REVIEW_REMOVE",
         "REVIEW_PURGE", "REVIEW_TRIGGERS", "REVIEW_DECONFIGURE", "RECOVERY_REVIEW",
+        "REVIEW_PROCESSING", "REVIEW_PROCESSING_HELP",
         "RUNTIME_TITLE", "AUTOMATIC", "RECOVERY", "AUTOMATIC_HELP", "RECOVERY_HELP",
         "CURRENT_RUNTIME", "PROVIDER_VERSION", "APT_VERSION", "CHECK_AGAIN", "CHECKING",
         "STATUS_UNCHECKED", "STATUS_EXTERNAL", "STATUS_RECOVERY", "STATUS_MISSING",
@@ -63,7 +64,7 @@ def main():
         for key, value in table.items():
             assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(runtime_provider[key].replace("%%", ""))), \
                 f"Runtime provider arguments differ: {bundle.name}/{key}"
-        for key in {"REVIEW_UNAVAILABLE", "OPERATION_FAILED"}:
+        for key in {"REVIEW_UNAVAILABLE", "OPERATION_FAILED", "REVIEW_PROCESSING", "REVIEW_PROCESSING_HELP"}:
             assert bundle.name == "en.lproj" or table[key] != runtime_provider[key], \
                 f"English runtime failure fallback: {bundle.name}/{key}"
     file_types = read_table(ROOT / "MobileCydia.app/en.lproj/InfoPlist.strings", allow_equal=True)
