@@ -5,7 +5,8 @@ package-management environment. A working, supported bootstrap APT takes
 precedence over the bundled recovery implementation; its policies must remain
 authoritative unless the administrator explicitly overrides them. The
 [runtime provider design](runtime-providers.md) records the required migration,
-policy precedence, recovery boundaries, and acceptance criteria.
+policy precedence, recovery boundaries, Remorix packaging/localization,
+commercial-repository integration, and staged acceptance criteria.
 
 The implementation described below still embeds APT and executes dpkg as an
 external program. It does not yet select an external APT backend. The bundled

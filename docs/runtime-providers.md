@@ -27,6 +27,61 @@ an embedded ICU implementation. Bundled APT also disables gettext through
 | ICU | Direct calls into Apple system ICU | Prefer compatible bootstrap ICU for Cydia-owned services, then Apple ICU, then a private bundled fallback |
 | Messages | Locale conversion exists; bundled APT stubs gettext | Use each provider's own gettext and catalogs; bundle localization support with the recovery backend |
 | Failure handling | No APT provider transition | Diagnose provider failure separately from repository, configuration, dependency, and lock errors |
+| Remorix packages | Future distribution integration is not yet defined | Publish localized APT/dpkg and a tested provider interface without making Remorix a requirement for Cydia |
+| Commercial sources | Legacy commercial metadata and web integration | Distinguish public indexes, account access, purchase entitlement and authorized downloads; integrate supported vendor APIs separately from APT trust |
+
+## Remorix distribution contract
+
+Remorix will maintain its own APT and dpkg packages. Treat those as normal
+external distribution components, not privileged exceptions to provider
+selection. Publish their supported interfaces and an optional versioned
+provider adapter alongside them. Cydia must also support other distributions
+through tested adapters, without replacing their APT/dpkg with Remorix builds.
+
+For APT, dpkg and other packages with localization support, enable native
+gettext/NLS and ship available upstream catalogs by default. Keep catalogs
+matched to the binary's domains and release. Do not strip translations merely
+to reduce package size, or assume every upstream project already translates
+all 21 Cydia UI languages. A language package split is acceptable only if the
+normal package dependencies install the intended catalogs automatically.
+Use package-policy-derived locale directories and real libintl dependencies;
+test ordinary CLI execution as well as Cydia's converted locale environment.
+Remove English diagnostic matching before enabling translated recovery paths.
+
+Distribution behavior should be expressed in ordinary APT configuration where
+possible and documented independently of Cydia. Keep insecure repositories,
+weak metadata, authentication downgrades and payload integrity separate.
+The Remorix release policy must be explicit; neither the bundled backend's
+defaults nor another distribution's patches become Remorix policy implicitly.
+
+Darwin packaging follows these requirements:
+
+- `iphoneos-arm` uses rooted package policy; `iphoneos-arm64` uses rootless
+  package policy. Derive installation paths from templates/variables. Confirm
+  the selected runtime and `/var/jb` mapping rather than treating both layouts
+  as interchangeable or applying a prefix to every local-state path.
+- Bootstrap tools and libraries take priority within their selected runtime.
+  Resolve configuration, catalogs, libexec tools and state paths from package
+  policy. `Architecture: all` retains dpkg meaning; layout validation remains
+  independent, including for proprietary packages.
+- Track public library ABI through symbols metadata where applicable, with
+  architecture-specific expectations. Resolve actual Mach-O install names,
+  reexports and dependent libraries; add rootless library rpaths only when
+  the artifact requires them, and re-sign modified Mach-O files.
+- Keep local package metadata and changelog consistent with Remorix. Preserve
+  package ID `cydia`, existing compatibility options and maintscript ownership
+  of legacy file migrations. Do not make installing Cydia install a new
+  distribution or overwrite another manager's configuration.
+- Keep Darwin portability, locale support, distribution policy and optional
+  authorization integration in separate, minimal patches. Use platform guards
+  and DEP3 metadata; preserve non-Apple behavior. Reuse existing quilt stacks
+  and generate hunks from diffs when implementation begins.
+
+The recovery APT, libintl/catalogs and ICU/data remain private application
+resources with reproducible versions and licenses. They must not resolve
+through broken optional bootstrap libraries or advertise themselves as the
+system's installed APT, dpkg or ICU packages. The external dpkg requirement
+and the platform-framework recovery limit below still apply.
 
 ## Selecting one coherent APT provider
 
@@ -169,6 +224,103 @@ do not create Cydia copies of upstream diagnostic translations. Remove any
 English-message matching used for recovery decisions before localizing that
 backend, using structured errors or independent dpkg-state checks instead.
 
+## Commercial repository compatibility
+
+Public metadata, free archives, account authentication, purchase entitlement
+and paid archives are separate capabilities. A successful metadata request
+does not prove paid-download compatibility or a complete authenticated APT
+refresh. Vendor support policy is also distinct from HTTP admission.
+
+| Repository | Public evidence | Compatibility limit |
+| --- | --- | --- |
+| Havoc | Anonymous bounded requests retrieved `Release`, `Release.gpg` and `Packages.xz`; `payment_endpoint` advertises an HTTPS provider | Havoc explicitly does not support Cydia for paid packages. Public metadata availability does not overturn this policy or establish acceptance of Cydia's account callbacks and download requests |
+| Chariz | Anonymous bounded requests retrieved `Release` and `Packages`; an HTTPS payment provider is advertised. Its FAQ documents Cydia's Buy or Log In flow | The documented legacy flow does not establish that this refurbished native Cydia implements it, or that a new integration works end to end |
+
+These checks used ordinary truthful clients without account credentials or
+device identifiers. They did not verify metadata signatures, run a device APT
+refresh, purchase products or retrieve package archives. They show public-index
+access for the tested clients, not universal admission for every client or
+network. Havoc's absent `InRelease` can use its detached
+`Release.gpg`; that response alone is not a client block. Its documented 418
+error can also indicate an account/login problem.
+
+Current Cydia styles `cydia::commercial` packages, but has no modern
+`payment_endpoint`/`authorize_download` account service. Home's Manage Account
+controller is a placeholder, and package actions do not check entitlement.
+The read-only depiction bridge does not supply these capabilities. Do not
+restore broad privileged JavaScript access to implement them.
+
+### Native accounts and download authorization
+
+Implement a native account broker using supported payment-provider discovery,
+browser authentication, account information and ownership APIs. Verify API
+versions and the accepted client callback with each vendor. Existing protocols
+and implementations include Sileo-specific callbacks; do not globally register
+another manager's URL scheme or impersonate its client identity. Havoc's
+seller-side DRM API is not a substitute for a package-manager API, and seller
+credentials never belong in Cydia.
+
+Discovery may come from a source accepted without authenticated metadata.
+Require HTTPS, show the source and payment-provider origins during account
+linking, and scope stored credentials to the approved provider origin. A
+changed advertised endpoint must suspend credential reuse until the new
+binding is confirmed; never automatically send an existing token or device
+identifier to the replacement endpoint. Tie authentication callbacks to the
+active browser session and exact provider, validate returned fields, and
+reject unsolicited or replayed callbacks. Use protocol-supported state,
+nonce or PKCE mechanisms where available; do not accept an unbound callback
+when the protocol cannot establish a safe session association.
+
+Home's existing Manage Account entry and Settings account links should reach
+the same controller. Package pages should distinguish Sign In, Buy, Download,
+Unavailable and authentication failures. Purchases always require an explicit
+user action. Keep ordinary Sources browsing familiar and source configuration
+in Settings. Support logout and account removal without deleting repositories.
+
+Keep long-lived account tokens and purchase secrets in Keychain. Honor any
+protocol-required user authentication and disclose required device binding;
+do not send permanent device identifiers with every public metadata request.
+Bind an authorization grant to the source, account, package, version and
+selected package architecture, including foreign architectures. Obtain a
+short-lived HTTPS grant near download time. Reauthorization after expiry must
+not change the reviewed package identity, expected hash or layout checks.
+
+Before adding grants, separate transport URLs from display URLs. Current
+progress/error paths expose raw URIs, and the preflight sanitizer only strips
+URL user information. Redact credentials and sensitive query/path tokens from
+UI, logs, diagnostics and crash context. Send grants through authenticated,
+bounded IPC or protected descriptors, never command arguments, source files,
+shared APT configuration or world-readable caches. Do not forward account
+tokens or device headers to redirect destinations. A signed CDN URL is its
+own scoped grant; retain TLS, repository trust and payload-integrity checks.
+
+### Patch responsibilities and CLI behavior
+
+| Layer | Planned work |
+| --- | --- |
+| Cydia | Native accounts, supported browser callbacks, entitlement-aware actions, typed authentication errors and safe progress presentation |
+| Provider protocol | Carry a scoped authorized download or a securely staged, verified archive while preserving the provider's reviewed solve, archive identity and transaction guarantees |
+| Bundled APT | Reuse supported acquisition interfaces first. Add a narrow, generic authorization hook only if an adapter cannot safely supply the reviewed archive; no vendor-specific bypass or identity spoofing |
+| Remorix APT | If a generic hook is necessary, share the same tested protocol as recovery APT and keep it an optional, separately maintained patch/integration |
+| Other distributions | Use supported adapters or verified archive staging. Do not patch installed APT in place or require replacing it with Remorix |
+| Optional Remorix CLI helper | Let an explicitly linked account authorize downloads through a protected service. Do not assume root CLI processes can read the mobile user's Keychain. Without credentials, report an actionable authentication requirement |
+
+APT's `auth.conf` handles conventional repository/proxy credentials; it is not
+a payment-provider client. An ordinary CLI may refresh accessible public
+indexes and fetch available free archives without Cydia account integration;
+it does not automatically gain paid-download entitlement from installing our
+APT build. The optional helper must never start purchases or unsolicited login
+flows during `apt update` or unattended transactions.
+
+Map HTTP/account outcomes to typed provider errors. Missing entitlement,
+expired grants, unsupported clients, repository rejection and network errors
+must not trigger engine fallback, relaxed signature enforcement or disabled
+hash verification. No current evidence justifies a blanket Havoc/Chariz
+transport bypass patch. Paid Havoc support stays explicitly unsupported or
+unverified until the vendor accepts the Cydia integration and an authorized
+owned-package retrieval succeeds. This gate does not block the general
+APT/ICU provider migration or public-source support.
+
 ## Required implementation changes
 
 | Part | Work |
@@ -182,33 +334,36 @@ backend, using structured errors or independent dpkg-state checks instead.
 | `CyteKit/RegEx.hpp`, `Collation.hpp`, `Package.mm`, `Package+Metadata.mm`, `MessageLocaleConversion.mm` | ICU adapter and handle ownership, coherent collation and locale behavior |
 | `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/package.mk`, `cydia.control` | Separate workers/adapters and private recovery dependencies; preserve package ID and avoid hard dependencies that defeat recovery |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
+| Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
+| `DatabaseStatus.mm`, `ProgressEvent.mm`, acquisition protocol | Redacted display URLs, typed account/transport failures and protected short-lived grants |
+| Remorix APT/dpkg packaging and optional adapter/helper packages | Native catalogs, declared runtime/ABI policy and reusable optional authorization integration |
 
 ## Delivery order and compatibility gates
 
-1. Distinguish stored choices from defaults and stop unconditional overrides
-   of effective configuration. Add provider identity/capability models without
-   silently changing engines. Full inheritance of compiled distribution
-   behavior requires the external adapters in step 3.
-2. Put the existing bundled backend behind the worker protocol. Preserve
-   transaction previews, multiarch, locks, state updates, source checks and
-   existing bootstrap protections before adding a second implementation.
-3. Add external-provider adapters with representative strict and permissive
-   distribution behavior. Prefer external only when the required operation is
-   supported, and expose unsupported-provider cases honestly. Missing
-   capabilities in a healthy provider require an explicit compatibility or
-   recovery choice, not silent substitution of the bundled provider.
-4. Implement recovery transitions, dependency isolation and bundled gettext.
-   Verify failure handling before, during and after an interrupted transaction.
-5. Add the ICU adapter and private fallback independently; verify regex,
-   transliteration, locale conversion and section/sort consistency.
-6. Complete Settings explanations and all existing UI locales, package checks,
-   and narrowly scoped rooted/rootless runtime acceptance where necessary.
+| Phase | Deliverable | Exit condition |
+| --- | --- | --- |
+| 1. Contracts and policy | Versioned worker/account capability models, explicit-choice migration, clean inherited configuration and removal of English diagnostic control flow | Saved choices survive; absence means inheritance; errors are structured; no silent engine changes |
+| 2. Remorix packages | Localized APT/dpkg, published distribution policy, Darwin ABI/path metadata and an optional versioned adapter | CLI catalogs work; dependencies and rooted/rootless artifacts match policy; installing Cydia does not replace another distribution with Remorix |
+| 3. Isolate current APT | Put bundled APT behind the worker boundary and update helper/lock ownership | Existing review, multiarch, source preflight, hooks, state updates and bootstrap protections remain correct |
+| 4. Prefer external APT | Remorix and other tested distribution adapters, coherent operation ownership and provider-change invalidation | Healthy supported external providers win; strict and permissive distribution behavior is preserved; unsupported is distinct from broken |
+| 5. Recovery and ICU | Private recovery dependency closure and gettext; independent ICU adapter and fallback | Failure handling works before/during/after interrupted operations; no mid-transaction switching; sorting, sections and transliteration remain coherent |
+| 6. Commercial sources | URL redaction first, native accounts, accepted callbacks, entitlement and generic acquisition integration; optional Remorix CLI helper | Public refresh, free retrieval and owned paid retrieval have separate gates; secrets remain scoped; unsupported vendors are identified honestly |
+| 7. UI and release acceptance | Settings, all existing Cydia UI locales, package install/upgrade/remove checks and focused runtime verification | Clear provider/account states, unchanged ordinary Sources UX, package ID `cydia` and safe drop-in upgrade/removal |
+
+Phases 2 and 3 can proceed independently after the contract is fixed; the ICU
+work can also proceed after its interface is defined. Full inheritance of
+compiled distribution behavior arrives with phase 4, not the configuration
+cleanup alone. Missing capabilities in a healthy provider require an explicit
+compatibility or recovery choice, not silent bundled-provider substitution.
+Havoc paid support remains a separate external compatibility gate.
 
 Potential behavior changes include distribution-specific dependency solutions
 and security decisions, restored expiry checking when the distribution enables
 it, localized upstream errors, different Unicode sorting, larger private
-recovery payloads, and queue invalidation after provider changes. Do not erase
-saved user overrides or silently replace distribution policy during migration.
+recovery payloads, queue invalidation after provider changes, and explicit
+sign-in/unavailable states instead of generic failures for paid packages.
+Do not erase saved user overrides or silently replace distribution policy
+during migration.
 
 Acceptance must include healthy external preference; missing, unloadable and
 unsupported providers as distinct cases; provider updates between review and
@@ -217,6 +372,24 @@ automatic-state parity; source preflight parity; no fallback on ordinary repo
 or resolver errors; unchanged bootstrap files on install/removal; working
 recovery without external APT/ICU dependencies; and upstream message catalogs
 without localized prose controlling execution.
+
+Commercial-source acceptance must separately verify signature-checked public
+refresh, free archive retrieval and an already-owned paid archive using an
+authorized account. Cover login/purchase cancellation, unsupported callbacks
+or clients, endpoint changes, unsolicited/replayed callbacks, expired/revoked
+grants, exact foreign-architecture selection, redirects, redaction and
+hash/layout failure handling with both external and recovery providers.
+Use fixtures for ordinary failure cases; do not make a
+purchase or transmit a device identity solely for an automated test. A vendor
+capability is not complete until its own authorized end-to-end gate passes.
+
+Validate Remorix packaging statically first, then use the smallest relevant
+build and inspect the resulting metadata, catalogs and Mach-O dependencies.
+Retain the existing build machines. Use real devices only for gaps that depend
+on device behavior: general/rooted checks on an iPad, rootless or iPhone-specific
+checks on an iPhone. New Cydia-owned UI strings cover the existing 21 locales;
+APT/dpkg diagnostics remain upstream translations, with untranslated upstream
+messages allowed to fall back normally.
 
 ## Upstream references
 
@@ -229,3 +402,13 @@ without localized prose controlling execution.
 - [ICU design and compatibility](https://unicode-org.github.io/icu/userguide/icu/design)
 - [ICU library isolation](https://unicode-org.github.io/icu/userguide/icu4c/packaging.html)
 - [ICU data packaging](https://unicode-org.github.io/icu/userguide/icu_data/)
+- [Havoc supported package managers](https://docs.havoc.app/docs/help/package_managers/)
+- [Havoc purchased-package downloads](https://docs.havoc.app/docs/help/how_to_download/)
+- [Havoc 418 troubleshooting](https://docs.havoc.app/docs/help/common_errors/418_error/)
+- [Havoc seller DRM API](https://docs.havoc.app/docs/seller/drm/)
+- [Chariz purchase and package-manager FAQ](https://docs.chariz.com/help/faq)
+- [Payment-provider protocol](https://developer.getsileo.app/payment-providers)
+- [Zebra payment-provider extensions](https://github.com/zbrateam/Zebra/blob/v1/docs/Payment-Providers-Extensions.md)
+- [Zebra payment-provider implementation](https://github.com/zbrateam/Zebra/blob/v1/Zebra/Tabs/Sources/Helpers/ZBPaymentVendor.m)
+- [APT scoped repository/proxy credentials](https://manpages.debian.org/trixie/apt/apt_auth.conf.5.en.html)
+- [APT HTTP transport](https://manpages.debian.org/trixie/apt/apt-transport-http.1.en.html)
