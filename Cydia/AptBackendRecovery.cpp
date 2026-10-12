@@ -97,8 +97,8 @@ bool Matches(pkgAcqArchive &archive, pkgCache::VerIterator version,
         equal("Target-Architecture", version.Arch()) &&
         equal("Target-Type", flExtension(record.FileName())) &&
         equal("Target-Component", file.File()->Component ? file.File().Component() : "") &&
-        equal("Target-Codename", !release.end() && release->Codename ? release.Codename() : "") &&
-        equal("Target-Suite", !release.end() && release->Archive ? release.Archive() : "");
+        equal("Target-Codename", !release.end() && release.Codename() ? release.Codename() : "") &&
+        equal("Target-Suite", !release.end() && release.Archive() ? release.Archive() : "");
 }
 }
 
