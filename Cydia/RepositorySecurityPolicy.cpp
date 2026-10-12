@@ -36,6 +36,17 @@ const char *RepositorySecurityModeName(RepositorySecurityMode mode) {
     return "warning";
 }
 
+bool IsRepositorySecurityModeName(const std::string &value) {
+    return value == "allow" || value == "warning" || value == "error" || value == "distribution";
+}
+
+RepositorySecurityMode EffectiveRepositorySecurityMode(const std::string &savedPreference,
+                                                       bool selectedExternalProviderReady) {
+    if (IsRepositorySecurityModeName(savedPreference))
+        return RepositorySecurityModeFromString(savedPreference);
+    return selectedExternalProviderReady ? RepositorySecurityMode::Distribution : DefaultRepositorySecurityMode();
+}
+
 bool AllowsInsecureRepositories(RepositorySecurityMode mode) {
     return mode == RepositorySecurityMode::Allow ||
         mode == RepositorySecurityMode::Warning;

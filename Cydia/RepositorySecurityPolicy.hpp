@@ -21,6 +21,12 @@ enum class RepositorySecurityMode {
 RepositorySecurityMode DefaultRepositorySecurityMode();
 RepositorySecurityMode RepositorySecurityModeFromString(const std::string &value);
 const char *RepositorySecurityModeName(RepositorySecurityMode mode);
+bool IsRepositorySecurityModeName(const std::string &value);
+/* Empty or invalid stored values mean no explicit choice. Inheritance becomes
+ * the default only after a supported external provider is selected and ready;
+ * resolving this value never turns an absent preference into a saved choice. */
+RepositorySecurityMode EffectiveRepositorySecurityMode(const std::string &savedPreference,
+                                                       bool selectedExternalProviderReady);
 bool AllowsInsecureRepositories(RepositorySecurityMode mode);
 
 /* APT authentication status alone cannot distinguish an untrusted source

@@ -1087,6 +1087,160 @@ void VerifyPackageLayoutPrefix() {
     gRuntimeDescriptorFixture = false; gRuntimeFixture = RuntimeFixture::Default;
 }
 
+CydiaAPT::RuntimeDescriptor ExternalRuntimeFixture() {
+    CydiaAPT::RuntimeDescriptor d;
+    d.binding.providerIdentifier = "fixture-provider";
+    d.binding.session = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    d.binding.libraryIdentity = "sha256:fixture-library";
+    d.binding.frontendIdentity = "sha256:fixture-frontend";
+    d.binding.configurationIdentity = "sha256:fixture-config";
+    d.binding.policyIdentity = "sha256:fixture-policy";
+    d.binding.methodsIdentity = "sha256:fixture-methods";
+    d.binding.packageStateIdentity = "sha256:fixture-state";
+    d.architecture = "iphoneos-arm64";
+    d.registeredArchitectures = {d.architecture, "iphoneos-arm64e"};
+    d.acquisitionArchitectures = {d.architecture, "apt-policy-arch", "all"};
+    d.sourceListPath = "/selected/etc/apt/sources.list";
+    d.sourcePartsDirectory = "/selected/etc/apt/sources.list.d";
+    d.managedSourceListPath = d.sourcePartsDirectory + "/cydia.list";
+    d.dpkgExecutablePath = "/selected/usr/bin/dpkg";
+    d.dpkgQueryExecutablePath = "/selected/usr/bin/dpkg-query";
+    d.dpkgDebExecutablePath = "/selected/usr/bin/dpkg-deb";
+    d.gpgExecutablePath = "/selected/usr/bin/gpg";
+    d.aptConfigOverride = "/selected/etc/apt/apt.conf";
+    d.privilegedHelperPath = "/selected/usr/libexec/cydo";
+    d.dpkgAdminDirectory = "/selected/var/lib/dpkg";
+    d.dpkgRootDirectory = "/selected";
+    d.packageInstallPrefix = "/";
+    d.dpkgChrootDirectory = "/";
+    d.dpkgOptions = {"--force-confdef"};
+    d.extendedStatesPath = "/selected/var/lib/apt/extended_states";
+    d.methodsDirectory = "/selected/usr/lib/apt/methods";
+    d.listsDirectory = "/selected/var/lib/apt/lists";
+    d.trustedKeyringPath = "/selected/etc/apt/trusted.gpg";
+    d.trustedKeyringPartsDirectory = "/selected/etc/apt/trusted.gpg.d";
+    d.repositorySecurityMode = CydiaAPT::RepositorySecurityMode::Distribution;
+    d.mutationEnvironmentValid = true;
+    return d;
+}
+
+void VerifyRuntimeDescriptorValidation() {
+    using namespace CydiaAPT;
+    const RuntimeDescriptor good(ExternalRuntimeFixture());
+    std::string error;
+    Expect(ValidateRuntimeDescriptor(good, good.binding, &error) && error.empty(), "coherent external runtime descriptor");
+    RuntimeDescriptor changed(good);
+    changed.binding.packageStateIdentity += "-changed";
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error) && error == "runtime_descriptor_binding_mismatch",
+        "descriptor must match independently supplied package-state binding");
+    changed = good; changed.binding.session = "short";
+    Expect(!ValidateRuntimeDescriptor(changed, changed.binding, &error), "descriptor rejects malformed session");
+    changed = good; changed.binding.policyIdentity = "https://repo.invalid/?token=secret";
+    Expect(!ValidateRuntimeDescriptor(changed, changed.binding, &error), "identity fields reject arbitrary diagnostics");
+    changed = good; changed.registeredArchitectures.push_back("all");
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "all is an acquisition architecture, not a registered foreign architecture");
+    changed = good; changed.acquisitionArchitectures.push_back(changed.architecture);
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "duplicate acquisition architectures rejected");
+    changed = good; changed.registeredArchitectures = {"iphoneos-arm64e", changed.architecture};
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "registered native architecture comes first");
+    changed = good; changed.sourceListPath = "/selected/../other/sources.list";
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "descriptor requires normalized absolute paths");
+    changed = good; changed.dpkgExecutablePath.clear();
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "descriptor requires complete executable paths");
+    changed = good; changed.managedSourceListPath = "/other/cydia.list";
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "managed source cannot escape selected source parts");
+    changed = good; changed.managedSourceListPath = changed.sourcePartsDirectory + "/invalid name.list";
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "managed source name follows APT input rules");
+    changed = good; changed.sourcePartsDirectory = "/"; changed.managedSourceListPath = "/cydia.list";
+    Expect(ValidateRuntimeDescriptor(changed, good.binding, &error), "descriptor validates parent coherence without inventing source path policy");
+    changed = good; changed.sourceListPath.clear(); changed.sourcePartsDirectory.clear(); changed.managedSourceListPath.clear();
+    Expect(ValidateRuntimeDescriptor(changed, good.binding, &error), "disabled source inputs remain representable");
+    changed = good; changed.dpkgOptions.push_back(std::string("--bad\0option", 12));
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "descriptor argv rejects embedded NUL");
+    changed = good; changed.runtimeErrorCode = "unexpected_error";
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "usable descriptor cannot retain a mutation error");
+    changed.mutationEnvironmentValid = false;
+    Expect(ValidateRuntimeDescriptor(changed, good.binding, &error), "read-only descriptor retains stable failure status");
+    changed.runtimeErrorCode = "https://repo.invalid/secret";
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "diagnostic text cannot masquerade as stable error code");
+    changed = good; changed.origin = RuntimeDescriptorOrigin::Embedded;
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "embedded snapshot cannot be adopted as external");
+}
+
+void ExpectSelectedRuntimeGetters(const CydiaAPT::RuntimeDescriptor &d) {
+    using namespace CydiaAPT;
+    Expect(Architecture() == d.architecture && RegisteredArchitectures() == d.registeredArchitectures &&
+        Architectures() == d.acquisitionArchitectures, "selected architecture getters are coherent");
+    Expect(SourceListPath() == d.sourceListPath && SourcePartsDirectory() == d.sourcePartsDirectory &&
+        ManagedSourceListPath() == d.managedSourceListPath, "selected source getters are coherent");
+    Expect(DpkgExecutablePath() == d.dpkgExecutablePath && DpkgQueryExecutablePath() == d.dpkgQueryExecutablePath &&
+        DpkgDebExecutablePath() == d.dpkgDebExecutablePath && GpgExecutablePath() == d.gpgExecutablePath &&
+        PrivilegedHelperPath() == d.privilegedHelperPath, "selected tools do not consult embedded configuration");
+    Expect(AptConfigOverride() == d.aptConfigOverride && DpkgAdminDirectory() == d.dpkgAdminDirectory &&
+        DpkgRootDirectory() == d.dpkgRootDirectory && PackageInstallPrefix() == d.packageInstallPrefix &&
+        DpkgChrootDirectory() == d.dpkgChrootDirectory && DpkgOptions() == d.dpkgOptions,
+        "selected execution and layout getters are coherent");
+    Expect(ExtendedStatesPath() == d.extendedStatesPath && MethodsDirectory() == d.methodsDirectory &&
+        ListsDirectory() == d.listsDirectory && TrustedKeyringDirectory() == d.trustedKeyringPath &&
+        TrustedKeyringPartsDirectory() == d.trustedKeyringPartsDirectory, "selected state and trust paths are coherent");
+    Expect(GetRepositorySecurityMode() == d.repositorySecurityMode && MutationEnvironmentValid() == d.mutationEnvironmentValid &&
+        RuntimeError() == d.runtimeError && RuntimeErrorCode() == d.runtimeErrorCode, "selected status and policy getters are coherent");
+}
+
+void VerifyRuntimeDescriptorSelection(const CydiaAPT::InitializationOptions &options, Configuration &configuration) {
+    using namespace CydiaAPT;
+    const auto embedded(ReadRuntimeDescriptor());
+    Expect(!ActiveRuntimeDescriptor() && embedded->origin == RuntimeDescriptorOrigin::Embedded && embedded->binding.session.empty(),
+        "embedded snapshot has no invented external session binding");
+    ExpectSelectedRuntimeGetters(*embedded);
+    RuntimeDescriptor external(ExternalRuntimeFixture());
+    RuntimeDescriptorBinding wrong(external.binding); wrong.methodsIdentity += "-changed";
+    std::string error;
+    Expect(!AdoptRuntimeDescriptor(external, wrong, &error) && !ActiveRuntimeDescriptor(),
+        "failed validation cannot partially select external runtime");
+    const int configCalls(gConfigInitCalls), systemCalls(gSystemInitCalls);
+    const std::string configPolicy(configuration.Find("Cydia::RepositorySecurityMode"));
+    const std::string configDpkg(configuration.Find("Dir::Bin::dpkg"));
+    Expect(AdoptRuntimeDescriptor(external, external.binding, &error) && error.empty(), "explicit runtime selection");
+    const auto held(ActiveRuntimeDescriptor());
+    Expect(held && ReadRuntimeDescriptor() == held && !CachedRepositoryTrustValid(), "adoption publishes one untrusted immutable snapshot");
+    ExpectSelectedRuntimeGetters(*held);
+    Expect(IsArchitectureSupported("iphoneos-arm64e") && IsArchitectureSupported("all") && !IsArchitectureSupported("apt-policy-arch") &&
+        SourceArchitectureOption() == "[arch=iphoneos-arm64,apt-policy-arch,all]", "registered support differs from acquisition policy");
+    external.architecture = "caller-modified"; external.sourceListPath.clear();
+    Expect(Architecture() == held->architecture && !SourceListPath().empty(), "adoption owns a copy of caller data");
+    Expect(!SetRepositorySecurityMode(RepositorySecurityMode::Allow) && !SetCachedRepositoryTrustValid(true) &&
+        !RefreshArchitectures() && !Initialize(options, NULL), "legacy embedded mutators cannot change selected runtime");
+    Expect(gConfigInitCalls == configCalls && gSystemInitCalls == systemCalls &&
+        configuration.Find("Cydia::RepositorySecurityMode") == configPolicy && configuration.Find("Dir::Bin::dpkg") == configDpkg,
+        "refused embedded mutations leave APT configuration untouched");
+    Expect(!SetRuntimeDescriptorTrustValid(wrong, true) && !CachedRepositoryTrustValid(), "trust proof requires exact current binding");
+    Expect(SetRuntimeDescriptorTrustValid(held->binding, true) && CachedRepositoryTrustValid(), "verified selected trust proof is separate evidence");
+    Expect(!AdoptRuntimeDescriptor(*held, held->binding, &error) && error == "runtime_selection_active", "selection cannot be replaced implicitly");
+    const RuntimeDescriptor savedEmbedded(ReadEmbeddedRuntimeDescriptor());
+    Expect(savedEmbedded.sourceListPath == embedded->sourceListPath && savedEmbedded.dpkgExecutablePath == embedded->dpkgExecutablePath &&
+        savedEmbedded.gpgExecutablePath == embedded->gpgExecutablePath && savedEmbedded.repositorySecurityMode == embedded->repositorySecurityMode,
+        "embedded export never substitutes selected getters");
+    ResetRuntimeDescriptor();
+    Expect(!ActiveRuntimeDescriptor() && !MutationEnvironmentValid() && !CachedRepositoryTrustValid() &&
+        RuntimeErrorCode() == "runtime_reinitialization_required" && !RefreshArchitectures(),
+        "reset requires fresh embedded initialization before mutations");
+    Expect(held->architecture == "iphoneos-arm64" && held->sourceListPath == "/selected/etc/apt/sources.list",
+        "held immutable snapshot survives reset");
+    Expect(!SetRuntimeDescriptorTrustValid(held->binding, true), "reset revokes old trust binding");
+    external = ExternalRuntimeFixture(); external.mutationEnvironmentValid = false;
+    external.runtimeErrorCode = "state_unavailable";
+    external.runtimeError = "Failed https://user:secret@repo.invalid/token-path?token=private";
+    Expect(AdoptRuntimeDescriptor(external, external.binding, &error) &&
+        RuntimeError() == "Failed https://repo.invalid/[redacted]" && !MutationEnvironmentValid(),
+        "selected read-only diagnostics retain status without leaking URL credentials");
+    ResetRuntimeDescriptor();
+    Expect(Initialize(options, NULL), "explicit embedded reinitialization after reset");
+    ExpectSelectedRuntimeGetters(*ReadRuntimeDescriptor());
+    Expect(MutationEnvironmentValid() == embedded->mutationEnvironmentValid && RuntimeErrorCode() == embedded->runtimeErrorCode,
+        "reinitialization restores newly evaluated embedded status");
+}
+
 int main(int argc, char **argv) {
     /* The same portable test binary acts as an unprivileged dpkg fixture;
      * executable paths are discovered at runtime, never saved in the repo. */
@@ -1112,6 +1266,7 @@ int main(int argc, char **argv) {
     const char *originalPath(std::getenv("PATH"));
     const bool hadPath(originalPath != NULL);
     const std::string savedPath(hadPath ? originalPath : "");
+    VerifyRuntimeDescriptorValidation();
     VerifyCompressionToolDiscovery(false, false);
     VerifyCompressionToolDiscovery(true, false);
     VerifyCompressionToolDiscovery(false, true);
@@ -1193,6 +1348,7 @@ int main(int argc, char **argv) {
            "invalid managed sourceparts remains effective");
     Expect(CydiaAPT::ManagedSourceListPath().empty(),
            "invalid managed source is disabled");
+    VerifyRuntimeDescriptorSelection(options, invalid);
     Expect(getenv("DPKG_ROOT") != NULL && strcmp(getenv("DPKG_ROOT"), "cydia-test-sentinel") == 0,
            "APT initialization must not change DPKG_ROOT");
 

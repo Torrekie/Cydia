@@ -16,6 +16,7 @@
 @class Database;
 
 namespace CydiaAPT {
+namespace Provider { struct ProgressEvent; }
 namespace Internal {
 
 class AcquireStatus {
@@ -24,6 +25,10 @@ class AcquireStatus {
     virtual pkgAcquireStatus &raw() = 0;
     virtual bool wasCancelled() const = 0;
     virtual void setDelegate(NSObject *delegate);
+    virtual void beginProviderOperation(bool cancellable) = 0;
+    virtual void updateProviderProgress(const Provider::ProgressEvent &event) = 0;
+    virtual bool pollProviderCancellation() = 0;
+    virtual void endProviderOperation() = 0;
 };
 
 std::unique_ptr<AcquireStatus> CreateProgressStatus();

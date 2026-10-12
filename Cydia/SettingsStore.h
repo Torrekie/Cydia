@@ -3,8 +3,17 @@
 #define Cydia_SettingsStore_H
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 /* App preferences are deliberately independent of APT's source documents. */
+/* Nil means no valid explicit choice was saved. These readers never persist
+ * defaults, so a saved Warning remains distinguishable from absence. */
+NSString * _Nullable CydiaExplicitRepositorySecurityPreference(void);
+NSString *CydiaEffectiveRepositorySecurityPreference(BOOL selectedExternalProviderReady);
+/* Compatibility accessor for startup before external-provider activation. */
 NSString *CydiaRepositorySecurityPreference(void);
 BOOL CydiaSetRepositorySecurityPreference(NSString *value);
+
+NS_ASSUME_NONNULL_END
 
 #endif

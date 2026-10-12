@@ -8,7 +8,9 @@
 #define Cydia_AptRuntime_HPP
 
 #include "Cydia/RepositorySecurityPolicy.hpp"
+#include "Cydia/AptRuntimeDescriptor.hpp"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -50,16 +52,34 @@ struct InitializationOptions {
  * architecture.  The implementation is the only place that calls the APT
  * init/configuration API. */
 bool Initialize(const InitializationOptions &options, std::string *architecture);
+/* All selection APIs require Database serialization, closed caches and no
+ * active operation. Adoption never initializes or alters embedded APT. The
+ * coordinator must independently verify authority before supplying binding.
+ * A second adoption requires explicit reset and fresh review/cache state.
+ * Legacy getters returning references have the same serialization requirement;
+ * use a held immutable snapshot when a value must survive a selection change. */
+bool AdoptRuntimeDescriptor(const RuntimeDescriptor &descriptor,
+    const RuntimeDescriptorBinding &verifiedBinding, std::string *errorCode = nullptr);
+void ResetRuntimeDescriptor();
+/* Null until an external descriptor has been adopted. ReadRuntimeDescriptor
+ * also exports an immutable copy of the embedded snapshot when unselected.
+ * Embedded exports have no verified provider/session binding. */
+std::shared_ptr<const RuntimeDescriptor> ActiveRuntimeDescriptor();
+std::shared_ptr<const RuntimeDescriptor> ReadRuntimeDescriptor();
+RuntimeDescriptor ReadEmbeddedRuntimeDescriptor();
+/* Trust is mutable coordinator evidence, not descriptor data. Updating it
+ * requires the exact selected provider/configuration/policy/state binding. */
+bool SetRuntimeDescriptorTrustValid(const RuntimeDescriptorBinding &binding, bool valid);
 /* Process-local overrides only: no other frontend's apt.conf is modified.
  * Call the setter under Database's serialization boundary, outside an active
  * acquisition, since APT's configuration is process-global. Distribution
  * restores the independent settings captured from this runtime's clean
  * initialization, including absent values and the provider's defaults. */
-void SetRepositorySecurityMode(RepositorySecurityMode mode);
+bool SetRepositorySecurityMode(RepositorySecurityMode mode);
 RepositorySecurityMode GetRepositorySecurityMode();
 /* Only a completed metadata refresh may establish the current process's
  * trust proof. Reloading caches or changing policy must not renew it. */
-void SetCachedRepositoryTrustValid(bool valid);
+bool SetCachedRepositoryTrustValid(bool valid);
 bool CachedRepositoryTrustValid();
 /* Selected native architecture. APT's startup fallback remains available
  * for read-only use if initial dpkg discovery fails. */

@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/SettingsStore.h"
+#include "Cydia/RepositorySecurityPolicy.hpp"
 
 namespace {
 NSObject *SettingsLock() {
@@ -16,6 +17,13 @@ NSMutableDictionary *ReadSettings() {
         [NSMutableDictionary dictionary];
 }
 
+bool IsSecurityPreference(id value) {
+    if (![value isKindOfClass:[NSString class]]) return false;
+    const char *bytes([value UTF8String]);
+    return bytes != nullptr && CydiaAPT::IsRepositorySecurityModeName(
+        std::string(bytes, [value lengthOfBytesUsingEncoding:NSUTF8StringEncoding]));
+}
+
 BOOL WriteSettings(NSDictionary *settings) {
     id previous(CFBridgingRelease(CFPreferencesCopyAppValue(
         CFSTR("CydiaSettings"), CFSTR("com.saurik.Cydia"))));
@@ -29,15 +37,25 @@ BOOL WriteSettings(NSDictionary *settings) {
 }
 }
 
-NSString *CydiaRepositorySecurityPreference() {
+NSString *CydiaExplicitRepositorySecurityPreference() {
     @synchronized (SettingsLock()) {
         id value(ReadSettings()[@"RepositorySecurity"]);
-        return [@[@"distribution", @"allow", @"warning", @"error"] containsObject:value] ? value : @"warning";
+        return IsSecurityPreference(value) ? value : nil;
     }
 }
 
+NSString *CydiaEffectiveRepositorySecurityPreference(BOOL selectedExternalProviderReady) {
+    NSString *saved(CydiaExplicitRepositorySecurityPreference());
+    const auto mode(CydiaAPT::EffectiveRepositorySecurityMode([saved UTF8String] ?: "", selectedExternalProviderReady));
+    return [NSString stringWithUTF8String:CydiaAPT::RepositorySecurityModeName(mode)];
+}
+
+NSString *CydiaRepositorySecurityPreference() {
+    return CydiaEffectiveRepositorySecurityPreference(NO);
+}
+
 BOOL CydiaSetRepositorySecurityPreference(NSString *value) {
-    if (![@[@"distribution", @"allow", @"warning", @"error"] containsObject:value]) return NO;
+    if (!IsSecurityPreference(value)) return NO;
     @synchronized (SettingsLock()) {
         NSMutableDictionary *settings(ReadSettings());
         settings[@"RepositorySecurity"] = value;

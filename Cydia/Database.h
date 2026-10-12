@@ -122,18 +122,6 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (NSString *) sourceLoadDiagnostic;
 - (Source *) sourceWithKey:(NSString *)key;
 - (Source *) sourceWithFileID:(unsigned long)identifier;
-- (std::vector<CydiaAPT::SourceHandle>) sourceHandles;
-- (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle;
-- (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name;
-- (std::vector<std::uint32_t>) sourceFileIDs:(CydiaAPT::SourceHandle)handle;
-// Off-main-thread under the settings-change gate and database monitor, so all
-// source checks and discovery use the same backend as cache/transactions.
-- (CydiaAPT::SourcePreflightResult) sourcePreflight:(const CydiaAPT::SourcePreflightRequest &)request
-    cancelled:(const std::function<bool()> &)cancelled;
-- (CydiaAPT::SourceResourceResult) sourceResource:(const CydiaAPT::SourceResourceRequest &)request
-    cancelled:(const std::function<bool()> &)cancelled;
-- (CydiaAPT::SourceDiscoveryResult) discoverSourceOptions:(const std::string &)uri
-    temporaryParent:(const std::string &)temporaryParent cancelled:(const std::function<bool()> &)cancelled;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 
 - (void) clear;
@@ -155,6 +143,21 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (void) resetFetch;
 - (NSString *) mappedSectionForPointer:(const char *)pointer;
 
+@end
+
+@interface Database (SourceOperations)
+- (std::vector<CydiaAPT::SourceHandle>) sourceHandles;
+- (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle;
+- (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name;
+- (std::vector<std::uint32_t>) sourceFileIDs:(CydiaAPT::SourceHandle)handle;
+// Off-main-thread under the settings-change gate and database monitor, so all
+// source checks and discovery use the same backend as cache/transactions.
+- (CydiaAPT::SourcePreflightResult) sourcePreflight:(const CydiaAPT::SourcePreflightRequest &)request
+    cancelled:(const std::function<bool()> &)cancelled;
+- (CydiaAPT::SourceResourceResult) sourceResource:(const CydiaAPT::SourceResourceRequest &)request
+    cancelled:(const std::function<bool()> &)cancelled;
+- (CydiaAPT::SourceDiscoveryResult) discoverSourceOptions:(const std::string &)uri
+    temporaryParent:(const std::string &)temporaryParent cancelled:(const std::function<bool()> &)cancelled;
 @end
 
 #endif//Cydia_Database_H

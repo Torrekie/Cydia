@@ -25,6 +25,19 @@ Its reviewed-execution model requires exact actions and archive evidence before
 authorizing a dpkg batch; production parent execution and runtime activation
 remain separate integration work.
 
+Runtime getters can read one immutable, explicitly adopted provider descriptor.
+Embedded mutation setters refuse while that descriptor is active, and resetting
+it requires fresh embedded initialization before package changes. Trust and
+transaction snapshots include selected provider identity. An absent repository
+security preference remains distinct from a saved Warning choice.
+
+Parent-side dpkg evidence uses bounded structured queries and exact state
+transition checks. Protected evidence may still need the existing Cydia helper
+when the app cannot read it directly; unreadable evidence rejects the operation.
+Unknown trigger/deconfiguration effects are not guessed. The provider progress
+bridge reuses native progress and cancellation controls. These interfaces do
+not activate a provider or grant execution authority by themselves.
+
 Cydia-owned locale conversion and regular expressions prefer validated
 bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
 entirely Apple-owned. Optional private ICU and libintl loading interfaces do

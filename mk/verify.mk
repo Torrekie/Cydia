@@ -79,6 +79,8 @@ APT_MESSAGES_TEST := $(BUILD_DIR)/tests/AptMessagesTests
 APT_PROVIDER_TEST := $(BUILD_DIR)/tests/AptProviderProtocolTests
 APT_PROVIDER_SESSION_TEST := $(BUILD_DIR)/tests/AptProviderSessionTests
 APT_PROVIDER_REVIEW_TEST := $(BUILD_DIR)/tests/AptProviderReviewTests
+APT_PROVIDER_DPKG_STATE_TEST := $(BUILD_DIR)/tests/AptProviderDpkgStateTests
+PROVIDER_PROGRESS_TEST := $(BUILD_DIR)/tests/ProviderProgressPolicyTests
 APT_BACKEND_FACADE_TEST := $(BUILD_DIR)/tests/AptBackendFacadeTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 PACKAGE_ARCHIVE_POLICY_TEST := $(BUILD_DIR)/tests/PackageArchivePolicyTests
@@ -170,11 +172,23 @@ $(APT_PROVIDER_REVIEW_TEST): tests/AptProviderReviewTests.cpp Cydia/AptProviderR
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
 		tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderProtocol.cpp \
 		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -o $@
-verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_PROVIDER_SESSION_TEST) $(APT_BACKEND_FACADE_TEST) $(APT_PROVIDER_REVIEW_TEST)
+$(PROVIDER_PROGRESS_TEST): tests/ProviderProgressPolicyTests.cpp Cydia/ProviderProgressPolicy.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $< -o $@
+$(APT_PROVIDER_DPKG_STATE_TEST): tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp \
+		Cydia/AptProviderDpkgState.hpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \
+		Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp \
+		Cydia/AptProviderProtocol.cpp Cydia/ExtendedState.cpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp -o $@
+verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_PROVIDER_SESSION_TEST) $(APT_BACKEND_FACADE_TEST) $(APT_PROVIDER_REVIEW_TEST) $(APT_PROVIDER_DPKG_STATE_TEST) $(PROVIDER_PROGRESS_TEST)
 	@$<
 	@$(APT_PROVIDER_SESSION_TEST)
 	@$(APT_BACKEND_FACADE_TEST)
 	@$(APT_PROVIDER_REVIEW_TEST)
+	@$(APT_PROVIDER_DPKG_STATE_TEST)
+	@$(PROVIDER_PROGRESS_TEST)
 
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
@@ -347,6 +361,7 @@ verify-dpkg-version-policy: $(DPKG_VERSION_POLICY_TEST)
 	@$<
 
 $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntime.hpp \
+        Cydia/AptRuntimeDescriptor.cpp Cydia/AptRuntimeDescriptor.hpp \
         apt-extra/gnutls/gnutls.h \
 		Cydia/RepositorySecurityPolicy.cpp Cydia/RepositorySecurityPolicy.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
@@ -357,7 +372,7 @@ $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRun
 		tests/apt-stubs/apt-pkg/pkgsystem.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Itests/apt-stubs -I. \
-		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/RepositorySecurityPolicy.cpp \
+		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/DpkgRunner.cpp Cydia/PrivilegedRuntime.cpp \
 		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation) -o $@
 

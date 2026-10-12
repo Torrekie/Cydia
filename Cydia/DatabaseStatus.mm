@@ -9,8 +9,10 @@
 #include "Cydia/DatabaseStatusInternal.hpp"
 
 #include "Cydia/AptCompatibility.hpp"
+#include "Cydia/AptProviderProtocol.hpp"
 #include "Cydia/Database.h"
 #include "Cydia/ProgressEvent.h"
+#include "Cydia/ProviderProgressPolicy.hpp"
 #include "Cydia/RedactedURL.hpp"
 #include "CyteKit/Localize.h"
 
@@ -46,15 +48,36 @@ void AcquireStatus::setDelegate(NSObject *delegate) {
 
 namespace {
 
+NSString *ProviderText(const std::string &value) {
+    return [[NSString alloc] initWithBytes:value.data() length:value.size() encoding:NSUTF8StringEncoding] ?: @"";
+}
+
+void ProviderOnMain(dispatch_block_t action) {
+    if ([NSThread isMainThread]) action();
+    else dispatch_sync(dispatch_get_main_queue(), action);
+}
+
 class CancelStatus :
     public AcquireStatus,
     public pkgAcquireStatus
 {
   private:
     bool cancelled_;
+    Provider::ProgressCancellation providerCancellation_;
 
   protected:
     virtual bool Pulse_(pkgAcquire *owner) = 0;
+    virtual bool ProviderCancellationRequested() = 0;
+    virtual void ProviderStarted(bool cancellable) = 0;
+    virtual void ProviderUpdated(const Provider::ProgressEvent &event) = 0;
+    virtual void ProviderStopped() = 0;
+    bool UpdateProviderCancellation(bool cancellable) {
+        // Run this beside the delegate's cancellation-state mutation, so a
+        // button press queued on main is consumed before that state is reset.
+        (void) pollProviderCancellation();
+        providerCancellation_.SetCancellable(cancellable);
+        return providerCancellation_.cancellable();
+    }
 
   public:
     CancelStatus() : cancelled_(false) {
@@ -66,6 +89,30 @@ class CancelStatus :
 
     virtual bool wasCancelled() const {
         return cancelled_;
+    }
+
+    void beginProviderOperation(bool cancellable) override {
+        cancelled_ = false;
+        providerCancellation_.Begin(cancellable);
+        ProviderStarted(providerCancellation_.cancellable());
+    }
+
+    void updateProviderProgress(const Provider::ProgressEvent &event) override {
+        if (!providerCancellation_.active()) return;
+        ProviderUpdated(event);
+    }
+
+    bool pollProviderCancellation() override {
+        if (!providerCancellation_.active()) return false;
+        cancelled_ = providerCancellation_.Poll(ProviderCancellationRequested());
+        return cancelled_;
+    }
+
+    void endProviderOperation() override {
+        if (!providerCancellation_.active()) return;
+        (void) pollProviderCancellation();
+        ProviderStopped();
+        providerCancellation_.End();
     }
 
     virtual void Start() {
@@ -94,6 +141,48 @@ class CancelStatus :
 class ProgressStatus : public CancelStatus {
   private:
     __weak NSObject<ProgressDelegate> *delegate_;
+
+  protected:
+    bool ProviderCancellationRequested() override {
+        return [delegate_ isProgressCancelled];
+    }
+
+    void ProviderStarted(bool cancellable) override {
+        NSObject<ProgressDelegate> *delegate(delegate_);
+        ProviderOnMain(^{
+            // Turning cancellation off first clears a previous Requested state.
+            [delegate setProgressCancellable:@NO];
+            [delegate setProgressStatus:nil];
+            [delegate setProgressPercent:@(Provider::ProgressFraction(0, 0))];
+            [delegate setProgressCancellable:@(cancellable)];
+        });
+    }
+
+    void ProviderUpdated(const Provider::ProgressEvent &event) override {
+        NSObject<ProgressDelegate> *delegate(delegate_);
+        CydiaProgressEvent *message(nil);
+        if (!event.message.empty()) {
+            NSString *type(CydiaRedactedDiagnostic(ProviderText(event.type)));
+            if (type.length == 0) type = kCydiaProgressEventTypeStatus;
+            message = [CydiaProgressEvent eventWithMessage:ProviderText(event.message)
+                ofType:type forPackage:CydiaRedactedDiagnostic(ProviderText(event.package))];
+        }
+        ProviderOnMain(^{
+            const bool cancellable(UpdateProviderCancellation(event.cancellable));
+            if (message != nil) [delegate addProgressEvent:message];
+            [delegate setProgressPercent:@(Provider::ProgressFraction(event.current, event.total))];
+            [delegate setProgressCancellable:@(cancellable)];
+        });
+    }
+
+    void ProviderStopped() override {
+        NSObject<ProgressDelegate> *delegate(delegate_);
+        ProviderOnMain(^{
+            (void) pollProviderCancellation();
+            [delegate setProgressCancellable:@NO];
+            [delegate setProgressStatus:nil];
+        });
+    }
 
   public:
     ProgressStatus() : delegate_(nil) {
@@ -177,6 +266,32 @@ class SourceStatus : public CancelStatus {
         Set(fetch, item->DescURI());
     }
 
+  protected:
+    bool ProviderCancellationRequested() override {
+        NSObject<FetchDelegate> *delegate(delegate_);
+        __block bool cancelled(false);
+        // Source cancellation belongs to the tab bar's main-thread state.
+        ProviderOnMain(^{ cancelled = [delegate isSourceCancelled]; });
+        return cancelled;
+    }
+
+    void ProviderStarted(bool cancellable) override {
+        (void) cancellable;
+        fetches_.clear();
+        [database_ resetFetch];
+    }
+
+    void ProviderUpdated(const Provider::ProgressEvent &event) override {
+        // FetchDelegate has only per-URI activity callbacks. The protocol's
+        // package field is not a URI; final typed results carry diagnostics.
+        (void) UpdateProviderCancellation(event.cancellable);
+    }
+
+    void ProviderStopped() override {
+        fetches_.clear();
+        [database_ resetFetch];
+    }
+
   public:
     SourceStatus(NSObject<FetchDelegate> *delegate, Database *database) :
         delegate_(delegate),
@@ -246,6 +361,22 @@ Internal::AcquireStatus &AcquireStatus::implementation() {
 
 bool AcquireStatus::wasCancelled() const {
     return implementation_->wasCancelled();
+}
+
+void AcquireStatus::beginProviderOperation(bool cancellable) {
+    implementation_->beginProviderOperation(cancellable);
+}
+
+void AcquireStatus::updateProviderProgress(const Provider::ProgressEvent &event) {
+    implementation_->updateProviderProgress(event);
+}
+
+bool AcquireStatus::pollProviderCancellation() {
+    return implementation_->pollProviderCancellation();
+}
+
+void AcquireStatus::endProviderOperation() {
+    implementation_->endProviderOperation();
 }
 
 ProgressStatus::ProgressStatus() :

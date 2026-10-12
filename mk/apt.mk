@@ -73,6 +73,8 @@ apt_api_sources := \
     Cydia/AptAuthorizedArchives.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptProviderClient.cpp \
+    Cydia/AptProviderDpkgState.cpp \
+    Cydia/AptProviderDpkgStateCapture.cpp \
     Cydia/AptProviderProtocol.cpp \
     Cydia/AptProviderReview.cpp \
     Cydia/AptProviderSession.cpp \
@@ -93,10 +95,12 @@ apt_api_sources := \
     Cydia/RuntimeAccessController.mm \
     Cydia/RuntimeState.cpp \
     Cydia/SettingsController.mm \
+    Cydia/SettingsStore.mm \
     Cydia/ConfirmationController.mm \
     Cydia/ConfirmationControllerProbe.mm \
     Cydia/ConfirmationViewModel.mm \
     Cydia/Database.mm \
+    Cydia/Database+SourceOperations.mm \
     Cydia/DatabaseStatus.mm \
     Cydia/FetchDiagnostics.mm \
     Cydia/Package+Metadata.mm \

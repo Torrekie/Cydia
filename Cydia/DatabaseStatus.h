@@ -22,6 +22,7 @@
 namespace CydiaAPT {
 
 class AptBackend;
+namespace Provider { struct ProgressEvent; }
 
 namespace Internal {
 class AcquireStatus;
@@ -41,6 +42,15 @@ class AcquireStatus {
   public:
     virtual ~AcquireStatus();
     bool wasCancelled() const;
+    /* Serialized on the provider's operation thread. UI mutations are sent to
+     * the main thread; polling needs no libapt Pulse. Begin resets the previous
+     * operation's cancellation, and End retains wasCancelled() for its result.
+     * Set the initial cancellable flag explicitly for an acquisition; package
+     * execution stays non-cancellable until its provider says otherwise. */
+    void beginProviderOperation(bool cancellable = false);
+    void updateProviderProgress(const Provider::ProgressEvent &event);
+    bool pollProviderCancellation();
+    void endProviderOperation();
 };
 
 class ProgressStatus : public AcquireStatus {

@@ -8,6 +8,7 @@
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/PrivilegedRuntime.hpp"
+#include "Cydia/RedactedURL.hpp"
 
 #include <apt-pkg/aptconfiguration.h>
 #include <apt-pkg/configuration.h>
@@ -26,6 +27,11 @@
 namespace CydiaAPT {
 
 namespace {
+std::shared_ptr<const RuntimeDescriptor> gSelectedRuntime;
+bool gSelectedTrustValid(false);
+bool gEmbeddedNeedsInitialization(false);
+const std::string gReinitializationErrorCode("runtime_reinitialization_required");
+const std::string gReinitializationError("The embedded APT environment must be initialized again before changing packages.");
 std::string gArchitecture;
 std::vector<std::string> gArchitectures;
 std::vector<std::string> gRegisteredArchitectures;
@@ -147,6 +153,7 @@ void ResolveCompressionTools(const InitializationOptions &options) {
 }
 
 void ResetRuntimeState() {
+    gEmbeddedNeedsInitialization = true;
     gArchitecture.clear();
     gArchitectures.clear();
     gRegisteredArchitectures.clear();
@@ -566,6 +573,7 @@ void MaterializeArchitectures(const std::string &nativeArchitecture) {
 } // namespace
 
 bool Initialize(const InitializationOptions &options, std::string *architecture) {
+    if (gSelectedRuntime) return false;
     ResetRuntimeState();
     const char *aptConfig(std::getenv("APT_CONFIG"));
     gAptConfigOverride = aptConfig == NULL ? std::string() : aptConfig;
@@ -696,10 +704,89 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
 
     if (architecture != NULL)
         *architecture = gArchitecture;
+    gEmbeddedNeedsInitialization = false;
     return true;
 }
 
-void SetRepositorySecurityMode(RepositorySecurityMode mode) {
+RuntimeDescriptor ReadEmbeddedRuntimeDescriptor() {
+    // Do not use public getters here: they may describe a selected worker.
+    RuntimeDescriptor descriptor;
+    descriptor.origin = RuntimeDescriptorOrigin::Embedded;
+    descriptor.architecture = gArchitecture;
+    descriptor.registeredArchitectures = gRegisteredArchitectures;
+    descriptor.acquisitionArchitectures = gArchitectures;
+    descriptor.sourceListPath = gSourceListPath;
+    descriptor.sourcePartsDirectory = gSourcePartsDirectory;
+    descriptor.managedSourceListPath = gManagedSourceListPath;
+    descriptor.dpkgExecutablePath = gDpkgExecutablePath;
+    descriptor.dpkgQueryExecutablePath = gDpkgQueryExecutablePath;
+    descriptor.dpkgDebExecutablePath = gDpkgDebExecutablePath;
+    if (_config != NULL)
+        descriptor.gpgExecutablePath = _config->Find("Apt::Key::gpgcommand", _config->Find("Dir::Bin::gpg").c_str());
+    descriptor.aptConfigOverride = gAptConfigOverride;
+    descriptor.privilegedHelperPath = gPrivilegedHelperPath;
+    descriptor.dpkgAdminDirectory = gDpkgAdminDirectory;
+    descriptor.dpkgRootDirectory = gDpkgRootDirectory;
+    descriptor.packageInstallPrefix = gPackageInstallPrefix;
+    descriptor.dpkgChrootDirectory = gDpkgChrootDirectory;
+    descriptor.dpkgOptions = gDpkgOptions;
+    descriptor.extendedStatesPath = gExtendedStatesPath;
+    descriptor.methodsDirectory = gMethodsDirectory;
+    descriptor.listsDirectory = gListsDirectory;
+    descriptor.trustedKeyringPath = gTrustedKeyringDirectory;
+    descriptor.trustedKeyringPartsDirectory = gTrustedKeyringPartsDirectory;
+    descriptor.repositorySecurityMode = gRepositorySecurityMode;
+    descriptor.mutationEnvironmentValid = gMutationEnvironmentValid && !gArchitectureQueryFailed && !gEmbeddedNeedsInitialization;
+    descriptor.runtimeError = gEmbeddedNeedsInitialization ? gReinitializationError :
+        gRuntimeError.empty() && gArchitectureQueryFailed ? gArchitectureQueryError : gRuntimeError;
+    descriptor.runtimeErrorCode = gEmbeddedNeedsInitialization ? gReinitializationErrorCode :
+        gRuntimeErrorCode.empty() && gArchitectureQueryFailed ? gArchitectureQueryErrorCode : gRuntimeErrorCode;
+    return descriptor;
+}
+
+std::shared_ptr<const RuntimeDescriptor> ActiveRuntimeDescriptor() { return gSelectedRuntime; }
+
+std::shared_ptr<const RuntimeDescriptor> ReadRuntimeDescriptor() {
+    return gSelectedRuntime ? gSelectedRuntime :
+        std::make_shared<const RuntimeDescriptor>(ReadEmbeddedRuntimeDescriptor());
+}
+
+bool AdoptRuntimeDescriptor(const RuntimeDescriptor &descriptor,
+                            const RuntimeDescriptorBinding &verifiedBinding, std::string *errorCode) {
+    if (gSelectedRuntime) {
+        if (errorCode != NULL) *errorCode = "runtime_selection_active";
+        return false;
+    }
+    if (!ValidateRuntimeDescriptor(descriptor, verifiedBinding, errorCode)) return false;
+    RuntimeDescriptor copy(descriptor);
+    copy.runtimeError = CydiaRuntime::RedactDiagnosticURLs(copy.runtimeError);
+    // Build the complete immutable value before publishing it. Selection and
+    // legacy reference-returning getters share Database's serialization scope.
+    const auto selected(std::make_shared<const RuntimeDescriptor>(copy));
+    gSelectedTrustValid = false;
+    gSelectedRuntime = selected;
+    return true;
+}
+
+void ResetRuntimeDescriptor() {
+    if (!gSelectedRuntime) return;
+    gSelectedRuntime.reset();
+    gSelectedTrustValid = false;
+    gCachedRepositoryTrustValid = false;
+    if (_config != NULL) _config->Set("Cydia::CachedRepositoryTrustValid", false);
+    // A worker may have changed configuration or package state. Never resume
+    // mutations against the embedded runtime's stale pre-selection snapshot.
+    gEmbeddedNeedsInitialization = true;
+}
+
+bool SetRuntimeDescriptorTrustValid(const RuntimeDescriptorBinding &binding, bool valid) {
+    if (!gSelectedRuntime || !SameRuntimeDescriptorBinding(gSelectedRuntime->binding, binding)) return false;
+    gSelectedTrustValid = valid;
+    return true;
+}
+
+bool SetRepositorySecurityMode(RepositorySecurityMode mode) {
+    if (gSelectedRuntime || _config == NULL) return false;
     gRepositorySecurityMode = RepositorySecurityModeFromString(
         RepositorySecurityModeName(mode));
     RestoreDistributionSecurity();
@@ -707,7 +794,7 @@ void SetRepositorySecurityMode(RepositorySecurityMode mode) {
         // Absence disables Cydia's acquisition-policy patch. Keep each APT
         // setting independent, including its absence/compiled default.
         _config->Clear("Cydia::RepositorySecurityMode");
-        return;
+        return true;
     }
     const bool allow(AllowsInsecureRepositories(gRepositorySecurityMode));
     /* This process-local override is consumed by the bundled acquisition
@@ -717,32 +804,36 @@ void SetRepositorySecurityMode(RepositorySecurityMode mode) {
     _config->Set("Acquire::AllowInsecureRepositories", allow);
     _config->Set("Acquire::AllowWeakRepositories", allow);
     _config->Set("Acquire::AllowDowngradeToInsecureRepositories", allow);
+    return true;
 }
 
 RepositorySecurityMode GetRepositorySecurityMode() {
-    return gRepositorySecurityMode;
+    return gSelectedRuntime ? gSelectedRuntime->repositorySecurityMode : gRepositorySecurityMode;
 }
 
-void SetCachedRepositoryTrustValid(bool valid) {
+bool SetCachedRepositoryTrustValid(bool valid) {
+    if (gSelectedRuntime || _config == NULL) return false;
     gCachedRepositoryTrustValid = valid;
     _config->Set("Cydia::CachedRepositoryTrustValid", valid);
+    return true;
 }
 
-bool CachedRepositoryTrustValid() { return gCachedRepositoryTrustValid; }
+bool CachedRepositoryTrustValid() { return gSelectedRuntime ? gSelectedTrustValid : gCachedRepositoryTrustValid; }
 
 const std::string &Architecture() {
-    return gArchitecture;
+    return gSelectedRuntime ? gSelectedRuntime->architecture : gArchitecture;
 }
 
 const std::vector<std::string> &Architectures() {
-    return gArchitectures;
+    return gSelectedRuntime ? gSelectedRuntime->acquisitionArchitectures : gArchitectures;
 }
 
 const std::vector<std::string> &RegisteredArchitectures() {
-    return gRegisteredArchitectures;
+    return gSelectedRuntime ? gSelectedRuntime->registeredArchitectures : gRegisteredArchitectures;
 }
 
 bool RefreshArchitectures() {
+    if (gSelectedRuntime || gEmbeddedNeedsInitialization) return false;
     if (_config == NULL || _system == NULL) {
         gArchitectureQueryFailed = true;
         return false;
@@ -754,60 +845,68 @@ bool RefreshArchitectures() {
 }
 
 const std::string &SourceListPath() {
-    return gSourceListPath;
+    return gSelectedRuntime ? gSelectedRuntime->sourceListPath : gSourceListPath;
 }
 
 const std::string &SourcePartsDirectory() {
-    return gSourcePartsDirectory;
+    return gSelectedRuntime ? gSelectedRuntime->sourcePartsDirectory : gSourcePartsDirectory;
 }
 
 const std::string &ManagedSourceListPath() {
-    return gManagedSourceListPath;
+    return gSelectedRuntime ? gSelectedRuntime->managedSourceListPath : gManagedSourceListPath;
 }
 
-const std::string &DpkgExecutablePath() { return gDpkgExecutablePath; }
-const std::string &DpkgQueryExecutablePath() { return gDpkgQueryExecutablePath; }
-const std::string &DpkgDebExecutablePath() { return gDpkgDebExecutablePath; }
+const std::string &DpkgExecutablePath() { return gSelectedRuntime ? gSelectedRuntime->dpkgExecutablePath : gDpkgExecutablePath; }
+const std::string &DpkgQueryExecutablePath() { return gSelectedRuntime ? gSelectedRuntime->dpkgQueryExecutablePath : gDpkgQueryExecutablePath; }
+const std::string &DpkgDebExecutablePath() { return gSelectedRuntime ? gSelectedRuntime->dpkgDebExecutablePath : gDpkgDebExecutablePath; }
 std::string GpgExecutablePath() {
-    return _config->Find("Apt::Key::gpgcommand", _config->Find("Dir::Bin::gpg").c_str());
+    if (gSelectedRuntime) return gSelectedRuntime->gpgExecutablePath;
+    return _config == NULL ? std::string() : _config->Find("Apt::Key::gpgcommand", _config->Find("Dir::Bin::gpg").c_str());
 }
-const std::string &AptConfigOverride() { return gAptConfigOverride; }
-const std::string &PrivilegedHelperPath() { return gPrivilegedHelperPath; }
-const std::string &DpkgAdminDirectory() { return gDpkgAdminDirectory; }
-const std::string &DpkgRootDirectory() { return gDpkgRootDirectory; }
-const std::string &PackageInstallPrefix() { return gPackageInstallPrefix; }
-const std::string &DpkgChrootDirectory() { return gDpkgChrootDirectory; }
-const std::vector<std::string> &DpkgOptions() { return gDpkgOptions; }
-bool MutationEnvironmentValid() { return gMutationEnvironmentValid && !gArchitectureQueryFailed; }
+const std::string &AptConfigOverride() { return gSelectedRuntime ? gSelectedRuntime->aptConfigOverride : gAptConfigOverride; }
+const std::string &PrivilegedHelperPath() { return gSelectedRuntime ? gSelectedRuntime->privilegedHelperPath : gPrivilegedHelperPath; }
+const std::string &DpkgAdminDirectory() { return gSelectedRuntime ? gSelectedRuntime->dpkgAdminDirectory : gDpkgAdminDirectory; }
+const std::string &DpkgRootDirectory() { return gSelectedRuntime ? gSelectedRuntime->dpkgRootDirectory : gDpkgRootDirectory; }
+const std::string &PackageInstallPrefix() { return gSelectedRuntime ? gSelectedRuntime->packageInstallPrefix : gPackageInstallPrefix; }
+const std::string &DpkgChrootDirectory() { return gSelectedRuntime ? gSelectedRuntime->dpkgChrootDirectory : gDpkgChrootDirectory; }
+const std::vector<std::string> &DpkgOptions() { return gSelectedRuntime ? gSelectedRuntime->dpkgOptions : gDpkgOptions; }
+bool MutationEnvironmentValid() {
+    return gSelectedRuntime ? gSelectedRuntime->mutationEnvironmentValid :
+        gMutationEnvironmentValid && !gArchitectureQueryFailed && !gEmbeddedNeedsInitialization;
+}
 const std::string &RuntimeError() {
+    if (gSelectedRuntime) return gSelectedRuntime->runtimeError;
+    if (gEmbeddedNeedsInitialization) return gReinitializationError;
     return gRuntimeError.empty() && gArchitectureQueryFailed ? gArchitectureQueryError : gRuntimeError;
 }
 const std::string &RuntimeErrorCode() {
+    if (gSelectedRuntime) return gSelectedRuntime->runtimeErrorCode;
+    if (gEmbeddedNeedsInitialization) return gReinitializationErrorCode;
     return gRuntimeErrorCode.empty() && gArchitectureQueryFailed ? gArchitectureQueryErrorCode : gRuntimeErrorCode;
 }
-const std::string &ExtendedStatesPath() { return gExtendedStatesPath; }
-const std::string &MethodsDirectory() { return gMethodsDirectory; }
-const std::string &ListsDirectory() { return gListsDirectory; }
-const std::string &TrustedKeyringDirectory() { return gTrustedKeyringDirectory; }
-const std::string &TrustedKeyringPartsDirectory() { return gTrustedKeyringPartsDirectory; }
+const std::string &ExtendedStatesPath() { return gSelectedRuntime ? gSelectedRuntime->extendedStatesPath : gExtendedStatesPath; }
+const std::string &MethodsDirectory() { return gSelectedRuntime ? gSelectedRuntime->methodsDirectory : gMethodsDirectory; }
+const std::string &ListsDirectory() { return gSelectedRuntime ? gSelectedRuntime->listsDirectory : gListsDirectory; }
+const std::string &TrustedKeyringDirectory() { return gSelectedRuntime ? gSelectedRuntime->trustedKeyringPath : gTrustedKeyringDirectory; }
+const std::string &TrustedKeyringPartsDirectory() { return gSelectedRuntime ? gSelectedRuntime->trustedKeyringPartsDirectory : gTrustedKeyringPartsDirectory; }
 
 bool IsArchitectureSupported(const std::string &architecture) {
     if (architecture == "all")
         return true;
     return !architecture.empty() &&
-        std::find(gRegisteredArchitectures.begin(), gRegisteredArchitectures.end(), architecture) !=
-            gRegisteredArchitectures.end();
+        std::find(RegisteredArchitectures().begin(), RegisteredArchitectures().end(), architecture) !=
+            RegisteredArchitectures().end();
 }
 
 std::string SourceArchitectureOption() {
-    if (gArchitectures.empty())
+    if (Architectures().empty())
         return std::string();
 
     std::string option("[arch=");
-    for (std::size_t index(0); index != gArchitectures.size(); ++index) {
+    for (std::size_t index(0); index != Architectures().size(); ++index) {
         if (index != 0)
             option.push_back(',');
-        option.append(gArchitectures[index]);
+        option.append(Architectures()[index]);
     }
     option.push_back(']');
     return option;

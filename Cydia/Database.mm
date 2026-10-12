@@ -156,19 +156,31 @@ static NSString *CurrentListsSnapshot() {
     return result.empty() ? nil : [NSString stringWithUTF8String:result.c_str()];
 }
 
+static std::string SelectedRuntimeIdentity(bool packageState) {
+    const auto descriptor(CydiaAPT::ActiveRuntimeDescriptor());
+    if (!descriptor) return CydiaAPT::RepositorySecurityModeName(CydiaAPT::GetRepositorySecurityMode());
+    const auto &binding(descriptor->binding);
+    return CydiaRuntime::Privileged::SerializeFields({binding.providerIdentifier, binding.session,
+        binding.libraryIdentity, binding.frontendIdentity, binding.configurationIdentity,
+        binding.policyIdentity, binding.methodsIdentity, packageState ? binding.packageStateIdentity : "",
+        CydiaAPT::RepositorySecurityModeName(descriptor->repositorySecurityMode)});
+}
+
 static std::string CurrentTrustContext() {
     const auto result(CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-trust-snapshot", "", 128));
     if (!result.succeeded()) return "";
     std::string token(result.output);
     if (!token.empty() && token.back() == '\n') token.pop_back();
-    return token;
+    if (token.empty()) return "";
+    const std::string bytes(CydiaRuntime::Privileged::SerializeFields({token, SelectedRuntimeIdentity(false)}));
+    return CydiaAPT::Fingerprint(bytes.data(), bytes.size());
 }
 
 static NSString *CurrentTransactionSnapshot() {
     const auto result(CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-runtime-snapshot", "", 128));
     NSString *indexes(CurrentListsSnapshot());
     if (!result.succeeded() || result.output.empty() || indexes == nil) return nil;
-    const std::string bytes(CydiaRuntime::Privileged::SerializeFields({result.output, [indexes UTF8String]}));
+    const std::string bytes(CydiaRuntime::Privileged::SerializeFields({result.output, [indexes UTF8String], SelectedRuntimeIdentity(true)}));
     const std::string token(CydiaAPT::Fingerprint(bytes.data(), bytes.size()));
     return token.empty() ? nil : [NSString stringWithUTF8String:token.c_str()];
 }
@@ -613,38 +625,6 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 - (Source *) sourceWithFileID:(unsigned long)identifier {
     SourceMap::const_iterator source(sourceMap_.find(identifier));
     return source == sourceMap_.end() ? nil : source->second;
-}
-
-- (std::vector<CydiaAPT::SourceHandle>) sourceHandles {
-    return apt_->sourceHandles();
-}
-
-- (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle {
-    return apt_->sourceSnapshot(handle);
-}
-
-- (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name {
-    const std::string value(apt_->sourceField(handle, [name UTF8String]));
-    return value.empty() ? (NSString *) [NSNull null] : [NSString stringWithUTF8String:value.c_str()];
-}
-
-- (std::vector<std::uint32_t>) sourceFileIDs:(CydiaAPT::SourceHandle)handle {
-    return apt_->sourceFileIDs(handle);
-}
-
-- (CydiaAPT::SourcePreflightResult) sourcePreflight:(const CydiaAPT::SourcePreflightRequest &)request
-    cancelled:(const std::function<bool()> &)cancelled {
-    return apt_->sourcePreflight(request, cancelled);
-}
-
-- (CydiaAPT::SourceResourceResult) sourceResource:(const CydiaAPT::SourceResourceRequest &)request
-    cancelled:(const std::function<bool()> &)cancelled {
-    return apt_->sourceResource(request, cancelled);
-}
-
-- (CydiaAPT::SourceDiscoveryResult) discoverSourceOptions:(const std::string &)uri
-    temporaryParent:(const std::string &)temporaryParent cancelled:(const std::function<bool()> &)cancelled {
-    return CydiaAPT::DiscoverSourceOptions(*apt_, uri, temporaryParent, cancelled);
 }
 
 - (bool) popErrorWithTitle:(NSString *)title diagnostics:(NSMutableArray<NSString *> *)diagnostics {

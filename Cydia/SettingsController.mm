@@ -65,7 +65,7 @@ static UITableViewCell *SettingsCell(UITableView *table) {
     return cell;
 }
 static NSString *SecurityValue(void) {
-    NSString *value(CydiaRepositorySecurityPreference());
+    NSString *value(CydiaEffectiveRepositorySecurityPreference(CydiaAPT::ActiveRuntimeDescriptor() != nullptr));
     return SettingText([value isEqual:@"distribution"] ? @"SECURITY_DISTRIBUTION" :
         [value isEqual:@"allow"] ? @"SECURITY_ALLOW" : [value isEqual:@"error"] ? @"SECURITY_ERROR" : @"SECURITY_WARNING");
 }
@@ -116,7 +116,7 @@ static NSString *SecurityValue(void) {
     NSArray *values(@[@"distribution", @"allow", @"warning", @"error"]);
     cell.textLabel.text = SettingText(names[path.row]);
     cell.detailTextLabel.text = SettingText(details[path.row]);
-    BOOL selected([CydiaRepositorySecurityPreference() isEqual:values[path.row]]);
+    BOOL selected([CydiaEffectiveRepositorySecurityPreference(CydiaAPT::ActiveRuntimeDescriptor() != nullptr) isEqual:values[path.row]]);
     cell.accessoryType = selected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
     cell.accessibilityTraits = UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
     cell.accessibilityIdentifier = [@"cydia.settings.security." stringByAppendingString:values[path.row]];
@@ -132,10 +132,14 @@ static NSString *SecurityValue(void) {
         [self showMessage:SettingText(@"SETTINGS_WAIT_FOR_OPERATION")]; return;
     }
     @try {
-        if (!CydiaSetRepositorySecurityPreference(value)) {
+        const auto previous(CydiaAPT::GetRepositorySecurityMode());
+        if (!CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityModeFromString([value UTF8String]))) {
             [self showMessage:SettingText(@"SETTINGS_SAVE_FAILED")]; return;
         }
-        CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityModeFromString([value UTF8String]));
+        if (!CydiaSetRepositorySecurityPreference(value)) {
+            CydiaAPT::SetRepositorySecurityMode(previous);
+            [self showMessage:SettingText(@"SETTINGS_SAVE_FAILED")]; return;
+        }
     } @finally {
         [self.database endSettingsChange];
     }
