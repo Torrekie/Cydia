@@ -113,10 +113,3 @@
 "ARCHIVE_INVALID" = "Das Archiv für %@ ist ungültig oder unvollständig und konnte nicht sicher geprüft werden.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Das Archiv für %@ stimmt nicht mit dem ausgewählten Paketnamen, der Version oder der Architektur überein. Die Installation wurde verhindert.";
 "ARCHIVE_UNVERIFIED" = "Cydia konnte die Dateistruktur von %@ nicht vollständig überprüfen. Prüfen Sie die Paketkompatibilität, bevor Sie fortfahren.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Ungültiger Eintrag „%@“ in der Release-Datei %@";
-"APT_FETCH_FAILED" = "%@ konnte nicht heruntergeladen werden\n%@";
-"APT_CONNECT_TIMEOUT" = "Verbindung zu %@:%@ (%@) fehlgeschlagen: Zeitüberschreitung";
-"APT_CONNECTION_TIMEOUT" = "Zeitüberschreitung der Verbindung";
-"APT_INDEX_DOWNLOAD_FAILED" = "Einige Indexdateien konnten nicht heruntergeladen werden. Sie wurden ignoriert oder durch ältere Versionen ersetzt.";

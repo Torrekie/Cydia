@@ -113,10 +113,3 @@
 "ARCHIVE_INVALID" = "Het archief voor %@ is ongeldig of onvolledig en kon niet veilig worden geïnspecteerd.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Het archief voor %@ komt niet overeen met de geselecteerde pakketnaam, versie of architectuur. De installatie is geblokkeerd.";
 "ARCHIVE_UNVERIFIED" = "Cydia kon de bestandsindeling van %@ niet volledig verifiëren. Controleer de compatibiliteit van het pakket voordat u doorgaat.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Ongeldig veld ‘%@’ in Release-bestand %@";
-"APT_FETCH_FAILED" = "Ophalen van %@ mislukt\n%@";
-"APT_CONNECT_TIMEOUT" = "Kan geen verbinding maken met %@:%@ (%@): verbindingstime-out";
-"APT_CONNECTION_TIMEOUT" = "Verbindingstime-out";
-"APT_INDEX_DOWNLOAD_FAILED" = "Sommige indexbestanden konden niet worden gedownload. Ze zijn genegeerd of er zijn oudere bestanden gebruikt.";

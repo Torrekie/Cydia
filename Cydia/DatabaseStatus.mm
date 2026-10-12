@@ -11,7 +11,6 @@
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Database.h"
 #include "Cydia/ProgressEvent.h"
-#include "Cydia/FetchDiagnostics.h"
 #include "CyteKit/Localize.h"
 
 #include <apt-pkg/acquire-item.h>
@@ -127,7 +126,7 @@ class ProgressStatus : public CancelStatus {
             return;
 
         AcquireItemData item{desc.Description, desc.URI};
-        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:CydiaAPTDiagnosticMessage([NSString stringWithUTF8String:error.c_str()]) ofType:kCydiaProgressEventTypeError forItem:item]);
+        CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 

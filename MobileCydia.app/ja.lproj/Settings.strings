@@ -111,10 +111,3 @@
 "ARCHIVE_INVALID" = "%@ のアーカイブが無効または不完全なため、安全に検査できませんでした。";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@ のアーカイブが、選択したパッケージの名前、バージョン、またはアーキテクチャと一致しません。インストールはブロックされました。";
 "ARCHIVE_UNVERIFIED" = "Cydia は %@ のファイル配置を完全には確認できませんでした。続行する前にパッケージの互換性を確認してください。";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Release ファイルの「%@」項目が無効です: %@";
-"APT_FETCH_FAILED" = "%@ の取得に失敗しました\n%@";
-"APT_CONNECT_TIMEOUT" = "%@:%@ (%@) に接続できませんでした。接続がタイムアウトしました";
-"APT_CONNECTION_TIMEOUT" = "接続がタイムアウトしました";
-"APT_INDEX_DOWNLOAD_FAILED" = "一部のインデックスファイルをダウンロードできませんでした。これらは無視されたか、代わりに古いファイルが使用されました。";

@@ -111,10 +111,3 @@
 "ARCHIVE_INVALID" = "%@ paketinin arşivi geçersiz veya eksik olduğundan güvenli bir şekilde incelenemedi.";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@ paketinin arşivi, seçilen paket adı, sürümü veya mimarisiyle eşleşmiyor. Yükleme engellendi.";
 "ARCHIVE_UNVERIFIED" = "Cydia, %@ paketinin dosya düzenini tamamen doğrulayamadı. Devam etmeden önce paket uyumluluğunu gözden geçirin.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Release dosyasındaki “%@” alanı geçersiz: %@";
-"APT_FETCH_FAILED" = "%@ alınamadı\n%@";
-"APT_CONNECT_TIMEOUT" = "%@:%@ (%@) adresine bağlanılamadı: bağlantı zaman aşımına uğradı";
-"APT_CONNECTION_TIMEOUT" = "Bağlantı zaman aşımına uğradı";
-"APT_INDEX_DOWNLOAD_FAILED" = "Bazı dizin dosyaları indirilemedi. Bu dosyalar yok sayıldı veya yerlerine eski dosyalar kullanıldı.";

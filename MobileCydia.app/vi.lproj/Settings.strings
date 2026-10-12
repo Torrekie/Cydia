@@ -111,10 +111,3 @@
 "ARCHIVE_INVALID" = "Tệp lưu trữ của %@ không hợp lệ hoặc chưa đầy đủ nên không thể kiểm tra an toàn.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Tệp lưu trữ của %@ không khớp với tên, phiên bản hoặc kiến trúc gói đã chọn. Quá trình cài đặt đã bị chặn.";
 "ARCHIVE_UNVERIFIED" = "Cydia không thể xác minh đầy đủ cấu trúc tệp của %@. Hãy xem xét tính tương thích của gói trước khi tiếp tục.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Trường “%@” không hợp lệ trong tệp Release %@";
-"APT_FETCH_FAILED" = "Không thể tải %@\n%@";
-"APT_CONNECT_TIMEOUT" = "Không thể kết nối đến %@:%@ (%@), đã hết thời gian chờ kết nối";
-"APT_CONNECTION_TIMEOUT" = "Đã hết thời gian chờ kết nối";
-"APT_INDEX_DOWNLOAD_FAILED" = "Không tải được một số tệp chỉ mục. Các tệp này đã bị bỏ qua hoặc được thay bằng các tệp cũ.";

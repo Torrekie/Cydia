@@ -102,6 +102,8 @@ extern "C" {
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/SettingsStore.h"
+#include "Cydia/MessageLocale.h"
+#include "Cydia/MessageLocaleConversion.h"
 #include "Cydia/Application.h"
 #include "Cydia/ApplicationInternal.h"
 #include "Cydia/AppState.h"
@@ -794,6 +796,10 @@ int main(int argc, char *argv[]) {
 #if TARGET_OS_SIMULATOR
     CydiaConfigureSimulatorEnvironment();
 #endif
+
+    NSString *messageLanguage([[[NSBundle mainBundle] preferredLocalizations] firstObject] ?: @"en");
+    if (!CydiaConfigureMessageLocale(CydiaGettextLanguages(messageLanguage), CydiaPOSIXMessageLocales(messageLanguage)))
+        NSLog(@"Unable to apply the complete command message locale");
 
     _trace();
 

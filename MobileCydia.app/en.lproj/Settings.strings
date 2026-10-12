@@ -112,10 +112,3 @@
 "ARCHIVE_INVALID" = "The archive for %@ is invalid or incomplete and could not be inspected safely.";
 "ARCHIVE_IDENTITY_MISMATCH" = "The archive for %@ does not match the selected package name, version, or architecture. Installation was blocked.";
 "ARCHIVE_UNVERIFIED" = "Cydia could not fully verify the layout of %@. Review package compatibility before continuing.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Invalid '%@' entry in Release file %@";
-"APT_FETCH_FAILED" = "Failed to fetch %@\n%@";
-"APT_CONNECT_TIMEOUT" = "Could not connect to %@:%@ (%@), connection timed out";
-"APT_CONNECTION_TIMEOUT" = "Connection timed out";
-"APT_INDEX_DOWNLOAD_FAILED" = "Some index files failed to download. They have been ignored, or old ones used instead.";

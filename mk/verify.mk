@@ -73,6 +73,7 @@ DPKG_RUNNER_TEST := $(BUILD_DIR)/tests/DpkgRunnerTests
 DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
+MESSAGE_LOCALE_TEST := $(BUILD_DIR)/tests/MessageLocaleTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 PACKAGE_ARCHIVE_POLICY_TEST := $(BUILD_DIR)/tests/PackageArchivePolicyTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
@@ -148,7 +149,8 @@ apt_api_candidates := $(filter-out $(APT_SOURCE_DIR)/% SDURLCache/%,$(filter %.m
 
 .PHONY: verify verify-static verify-config verify-ownership verify-size verify-compile verify-native-ui-binary verify-build-provenance verify-native-ui-provenance verify-build-provenance-contract verify-package-artifacts
 .PHONY: verify-package-paths verify-package-identity verify-apt-runtime verify-apt-source-isolation verify-legacy-source-handoff verify-dpkg-runner verify-dpkg-status verify-bootstrap-helpers
-.PHONY: verify-regex-arc
+.PHONY: verify-regex-arc verify-message-locale
+verify: verify-message-locale
 .PHONY: verify-yield-to-selector
 .PHONY: verify-multiarch-fixture verify-dpkg-version-policy
 .PHONY: verify-native-ui verify-native-ui-contract verify-no-remote-app-ui verify-ui-route-context verify-external-url-policy verify-external-url-controller verify-ui-route-dispatch verify-ui-restoration-state verify-legacy-bridge-policy verify-legacy-ui-compatibility verify-legacy-ui-compatibility-format verify-legacy-ui-compatibility-native verify-legacy-ui-compatibility-native-snapshot verify-legacy-ui-compatibility-native-provider verify-legacy-ui-compatibility-native-consumer verify-legacy-ui-compatibility-inventory verify-legacy-ui-compatibility-runtime-evidence verify-package-controller-native-consumer
@@ -568,6 +570,16 @@ verify-home-localization: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
 	@$(HOME_LOCALIZATION_VERIFY_SCRIPT)
 
 ifeq ($(HOST_OS),Darwin)
+$(MESSAGE_LOCALE_TEST): tests/MessageLocaleTests.mm Cydia/MessageLocale.h Cydia/MessageLocale.mm \
+		Cydia/MessageLocaleConversion.h Cydia/MessageLocaleConversion.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		-idirafter $(ICU_INCLUDE_DIR) tests/MessageLocaleTests.mm Cydia/MessageLocale.mm \
+		Cydia/MessageLocaleConversion.mm -framework Foundation -licucore -o $@
+
+verify-message-locale: $(MESSAGE_LOCALE_TEST)
+	@$<
+
 $(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h CyteKit/stringWith.mm
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
@@ -586,6 +598,9 @@ $(YIELD_TO_SELECTOR_TEST): tests/YieldToSelectorTests.mm \
 verify-yield-to-selector: $(YIELD_TO_SELECTOR_TEST)
 	@$<
 else
+verify-message-locale:
+	@echo "[verify] Message locale runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
 verify-regex-arc:
 	@echo "[verify] RegEx ARC runtime test requires a Darwin host; iOS compile coverage remains enabled"
 
@@ -1187,13 +1202,12 @@ ifeq ($(HOST_OS),Darwin)
 $(PROGRESS_VIEW_MODEL_TEST): tests/ProgressViewModelTests.mm \
 		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm \
 		Cydia/ProgressData.h Cydia/ProgressData.mm Cydia/ProgressEvent.h \
-		Cydia/PackageArchitecturePresentation.h Cydia/FetchDiagnostics.h \
-		Cydia/FetchDiagnostics.mm MobileCydia.app/zh-Hans.lproj/Settings.strings
+		Cydia/PackageArchitecturePresentation.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra \
 		-Wno-unused-parameter -I. \
 		tests/ProgressViewModelTests.mm Cydia/ProgressViewModel.mm \
-		Cydia/ProgressData.mm Cydia/FetchDiagnostics.mm -framework Foundation -o $@
+		Cydia/ProgressData.mm -framework Foundation -o $@
 
 verify-progress-view-model: $(PROGRESS_VIEW_MODEL_TEST)
 	@$<

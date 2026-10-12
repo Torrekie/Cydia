@@ -111,10 +111,3 @@
 "ARCHIVE_INVALID" = "הארכיון של %@ אינו תקין או אינו שלם, ולא ניתן היה לבדוק אותו בבטחה.";
 "ARCHIVE_IDENTITY_MISMATCH" = "הארכיון של %@ אינו תואם לשם, לגרסה או לארכיטקטורה של החבילה שנבחרה. ההתקנה נחסמה.";
 "ARCHIVE_UNVERIFIED" = "Cydia לא הצליחה לאמת באופן מלא את מבנה הקבצים של %@. יש לבדוק את תאימות החבילה לפני המשך הפעולה.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "הרשומה „%@” אינה תקינה בקובץ Release ‏%@";
-"APT_FETCH_FAILED" = "לא ניתן להוריד את %@\n%@";
-"APT_CONNECT_TIMEOUT" = "לא ניתן להתחבר אל %@:%@ ‏(%@), פג הזמן הקצוב לחיבור";
-"APT_CONNECTION_TIMEOUT" = "פג הזמן הקצוב לחיבור";
-"APT_INDEX_DOWNLOAD_FAILED" = "הורדת חלק מקובצי האינדקס נכשלה. המערכת התעלמה מהם או השתמשה בקבצים הישנים במקומם.";

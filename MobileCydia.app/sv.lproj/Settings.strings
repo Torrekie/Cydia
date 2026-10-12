@@ -112,10 +112,3 @@
 "ARCHIVE_INVALID" = "Arkivet för %@ är ogiltigt eller ofullständigt och kunde inte granskas på ett säkert sätt.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Arkivet för %@ stämmer inte överens med det valda paketets namn, version eller arkitektur. Installationen blockerades.";
 "ARCHIVE_UNVERIFIED" = "Cydia kunde inte verifiera hela filstrukturen för %@. Kontrollera paketets kompatibilitet innan du fortsätter.";
-
-/* APT acquisition diagnostics; technical arguments remain unchanged. */
-"APT_INVALID_RELEASE_FIELD" = "Ogiltigt fält ”%@” i Release-filen %@";
-"APT_FETCH_FAILED" = "Kunde inte hämta %@\n%@";
-"APT_CONNECT_TIMEOUT" = "Kunde inte ansluta till %@:%@ (%@): tidsgränsen för anslutningen överskreds";
-"APT_CONNECTION_TIMEOUT" = "Tidsgränsen för anslutningen överskreds";
-"APT_INDEX_DOWNLOAD_FAILED" = "Vissa indexfiler kunde inte hämtas. De har ignorerats eller ersatts med äldre filer.";

@@ -323,7 +323,7 @@ void SanitizeEnvironment(const CydiaRuntime::PackageDatabasePaths &paths) {
     for (char **entry = ::environ; *entry != NULL; ++entry) {
         const std::string value(*entry);
         const std::string name = value.substr(0, value.find('='));
-        if (name != "LANG" && name.compare(0, 3, "LC_") != 0 && name != "TERM" &&
+        if (name != "LANG" && name != "LANGUAGE" && name.compare(0, 3, "LC_") != 0 && name != "TERM" &&
             name != "DEBIAN_FRONTEND" && name != "DPKG_COLORS") names.push_back(name);
     }
     for (const std::string &name : names) unsetenv(name.c_str());
