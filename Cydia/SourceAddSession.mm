@@ -242,7 +242,7 @@ static BOOL ValidNewFilename(NSString *filename, Src::Format format) {
                                             if (suite == SourceBytes([source distribution])) check.previouslyAuthenticated = true;
                                     }
                             }
-                            checked = CydiaAPT::RunSourcePreflight(check, [cancellation]() { return cancellation->load(); });
+                            checked = [database_ sourcePreflight:check cancelled:[cancellation]() { return cancellation->load(); }];
                         }
                         if (Snapshot() != before) message = CydiaSourceText(@"SOURCE_RELOAD_REQUIRED");
                         request = Client::RuntimeRequest("");

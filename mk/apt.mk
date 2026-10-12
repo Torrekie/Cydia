@@ -68,15 +68,19 @@ apt_api_sources := \
     Cydia/AptBackend.cpp \
     Cydia/AptBackendFacade.cpp \
     Cydia/AptBackendOperations.cpp \
+    Cydia/AptEmbeddedBackend.cpp \
+    Cydia/AptRemoteBackend.cpp \
     Cydia/AptAuthorizedArchives.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptProviderClient.cpp \
     Cydia/AptProviderProtocol.cpp \
+    Cydia/AptProviderReview.cpp \
     Cydia/AptProviderSession.cpp \
     Cydia/AptRuntime.cpp \
     Cydia/SourceAddController+Discovery.mm \
     Cydia/SourceAddController.mm \
     Cydia/SourceAddSession.mm \
+    Cydia/SourceDiscoveryTransport.mm \
     Cydia/SourcePreflight.cpp \
     Cydia/SourceKeyDiscovery.mm \
     Cydia/AptVersionPolicy.cpp \

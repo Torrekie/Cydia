@@ -523,6 +523,7 @@ bool Session::Call(Operation operation, const std::string &payload, Message *rep
                    unsigned timeoutMilliseconds, const std::function<bool()> &cancelled) {
     Implementation &state(*implementation_);
     if (!state.ready || state.busy || reply == nullptr) return state.Fail("provider_session_unavailable", false);
+    state.executionStarted = false;
     if (timeoutMilliseconds == 0 || timeoutMilliseconds > MaximumRequestMilliseconds ||
         state.nextSequence >= UINT64_MAX - 1 || operation == Operation::Hello || operation == Operation::Cancel ||
         operation >= Operation::AcquireFrontendLock) return state.Fail("provider_invalid_request", false);
@@ -539,7 +540,6 @@ bool Session::Call(Operation operation, const std::string &payload, Message *rep
     if ((operation == Operation::SetSecurityMode && (state.provider.capabilities & ExplicitSecurityOverrides) == 0))
         return state.Fail("provider_security_override_unsupported", false);
     ++state.nextSequence;
-    if (operation == Operation::RunPackageManager) state.executionStarted = false;
     state.busy = true;
     const bool success(state.Exchange(request, reply, Clock::now() + std::chrono::milliseconds(timeoutMilliseconds), cancelled, false));
     state.busy = false;
@@ -550,6 +550,7 @@ void Session::Close() { implementation_->Stop(); }
 bool Session::active() const { return implementation_->ready; }
 bool Session::indeterminate() const { return implementation_->uncertain; }
 bool Session::mutationStarted() const { return implementation_->mutated; }
+bool Session::lastCallExecutionStarted() const { return implementation_->executionStarted; }
 bool Session::parentLockHeld() const { return implementation_->locked; }
 const Binding &Session::binding() const { return implementation_->current; }
 const Info &Session::info() const { return implementation_->provider; }

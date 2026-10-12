@@ -7,13 +7,14 @@
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/SourcePreflight.hpp"
 #include "Cydia/PrivilegedRuntime.hpp"
+#include "Cydia/PackageArchivePolicy.hpp"
 #include <limits>
 #include <type_traits>
 #include <utility>
 
 namespace CydiaAPT { namespace Provider {
 
-constexpr std::uint32_t ProtocolVersion = 1;
+constexpr std::uint32_t ProtocolVersion = 2;
 constexpr std::size_t MaximumMessageBytes = 32 * 1024 * 1024;
 constexpr std::size_t MaximumStringBytes = 16 * 1024 * 1024;
 constexpr std::size_t MaximumCollectionItems = 100000;
@@ -47,12 +48,13 @@ enum Capability : std::uint64_t {
     RevalidateReviewedState = 1ull << 11, BoundedCancellation = 1ull << 12,
     StructuredProgress = 1ull << 13, SourceManagement = 1ull << 14,
     ExplicitSecurityOverrides = 1ull << 15, AuthorizedArchiveGrants = 1ull << 16,
+    ReviewedExecutionManifest = 1ull << 17,
 };
 constexpr std::uint64_t RequiredCapabilities = CacheValues | SourceChecks |
     ArchitecturePolicy | DependencySolver | ExactQueueReview |
     VerifiedArchiveAcquisition | PackageLayoutValidation | DistributionPolicy |
     ParentFrontendLocks | ParentPackageExecutor | ParentExtendedStateWriter |
-    RevalidateReviewedState | BoundedCancellation | StructuredProgress | SourceManagement;
+    RevalidateReviewedState | BoundedCancellation | StructuredProgress | SourceManagement | ReviewedExecutionManifest;
 
 struct Environment {
     CydiaRuntime::Privileged::ExpectedEnvironment paths;
@@ -104,7 +106,34 @@ struct PackageManagerReply {
     FetchResultData archives;
     bool started = false;
 };
-struct ReviewedTransaction { CydiaAPT::TransactionData transaction; Binding binding; };
+// Deconfigure is an unpack side effect, never a directly executable dpkg verb.
+enum class ExecutionAction { Unpack, Configure, Remove, Purge, Triggers, Deconfigure };
+struct ExecutionPackage { std::string package, version, architecture; };
+struct ArchiveManifest {
+    std::string identifier;
+    ExecutionPackage package;
+    std::string sourceURI, sourceIndexIdentity, path;
+    std::map<std::string, std::string> hashes;
+    std::uint64_t size = 0;
+    CydiaPackages::ArchiveLayout layout;
+};
+struct ReviewedAction {
+    std::uint64_t identifier = 0;
+    ExecutionAction action = ExecutionAction::Unpack;
+    ExecutionPackage package;
+    std::string archive; // ArchiveManifest.identifier for unpack only.
+};
+struct ExecutionManifest {
+    std::vector<ArchiveManifest> archives;
+    // Order is significant for successive actions on the same exact package.
+    // Additional pending/trigger actions must also be shown and approved.
+    std::vector<ReviewedAction> actions;
+};
+struct ReviewedTransaction {
+    CydiaAPT::TransactionData transaction;
+    Binding binding;
+    ExecutionManifest execution;
+};
 struct CacheReply { bool opened = false; Binding binding; };
 
 // Reverse requests are advisory input to the parent, never path authority.
@@ -112,8 +141,10 @@ struct CacheReply { bool opened = false; Binding binding; };
 // may not execute cydo, acquire the parent's lock, or write extended state.
 struct ParentExecutionRequest {
     Binding binding;
+    std::uint64_t batch = 0;
+    ExecutionAction action = ExecutionAction::Unpack;
+    std::vector<std::uint64_t> actions; // Exact ReviewedAction identifiers.
     std::vector<std::string> arguments;
-    std::vector<std::string> preparedArchives;
 };
 struct ParentExecutionReply {
     int exitCode = -1, signal = 0, launchError = 0;
@@ -300,9 +331,10 @@ CYDIA_PROVIDER_ENUM(SourceCheckStatus, SourceCheckStatus::InternalError)
 CYDIA_PROVIDER_ENUM(SourceArchitectureAvailability, SourceArchitectureAvailability::Unsupported)
 CYDIA_PROVIDER_ENUM(RepositorySecurityMode, RepositorySecurityMode::Distribution)
 CYDIA_PROVIDER_ENUM(CydiaSources::Format, CydiaSources::Format::Deb822)
+CYDIA_PROVIDER_ENUM(ExecutionAction, ExecutionAction::Deconfigure)
 #undef CYDIA_PROVIDER_ENUM
 
-// Field order below is the normative v1 schema. Reuse all Cydia value fields,
+// Field order below is the normative v2 schema. Reuse all Cydia value fields,
 // including foreign architecture identities and typed authentication failures.
 #define CYDIA_PROVIDER_VALUE(Type, ...) \
 template<> struct Codec<Type> { \
@@ -371,9 +403,15 @@ CYDIA_PROVIDER_VALUE(LookupRequest, v.name, v.preferredArchitecture)
 CYDIA_PROVIDER_VALUE(RemoveRequest, v.handle, v.purge)
 CYDIA_PROVIDER_VALUE(SourceFieldRequest, v.handle, v.name)
 CYDIA_PROVIDER_VALUE(PackageManagerReply, v.result, v.archives, v.started)
-CYDIA_PROVIDER_VALUE(ReviewedTransaction, v.transaction, v.binding)
+CYDIA_PROVIDER_VALUE(ExecutionPackage, v.package, v.version, v.architecture)
+CYDIA_PROVIDER_VALUE(CydiaPackages::ArchiveLayout, v.prefix, v.foreignPrefixes)
+CYDIA_PROVIDER_VALUE(ArchiveManifest, v.identifier, v.package, v.sourceURI, v.sourceIndexIdentity,
+    v.path, v.hashes, v.size, v.layout)
+CYDIA_PROVIDER_VALUE(ReviewedAction, v.identifier, v.action, v.package, v.archive)
+CYDIA_PROVIDER_VALUE(ExecutionManifest, v.archives, v.actions)
+CYDIA_PROVIDER_VALUE(ReviewedTransaction, v.transaction, v.binding, v.execution)
 CYDIA_PROVIDER_VALUE(CacheReply, v.opened, v.binding)
-CYDIA_PROVIDER_VALUE(ParentExecutionRequest, v.binding, v.arguments, v.preparedArchives)
+CYDIA_PROVIDER_VALUE(ParentExecutionRequest, v.binding, v.batch, v.action, v.actions, v.arguments)
 CYDIA_PROVIDER_VALUE(ParentExecutionReply, v.exitCode, v.signal, v.launchError, v.started)
 CYDIA_PROVIDER_VALUE(ExtendedStateRequest, v.binding, v.changes)
 CYDIA_PROVIDER_VALUE(ProgressEvent, v.type, v.package, v.message, v.current, v.total, v.cancellable)

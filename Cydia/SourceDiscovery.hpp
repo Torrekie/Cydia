@@ -5,6 +5,7 @@
 #include "Cydia/SourcePreflight.hpp"
 
 namespace CydiaAPT {
+class AptBackend;
 
 struct DiscoveredSourceSuite {
     std::string suitePath; // The published path, never Release's Suite/Codename.
@@ -40,7 +41,7 @@ struct SourceDiscoveryResult {
  * supplied repository root are followed. No guessed suites or configuration
  * writes. Missing/hidden listings are not evidence that a source is invalid.
  * Limits: 64 requests, four suite path levels, 60 seconds, 2 MiB per response. */
-SourceDiscoveryResult DiscoverSourceOptions(const std::string &uri,
+SourceDiscoveryResult DiscoverSourceOptions(AptBackend &backend, const std::string &uri,
     const std::string &temporaryParent,
     const std::function<bool()> &cancelled = std::function<bool()>());
 
@@ -48,7 +49,7 @@ typedef std::function<SourceResourceResult(const SourceResourceRequest &,
     const std::function<bool()> &)> SourceDiscoveryFetcher;
 
 /* Deterministic transport injection for parser/budget tests. Production uses
- * the nonredirecting, bounded APT raw-resource fetcher above. */
+ * the selected backend's nonredirecting, bounded raw-resource fetcher. */
 SourceDiscoveryResult DiscoverSourceOptionsWithFetcher(const std::string &uri,
     const std::string &temporaryParent, const SourceDiscoveryFetcher &fetch,
     const std::function<bool()> &cancelled = std::function<bool()>());

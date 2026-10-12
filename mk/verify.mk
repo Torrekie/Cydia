@@ -78,6 +78,8 @@ MESSAGE_LOCALE_DECLARATIONS_TEST := $(BUILD_DIR)/tests/MessageLocaleDeclarations
 APT_MESSAGES_TEST := $(BUILD_DIR)/tests/AptMessagesTests
 APT_PROVIDER_TEST := $(BUILD_DIR)/tests/AptProviderProtocolTests
 APT_PROVIDER_SESSION_TEST := $(BUILD_DIR)/tests/AptProviderSessionTests
+APT_PROVIDER_REVIEW_TEST := $(BUILD_DIR)/tests/AptProviderReviewTests
+APT_BACKEND_FACADE_TEST := $(BUILD_DIR)/tests/AptBackendFacadeTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 PACKAGE_ARCHIVE_POLICY_TEST := $(BUILD_DIR)/tests/PackageArchivePolicyTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
@@ -149,9 +151,30 @@ $(APT_PROVIDER_SESSION_TEST): tests/AptProviderSessionTests.cpp Cydia/AptProvide
 		Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp \
 		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp \
 		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation,-pthread) -o $@
-verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_PROVIDER_SESSION_TEST)
+$(APT_BACKEND_FACADE_TEST): tests/AptBackendFacadeTests.cpp Cydia/AptBackendFacade.cpp \
+		Cydia/AptRemoteBackend.cpp Cydia/AptBackendImplementation.hpp Cydia/AptBackend.hpp \
+		Cydia/AptProviderSession.cpp Cydia/AptProviderSession.hpp Cydia/AptProviderProtocol.cpp \
+		Cydia/AptProviderProtocol.hpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		-DCYDIA_PROVIDER_SESSION_TESTING=1 tests/AptBackendFacadeTests.cpp \
+		Cydia/AptBackendFacade.cpp Cydia/AptRemoteBackend.cpp Cydia/AptProviderSession.cpp \
+		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp \
+		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation,-pthread) -o $@
+$(APT_PROVIDER_REVIEW_TEST): tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp \
+		Cydia/AptProviderReview.hpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \
+		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderProtocol.cpp \
+		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -o $@
+verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_PROVIDER_SESSION_TEST) $(APT_BACKEND_FACADE_TEST) $(APT_PROVIDER_REVIEW_TEST)
 	@$<
 	@$(APT_PROVIDER_SESSION_TEST)
+	@$(APT_BACKEND_FACADE_TEST)
+	@$(APT_PROVIDER_REVIEW_TEST)
 
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)

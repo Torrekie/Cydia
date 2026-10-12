@@ -339,9 +339,11 @@ void SettledMutation() {
                 session.lastError() == "provider_invalid_execution_reply", "a worker cannot deny an observed executor start");
         } else {
             Require(session.Call(P::Operation::RunPackageManager, "", &reply) && reply.succeeded &&
-                session.mutationStarted() && !session.indeterminate(), "typed terminal manager reply settles parent effects");
+                session.mutationStarted() && session.lastCallExecutionStarted() && !session.indeterminate(),
+                "typed terminal manager reply settles effects while preserving this call's observed start");
             Require(!session.Call(P::Operation::CacheState, "", &reply) && !session.active() && !session.indeterminate(),
                 "a later read disconnect cannot make a settled transaction indeterminate");
+            Require(!session.lastCallExecutionStarted(), "a later read does not inherit a prior executor start");
             if (mode == Mode::MultipleBatches) Require(executions == 2, "all executor batches were observed");
         }
     }

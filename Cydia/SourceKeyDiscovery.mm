@@ -213,7 +213,7 @@ SourceKeyDiscoveryResult DiscoverSourceSigningKeys(Database *database, const Sou
         SourceResourceRequest resource; resource.uri = uri; resource.temporaryParent = request.temporaryParent;
         resource.timeoutSeconds = std::min(12U, budget.remaining()); resource.maximumBytes = maximum;
         ++result.requestsPerformed;
-        return FetchSourceResource(resource, [&]() { return budget.stopped(); });
+        return [database sourceResource:resource cancelled:[&]() { return budget.stopped(); }];
     };
     // Account for the complete draft before attempting a key match. APT can
     // stop after the first failed URI/suite, so its captured metadata alone

@@ -66,6 +66,10 @@ public:
     bool active() const;
     bool indeterminate() const;
     bool mutationStarted() const;
+    // Actual executor start observed during the most recent serialized Call,
+    // including a call that settled its reply while cancellation was pending.
+    // Independent of historical mutation and indeterminate-outcome latches.
+    bool lastCallExecutionStarted() const;
     bool parentLockHeld() const;
     const Binding &binding() const;
     const Info &info() const;

@@ -10,6 +10,7 @@
 #include "Cydia/AptCompatibility.hpp"
 
 #include <memory>
+#include <functional>
 
 namespace CydiaAPT {
 
@@ -20,10 +21,32 @@ struct AutoInstalledDelta {
 };
 
 class AcquireStatus;
+struct SourcePreflightRequest;
+struct SourcePreflightResult;
+struct SourceResourceRequest;
+struct SourceResourceResult;
 
 namespace Internal {
-class AptBackend;
+class BackendImplementation;
 }
+namespace Provider { class Session; struct ReviewedTransaction; }
+
+struct BackendFailure {
+    // Stable provider/transport code; upstream diagnostics remain ErrorData.
+    std::string code;
+    bool indeterminate = false;
+};
+
+struct RemoteBackendOptions {
+    AcquireStatus *status = nullptr;
+    // The coordinator routes Session progress and parent execution through
+    // this context. Descriptors stay in Cydia and never cross the wire.
+    // The callback is cleared with (nullptr, -1) after each operation.
+    std::function<void(AcquireStatus *, int)> operationContext;
+    std::function<bool()> cancelled;
+    unsigned requestTimeoutMilliseconds = 30000;
+    unsigned transactionTimeoutMilliseconds = 3 * 60 * 60 * 1000;
+};
 
 /*
  * Database is an Objective-C façade; this class owns every mutable APT
@@ -32,11 +55,20 @@ class AptBackend;
  */
 class AptBackend {
   private:
-    std::unique_ptr<Internal::AptBackend> implementation_;
+    std::unique_ptr<Internal::BackendImplementation> implementation_;
 
   public:
     explicit AptBackend(AcquireStatus &status);
+    // Explicit integration seam only: takes an already started/validated
+    // session and never constructs or falls back to embedded APT. Discovery,
+    // parent authorization and production activation belong to a coordinator.
+    explicit AptBackend(std::unique_ptr<Provider::Session> session,
+                        const RemoteBackendOptions &options = RemoteBackendOptions());
     ~AptBackend();
+    BackendFailure providerFailure() const;
+    // Supplies the complete accepted remote manifest only while its binding
+    // remains current. Embedded backends have no protocol review manifest.
+    bool providerReview(Provider::ReviewedTransaction *review) const;
 
     static void KeepFileDescriptor(int descriptor);
 
@@ -81,6 +113,10 @@ class AptBackend {
     SourceSnapshot sourceSnapshot(SourceHandle handle);
     std::string sourceField(SourceHandle handle, const std::string &name);
     std::vector<std::uint32_t> sourceFileIDs(SourceHandle handle);
+    SourcePreflightResult sourcePreflight(const SourcePreflightRequest &request,
+        const std::function<bool()> &cancelled = std::function<bool()>());
+    SourceResourceResult sourceResource(const SourceResourceRequest &request,
+        const std::function<bool()> &cancelled = std::function<bool()>());
 };
 
 } // namespace CydiaAPT

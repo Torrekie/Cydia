@@ -99,7 +99,8 @@ NSString *Provenance(const CydiaAPT::SourceSigningKeyCandidate &candidate) {
             if (!acquired) message = CydiaSourceText(@"SOURCE_WAIT_FOR_OPERATION");
             else {
                 @try { @synchronized(database) {
-                    result = CydiaAPT::DiscoverSourceOptions(uri, Bytes(temporaryParent), [progress]() { return progress.cancelled; });
+                    result = [database discoverSourceOptions:uri temporaryParent:Bytes(temporaryParent)
+                        cancelled:[progress]() { return progress.cancelled; }];
                 } } @finally { [database endSettingsChange]; }
             }
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -177,7 +178,7 @@ NSString *Provenance(const CydiaAPT::SourceSigningKeyCandidate &candidate) {
                 @try { @synchronized(database) {
                     const auto cancelled([progress]() { return progress.cancelled; });
                     if (!hadDiscovery) {
-                        discovered = CydiaAPT::DiscoverSourceOptions(uri, lookup.temporaryParent, cancelled);
+                        discovered = [database discoverSourceOptions:uri temporaryParent:lookup.temporaryParent cancelled:cancelled];
                         lookup.publisherKeys = discovered.keyLinks;
                     }
                     if (!progress.cancelled) result = CydiaAPT::DiscoverSourceSigningKeys(database, preflight, lookup, cancelled);

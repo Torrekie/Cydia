@@ -632,6 +632,21 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return apt_->sourceFileIDs(handle);
 }
 
+- (CydiaAPT::SourcePreflightResult) sourcePreflight:(const CydiaAPT::SourcePreflightRequest &)request
+    cancelled:(const std::function<bool()> &)cancelled {
+    return apt_->sourcePreflight(request, cancelled);
+}
+
+- (CydiaAPT::SourceResourceResult) sourceResource:(const CydiaAPT::SourceResourceRequest &)request
+    cancelled:(const std::function<bool()> &)cancelled {
+    return apt_->sourceResource(request, cancelled);
+}
+
+- (CydiaAPT::SourceDiscoveryResult) discoverSourceOptions:(const std::string &)uri
+    temporaryParent:(const std::string &)temporaryParent cancelled:(const std::function<bool()> &)cancelled {
+    return CydiaAPT::DiscoverSourceOptions(*apt_, uri, temporaryParent, cancelled);
+}
+
 - (bool) popErrorWithTitle:(NSString *)title diagnostics:(NSMutableArray<NSString *> *)diagnostics {
     bool fatal(false);
 

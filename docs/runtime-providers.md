@@ -13,10 +13,17 @@ legacy package-owned file migrations remain maintscript responsibilities.
 This document distinguishes the target architecture from the available
 implementation. APT 2.7.9 remains statically linked into the application and
 privileged helper, and dpkg is external. The versioned provider codecs,
-protected executable probe and session client are preparation for adapters;
-they do not activate an external backend. Activation requires an adapter
+protected executable probe, session client and explicit remote facade are
+preparation for adapters; application startup still selects embedded APT.
+Activation requires a coordinator and an adapter
 accepted against the complete transaction and source-check contract below.
 An ordinary installed APT executable is not such an adapter.
+
+Source preflight and discovery use the database's backend interface. The
+remote facade preserves typed results and cancellation on its owning session.
+Its reviewed-execution model requires exact actions and archive evidence before
+authorizing a dpkg batch; production parent execution and runtime activation
+remain separate integration work.
 
 Cydia-owned locale conversion and regular expressions prefer validated
 bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
@@ -27,10 +34,10 @@ upstream English messages if no usable libintl is available.
 
 | Area | Current implementation | Required behavior |
 | --- | --- | --- |
-| APT | The facade always constructs the embedded backend | Prefer a validated distribution provider; keep the bundled provider available for recovery |
+| APT | Application startup selects the embedded backend; the facade also supports an explicitly supplied remote session | Prefer a validated distribution provider; keep the bundled provider available for recovery |
 | Repository policy | Existing Warning default is retained; explicit Use selected APT settings restores independent loaded settings | Inherit validated distribution-provider enforcement by default; preserve explicit administrator overrides |
 | Other APT settings | Expiration policy and explicit language/parallel settings are preserved | Preserve the selected provider's configuration and compiled behavior |
-| Source checks | Preflight runs bundled APT | Check with the same selected provider and policy used for refresh and transactions |
+| Source checks | Preflight and discovery route through the database backend; startup still uses bundled APT | Check with the same selected provider and policy used for refresh and transactions |
 | dpkg | Selected external tools and protected runtime paths | Retain external dpkg and its policies; extend validation to the selected APT provider |
 | ICU | Validated bootstrap/Apple service tables; isolated private fallback loader; Apple-owned UIKit collation | Supply reproducible private fallback binaries and matching data |
 | Messages | Converted locale environment, upstream catalog packaging and optional libintl bridge | Supply the private libintl closure for localization when external libraries are broken |

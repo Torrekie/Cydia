@@ -9,6 +9,7 @@
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/TransactionResult.hpp"
 #include "Cydia/RepositoryTrustProof.hpp"
+#include "Cydia/SourceDiscovery.hpp"
 #include "CyteKit/UCPlatform.h"
 #include "Menes/ObjectHandle.h"
 #include "Menes/Pooling.hpp"
@@ -125,6 +126,14 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (CydiaAPT::SourceSnapshot) sourceSnapshot:(CydiaAPT::SourceHandle)handle;
 - (NSString *) sourceField:(CydiaAPT::SourceHandle)handle name:(NSString *)name;
 - (std::vector<std::uint32_t>) sourceFileIDs:(CydiaAPT::SourceHandle)handle;
+// Off-main-thread under the settings-change gate and database monitor, so all
+// source checks and discovery use the same backend as cache/transactions.
+- (CydiaAPT::SourcePreflightResult) sourcePreflight:(const CydiaAPT::SourcePreflightRequest &)request
+    cancelled:(const std::function<bool()> &)cancelled;
+- (CydiaAPT::SourceResourceResult) sourceResource:(const CydiaAPT::SourceResourceRequest &)request
+    cancelled:(const std::function<bool()> &)cancelled;
+- (CydiaAPT::SourceDiscoveryResult) discoverSourceOptions:(const std::string &)uri
+    temporaryParent:(const std::string &)temporaryParent cancelled:(const std::function<bool()> &)cancelled;
 - (void) reloadDataWithInvocation:(NSInvocation *)invocation;
 
 - (void) clear;

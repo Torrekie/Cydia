@@ -171,7 +171,8 @@ void Capabilities() {
     std::string reason;
     Require(P::Compatible(RoundTrip(info), info.environment, &reason), "complete provider refused");
     for (const auto flag : {P::ParentFrontendLocks, P::ParentPackageExecutor, P::ParentExtendedStateWriter,
-                            P::SourceChecks, P::ExactQueueReview, P::RevalidateReviewedState}) {
+                            P::SourceChecks, P::ExactQueueReview, P::RevalidateReviewedState,
+                            P::ReviewedExecutionManifest}) {
         auto incomplete = info; incomplete.capabilities &= ~static_cast<std::uint64_t>(flag);
         Require(!P::Compatible(incomplete, info.environment, &reason), "partial provider selected");
     }

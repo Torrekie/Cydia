@@ -1,26 +1,12 @@
-/* Cydia - iPhone UIKit Front-End for Debian APT
- * Stable façade for the private libapt-pkg backend.
- * Refurbished compatibility work Copyright (C) 2026  Torrekie
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
+/* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptBackend.hpp"
-#include "Cydia/AptBackendInternal.hpp"
-#include "Cydia/AptAcquireStatusBridge.hpp"
+#include "Cydia/AptBackendImplementation.hpp"
+#include "Cydia/SourcePreflight.hpp"
 
 namespace CydiaAPT {
-
-AptBackend::AptBackend(AcquireStatus &status) :
-    implementation_(new Internal::AptBackend(*static_cast<pkgAcquireStatus *>(Internal::NativeAcquireStatus(status))))
-{
-}
-
-AptBackend::~AptBackend() {
-}
-
-void AptBackend::KeepFileDescriptor(int descriptor) {
-    Internal::AptBackend::KeepFileDescriptor(descriptor);
-}
+AptBackend::~AptBackend() {}
+BackendFailure AptBackend::providerFailure() const { return implementation_->providerFailure(); }
+bool AptBackend::providerReview(Provider::ReviewedTransaction *review) const { return implementation_->providerReview(review); }
 
 void AptBackend::reset() {
     implementation_->reset();
@@ -89,7 +75,7 @@ PackageManagerResult AptBackend::runPackageManager(int statusFd, FetchResultData
 }
 
 UpdateResultData AptBackend::updateLists(AcquireStatus &status, int pulseInterval) {
-    return implementation_->updateLists(*static_cast<pkgAcquireStatus *>(Internal::NativeAcquireStatus(status)), pulseInterval);
+    return implementation_->updateLists(status, pulseInterval);
 }
 
 std::vector<PackageHandle> AptBackend::packageHandles() {
@@ -174,6 +160,16 @@ std::string AptBackend::sourceField(SourceHandle handle, const std::string &name
 
 std::vector<std::uint32_t> AptBackend::sourceFileIDs(SourceHandle handle) {
     return implementation_->sourceFileIDs(handle);
+}
+
+SourcePreflightResult AptBackend::sourcePreflight(const SourcePreflightRequest &request,
+        const std::function<bool()> &cancelled) {
+    return implementation_->sourcePreflight(request, cancelled);
+}
+
+SourceResourceResult AptBackend::sourceResource(const SourceResourceRequest &request,
+        const std::function<bool()> &cancelled) {
+    return implementation_->sourceResource(request, cancelled);
 }
 
 } // namespace CydiaAPT
