@@ -113,6 +113,9 @@ Pin: version *
 Pin-Priority: -1
 EOF
 setupaptarchive
+# The backend opens the archive lock before constructing acquire items. The
+# application initializes this cache directory; the isolated fixture must too.
+mkdir -p rootdir/var/cache/apt/archives/partial
 # APT retains process-wide configuration allocations. Check invalid accesses in
 # the frontend fixture without treating those library globals as fixture leaks.
 ASAN_OPTIONS=detect_leaks=0 testsuccess runapt "$ACTION_DRIVER"
