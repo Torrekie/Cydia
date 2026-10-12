@@ -1,0 +1,36 @@
+source,key,english,locales,classification
+MobileCydia.app/en.lproj/Localizable.strings,ADVANCED_SEARCH,Advanced Search,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,BROWSER,Browser,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,CANCEL_CLEAR,Cancel and Clear,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,COMING_SOON,Coming Soon!,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,COMMERCIAL_APPLICATIONS,Commercial Applications,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,CONSOLE_UTILITIES_DAEMONS,Console Utilities & Daemons,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,COUNTS_NONZERO_EX,"So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.",he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,CYDIA_STORE,Cydia Store,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,DISK_FREEING,Disk Freeing,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,DISK_USING,Disk Using,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,DONATE_USING,Donate using %@,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,ENTERED_BY_USER,Entered by User,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,EXPANDED_SIZE,Expanded Size,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,FAQ,FAQ,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,FEATURED_PACKAGES,Featured Packages,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,FOLLOW_ON_TWITTER,Follow %@ on Twitter,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,FREE_APPLICATIONS,Free Applications,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,FREE_EXTENSIONS,Free Extensions,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,FUTURE_FEATURE_ROADMAP,Future Feature Roadmap,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,ID,ID,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,INSTALLED_BY_PACKAGE,Installed by Package,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,MAILING_LISTS,Mailing Lists,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,NOT_RATED,Not Rated,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,PACKAGE_DETAILS,Package Details,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,PRODUCTS,Products,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,QUEUED_FOR,Queued for %@,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,RECENT_CHANGES_UPDATES,Recent Changes/Updates,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,RECOMMENDED_BOOKS,Recommended Books,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,REPOSITORY_SIGNATURE,View Repository Signature,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,SAMPLE,Sample,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,SIGNED_PACKAGE,This package has been signed.,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,SPONSOR,Sponsor,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,SPONSORING_PRODUCTS,Sponsoring Products,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,SUPPORT_KNOWN_ISSUES,Support & Known Issues,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024
+MobileCydia.app/en.lproj/Localizable.strings,UPGRADING_TO_READ_THIS,Upgrading to %@? Read This,he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,missing_before_2024

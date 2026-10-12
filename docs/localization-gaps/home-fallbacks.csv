@@ -1,0 +1,7 @@
+source,key,english,locales,classification
+MobileCydia.app/en.lproj/Home.strings,BY,by %@,ja,recorded_home_english_fallback
+MobileCydia.app/en.lproj/Home.strings,HOME_FIND_EXTENSIONS,Find Extensions for Applications,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,recorded_home_english_fallback
+MobileCydia.app/en.lproj/Home.strings,HOME_IPAD_EXTENSIONS,Extensions Useful on iPad,ar;he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,recorded_home_english_fallback
+MobileCydia.app/en.lproj/Home.strings,HOME_IPAD_PRODUCTS,Products Designed for iPad,ar;he;ja;ko;pl;pt;pt-PT;ru;th;tr;vi,recorded_home_english_fallback
+MobileCydia.app/en.lproj/Home.strings,HOME_NEW,New,ja,recorded_home_english_fallback
+MobileCydia.app/en.lproj/Home.strings,WELCOME_TO_CYDIA,Welcome to Cydia™,ja,recorded_home_english_fallback

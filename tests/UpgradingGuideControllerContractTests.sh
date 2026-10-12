@@ -21,6 +21,22 @@ grep -Fq 'preferredDisplayMode = UISplitViewControllerDisplayModeAllVisible' "$c
 grep -Fq 'minimumPrimaryColumnWidth' "$controller" || fail "guide split width policy missing"
 grep -Fq 'hasLinkGroups' "$controller" || fail "news section grouping missing"
 grep -Fq 'titleForHeaderInSection' "$controller" || fail "news section headings missing"
+grep -Fq 'UCLocalizeEx(@"HOME_UPGRADING_HELP", page[@"title"])' "$controller" || fail "root title does not reuse the translated Home heading"
+python3 - "$root/MobileCydia.app" <<'PY'
+import json,pathlib,re,sys
+bundle=pathlib.Path(sys.argv[1])
+document=json.loads((bundle/'UpgradingGuide.json').read_text())
+root_title=document['pages']['root']['title']
+bundles=sorted(bundle.glob('*.lproj'))
+assert len(bundles)==21
+pattern=re.compile(r'^\s*"HOME_UPGRADING_HELP"\s*=\s*("(?:[^"\\]|\\.)*")\s*;',re.M)
+for locale in bundles:
+    match=pattern.search((locale/'Localizable.strings').read_text(encoding='utf-8-sig'))
+    assert match, (locale.name, 'Upgrading root title key missing')
+    value=json.loads(match.group(1))
+    assert value and value!='HOME_UPGRADING_HELP', (locale.name, 'Upgrading root title untranslated')
+    assert (value==root_title)==(locale.name=='en.lproj'), (locale.name, 'Upgrading root title fallback differs')
+PY
 python3 "$root/tests/UpgradingGuideContentTests.py"
 grep -Fq '@selector(pageForURL:context:withReferrer:)' "$controller" || fail "typed application routing missing"
 if grep -Eq 'performSelector:|openExternalURL:' "$controller"; then

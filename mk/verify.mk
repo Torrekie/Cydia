@@ -322,6 +322,7 @@ verify-settings-localization:
 	@python3 tests/SourcesLocalizationTests.py
 	@python3 tests/ActionsLocalizationTests.py
 	@python3 tests/RecoveryLocalizationTests.py
+	@python3 tests/LocalizationAdditionTests.py
 
 $(EXTENDED_STATE_TEST): tests/ExtendedStateTests.cpp Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp
 	@mkdir -p $(dir $@)

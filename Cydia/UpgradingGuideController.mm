@@ -219,7 +219,11 @@ static NSAttributedString *GuideAttributedText(NSString *text, UIFont *font,
     if ((self = [super init]) != nil) {
         _pageIdentifier = [identifier copy];
         _page = page;
-        self.title = GuideText(identifier, @"title", page[@"title"]);
+        /* The root shares Home's translated heading. Child titles retain
+         * their individual authored fallbacks and per-page lookup keys. */
+        self.title = [identifier isEqualToString:@"root"] ?
+            UCLocalizeEx(@"HOME_UPGRADING_HELP", page[@"title"]) :
+            GuideText(identifier, @"title", page[@"title"]);
         NSString *body = GuideText(identifier, @"body", page[@"body"]);
         NSArray *authoredBodyParts = page[@"bodyParts"];
         if ([authoredBodyParts isKindOfClass:[NSArray class]] && authoredBodyParts.count != 0)

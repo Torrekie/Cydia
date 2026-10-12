@@ -3,7 +3,7 @@
   "pages": {
     "root": {
       "title": "Frequently Asked Questions",
-      "title_key": "FAQ_TITLE",
+      "title_key": "FREQUENTLY_ASKED_QUESTIONS",
       "sections": [
         {
           "title": "Getting Started",

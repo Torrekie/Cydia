@@ -62,11 +62,25 @@ grep -Fq 'scrollToRowIdentifier:target[@"anchor"]' "$controller" ||
     fail "FAQ child no longer restores its original question anchor"
 grep -Fq 'NSLinkAttributeName' "$renderer" ||
     fail "FAQ answer inline links are not native attributed links"
-python3 - "$document" <<'PY'
-import json,sys
+python3 - "$document" "$root/MobileCydia.app" <<'PY'
+import json,pathlib,re,sys
 document=json.load(open(sys.argv[1]))
 assert document['schema']==1
 pages=document['pages']; aliases=document['aliases']
+# The native renderer resolves title_key in Localizable.strings. Reuse the
+# historical FAQ heading rather than an undefined key with an English fallback.
+title_key=pages['root']['title_key']
+assert title_key=='FREQUENTLY_ASKED_QUESTIONS'
+bundles=sorted(pathlib.Path(sys.argv[2]).glob('*.lproj'))
+assert len(bundles)==21
+pattern=re.compile(r'^\s*"'+re.escape(title_key)+r'"\s*=\s*("(?:[^"\\]|\\.)*")\s*;',re.M)
+for bundle in bundles:
+    match=pattern.search((bundle/'Localizable.strings').read_text(encoding='utf-8-sig'))
+    assert match, (bundle.name, 'FAQ title key missing')
+    value=json.loads(match.group(1))
+    assert value and value!=title_key, (bundle.name, 'FAQ title untranslated')
+    if bundle.name!='en.lproj':
+        assert value!=pages['root']['title'], (bundle.name, 'English FAQ title fallback')
 root=pages['root']['sections']
 assert [section['title'] for section in root]==[
     'Getting Started','Fixing Problems','Using Repositories (Sources)',

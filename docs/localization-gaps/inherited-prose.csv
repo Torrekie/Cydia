@@ -1,0 +1,654 @@
+lookup_or_content_id,source,text,locales,classification
+HOME_GUIDE_openssh-002,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/0/rows/0/text,"Connecting to the iPhone remotely lets you use the full power of your device. It's really quite simple with the packages in Telesphoreo, so I've written up this guide. Good luck!",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-003,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/0/text,"1: install the OpenSSH package
+
+(click, Install, Confirm, Close, Back)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-006,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/1/text,2: open Wi-Fi from Settings,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-007,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/2/text,3: click your network's ￼,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-008,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/3/text,"4: read the ""IP Address"" field
+
+(example: 192.168.1.100)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-010,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/4/text,"5: open Terminal on desktop
+
+(open Spotlight, search for ""Terminal"")
+
+Or if you're on Windows, you can use a desktop terminal application such as PuTTY(http://www.putty.org/).",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-014,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/5/text,"6: run ""ssh root@[insert IP Address]""
+
+(example: ssh root@192.168.1.100)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-016,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/6/text,"7: wait a few minutes (just once)
+
+(it's generating some crypto keys)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-018,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/7/text,"8: accept new computer host key
+
+(if it doesn't ask you, that's fine)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-020,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/1/rows/8/text,"9: log in with password ""alpine""
+
+(you should change this now)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_openssh-022,MobileCydia.app/HomeGuides.json#/pages/openssh/sections/2/rows/0/text,Change Default Password,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-002,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/0/rows/0/text,"If you install OpenSSH, you need to change your device's root password to prevent the possibility of unsavory people remotely logging into your device using the default password.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-003,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/1/rows/0/text,Open Terminal on your desktop and log in over wifi,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-004,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/1/rows/1/text,Follow OpenSSH Guide,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-005,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/2/rows/0/text,"1: Obtain Administrator Access
+
+Note: this first step is only necessary if you are using MobileTerminal. If you logged in via SSH as root, you do not need to do this step, so skip to Step 2.
+
+Run ""su root"" and provide the root password. The default password as provided by Apple is ""alpine"".
+
+Here I also run ""cd"" only to shorten the otherwise very long prompt.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-010,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/4/rows/0/text,"2: Change the root Password
+
+Run ""passwd"" and type in your new password twice. Please note that your keypresses will not be displayed on the terminal screen (for security).",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-013,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/6/rows/0/text,"3: Change the mobile Password
+
+This is the regular user account on the device. Run ""passwd mobile"" and repeat as directed above.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_root-password-016,MobileCydia.app/HomeGuides.json#/pages/root-password/sections/8/rows/0/text,"4: Close your terminal
+
+Congratulations! Your job is done!",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_developer-resources-001,MobileCydia.app/HomeGuides.json#/pages/developer-resources/sections/0/rows/0/text,Developing for jailbroken iOS,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_developer-resources-003,MobileCydia.app/HomeGuides.json#/pages/developer-resources/sections/1/rows/1/text,"This is a collection of knowledge about jailbroken iOS development, written by and for developers. It includes tips for getting started, a list of open source extensions, and documentation for many classes in private frameworks. Run by DHowett.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_developer-resources-005,MobileCydia.app/HomeGuides.json#/pages/developer-resources/sections/2/rows/1/text,"This is saurik's documentation for Cydia Substrate (sometimes called Mobile Substrate on iOS), the code modification platform that is underneath most extensions in Cydia.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_developer-resources-007,MobileCydia.app/HomeGuides.json#/pages/developer-resources/sections/3/rows/1/text,"This wiki, started by geohot, does not have much detail about extension development, but it does have a lot of technical information about iOS itself, iOS devices, and jailbreaks.
+
+If you're interested in learning about how jailbreaks work, this is a reasonable place to do some reading.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_credits-001,MobileCydia.app/HomeGuides.json#/pages/credits/sections/0/rows/0/text,Contribute using PayPal™,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_credits-002,MobileCydia.app/HomeGuides.json#/pages/credits/sections/1/rows/0/text,Special Thanks to:,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-002,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/0/rows/0/text,"Updated Date: May 24th, 2018",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-003,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/1/title,General Information,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-004,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/1/rows/0/text,"The goal of this privacy policy is to describe the current state of Cydia's usage of user information, including both first and third party disclosure.
+
+As Cydia adds more features, the implications of those new features on user information will be added to this document, and the date updated.
+
+(This document was written on July 15th of 2012. Some of the information is ""obsolete"", due to services no longer offered, and has been struck.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-007,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/2/title,Social Networking,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-008,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/2/rows/0/text,"Cydia does not maintain its own user account system and instead uses external services such as Facebook and Google for user authentication.
+
+Cydia accesses the name and profile picture of users who are logged in; this is used in a dialog reminding the user which account they are currently using.
+
+Cydia does not disclose purchases made to other users; in particular, Cydia will not publish information on purchases to a user's social network.
+
+If in the future Cydia allows users to share information in this fashion, it will require the user to take specific and obvious action to cause the share.
+
+(To be clear, no social information is ""stored"": information is merely ""accessed"" for the user interface. Future functionality is no longer being planned.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-013,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/3/title,Device Identifiers,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-014,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/3/rows/0/text,"Software licenses purchased from Cydia are associated with the user's authentication account (Facebook or Google), and not to the user's device.
+
+Instead, devices are then ""linked"" to user accounts by explicit user action; this association is made using the device's unique identifier (aka UDID).
+
+When vendors of products with DRM verify purchases with Cydia, they are done via UDID, which is looked up through to user account and checked.
+
+Device identifiers are sent to all third-party repositories during the repository update stage, as well as during the downloads of specific packages.
+
+Information on which parts of Cydia are ""new"" (have not been seen by a user) are stored purely by device identifier, and not by user authentication account.
+
+(Cydia is provided these UDIDs explicitly by the user, and then ""stores"" this information under a legal basis of fraud prevention as a payment processor.)
+
+(Information sent to third-party repositories is not sent through Cydia. Information sent to Cydia's repositories validates permissions and is not ""stored"".)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-021,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/4/title,IP Addresses,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-022,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/4/rows/0/text,"IP addresses are used and stored by Cydia during the purchasing process, including as an alternative to shipping addresses for some purchase types.
+
+Standard HTTP access logs are kept of requests to Cydia's servers, including the IP address of the user, timestamp, and the URL of the resource accessed.
+
+Connections to Cydia are through third-party content-delivery networks and third-party load balancers; each of these services may log user access.
+
+Cydia is a web browser: most of the content and packages displayed in Cydia comes from third-party sites; any of these websites may log user access.
+
+(Cydia believes Amazon does not keep connection logs. CDNetworks keeps temporary logs that we do not access; Cydia is working on getting those disabled.)
+
+(Cydia used to collect IP addresses from purchasers for anti-fraud purposes. While useful, this information was seldom accessed, and is no longer collected.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-028,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/5/title,Browser Cookies,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-029,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/5/rows/0/text,"Cydia uses cookies to maintain login information over short periods of time. These cookies are required for Cydia's purchasing system to operate at all.
+
+Some third-party services are used for purchase processing and analytics; these services may store cookies that are not under Cydia's direct control.
+
+Cydia is a web browser: most of the content and packages displayed in Cydia comes from third-party sites; any of these websites may store cookies.
+
+(The Cydia client doesn't ""store"" logins across invocations of the application, and these cookies are of course not ""stored"" on a server, only locally.)
+
+(Cydia has no control over third-party websites and any information provided by the client to these third party websites is not ""stored"" on Cydia's servers.)
+
+(Cydia used to use third-party analytics providers, however these were ineffective, were discarding most of the information anyway, and never accessed.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-035,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/6/title,Customer Lists,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-036,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/6/rows/0/text,"To comply with local sales tax laws in the United States and the European Union, Cydia must track the shipping address provided for all purchases.
+
+Vendors selling products through Cydia have access to information from their customer list: name, e-mail address, country or state, and device identifier.
+
+From time to time, Cydia provides aggregate statistics on users to the public in the form of histograms, pie-charts, and color-shaded maps.
+
+(This information is ""stored"" under the legal basis that Cydia must maintain this information to comply with accounting and tax laws in the EU and US.)
+
+(Aggregate information does not include or rely on personally identifiable information, and is for purposes of being transparent with Cydia's accounting.)
+
+(Cydia is auditing the usage of customer lists provided to vendors, and is likely to discontinue this service given that Cydia is largely no longer used :/.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-042,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/7/title,Bank Account Details,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-043,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/7/rows/0/text,"The external payment processors used by Cydia (PayPal and Amazon) do not and will not disclose information on users' bank/credit accounts to Cydia.
+
+This means that Cydia does not at any time, even momentarily, have access to credit card or bank account numbers of users using PayPal or Amazon.
+
+If a user opts to ""leave my payment information on file"", Cydia only stores a token provided by the chosen payment processor: not actual account details.
+
+Users may cancel outstanding account access tokens at any time using the website of the payment provider (currently, this is Amazon Payments).
+
+(As Cydia never has access to payment information, none of this information is ""stored""; only the token that the user explicitly requests to be left is ""stored"".)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-048,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/8/title,Signature Hash Storage,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-049,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/8/rows/0/text,"Cydia automatically requests signature hash (aka, ""SHSH"") for a user's device from Apple and stores it for a user's future usage to downgrade/restore.
+
+The information sent to Apple as part of this process is not personal data and has very low entropy: it can not be used to single out a specific device.
+
+In fact, some users (including Cydia) have on occasion submitted large numbers of ""guessed"" identifiers to Apple in order to help out other users.
+
+There is no way for a user to prove that the information in the SHSH database actually belongs to them: again, there is no personal detail used as part of it.
+
+(Cydia no longer offers the service of requesting signature hashes and thereby no longer collects and ""stores"" this information from a user.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-055,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/9/title,Third-Party Privacy,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_privacy-056,MobileCydia.app/HomeGuides.json#/pages/privacy/sections/9/rows/0/text,"Cydia is a tool that allows third-party repositories to distribute packages and products, each produced by third-party developers, to users and customers.
+
+These third-party products or services may have their own privacy policies; Cydia's privacy policy does not and cannot cover for these third parties.
+
+(Cydia does not provide any service to ""store"" information on behalf of third-parties and is not involved in implementing any third-party software.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+Getting Started,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/title,Getting Started,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-software-whatiscydia,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/rows/0/text,What is Cydia?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-software-noappicon,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/rows/1/text,"I installed something, but there is no app icon for it. Where is it?",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-software-howtouninstall,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/rows/2/text,How do I uninstall Cydia packages?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-software-filterchanges,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/rows/3/text,Can I filter Changes to only show my favorite types of packages?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-software-reinstallproducts,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/rows/4/text,"If I get a new device, can I reinstall products I have purchased?",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-software-alternative,MobileCydia.app/FAQGuide.json#/pages/root/sections/0/rows/5/text,Can I buy products without having a credit or debit card?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+Fixing Problems,MobileCydia.app/FAQGuide.json#/pages/root/sections/1/title,Fixing Problems,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-fixing-safemode,MobileCydia.app/FAQGuide.json#/pages/root/sections/1/rows/0/text,I keep getting stuck in Safe Mode!,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-fixing-safestable,MobileCydia.app/FAQGuide.json#/pages/root/sections/1/rows/1/text,How do I keep my device safe and using minimal battery?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-fixing-errors,MobileCydia.app/FAQGuide.json#/pages/root/sections/1/rows/2/text,How do I fix these annoying errors that pop up while using Cydia?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-fixing-resetsettings,MobileCydia.app/FAQGuide.json#/pages/root/sections/1/rows/3/text,"If I use Apple's Reset All Settings, why does my device not boot?",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+Using Repositories (Sources),MobileCydia.app/FAQGuide.json#/pages/root/sections/2/title,Using Repositories (Sources),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-repositories-whatarethey,MobileCydia.app/FAQGuide.json#/pages/root/sections/2/rows/0/text,What are repositories?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-repositories-ads,MobileCydia.app/FAQGuide.json#/pages/root/sections/2/rows/1/text,Why are there ads in Cydia?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-repositories-apt,MobileCydia.app/FAQGuide.json#/pages/root/sections/2/rows/2/text,How do I make a repository to host and share packages I made?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-repositories-hosting,MobileCydia.app/FAQGuide.json#/pages/root/sections/2/rows/3/text,How do I ask one of the default repositories to host my package?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-repositories-reinstall,MobileCydia.app/FAQGuide.json#/pages/root/sections/2/rows/4/text,I uninstalled a default repository. How I do reinstall it?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+Developing for Jailbroken iOS,MobileCydia.app/FAQGuide.json#/pages/root/sections/3/title,Developing for Jailbroken iOS,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-developing,MobileCydia.app/FAQGuide.json#/pages/root/sections/3/rows/0/text,Where can I learn about developing for jailbroken iOS?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+Learning More,MobileCydia.app/FAQGuide.json#/pages/root/sections/4/title,Learning More,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-learning-0,MobileCydia.app/FAQGuide.json#/pages/root/sections/4/rows/0/text,Cydia (Wikipedia),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-question-learning-1,MobileCydia.app/FAQGuide.json#/pages/root/sections/4/rows/1/text,iOS Jailbreaking (Wikipedia),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+faq,MobileCydia.app/FAQGuide.json#/pages/software/title,Software,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-software-whatiscydia,MobileCydia.app/FAQGuide.json#/pages/software/sections/0/rows/0/text,"What is Cydia?
+
+Cydia is a software installer that helps you exercise the freedom of your jailbroken device — letting you install any kind of software you want, and helping you make your device even more useful and fun by customizing it to look and work the way you like it.
+
+Most of the packages available through Cydia are not exactly ""apps"". Instead, they are a more flexible kind of software: tweaks (extensions and modifications) and themes for your existing apps, or for the whole experience of using your device.
+
+Cydia includes access to lots of free and paid software and themes by developers and designers from the jailbroken iOS community, and Cydia's decentralized structure means that anyone can also use it to distribute their own packages.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-software-noappicon,MobileCydia.app/FAQGuide.json#/pages/software/sections/1/rows/0/text,"I installed something, but there is no app icon for it. Where is it?
+
+Most packages available through Cydia do not have app icons. Instead, they are customizations and extensions for other apps, or for parts of the interface of your device.
+
+Check the package's description page to find out how to use that package. Many packages also let you configure them in your device's Settings app.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-software-howtouninstall,MobileCydia.app/FAQGuide.json#/pages/software/sections/2/rows/0/text,"How do I uninstall Cydia packages?
+
+Tap Installed, scroll to the package name, tap it, tap the Modify button in the upper right corner, tap Remove, tap Confirm.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-software-filterchanges,MobileCydia.app/FAQGuide.json#/pages/software/sections/3/rows/0/text,"Can I filter Changes to only show my favorite types of packages?
+
+Yes! Tap Sources, tap All Sources, tap Edit (in the upper right corner), and turn off any types of packages you are not interested in seeing in Changes.
+
+All types of packages will still show up when searching for package names.
+
+To find out the section (category) of any package, visit its description page and scroll to the bottom.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-software-reinstallproducts,MobileCydia.app/FAQGuide.json#/pages/software/sections/4/rows/0/text,"If I get a new device, can I reinstall products I have purchased?
+
+Yes, you can reinstall your purchased products on new or restored devices (if they are jailbroken). On Cydia's homepage, go to Manage Account and log in with the account you used when previously purchasing those products (a Google or Facebook account), and then tap on Installable Purchases to install them.
+
+Make sure to use the same account you used before. If your purchases do not show up, try logging in with another Google or Facebook account. Try all possible accounts.
+
+(If you have updated your Facebook or Google account email address, make sure to use your account's current email address and password to log into your Facebook or Google account, not any old ones.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-software-alternative,MobileCydia.app/FAQGuide.json#/pages/software/sections/5/rows/0/text,"Can I buy products without having a credit or debit card?
+
+If you have some cash but no credit or debit card, you can buy a prepaid general-purpose gift card and link it to your PayPal or Amazon Payments account. Then use your PayPal or Amazon Payments account to purchase products in Cydia.
+
+You can often buy this kind of prepaid card at convenience stores, such as at 7-11 stores in the US. For example, Vanilla Visa is a popular brand of prepaid gift card in the US.
+
+PayPal details: PayPal options for prepaid cards also include MoneyPak cards. Alternatively you can add funds by linking your bank account to your PayPal account.
+
+Amazon Payments details: Similarly, you can add funds to your Amazon Payments account using a prepaid card or by linking your bank account to your Amazon Payments account.
+
+Note that Amazon.com gift cards do not work for buying Cydia Store products — those gift cards are only good for buying products on Amazon.com itself, not for buying products on other websites that use the Amazon Payments service.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+faq,MobileCydia.app/FAQGuide.json#/pages/fixing/title,Problems,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-fixing-safemode,MobileCydia.app/FAQGuide.json#/pages/fixing/sections/0/rows/0/text,"I keep getting stuck in Safe Mode!
+
+This usually means that one of your installed packages is broken or misbehaving in some way. Follow the instructions on the Safe Mode help page to solve the issue (including uninstalling recently-installed extensions, checking for iOS version compatibility, and making sure your packages are from trusted sources).
+
+If you paid for a package that consistently is not working, you may want to email the author using the contact link provided on top of the package's description page in Cydia.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-fixing-safestable,MobileCydia.app/FAQGuide.json#/pages/fixing/sections/1/rows/0/text,"How do I keep my device safe and using minimal battery?
+
+Use the same caution when installing packages from Cydia that you'd use when installing software on your desktop computer, including researching first and choosing software from reputable developers. The community repositories (BigBoss, ModMyi, and ZodTTD/MacCiti) keep an eye on the packages they distribute, but ultimately it is up to you to decide what to put on your device.
+
+Most extensions by experienced developers add little or no battery usage. Often the best way to save battery on your device is to turn off WiFi and 3G when you do not need them for a while. Other than that, you may see a bit of increased battery usage from extensions and tweaks that use the internet frequently (such as ones that check for mail, check the weather, or activate a personal WiFi hotspot) or change the screen frequently (such as video wallpapers and animated lockscreens).",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-fixing-errors,MobileCydia.app/FAQGuide.json#/pages/fixing/sections/2/rows/0/text,"How do I fix these annoying errors that pop up while using Cydia?
+
+If you've just installed Cydia on your device and you see ""cannot locate package"" errors, close Cydia and open it again, and then wait for it to finish downloading and loading data.
+
+If you see ""untrusted server certificate"" or ""an SSL error has occurred"" preventing you from using Cydia, check to make sure your device's date is set correctly (using your device's Settings app).
+
+If your device finishes reloading data and then pops up a black screen including red and yellow errors, they usually indicate a problem with one of the repositories you have installed (or sometimes one of the packages). Cydia is still working fine, but you may want to try refreshing data again or removing the broken repository. Keep in mind that Cydia has no control over third-party repositories. Common repository (source) errors include:
+
+""Failed to fetch"": This usually happens when a source does not exist. You may have typed in the wrong URL, the source may have shut down, or the source may be broken. This is often a temporary problem, so wait a few hours and try reloading data again. If it keeps happening, look carefully at the error message to find the URL of the broken repository, and then you can choose to remove that repository by going to Sources and tapping Edit. If the source can't be removed that way, it may have been installed as a package, which means you need to uninstall that repository package.
+
+""POSIX error: Operation Timed Out"": Make sure your device has access to the internet and try again. If this error keeps happening, it is likely caused by a repository server being temporarily offline. Try again later. You can also choose to remove the repository (see the method above).
+
+""GPG error"": This means that a repository is configured incorrectly. You can usually safely ignore this.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-fixing-resetsettings,MobileCydia.app/FAQGuide.json#/pages/fixing/sections/3/rows/0/text,"If I use Apple's Erase All Content and Settings option, why does my device not boot?
+
+On jailbroken devices, using the ""Erase All Content and Settings"" option in your device's Settings app will cause your device to require a full restore. :(
+
+This happens because during the process of jailbreaking, your jailbreaking tool reorganizes some of the files on your device in order to make room for Cydia and other jailbreak-only files, so the ""Erase All Content and Settings"" option ends up erasing important files instead of just settings.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+faq,MobileCydia.app/FAQGuide.json#/pages/repositories/title,Repositories,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-repositories-whatarethey,MobileCydia.app/FAQGuide.json#/pages/repositories/sections/0/rows/0/text,"What are repositories?
+
+Repositories (also called sources) host packages. You can think of Cydia a bit like a web browser: consider that Safari doesn't contain or own Google or Amazon, but instead is a way to view Google, Amazon, and any other website. Cydia is a way to browse and view software hosted by independent repositories, and the Cydia Store is a purchasing system that lets you buy software hosted by them.
+
+Cydia automatically includes a few sources, but only Cydia/Telesphoreo is run by the people who make Cydia. The sources BigBoss, ModMyi, and ZodTTD/MacCiti are independently-owned and work closely with Cydia.
+
+Cydia is an open platform built to help you have control over your device; you can choose to add extra repositories run by other people and install any package you want, from good to bad.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-repositories-ads,MobileCydia.app/FAQGuide.json#/pages/repositories/sections/1/rows/0/text,"Why are there ads in Cydia?
+
+Repositories choose to cover their costs (including the costs of hosting packages and having staff check package submissions) by displaying ads on their pages within Cydia. These ads are not controlled by Cydia itself; they are the responsibility of the repositories, and none of the money from the ads goes to Cydia.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-repositories-apt,MobileCydia.app/FAQGuide.json#/pages/repositories/sections/2/rows/0/text,"How do I make a repository to host and share packages I made?
+
+Here is the official guide to making your own Cydia repository: http://www.saurik.com/id/7",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-repositories-hosting,MobileCydia.app/FAQGuide.json#/pages/repositories/sections/3/rows/0/text,"How do I ask one of the default repositories to host my package?
+
+You can submit packages you have made to one of the default repositories (the sources pre-installed in Cydia) if you would like to make your packages available to nearly everyone who uses Cydia. Each default repository offers hosting of packages and provides services like realtime download statistics.
+
+We at SaurikIT have a long relationship with BigBoss, and help support its costs (statement current as of 2020).
+
+For BigBoss:
+ visit http://thebigboss.org/hosting-repository-cydia/submission
+ or email bigboss@thebigboss.org",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-repositories-reinstall,MobileCydia.app/FAQGuide.json#/pages/repositories/sections/4/rows/0/text,"I uninstalled a default repository. How do I reinstall it?
+
+Go to the Cydia homepage and tap More Package Sources. If you've uninstalled any of the default sources, they'll show up on that page so that you can reinstall them.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+faq,MobileCydia.app/FAQGuide.json#/pages/safemode/title,Safe Mode,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-safemode-0,MobileCydia.app/FAQGuide.json#/pages/safemode/sections/0/rows/0/text,"Safe Mode
+
+Safe mode is a feature of Cydia Substrate that prevents your device from entering a permanent crash cycle by giving you a chance to uninstall malfunctioning extensions without a complete device restore.
+
+Below are instructions for help on how to get your device back in working order. Only continue on to the next step if the previous one was not able to solve your problem.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-safemode-1,MobileCydia.app/FAQGuide.json#/pages/safemode/sections/1/rows/0/text,"1: Just Restart
+
+If this is the first time you have entered safe mode, just tap the status bar at the top of the screen and click Restart to restart your SpringBoard. If this was an isolated issue, this should be enough to get you going again.
+
+If you've already tried the above, and you're back in Safe Mode, read on.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-safemode-2,MobileCydia.app/FAQGuide.json#/pages/safemode/sections/2/rows/0/text,"2: Remove Recently Installed Extensions
+
+If you recently installed a new tweak or extension in Cydia, try uninstalling that tweak. Open up Cydia, go to Installed, tap Recent, find the tweak and tap it, tap Modify in the top-right corner, and tap Remove to uninstall it.
+
+Especially try uninstalling any extensions that may not be compatible with your device's iOS version (often the description page for an extension mentions which iOS versions it is compatible with). Also make sure you're using extensions from trusted repositories such as BigBoss, ModMyi, and ZodTTD & MacCiti.
+
+If you haven't recently installed an extension, or uninstalling it didn't help, read on.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-safemode-3,MobileCydia.app/FAQGuide.json#/pages/safemode/sections/3/rows/0/text,"3: Determine Cause
+
+If you are still stuck in Safe Mode, you can try to diagnose the problem using an app called Crash Reporter. Open that up, select SpringBoard, and choose the top crash. Crash Reporter will try to provide an automated guess as to what extension caused the crash. If it finds something, try removing that package in Cydia. (Be careful about uninstalling packages you don't recognize, in case they're packages that Cydia needs.)
+
+You should also send the developer of the extension the crash log found by Crash Reporter, so they can fix the issue in an update to their package.
+
+If Crash Reporter can't find what causes the crash, or removing the tweak it finds doesn't help, read on.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-safemode-4,MobileCydia.app/FAQGuide.json#/pages/safemode/sections/4/rows/0/text,"4: Ask for Help
+
+If you still can't get your device back in working order, your next best bet is to ask for help. You can ask a forum such as JailbreakQA or /r/jailbreak; make sure to include a list of your installed tweaks so that other people can help make guesses about the problem.
+
+If nobody is able to provide help to get your device working again, read on.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_faq-safemode-5,MobileCydia.app/FAQGuide.json#/pages/safemode/sections/5/rows/0/text,"5: Restore
+
+If all else fails, you can always restore with iTunes, which will also automatically update your device to the latest iOS version. Before you try this, you should check Cydia's help pages to find out whether the latest iOS version can be jailbroken. Don't upgrade to an iOS version past what is able to be jailbroken: you likely cannot come back.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_copying-files-intro,MobileCydia.app/CopyingFilesGuide.json#/sections/0/rows/0/text,"Getting Files to/from Your Device
+
+One of the advantages of having a jailbroken device is being able to access the filesystem on your device and modify its files or transfer any of them to another computer.
+
+To get to the filesystem you might use any of the following tools:",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_copying-files-packages,MobileCydia.app/CopyingFilesGuide.json#/sections/1/rows/0/text,"Cydia Packages
+
+Secure Copy Protocol: Install OpenSSH to let you connect to your device with a standard SCP or SFTP client. You can use a terminal to connect (and you should use one to change the default password) or a graphical desktop application such as:
+Cyberduck (Mac): http://cyberduck.ch/
+WinSCP (Windows): http://winscp.net/
+
+Apple Filing Protocol: Install Netatalk to make your device show up in Finder under Shared. (You may need to reboot your device after installation for this to work.)
+
+On Device: Install iFile to access the filesystem from an app on the device.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+HOME_GUIDE_copying-files-desktop,MobileCydia.app/CopyingFilesGuide.json#/sections/2/rows/0/text,"Desktop Applications
+
+If you jailbroke your device with Pangu or evasi0n7, you will first need to install Apple File Conduit ""2"" to get full filesystem access over USB. (Most earlier jailbreaks include this service by default.)
+
+DiskAid for Mac & Windows
+(free, $30 for extra features):
+http://www.digidna.net/diskaid/
+
+iExplorer for Mac & Windows
+(free trial, $35 for full features):
+http://www.macroplant.com/iexplorer/
+
+iPhoneBrowser for Windows (free):
+http://code.google.com/p/iphonebrowser/
+
+Phone Disk for Mac & Windows (free)
+http://www.macroplant.com/phonedisk/
+
+PhoneView for Mac
+(free trial, $30 for unlimited use):
+http://www.ecamm.com/mac/phoneview/",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_root_body,MobileCydia.app/UpgradingGuide.json#/pages/root/bodyParts/0,"If you upgrade iOS with iTunes, your device will be un-jailbroken and Cydia packages will be deleted. Before upgrading iOS, make sure a jailbreak is available for the new version.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_root_body,MobileCydia.app/UpgradingGuide.json#/pages/root/bodyParts/1,"As of September 8, 2015
+
+No jailbreak for 8.4.1
+
+Currently there is no jailbreak for iOS 8.4.1. Avoid upgrading or restoring if you want a jailbroken device.
+
+If you want to wipe all data on your device without upgrading the iOS, consider trying Cydia Impactor.
+
+For frequently updated news, see /r/jailbreak on Reddit.
+
+Untethered jailbreak for 8.1.3-8.4
+
+TaiG has released an untethered jailbreak for iOS 8.1.3-8.4.
+
+You can download it from http://www.taig.com/en/ for Windows and Mac.
+
+For news, follow @TaiG_jailbreak.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_root_body,MobileCydia.app/UpgradingGuide.json#/pages/root/bodyParts/2,"How do I find my current version?
+
+Open the Settings app, tap General, tap About, and look at Version.
+
+(Your device's version is also listed at the bottom of the Cydia ""homepage"".)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_root_link.tools,MobileCydia.app/UpgradingGuide.json#/pages/root/links/0/title,Which free tools can I use to jailbreak eligible iOS versions?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_root_link.news,MobileCydia.app/UpgradingGuide.json#/pages/root/links/1/title,Where can I find reliable jailbreaking news and help?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_root_link.shsh,MobileCydia.app/UpgradingGuide.json#/pages/root/links/2/title,Can I upgrade/downgrade iOS to any version? What is SHSH?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_tools_title,MobileCydia.app/UpgradingGuide.json#/pages/tools/title,Jailbreaking Tools,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_tools_body,MobileCydia.app/UpgradingGuide.json#/pages/tools/bodyParts/0,Note: Real jailbreaking tools are available to download for free. Any site offering a paid jailbreak or unlock tool download (or requiring a survey before downloading) is a scam.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.taig,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/0/detail,Untethered jailbreak for 8.0 through 8.4 on all devices.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.pangu8,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/1/detail,Untethered jailbreak for 8.0 through 8.1 on all devices.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.pangu,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/2/detail,Untethered jailbreak for 7.1 through 7.1.2 on all devices.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.evasi0n7,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/3/detail,Untethered jailbreak for 7.0 through 7.0.6 on all devices.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.p0sixspwn,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/4/detail,Untethered jailbreak for 6.1.3 through 6.1.6 on all devices.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.evasi0n,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/5/detail,Untethered jailbreak for 6.0 through 6.1.2 on all devices.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.redsn0w,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/6/detail,"Untethered jailbreak for 5.1.1 on iPad 3rd generation, iPad 2, and iPhone 4S; 5.1.1, 5.0.1, and 4.3.1 through 4.3.3 (on iPhone 3GS and 4, iPod touch 3g and 4g, and iPad 1); 5.0.1 on iPhone 4S and iPad 2; 5.0 on iPhone 4S; 4.1 through 4.2.1 on many.
+
+Tethered jailbreak for 6.0 and 6.0.1 (on iPhone 3GS and 4, and iPod touch 4g); 5.1, 5.0, 4.3.5, 4.3.4 (on iPhone 3GS and 4, iPod touch 3g and 4g, and iPad 1); 4.2.9 and 4.2.10 on iPhone 4 CDMA.
+
+Can preserve unlockable basebands.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.absinthe2,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/7/detail,"Untethered jailbreak for 5.1.1 on iPad 3rd generation, iPad 2, iPad 1, iPhone 4S, iPhone 4, iPhone 3GS, and iPod touch 3g and 4g.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.pwnagetool,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/8/detail,"Untethered jailbreak for 5.1.1, 5.0.1, and 4.0 through 4.3.3 (on most devices except iPad 3rd generation, iPad 2, and iPhone 4S); can preserve unlockable basebands.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.absinthe,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/9/detail,"Untethered jailbreak for 5.0.1 on iPhone 4S and iPad 2, and also 5.0 on iPhone 4S.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.jailbreakme-saffron,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/10/detail,"Untethered jailbreak for 4.3 through 4.3.3 (on iPhone 3GS and 4, iPod touch 3g and 4g, and iPad 1), 4.2.6 through 4.2.8 (iPhone 4 CDMA), and 4.3.3 on iPad 2.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.greenpois0n,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/11/detail,"Untethered jailbreak for 4.1 and 4.2.1 (on iPhone 3GS and 4; iPod touch 2g, 3g, and 4g; and iPad 1).",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.jailbreakme-star,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/12/detail,"3.1.2 through 4.0.1 (iPhone, iPod, iPad 1)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.spirit,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/13/detail,"3.1.2, 3.1.3 (2G unlock), 3.2 (iPad 1)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.blackra1n,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/14/detail,3.1.2 (newer 3GS models tethered),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.purplera1n,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/15/detail,3.0 (3GS Only),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_detail.quickpwn-mac,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/16/detail,2.2.1,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_tools_link.evasi0n,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/5/title,"evasi0n (Windows, Mac, & Linux)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_tools_link.absinthe2,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/7/title,"Absinthe 2.0 (Windows, Mac, and Linux)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_tools_link.absinthe,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/9/title,"Absinthe 0.4 (Windows, Mac, and Linux)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_tools_link.jailbreakme-saffron,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/10/title,"JailbreakMe.com ""Saffron"" (Web)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_tools_link.jailbreakme-star,MobileCydia.app/UpgradingGuide.json#/pages/tools/links/12/title,"JailbreakMe.com ""Star"" (Web)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_news_title,MobileCydia.app/UpgradingGuide.json#/pages/news/title,News and Help,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_news_group.forums,MobileCydia.app/UpgradingGuide.json#/pages/news/groups/0/title,Forums,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+UPGRADING_news_group.news,MobileCydia.app/UpgradingGuide.json#/pages/news/groups/1/title,News,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+UPGRADING_news_group.guides,MobileCydia.app/UpgradingGuide.json#/pages/news/groups/2/title,Guides,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+UPGRADING_news_link.taig,MobileCydia.app/UpgradingGuide.json#/pages/news/links/1/title,@TaiG_Jailbreak on Twitter,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_news_link.pangu,MobileCydia.app/UpgradingGuide.json#/pages/news/links/2/title,@PanguTeam on Twitter,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_news_link.evad3rs,MobileCydia.app/UpgradingGuide.json#/pages/news/links/3/title,@evad3rs on Twitter,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_shsh_title,MobileCydia.app/UpgradingGuide.json#/pages/shsh/title,Upgrading / Downgrading,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_shsh_body,MobileCydia.app/UpgradingGuide.json#/pages/shsh/bodyParts/0,"Can I downgrade/upgrade to the firmware version I want?
+
+Probably not, and here's why.
+
+Apple has a system that tries to make sure you can only install the latest iOS firmware version: devices require their firmware installation to be verified (signed) by Apple during every restore or upgrade. Apple usually only signs a version while it's the latest version. This is designed to keep you from installing jailbreakable versions as Apple fixes exploitable bugs.
+
+It is possible to save your device's available SHSH blobs (signatures) for the current iOS version that Apple is signing, using a free tool called TinyUmbrella. You may do this in the hope that you can restore your device with those firmware versions later (after Apple no longer signs them), but there are few loopholes for using SHSH blobs on devices newer than iPhone 4 and on iOS versions newer than iOS 5. Apple has improved the security of their signing system over the past few years.
+
+Cydia used to automatically save SHSH blobs for devices, when SHSH blobs were more usable. For explanation of that system, see Caching Apple's Signature Server (September 2009).",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_shsh_body,MobileCydia.app/UpgradingGuide.json#/pages/shsh/bodyParts/1,"On devices newer than iPhone 4 and on iOS versions newer than iOS 5, SHSH blobs are usually not usable — in other words, you can only upgrade, downgrade, or restore to iOS versions that Apple is signing (which is usually only the newest iOS version available for that device).",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_taig_body,MobileCydia.app/UpgradingGuide.json#/pages/taig/bodyParts/0,"TaiG is a series of tools that provide untethered jailbreaks for all devices on 8.0 through 8.4.
+
+TaiG version 1.2.1 for Windows is a tool that provides untethered jailbreaks for all devices on 8.0 through 8.1.2.
+
+TaiG version 2.4.3 for Windows and version 1.1.10 for Mac are tools that provide untethered jailbreaks for all devices on 8.1.3 through 8.4.
+
+On the TaiG website, scroll down to ""Main Versions & Download Links"" to select the correct version for your computer and device.
+
+TaiG runs on already-upgraded
+un-jailbroken devices.
+
+On Twitter: @TaiG_jailbreak.
+
+Steps: Read the instructions (tutorial) on TaiG's website. Make sure your computer has iTunes installed. Download TaiG. Open it, plug your device into your computer, and follow the instructions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+literal:resourceTitle,MobileCydia.app/UpgradingGuide.json#/pages/taig/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/pangu8/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/pangu/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/evasi0n7/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/evasi0n/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/p0sixspwn/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/redsn0w/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/absinthe2/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/pwnagetool/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/absinthe/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/jailbreakme/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/greenpois0n/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/spirit/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/blackra1n/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/purplera1n/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/quickpwn-mac/resourceTitle;MobileCydia.app/UpgradingGuide.json#/pages/quickpwn-win/resourceTitle,Resources,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-heading;historical-remote-coverage-unavailable
+UPGRADING_pangu8_body,MobileCydia.app/UpgradingGuide.json#/pages/pangu8/bodyParts/0,"Pangu 8.0-8.1 is a tool for Windows and Mac that provides untethered jailbreaks for all devices on 8.0 through 8.1.
+
+Pangu runs on already-upgraded
+un-jailbroken devices.
+
+On Twitter: @PanguTeam.
+
+Steps: Read the instructions on Pangu's website. Make sure your computer has iTunes installed. Download Pangu. Open it, plug your device into your computer, and follow the instructions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_pangu_body,MobileCydia.app/UpgradingGuide.json#/pages/pangu/bodyParts/0,"Pangu 7.1-7.1.2 is a tool for Windows and Mac that provides untethered jailbreaks for all devices on 7.1 through 7.1.2.
+
+Pangu runs on already-upgraded
+un-jailbroken devices.
+
+Steps: Make sure your computer has iTunes installed. Download Pangu. Open it, plug your device into your computer, and follow the instructions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_evasi0n7_body,MobileCydia.app/UpgradingGuide.json#/pages/evasi0n7/bodyParts/0,"evasi0n7 is a tool for Windows and Mac that provides untethered jailbreaks for:
+
+• iPhone 5S: 7.0 through 7.0.6
+• iPhone 5C: 7.0 through 7.0.6
+• iPhone 5: 7.0 through 7.0.6
+• iPhone 4S: 7.0 through 7.0.6
+• iPhone 4: 7.0 through 7.0.6
+• iPad Air: 7.0 through 7.0.6
+• iPad 4th generation: 7.0 through 7.0.6
+• iPad 3rd generation: 7.0 through 7.0.6
+• iPad 2: 7.0 through 7.0.6
+• iPad mini 2nd generation: 7.0 through 7.0.6
+• iPad mini 1st generation: 7.0 through 7.0.6
+• iPod touch 5th generation: 7.0 through 7.0.6
+
+evasi0n7 runs on already-upgraded
+un-jailbroken devices.
+
+Steps: Download evasi0n7. Open it, plug your device into your computer, and follow the instructions.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_evasi0n_body,MobileCydia.app/UpgradingGuide.json#/pages/evasi0n/bodyParts/0,"evasi0n is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:
+
+• iPhone 5: 6.0 through 6.1.2
+• iPhone 4S: 6.0 through 6.1.2
+• iPhone 4: 6.0 through 6.1.2
+• iPhone 3GS: 6.0 through 6.1.2
+• iPad 4th generation: 6.0 through 6.1.2
+• iPad 3rd generation: 6.0 through 6.1.2
+• iPad 2: 6.0 through 6.1.2
+• iPad mini: 6.0 through 6.1.2
+• iPod touch 5th generation: 6.0 through 6.1.2
+• iPod touch 4th generation: 6.0 through 6.1.2
+
+evasi0n runs on already-upgraded
+un-jailbroken devices.
+
+Steps: Download evasi0n. Open it, plug your device into your computer, and follow the instructions.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_p0sixspwn_body,MobileCydia.app/UpgradingGuide.json#/pages/p0sixspwn/bodyParts/0,"p0sixspwn is a tool for Windows and Mac that provides untethered jailbreaks for:
+
+• iPhone 5: iOS 6.1.3 and 6.1.4
+• iPhone 4S: iOS 6.1.3
+• iPhone 4: iOS 6.1.3
+• iPhone 3GS: iOS 6.1.3 and 6.1.6
+• iPad 4th generation: iOS 6.1.3
+• iPad 3rd generation: iOS 6.1.3
+• iPad 2: iOS 6.1.3
+• iPad mini: iOS 6.1.3
+• iPod touch 5th generation: iOS 6.1.3
+• iPod touch 4th generation: iOS 6.1.3, 6.1.5, and 6.1.6
+
+p0sixspwn runs on already-upgraded
+un-jailbroken devices.
+
+Steps: Download p0sixspwn. Open it, plug your device into your computer, and follow the instructions.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_redsn0w_body,MobileCydia.app/UpgradingGuide.json#/pages/redsn0w/bodyParts/0,"redsn0w is a tool for Mac and Windows that provides untethered jailbreaks for iOS versions including:
+
+• iPhone 4S: 5.0, 5.0.1, and 5.1.1
+• iPhone 4 (GSM): 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1
+• iPhone 4 (CDMA): 4.2.8, 5.0.1, and 5.1.1
+• iPhone 3GS: 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1 (old-bootrom iPhone 3GS is untethered on all versions)
+• iPhone 3G: 4.1 through 4.2.1
+• iPad 3rd generation: 5.1.1
+• iPad 2: 5.0.1 and 5.1.1
+• iPad 1: 4.3.1 through 4.3.3; 5.0.1 and 5.1.1
+• iPod touch 3rd generation and 4th generation: 4.1 through 4.2.1; 4.3.1 through 4.3.3; 5.0.1 and 5.1.1
+• iPod touch 2nd generation (which includes devices sold as iPod touch 3rd generation 8 GB): 4.1 through 4.2.1
+
+And tethered jailbreaks for iOS versions including:
+
+• iPhone 4 (GSM): 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1
+• iPhone 4 (CDMA): 4.2.9 through 5.0, 5.1, and 6.0 through 6.0.1
+• iPhone 3GS: 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1
+• iPad 1: 4.3.4 through 5.0, and 5.1
+• iPod touch 3rd generation: 4.3.4 through 5.0, and 5.1
+• iPod touch 4th generation: 4.3.4 through 5.0, 5.1, and 6.0 through 6.0.1
+
+redsn0w runs on already-upgraded un-jailbroken devices.
+
+Steps: Download redsn0w for Mac or Windows. Open it, plug your device into your computer, and follow redsn0w's instructions.
+
+If your version of iOS has a tethered jailbreak, this means you need to plug your device into a computer and run redsn0w every time your device boots (such as when it runs out of battery), or else it may get stuck at the Apple logo while booting — or it may boot up but in a seemingly ""unjailbroken"" state where Cydia and Safari will crash when you try to open them. To boot tethered: open redsn0w, click ""Extras"" and then click ""Just Boot"".
+
+Tips for Windows users: Extract redsn0w.exe to your desktop instead of running it from inside the .zip archive. You may need to right-click redsn0w to run it from an administrator account and/or run it in XP compatibility mode. If you use Internet Explorer to download an IPSW file, you may need to change the file extension from .zip to .ipsw in order to use it.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's ""Custom IPSW"" feature to upgrade and jailbreak your device while preserving your baseband. (Not currently possible on iPhone 4S.)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_redsn0w_link.firmware,MobileCydia.app/UpgradingGuide.json#/pages/redsn0w/links/1/title,The iPhone Wiki (IPSW files),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_absinthe2_body,MobileCydia.app/UpgradingGuide.json#/pages/absinthe2/bodyParts/0,"Absinthe 2.0.4 is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:
+
+• iPad 3rd generation: 5.1.1
+• iPad 2: 5.1.1
+• iPad 1: 5.1.1
+• iPhone 4S: 5.1.1
+• iPhone 4: 5.1.1
+• iPhone 3GS: 5.1.1 (new-bootrom only)
+• iPod touch 3rd generation: 5.1.1
+• iPod touch 4th generation: 5.1.1
+
+Absinthe 2.0.4 runs on already-upgraded un-jailbroken devices.
+
+Steps: Download Absinthe 2.0.4. Open it, plug your device into your computer, and follow the instructions.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_pwnagetool_body,MobileCydia.app/UpgradingGuide.json#/pages/pwnagetool/bodyParts/0,"PwnageTool is a tool for Mac that jailbreaks iOS 5.1.1, 5.0.1, and 4.0 through 4.3.3 (on most devices except iPad 3rd generation, iPad 2, and iPhone 4S). It is able to preserve unlocked basebands.
+
+Steps: Download PwnageTool. This will come in the form of an Apple disk image file. Copy PwnageTool to your hard disk before running it.
+
+Use PwnageTool to make a Custom Firmware that can be used to Restore your device with iTunes.
+
+When using this jailbreaking tool on iPhones unofficially unlocked with ultrasn0w, you should not check ""upgrade the baseband"".",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_pwnagetool_link.firmware,MobileCydia.app/UpgradingGuide.json#/pages/pwnagetool/links/1/title,The iPhone Wiki (IPSW files),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_absinthe_body,MobileCydia.app/UpgradingGuide.json#/pages/absinthe/bodyParts/0,"Absinthe 0.4 is a tool for Windows, Mac, and Linux that provides untethered jailbreaks for:
+
+• iPhone 4S: 5.0 and 5.0.1
+• iPad 2: 5.0.1
+
+Absinthe 0.4 runs on already-upgraded un-jailbroken devices.
+
+Steps: Download Absinthe 0.4. Open it, plug your device into your computer, and follow the instructions.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects unofficial unlocks that depend on specific baseband versions.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_jailbreakme_body,MobileCydia.app/UpgradingGuide.json#/pages/jailbreakme/bodyParts/0,"JailbreakMe is the easiest jailbreak tool to date. Jailbreaking your device can be done from anywhere, with no computer: just visit jailbreakme.com with the device's web browser.
+
+JailbreakMe 3.0 runs on already-upgraded un-jailbroken
+iPhones, iPod touches, and iPads:
+
+• iPad 1: 4.3 through 4.3.3
+• iPad 2: 4.3.3
+• iPhone 3GS: 4.3 through 4.3.3
+• iPhone 4 (GSM): 4.3 through 4.3.3
+• iPhone 4 (CDMA): 4.2.6 through 4.2.8
+• iPod touch 3rd generation: 4.3, 4.3.2, 4.3.3
+• iPod touch 4th generation: 4.3 through 4.3.3
+
+For devices on old firmwares (3.1.2 through 4.0.1): visit jailbreakme.com/star
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's ""Custom IPSW"" feature to upgrade and jailbreak your device while preserving your baseband.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_greenpois0n_body,MobileCydia.app/UpgradingGuide.json#/pages/greenpois0n/bodyParts/0,"greenpois0n is a tool for Mac and Windows that jailbreaks iOS versions 4.1 and 4.2.1 (on iPad 1, iPhone 3GS and 4, and iPod touch 2nd generation, 3rd generation, and 4th generation).
+
+greenpois0n runs on already upgraded un-jailbroken devices.
+
+Steps: Download greenpois0n for Mac or Windows. Plug in your device, run greenpois0n, and let the jailbreak complete. On the device, use the new Loader app to install Cydia.
+
+Note: if Loader fails to install Cydia, run redsn0w with only ""Install Cydia"" checked.
+
+Note for unlockers: if you upgrade iOS using iTunes, it will upgrade your iPhone's baseband, which negatively affects iPhones unofficially unlocked with ultrasn0w. Instead use redsn0w's ""Custom IPSW"" feature to upgrade and jailbreak your device while preserving your baseband.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_spirit_body,MobileCydia.app/UpgradingGuide.json#/pages/spirit/bodyParts/0,"This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.
+
+Spirit is comparable to redsn0w.
+It does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.1.* / 3.2 (all devices).
+
+Steps: Download Spirit. This will come in the form of a single .exe file (Windows) or .zip file (Mac OS X).
+
+Use iTunes to upgrade to the latest firmware. Spirit runs on already upgraded un-jailbroken iPhones.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_blackra1n_body,MobileCydia.app/UpgradingGuide.json#/pages/blackra1n/bodyParts/0,"This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.
+
+blackra1n is comparable to redsn0w.
+It does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.1.* (all devices).
+
+Steps: Download blackra1n. This will come in the form of a single .exe file (Windows) or .zip file (Mac OS X).
+
+Use iTunes to upgrade to the latest firmware. blackra1n runs on already upgraded un-jailbroken iPhones.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_blackra1n_link.firmware,MobileCydia.app/UpgradingGuide.json#/pages/blackra1n/links/0/title,iPhone-Dev Blog (3.1.3 firmware),ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_purplera1n_body,MobileCydia.app/UpgradingGuide.json#/pages/purplera1n/bodyParts/0,"purplera1n is comparable to redsn0w.
+It does not require an IPSW file, but thereby is specific to one exploit: iPhone OS 3.0 on the iPhone 3G[S].
+
+Steps: Download purplera1n for Mac OS or Windows. This will come in the form of a (compressed) .zip file (Mac OS) or a single .exe file (Windows).
+
+Use iTunes to upgrade to the latest firmware. purplera1n runs on already upgraded un-jailbroken iPhones.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_quickpwn-mac_title,MobileCydia.app/UpgradingGuide.json#/pages/quickpwn-mac/title,QuickPwn for Mac,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_quickpwn-mac_body,MobileCydia.app/UpgradingGuide.json#/pages/quickpwn-mac/bodyParts/0,"QuickPwn 3.x has not been released.
+
+Steps: Download version 2.2.5 of QuickPwn Mac. This will come in the form of an Apple disk image file.
+
+Do not run off the disk image, first copy QuickPwn to your hard disk.
+
+Do not download a .zip file instead.
+
+Use iTunes to upgrade to the latest firmware. QuickPwn runs on already upgraded un-jailbroken iPhones.
+
+This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.
+
+I (saurik) have not had a chance to use this tool yet. However, I have received many glowing reports of it.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+UPGRADING_quickpwn-win_title,MobileCydia.app/UpgradingGuide.json#/pages/quickpwn-win/title,QuickPwn for Windows,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+UPGRADING_quickpwn-win_body,MobileCydia.app/UpgradingGuide.json#/pages/quickpwn-win/bodyParts/0,"QuickPwn 3.x has not been released.
+
+Steps: Download QuickPwn 2.2.5-2 for Windows. This will come in the form of a (compressed) .zip file.
+
+Use iTunes to upgrade to the latest firmware. QuickPwn runs on already upgraded un-jailbroken iPhones.
+
+This method does upgrade your baseband, which means it will negatively affect unlocked phones. You should read below for details.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-body;historical-remote-coverage-unavailable
+MORE_SOURCES,Cydia/MoreSourcesController.mm:63,More Sources,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+MORE_SOURCES_HEADING,Cydia/MoreSourcesController.mm:162,What are package sources?,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+MORE_SOURCES_INTRO,Cydia/MoreSourcesController.mm:163,"Cydia is an open, decentralized platform that helps you install software packages hosted by independent repositories, also called sources.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+MORE_SOURCES_OWNERS,Cydia/MoreSourcesController.mm:164,"Each source chooses the packages it hosts, how its pages look, and how it is run. They may choose to have ads.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+MORE_SOURCES_HOSTING,Cydia/MoreSourcesController.mm:165,Anyone can run their own source (a source is basically a specialized website viewable in Cydia).,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+PACKAGE_SUPPORT_TITLE,Cydia/PackageSupportController.mm:88,Support,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+EXTENSIONS_APPLICATIONS,Cydia/ApplicationExtensionsController.mm:94,Applications,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+EXTENSIONS_INTRO,Cydia/ApplicationExtensionsController.mm:230,"Here are lists of extensions (from the default sources) that can add features to your installed apps. Cydia automatically builds these lists by looking for packages that seem to use Substrate to modify these apps. Note that it may list results that a human wouldn't list, and it may list results that aren't compatible with your iOS version. We found these lists fun to look at, and maybe you'll like them too. (The lists are presented in a random order, to give a fair chance to every extension. ;P)",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+HOME_STORAGE_INTRO,Cydia/HomeStorageController.mm:82,"This feature shows how much storage space you have on your device, to show how much room you have for new packages.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+HOME_STORAGE_SYSTEM,Cydia/HomeStorageController.mm:87,System,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+HOME_STORAGE_PRIVATE,Cydia/HomeStorageController.mm:93,Private,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+HOME_STORAGE_THEMES,Cydia/HomeStorageController.mm:102,Themes,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+HOME_STORAGE_CAMERA,Cydia/HomeStorageController.mm:105,Camera,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:package-support.body.1,Cydia/PackageSupportController.mm:110,This package has a website registered for technical support; please read it ;P.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:package-support.body.2,Cydia/PackageSupportController.mm:119,"For concerns regarding a Cydia Store payment (not the product, but just the payment), please directly contact the author of Cydia: the developer of this package is unlikely to be able to help.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:package-support.body.3,Cydia/PackageSupportController.mm:121,Cydia's owner cannot help you with functionality questions: you must contact the developer or artist below.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:package-support.body.4,Cydia/PackageSupportController.mm:130,Issues with the package's functionality should go to its developer or artist.,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:package-support.body.5,Cydia/PackageSupportController.mm:139,"Installation problems should be sent to the person who helped make the package, known as its ""maintainer"".",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:package-support.link-title,Cydia/PackageSupportController.mm:112,Package Support,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+CONSOLE,Cydia/HomeGuideController.mm:79,Console,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,preserved-guide-title;historical-remote-coverage-unavailable
+HOME_GUIDE_console-notice,Cydia/HomeGuideController.mm:81,"This package does not have an icon, nor should it. To use this package you must SSH into your device or use MobileTerminal. If you do not recognize this package you probably should not be using it.",ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-explanatory-fallback;historical-remote-coverage-unavailable
+literal:about.original-copyright,Cydia/HomeController.mm:974;Cydia/SettingsController.mm:23,Original work Copyright (C) 2008-2017,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-attribution
+literal:about.modified-copyright,Cydia/HomeController.mm:976;Cydia/SettingsController.mm:25,Modified work Copyright (C) 2018,ar;de;el;es;fr;he;it;ja;ko;nl;pl;pt;pt-PT;ru;sv;th;tr;vi;zh-Hans;zh-Hant,inherited-attribution

@@ -15,6 +15,15 @@ static NSString *CapabilityString(const std::string &value) {
     NSString *text([[NSString alloc] initWithBytes:value.data() length:value.size() encoding:NSUTF8StringEncoding]);
     return text ?: [[NSString alloc] initWithBytes:value.data() length:value.size() encoding:NSISOLatin1StringEncoding];
 }
+static NSString *CapabilityDetailsTitle() {
+    return [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_DETAILS" value:nil table:@"RuntimeAccess"];
+}
+static NSString *CapabilityResultDetails(const CydiaRuntime::PrivilegedClient::Result &result) {
+    /* Helper output and execution metadata belong only in Technical Details. */
+    return [NSString stringWithFormat:@"launch_error=%d, exit=%d, signal=%d, output_limit=%d\n\n%@\n%@",
+        result.launchError, result.exitCode, result.termSignal, result.outputLimitExceeded ? 1 : 0,
+        CapabilityString(result.output) ?: @"", CapabilityString(result.error) ?: @""];
+}
 static NSString *CapabilityReason(const std::string &reason) {
     if (reason == "package-state") return CapabilityText(@"CAPABILITY_PRESERVE_STATE");
     if (reason == "multiple-providers") return CapabilityText(@"CAPABILITY_PRESERVE_MULTIPLE");
@@ -33,6 +42,8 @@ static NSString *CapabilityReason(const std::string &reason) {
 @property(nonatomic, strong) UIBarButtonItem *applyButton;
 @property(nonatomic, strong) UIBarButtonItem *refreshButton;
 @property(nonatomic, copy) NSString *status;
+@property(nonatomic, copy) NSString *previewDiagnostics;
+@property(nonatomic, copy) NSString *operationDiagnostics;
 @property(nonatomic) BOOL busy;
 @property(nonatomic) BOOL ready;
 @end
@@ -113,6 +124,7 @@ static NSString *CapabilityReason(const std::string &reason) {
             } @finally { [self.database endSettingsChange]; }
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.busy = NO; self.ready = valid;
+                self.previewDiagnostics = valid ? nil : CapabilityResultDetails(result);
                 if (valid) {
                     self->_preview = preview; self->_reviewedRequest = request;
                     self.status = preview.changes.empty() ? CapabilityText(@"CAPABILITIES_NO_CHANGES") : CapabilityText(@"CAPABILITIES_REVIEW");
@@ -121,8 +133,8 @@ static NSString *CapabilityReason(const std::string &reason) {
                     self.status = CapabilityText(@"CAPABILITIES_PREVIEW_FAILED");
                 }
                 [self updateControls];
-                if (!valid && !result.error.empty() && self.view.window != nil && self.presentedViewController == nil)
-                    [self showMessage:[NSString stringWithFormat:@"%@\n\n%@", self.status, CapabilityString(result.error)]];
+                if (!valid && self.view.window != nil && self.presentedViewController == nil)
+                    [self showMessage:self.status details:YES];
             });
         }
     });
@@ -160,27 +172,32 @@ static NSString *CapabilityReason(const std::string &reason) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 self.busy = NO;
                 self.status = CapabilityText(result.succeeded() ? @"CAPABILITIES_COMPLETED" : @"CAPABILITIES_APPLY_FAILED");
+                /* Keep a failed apply separate from the automatic preview:
+                 * refreshing actual package state must not erase its output. */
+                self.operationDiagnostics = result.succeeded() ? nil : CapabilityResultDetails(result);
                 [self updateControls];
                 /* Even a failed dpkg run may leave partial providers. Reload
                  * the package view before the next review of actual state. */
                 id<CydiaDelegate, NSObject> delegate([self delegate]);
                 if ([delegate respondsToSelector:@selector(reloadDataWithInvocation:)]) [delegate reloadDataWithInvocation:nil];
-                if (self.view.window != nil) {
-                    NSString *message(self.status);
-                    if (!result.succeeded() && !result.error.empty()) message = [NSString stringWithFormat:@"%@\n\n%@", message, CapabilityString(result.error)];
-                    [self showMessage:message];
-                }
+                if (self.view.window != nil)
+                    [self showMessage:self.status details:!result.succeeded()];
                 [self refreshPreview];
             });
         }
     });
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.ready ? 4 : 1; }
+- (BOOL)hasDiagnostics { return self.previewDiagnostics.length != 0 || self.operationDiagnostics.length != 0; }
+- (BOOL)isDetailsSection:(NSInteger)section {
+    return self.ready ? section == 3 : section == 1 && [self hasDiagnostics];
+}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.ready ? 4 : [self hasDiagnostics] ? 2 : 1; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    if (section == 0 || section == 3) return 1;
+    if (section == 0 || [self isDetailsSection:section]) return 1;
     return section == 1 ? MAX((NSInteger)_preview.changes.size(), 1) : MAX((NSInteger)_preview.preserved.size(), 1);
 }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
+    if (!self.ready) return nil;
     if (section == 1) return CapabilityText(@"CAPABILITIES_CHANGES");
     if (section == 2) return CapabilityText(@"CAPABILITIES_PRESERVED");
     return nil;
@@ -213,8 +230,8 @@ static NSString *CapabilityReason(const std::string &reason) {
         return cell;
     }
     cell.accessoryView = nil;
-    if (path.section == 3) {
-        cell.textLabel.text = [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_DETAILS" value:nil table:@"RuntimeAccess"];
+    if ([self isDetailsSection:path.section]) {
+        cell.textLabel.text = CapabilityDetailsTitle();
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         cell.accessibilityTraits = UIAccessibilityTraitButton; cell.accessibilityIdentifier = @"cydia.settings.capabilities.details";
         return cell;
@@ -238,24 +255,43 @@ static NSString *CapabilityReason(const std::string &reason) {
     return cell;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
-    [table deselectRowAtIndexPath:path animated:YES]; if (path.section != 3 || !self.ready) return;
-    NSMutableString *text([[NSString stringWithFormat:CapabilityText(@"CAPABILITIES_ENVIRONMENT"),
-        CapabilityString(_preview.adminDirectory), CapabilityString(_preview.rootDirectory)] mutableCopy]);
-    for (const auto &candidate : _preview.preserved) {
-        [text appendFormat:@"\n\n%@\n%@\n%@", CapabilityString(candidate.package),
+    [table deselectRowAtIndexPath:path animated:YES]; if (![self isDetailsSection:path.section]) return;
+    [self showDetails];
+}
+- (void)showDetails {
+    NSMutableArray<NSString *> *blocks([NSMutableArray array]);
+    if (self.operationDiagnostics.length != 0)
+        [blocks addObject:[NSString stringWithFormat:@"%@\n%@", CapabilityText(@"CAPABILITIES_APPLY_FAILED"), self.operationDiagnostics]];
+    if (self.previewDiagnostics.length != 0)
+        [blocks addObject:[NSString stringWithFormat:@"%@\n%@", CapabilityText(@"CAPABILITIES_PREVIEW_FAILED"), self.previewDiagnostics]];
+    if (self.ready) {
+        [blocks addObject:[NSString stringWithFormat:CapabilityText(@"CAPABILITIES_ENVIRONMENT"),
+            CapabilityString(_preview.adminDirectory), CapabilityString(_preview.rootDirectory)]];
+        for (const auto &candidate : _preview.preserved) {
+            [blocks addObject:[NSString stringWithFormat:@"%@\n%@\n%@", CapabilityString(candidate.package),
             [NSString stringWithFormat:CapabilityText(@"CAPABILITY_PROVIDER"), CapabilityString(candidate.providerPackage),
-                CapabilityString(candidate.providerArchitecture), CapabilityString(candidate.providerVersion)], CapabilityString(candidate.providerStatus)];
+                CapabilityString(candidate.providerArchitecture), CapabilityString(candidate.providerVersion)], CapabilityString(candidate.providerStatus)]];
+        }
     }
     UIViewController *controller([[UIViewController alloc] init]);
-    controller.navigationItem.title = [[NSBundle mainBundle] localizedStringForKey:@"ACCESS_CHECK_DETAILS" value:nil table:@"RuntimeAccess"];
-    UITextView *view([[UITextView alloc] init]); view.editable = NO; view.text = text;
+    controller.navigationItem.title = CapabilityDetailsTitle();
+    UITextView *view([[UITextView alloc] init]); view.editable = NO; view.text = [blocks componentsJoinedByString:@"\n\n"];
+    view.accessibilityIdentifier = @"cydia.settings.capabilities.details.text";
     view.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; view.adjustsFontForContentSizeCategory = YES;
     view.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleBackground traitCollection:self.traitCollection];
     view.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
     controller.view = view; [self.navigationController pushViewController:controller animated:YES];
 }
 - (void)showMessage:(NSString *)message {
+    [self showMessage:message details:NO];
+}
+- (void)showMessage:(NSString *)message details:(BOOL)details {
     UIAlertController *alert([UIAlertController alertControllerWithTitle:CapabilityText(@"CAPABILITIES") message:message preferredStyle:UIAlertControllerStyleAlert]);
+    if (details && [self hasDiagnostics]) {
+        [alert addAction:[UIAlertAction actionWithTitle:CapabilityDetailsTitle() style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+            [self showDetails];
+        }]];
+    }
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }

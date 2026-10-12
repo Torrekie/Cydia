@@ -1,7 +1,9 @@
 # Native UI localization audit
 
 The historical baseline is the September 2023 source revision
-`876d9f30d2b3087d7e72d6c5bcb4c82a294d1a35`.
+`ca95f5c16e0b47b0396bc781f22157845e3e513b`.
+This is the reachable revision after repository history cleanup; all 21
+original string-table digests match the previously recorded baseline.
 The repair covers text introduced after the historical baseline. Existing
 untranslated guide prose and original partial locale coverage are excluded.
 
@@ -190,13 +192,21 @@ word is correct in both languages.
 
 `make verify-settings-localization` checks the new tables with
 `SettingsLocalizationTests.py`, `SourcesLocalizationTests.py`,
-`ActionsLocalizationTests.py` and `RecoveryLocalizationTests.py`. The checks
+`ActionsLocalizationTests.py`, `RecoveryLocalizationTests.py`, and
+`LocalizationAdditionTests.py`. The checks
 require the 21-locale baseline and matching keys, compare format arguments where
 used, and check the source/recovery controller key inventories. The Settings
 check also covers `RuntimeAccess.strings`, `BootstrapAccess.strings` and the file-type label keys in
 `InfoPlist.strings`, and requires translated failure/cancellation titles in every
 `Localizable.strings` table. These are structural coverage checks; translation
 meaning and native layout remain review concerns.
+
+The addition check rejects unreviewed whole-string English fallbacks and resolves
+the explicit guide title keys in every locale. FAQ and the root Upgrading page
+now use their existing translated title keys. Capability failure alerts keep
+localized summaries and disclose raw helper output through Technical Details.
+The complete remaining-gap inventories are in
+[Localization gaps and migration coverage](localization-gaps.md).
 
 Localization resources are shipped by the separate `cydia-lproj` package.
 
