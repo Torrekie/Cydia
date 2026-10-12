@@ -220,7 +220,8 @@ bool TransactionLease::AuthorizeEffects(const TransactionLeaseContext &context, 
         !components_.AuthorizeLaunch(closure, error))
         return Fail(error, "provider_lease_effect_not_authorized");
     ++nextEffectPass_; pendingEffectPass_ = pass; childStarted_ = false; phase_ = TransactionLeasePhase::ExecutingEffects;
-    if (error) error->clear(); return true;
+    if (error) error->clear();
+    return true;
 }
 bool TransactionLease::StartedEffects(std::uint64_t pass, std::string *error) {
     if (phase_ != TransactionLeasePhase::ExecutingEffects || childStarted_ || !pass || pass != pendingEffectPass_)
@@ -239,7 +240,8 @@ bool TransactionLease::SettleEffects(std::uint64_t pass, const ParentExecutionRe
     pendingEffectPass_ = 0; childStarted_ = false;
     phase_ = settled && !cancelled_ && !uncertain_ ? TransactionLeasePhase::Ready : TransactionLeasePhase::Failed;
     if (phase_ != TransactionLeasePhase::Ready) return Error(error, "provider_lease_requires_new_review");
-    if (error) error->clear(); return true;
+    if (error) error->clear();
+    return true;
 }
 bool TransactionLease::SettleCommit(bool committed, std::string *error) {
     if (phase_ != TransactionLeasePhase::Committing) return Fail(error, "provider_lease_commit_invalid");

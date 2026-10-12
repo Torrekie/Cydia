@@ -172,8 +172,8 @@ def main():
         "Cydia/AptProviderTriggerEvidenceCapture.cpp", "Cydia/AptProviderDpkgState.cpp", "Cydia/AptProviderProtocol.cpp",
         "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp", "Cydia/PackageArchivePolicy.cpp",
         "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp", "Cydia/RuntimeSnapshotInputs.cpp",
-        "Cydia/RuntimeState.cpp", "Cydia/ExtendedState.cpp", "Cydia/SourceDocument.cpp",
-        "Cydia/SourceDocumentStore.cpp", "Cydia/RepositorySecurityPolicy.cpp"]
+        "Cydia/RuntimeState.cpp", "Cydia/DpkgRunner.cpp", "Cydia/ExtendedState.cpp", "Cydia/SourceDocument.cpp",
+        "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp", "Cydia/RepositorySecurityPolicy.cpp"]
     compile_driver(["tests/AptProviderTriggerEffectsTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-effects", sanitize=True)
     compile_driver(["tests/AptProviderTriggerMetadataTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-metadata")
     worker_sources = sources[1:] + [

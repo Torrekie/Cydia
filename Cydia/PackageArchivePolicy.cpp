@@ -134,7 +134,8 @@ bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string
     for (const char *name : {"depends", "pre-depends", "breaks", "conflicts", "provides", "replaces"}) {
         const auto found = fields.find(name);
         if (!CanonicalRelations(found == fields.end() ? "" : found->second, &result[name])) {
-            if (error) *error = "control_relationship_unsupported"; return false;
+            if (error) *error = "control_relationship_unsupported";
+            return false;
         }
     }
     for (const char *name : {"multi-arch", "essential", "protected"}) {
@@ -142,7 +143,8 @@ bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string
         const std::string value = found == fields.end() ? "no" : Trim(found->second);
         if ((value != "no" && value != "yes" && std::string(name) != "multi-arch") ||
             (std::string(name) == "multi-arch" && value != "no" && value != "same" && value != "foreign" && value != "allowed")) {
-            if (error) *error = "control_policy_field_invalid"; return false;
+            if (error) *error = "control_policy_field_invalid";
+            return false;
         }
         result[name] = value;
     }
