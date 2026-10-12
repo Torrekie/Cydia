@@ -197,9 +197,14 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
     [self.navigationController pushViewController:controller animated:YES];
 }
 - (void)loadReview {
+    [self loadReviewWithMessage:nil];
+}
+- (void)loadReviewWithMessage:(NSString *)outcome {
     if (busy_) return;
     busy_ = YES; reviewed_ = NO; checkAvailable_ = NO;
-    message_ = AccessText(@"BOOTSTRAP_ACCESS_REVIEWING"); details_.clear(); [self updateControls];
+    NSString *reviewing(AccessText(@"BOOTSTRAP_ACCESS_REVIEWING"));
+    message_ = outcome.length ? [outcome stringByAppendingFormat:@"\n\n%@", reviewing] : reviewing;
+    details_.clear(); [self updateControls];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
             namespace Client = CydiaRuntime::PrivilegedClient;
@@ -222,7 +227,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
                     review_ = review; revocable_ = YES;
                     checkAvailable_ = review.status == "strict" || review.status == "approved";
                     reviewedRequest_ = request; reviewedRequest_.payload = review.token;
-                    message_ = nil;
+                    message_ = outcome;
                 } else {
                     message_ = AccessText(!acquired ? @"BOOTSTRAP_ACCESS_BUSY" : result.launchError == ETIMEDOUT ? @"BOOTSTRAP_ACCESS_TIMEOUT" : @"BOOTSTRAP_ACCESS_FAILED");
                     if (acquired) details_ = FailureDetails("--cydia-admin-access-review", result) +
@@ -232,6 +237,7 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
                     // no approval exists. Never display an old approved status.
                     review_ = Review(); revocable_ = YES;
                     reviewedRequest_ = CydiaRuntime::Privileged::Request();
+                    if (outcome.length) message_ = [outcome stringByAppendingFormat:@"\n\n%@", message_];
                 }
                 [self updateControls];
             });
@@ -259,9 +265,13 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
                 busy_ = NO; review_.token.clear();
                 const BOOL saved(acquired && result.succeeded());
                 if (saved) {
-                    revocable_ = !revoke; review_.status = revoke ? "pending" : "approved";
-                    checkAvailable_ = !revoke;
-                    message_ = AccessText(revoke ? @"BOOTSTRAP_ACCESS_REVOKED" : @"BOOTSTRAP_ACCESS_SAVED");
+                    // Refresh the real status and token after either write.
+                    // A successful revoke must offer a new explicit approval
+                    // without making users discover the manual review button.
+                    review_ = Review(); revocable_ = YES;
+                    reviewedRequest_ = CydiaRuntime::Privileged::Request();
+                    [self loadReviewWithMessage:AccessText(revoke ? @"BOOTSTRAP_ACCESS_REVOKED" : @"BOOTSTRAP_ACCESS_SAVED")];
+                    return;
                 } else {
                     message_ = AccessText(!acquired ? @"BOOTSTRAP_ACCESS_BUSY" : result.launchError == ETIMEDOUT ? @"BOOTSTRAP_ACCESS_TIMEOUT" : @"BOOTSTRAP_ACCESS_FAILED");
                     if (acquired) details_ = FailureDetails(command, result);
