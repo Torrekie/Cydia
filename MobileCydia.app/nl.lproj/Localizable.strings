@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Dit is een consolepakket!";
 "CONSOLE_UTILITIES_DAEMONS" = "CLI & daemons";
 "CONTINUE_QUEUING" = "Verder met wachtrij";
-"COUNTS_NONZERO_EX" = "Ik heb dus even een rekensommetje van belangrijke waarden gemaakt, en de uitkomst was niet nul. Vreemd... Ik weet niet hoe dit komt maar het had niet zo mogen zijn.";
+"COUNTS_NONZERO_EX" = "Cydia kon de pakketdatabase niet laden omdat APT onverwachte installatie- of verwijderingsverzoeken meldde. Sluit Cydia en open het opnieuw. Probeer het daarna nogmaals.";
 "CREDITS" = "Credits";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Database";

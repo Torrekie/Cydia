@@ -402,7 +402,8 @@
     "Recommendation descriptions, brand/package names, destinations and URLs are not rewritten by this import.",
     "Native Chinese script identifiers map to source zh-cn/zh-tw; source zh/zh-hans/zh-hant/zh-hk return English.",
     "Source pt equals pt-pt; native pt stores the separate Brazilian pt-br translation.",
-    "Storage's non-English translated button reuses the exact Home label; untranslated explanations and metric labels are not new translated content."
+    "Storage's non-English translated button reuses the exact Home label; untranslated explanations and metric labels are not new translated content.",
+    "Native overrides complete visible Home labels while retaining the recorded source translations and coverage separately."
   ],
   "keys": [
     "BY",
@@ -1625,5 +1626,239 @@
       "https://cydia.saurik.com/credits.html",
       "https://cydia.saurik.com/policy/privacy/"
     ]
+  },
+  "native_overrides": {
+    "ar": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "البحث عن إضافات للتطبيقات"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "إضافات مفيدة على iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "منتجات مصممة لـ iPad"
+      }
+    },
+    "de": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Erweiterungen für Anwendungen finden"
+      }
+    },
+    "el": {
+      "DEVELOPERS_ONLY": {
+        "source_value": "Μόνο Developers",
+        "native_value": "Μόνο για προγραμματιστές"
+      },
+      "HOME_CREDITS_THANK_YOU": {
+        "source_value": "Credits / Ευχαριστούμε",
+        "native_value": "Συντελεστές / Ευχαριστούμε"
+      },
+      "HOME_DEVELOPER_RESOURCES": {
+        "source_value": "Χρήσιμες πηγές για developers",
+        "native_value": "Χρήσιμοι πόροι για προγραμματιστές"
+      },
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Εύρεση επεκτάσεων για εφαρμογές"
+      }
+    },
+    "es": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Buscar extensiones para aplicaciones"
+      }
+    },
+    "fr": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Rechercher des extensions pour les applications"
+      }
+    },
+    "he": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "חיפוש הרחבות ליישומים"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "הרחבות שימושיות ב-iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "מוצרים המיועדים ל-iPad"
+      }
+    },
+    "it": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Trova estensioni per le applicazioni"
+      }
+    },
+    "ja": {
+      "BY": {
+        "source_value": "by %@",
+        "native_value": "開発者：%@"
+      },
+      "HOME_CREDITS_THANK_YOU": {
+        "source_value": "クレジット / Thank You",
+        "native_value": "クレジット / 謝辞"
+      },
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "アプリ用の拡張機能を探す"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "iPadで役立つ拡張機能"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "iPad向けに設計された製品"
+      },
+      "WELCOME_TO_CYDIA": {
+        "source_value": "Welcome to Cydia™",
+        "native_value": "Cydia™へようこそ"
+      }
+    },
+    "ko": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "앱용 확장 기능 찾기"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "iPad에 유용한 확장 기능"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "iPad용으로 설계된 제품"
+      }
+    },
+    "nl": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Uitbreidingen voor apps zoeken"
+      }
+    },
+    "pl": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Znajdź rozszerzenia do aplikacji"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "Rozszerzenia przydatne na iPadzie"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "Produkty zaprojektowane dla iPada"
+      }
+    },
+    "pt-PT": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Procurar extensões para aplicações"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "Extensões úteis no iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "Produtos concebidos para iPad"
+      }
+    },
+    "pt": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Buscar extensões para aplicativos"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "Extensões úteis no iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "Produtos desenvolvidos para iPad"
+      }
+    },
+    "ru": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Найти расширения для приложений"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "Полезные расширения для iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "Продукты, разработанные для iPad"
+      }
+    },
+    "sv": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Hitta tillägg för appar"
+      }
+    },
+    "th": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "ค้นหาส่วนขยายสำหรับแอป"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "ส่วนขยายที่มีประโยชน์บน iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "ผลิตภัณฑ์ที่ออกแบบมาสำหรับ iPad"
+      }
+    },
+    "tr": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Uygulamalar İçin Eklenti Bul"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "iPad İçin Yararlı Eklentiler"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "iPad İçin Tasarlanmış Ürünler"
+      }
+    },
+    "vi": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "Tìm tiện ích mở rộng cho ứng dụng"
+      },
+      "HOME_IPAD_EXTENSIONS": {
+        "source_value": "Extensions Useful on iPad",
+        "native_value": "Tiện ích mở rộng hữu ích trên iPad"
+      },
+      "HOME_IPAD_PRODUCTS": {
+        "source_value": "Products Designed for iPad",
+        "native_value": "Sản phẩm được thiết kế cho iPad"
+      }
+    },
+    "zh-Hans": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "查找应用扩展"
+      }
+    },
+    "zh-Hant": {
+      "HOME_FIND_EXTENSIONS": {
+        "source_value": "Find Extensions for Applications",
+        "native_value": "尋找應用程式延伸功能"
+      }
+    }
   }
 }

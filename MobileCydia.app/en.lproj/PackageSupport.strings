@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "Support";
+"SUPPORT_WEBSITE_NOTICE" = "This package has a website for technical support. Please read it.";
+"SUPPORT_PAYMENT_NOTICE" = "For questions about a Cydia Store payment, contact Cydia's author directly. The developer of this package is unlikely to be able to help with payments.";
+"SUPPORT_PRODUCT_NOTICE" = "Cydia's owner cannot help with questions about how this package works. Contact the developer or artist below.";
+"SUPPORT_AUTHOR_NOTICE" = "Contact the package's developer or artist for help with how it works.";
+"SUPPORT_MAINTAINER_NOTICE" = "Contact the package's maintainer for help with installation problems.";
+"CONSOLE_TITLE" = "Console";
+"CONSOLE_NOTICE" = "This is a command-line package. It does not add an app icon. Use a terminal app or SSH to run its commands.";

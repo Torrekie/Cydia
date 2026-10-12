@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Questo è un pacchetto da linea di comando!";
 "CONSOLE_UTILITIES_DAEMONS" = "Console, Utilities & Daemons";
 "CONTINUE_QUEUING" = "Continua a mettere in coda";
-"COUNTS_NONZERO_EX" = "Allora, ho appena controllato dei valori importanti e la loro somma non è zero. Questo è spaventoso. Non so perchè ma non mi piace più, ma penso che l'APT è stato irremovibile, questo non dovrebbe accadere.";
+"COUNTS_NONZERO_EX" = "Cydia non ha potuto caricare il database dei pacchetti perché APT ha segnalato richieste di installazione o rimozione inattese. Chiudi e riapri Cydia, quindi riprova.";
 "CREDITS" = "Crediti";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Database";

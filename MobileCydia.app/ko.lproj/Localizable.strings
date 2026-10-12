@@ -32,6 +32,7 @@
 "CONFIRM" = "확인";
 "CONSOLE_PACKAGE" = "콘솔 패키지입니다!";
 "CONTINUE_QUEUING" = "대기 목록 계속 작성";
+"COUNTS_NONZERO_EX" = "APT에서 예상치 못한 설치 또는 제거 요청을 보고하여 Cydia가 패키지 데이터베이스를 불러오지 못했습니다. Cydia를 종료한 후 다시 열고 다시 시도하세요.";
 "CREDITS" = "제작자 정보";
 "DATABASE" = "데이터베이스";
 "DETAILS" = "상세 정보";

@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "支持";
+"SUPPORT_WEBSITE_NOTICE" = "此软件包提供技术支持网站。请阅读该网站上的说明。";
+"SUPPORT_PAYMENT_NOTICE" = "如有 Cydia Store 付款相关问题，请直接联系 Cydia 的作者。此软件包的开发者通常无法帮助解决付款问题。";
+"SUPPORT_PRODUCT_NOTICE" = "Cydia 的所有者无法解答有关此软件包功能的问题。请联系下方的开发者或艺术创作者。";
+"SUPPORT_AUTHOR_NOTICE" = "如需了解软件包的功能或解决使用问题，请联系其开发者或艺术创作者。";
+"SUPPORT_MAINTAINER_NOTICE" = "如需解决安装问题，请联系软件包的维护者。";
+"CONSOLE_TITLE" = "控制台";
+"CONSOLE_NOTICE" = "这是命令行软件包，不会添加应用图标。请使用终端应用或 SSH 运行其命令。";

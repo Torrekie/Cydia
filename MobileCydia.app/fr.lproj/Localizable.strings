@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Ceci est un paquet console !";
 "CONSOLE_UTILITIES_DAEMONS" = "Utilitaires de terminal & daemons";
 "CONTINUE_QUEUING" = "Laisser en file d'attente";
-"COUNTS_NONZERO_EX" = "Après avoir calculé la somme de valeurs importantes, elle n'est pas égale à zéro. Ceci est épeurant. J'ai aucune idée pourquoi ceci est dangereux, mais je crois que APT ne voulait absolument pas que ceci arrive.";
+"COUNTS_NONZERO_EX" = "Cydia n’a pas pu charger la base de données des paquets, car APT a signalé des demandes inattendues d’installation ou de suppression. Fermez puis rouvrez Cydia et réessayez.";
 "CREDITS" = "Crédits";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Base de données";

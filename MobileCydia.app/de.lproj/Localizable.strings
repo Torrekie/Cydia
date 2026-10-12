@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Dies ist ein Konsolenpaket!";
 "CONSOLE_UTILITIES_DAEMONS" = "Konsolentools & Hintergrundprozesse";
 "CONTINUE_QUEUING" = "Weiter auswählen";
-"COUNTS_NONZERO_EX" = "So, ich habe gerade ein paar wichtig scheinende Werte gezählt, und ihre Summe war nicht null. Das ist beängstigend. Ich weiß nicht mehr, warum ich das nicht mag, aber ich denke APT bestand darauf, dass das nicht passieren darf.";
+"COUNTS_NONZERO_EX" = "Cydia konnte die Paketdatenbank nicht laden, da APT unerwartete Installations- oder Entfernungsanfragen gemeldet hat. Schließen Sie Cydia und öffnen Sie es erneut. Versuchen Sie es dann noch einmal.";
 "CREDITS" = "Credits";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Datenbank";
@@ -157,7 +157,7 @@
 "QUESTION" = "%@?";
 "QUEUE" = "Warteschlange";
 "QUEUED_FOR" = "In Warteschlange für %@";
-"Q_D" = "Q'd";
+"Q_D" = "Geplant";
 "REBOOT_DEVICE" = "Gerät neustarten";
 "RECENT" = "Neuste";
 "RECENT_CHANGES_UPDATES" = "Neueste Änderungen/Aktualisierungen";

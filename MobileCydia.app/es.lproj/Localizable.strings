@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Ojo: paquete de terminal";
 "CONSOLE_UTILITIES_DAEMONS" = "Daemons y utilidades del Terminal";
 "CONTINUE_QUEUING" = "Seguir poniendo en cola";
-"COUNTS_NONZERO_EX" = "Bueno, acabo de encontrar algunos valores importantes, así que ellos no se suman a cero. Esto es terrorífico. No sé por qué esto no me gusta más, pero creo que APT estaba seguro de que esto no debería pasar.";
+"COUNTS_NONZERO_EX" = "Cydia no pudo cargar la base de datos de paquetes porque APT informó de solicitudes inesperadas de instalación o eliminación. Cierra y vuelve a abrir Cydia e inténtalo de nuevo.";
 "CREDITS" = "Créditos";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Base de datos";

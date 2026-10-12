@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "지원";
+"SUPPORT_WEBSITE_NOTICE" = "이 패키지에는 기술 지원 웹사이트가 있습니다. 해당 사이트를 읽어 주세요.";
+"SUPPORT_PAYMENT_NOTICE" = "Cydia Store 결제에 관한 질문은 Cydia 제작자에게 직접 문의하세요. 이 패키지의 개발자는 결제 문제를 도와드리기 어려울 수 있습니다.";
+"SUPPORT_PRODUCT_NOTICE" = "Cydia 소유자는 이 패키지의 작동 방식에 관한 질문을 도와드릴 수 없습니다. 아래의 개발자 또는 아티스트에게 문의하세요.";
+"SUPPORT_AUTHOR_NOTICE" = "패키지의 작동 방식에 도움이 필요하면 해당 개발자 또는 아티스트에게 문의하세요.";
+"SUPPORT_MAINTAINER_NOTICE" = "설치 문제에 도움이 필요하면 패키지 유지 관리자에게 문의하세요.";
+"CONSOLE_TITLE" = "콘솔";
+"CONSOLE_NOTICE" = "이 패키지는 명령줄에서 사용합니다. 앱 아이콘을 추가하지 않습니다. 터미널 앱이나 SSH를 사용하여 명령을 실행하세요.";

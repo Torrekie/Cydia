@@ -6,9 +6,9 @@
 "HOME_CREDITS_THANK_YOU" = "Créditos / Obrigado";
 "HOME_DEVELOPER_RESOURCES" = "Recursos úteis para desenvolvedores";
 "HOME_FEATURED" = "Destaques";
-"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
-"HOME_IPAD_EXTENSIONS" = "Extensions Useful on iPad";
-"HOME_IPAD_PRODUCTS" = "Products Designed for iPad";
+"HOME_FIND_EXTENSIONS" = "Buscar extensões para aplicativos";
+"HOME_IPAD_EXTENSIONS" = "Extensões úteis no iPad";
+"HOME_IPAD_PRODUCTS" = "Produtos desenvolvidos para iPad";
 "HOME_MANAGE_ACCOUNT" = "Gerenciar conta";
 "HOME_NEW" = "Novo";
 "HOME_OPENSSH_HELP" = "Instruções para acesso OpenSSH";

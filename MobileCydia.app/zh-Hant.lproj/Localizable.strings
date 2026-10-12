@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "這是主控台套件！";
 "CONSOLE_UTILITIES_DAEMONS" = "Console Utilities & Daemons";
 "CONTINUE_QUEUING" = "繼續建立佇列";
-"COUNTS_NONZERO_EX" = "我算了幾個看起來很重要的數值，可是加起來不是零，實在很恐怖。我不知道自己為什麼討厭這樣，可是 APT 實在很固執，而且這種情形不應該發生。";
+"COUNTS_NONZERO_EX" = "Cydia 無法載入套件資料庫，因為 APT 回報了非預期的安裝或移除請求。請關閉並重新開啟 Cydia，然後再試一次。";
 "CREDITS" = "工作人員名單";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "資料庫";

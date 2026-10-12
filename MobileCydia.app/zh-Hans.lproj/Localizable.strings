@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "这是命令行软件包！";
 "CONSOLE_UTILITIES_DAEMONS" = "命令行工具及驻留进程";
 "CONTINUE_QUEUING" = "继续队列";
-"COUNTS_NONZERO_EX" = "我刚计算了一些看起来很重要的数值，这些数值加起来不为零。这很吓人。我不知道我为什么再也不希望这样，但我认为 APT 也坚信这种情况不应该发生。";
+"COUNTS_NONZERO_EX" = "Cydia 无法加载软件包数据库，因为 APT 报告了意外的安装或移除请求。请关闭并重新打开 Cydia，然后重试。";
 "CREDITS" = "致谢";
 "CYDIA_STORE" = "Cydia 商店";
 "DATABASE" = "数据库";

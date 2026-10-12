@@ -6,9 +6,9 @@
 "HOME_CREDITS_THANK_YOU" = "제작자 정보 / 감사합니다";
 "HOME_DEVELOPER_RESOURCES" = "개발 관련 정보";
 "HOME_FEATURED" = "추천";
-"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
-"HOME_IPAD_EXTENSIONS" = "Extensions Useful on iPad";
-"HOME_IPAD_PRODUCTS" = "Products Designed for iPad";
+"HOME_FIND_EXTENSIONS" = "앱용 확장 기능 찾기";
+"HOME_IPAD_EXTENSIONS" = "iPad에 유용한 확장 기능";
+"HOME_IPAD_PRODUCTS" = "iPad용으로 설계된 제품";
 "HOME_MANAGE_ACCOUNT" = "계정 관리";
 "HOME_NEW" = "신규";
 "HOME_OPENSSH_HELP" = "OpenSSH Access 사용법";

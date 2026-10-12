@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "支援";
+"SUPPORT_WEBSITE_NOTICE" = "此套件提供技術支援網站。請閱讀該網站上的說明。";
+"SUPPORT_PAYMENT_NOTICE" = "如有 Cydia Store 付款相關問題，請直接聯絡 Cydia 的作者。此套件的開發者通常無法協助解決付款問題。";
+"SUPPORT_PRODUCT_NOTICE" = "Cydia 的擁有者無法解答有關此套件功能的問題。請聯絡下方的開發者或藝術創作者。";
+"SUPPORT_AUTHOR_NOTICE" = "如需了解套件的功能或解決使用問題，請聯絡其開發者或藝術創作者。";
+"SUPPORT_MAINTAINER_NOTICE" = "如需解決安裝問題，請聯絡套件的維護者。";
+"CONSOLE_TITLE" = "主控台";
+"CONSOLE_NOTICE" = "這是命令列套件，不會新增 App 圖示。請使用終端機 App 或 SSH 執行其指令。";

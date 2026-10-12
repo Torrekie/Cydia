@@ -32,6 +32,7 @@
 "CONFIRM" = "Xác nhận";
 "CONSOLE_PACKAGE" = "Đây là một gói điều khiển!";
 "CONTINUE_QUEUING" = "Tiếp Tục Hàng Chờ";
+"COUNTS_NONZERO_EX" = "Cydia không thể tải cơ sở dữ liệu gói vì APT báo cáo các yêu cầu cài đặt hoặc gỡ bỏ không mong đợi. Hãy đóng rồi mở lại Cydia và thử lại.";
 "CREDITS" = "Lời cảm ơn";
 "DATABASE" = "Cơ sở dữ liệu";
 "DETAILS" = "Chi tiết";
@@ -131,7 +132,7 @@
 "PURGE" = "Làm sạch";
 "QUESTION" = "%@?";
 "QUEUE" = "Hàng chờ";
-"Q_D" = "Q'd";
+"Q_D" = "Chờ";
 "REBOOT_DEVICE" = "Khởi Động Lại Thiết Bị";
 "RECENT" = "Gần đây";
 "REFRESH" = "Làm mới";

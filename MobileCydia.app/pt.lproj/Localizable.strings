@@ -32,6 +32,7 @@
 "CONFIRM" = "Confirmar";
 "CONSOLE_PACKAGE" = "Esse é um pacote de console!";
 "CONTINUE_QUEUING" = "Continuar enfileirando";
+"COUNTS_NONZERO_EX" = "O Cydia não conseguiu carregar o banco de dados de pacotes porque o APT relatou solicitações inesperadas de instalação ou remoção. Feche e abra o Cydia novamente e tente outra vez.";
 "CREDITS" = "Créditos";
 "DATABASE" = "Banco de dados";
 "DETAILS" = "Detalhes";

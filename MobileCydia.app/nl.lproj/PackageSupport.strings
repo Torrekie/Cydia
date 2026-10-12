@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "Ondersteuning";
+"SUPPORT_WEBSITE_NOTICE" = "Dit pakket heeft een website voor technische ondersteuning. Lees die website.";
+"SUPPORT_PAYMENT_NOTICE" = "Neem bij vragen over een betaling in de Cydia Store rechtstreeks contact op met de auteur van Cydia. De ontwikkelaar van dit pakket kan je waarschijnlijk niet helpen met betalingen.";
+"SUPPORT_PRODUCT_NOTICE" = "De eigenaar van Cydia kan je niet helpen met vragen over de werking van dit pakket. Neem contact op met de onderstaande ontwikkelaar of kunstenaar.";
+"SUPPORT_AUTHOR_NOTICE" = "Neem voor hulp bij de werking van het pakket contact op met de ontwikkelaar of kunstenaar.";
+"SUPPORT_MAINTAINER_NOTICE" = "Neem voor hulp bij installatieproblemen contact op met de beheerder van het pakket.";
+"CONSOLE_TITLE" = "Console";
+"CONSOLE_NOTICE" = "Dit is een pakket voor de opdrachtregel. Het voegt geen app-icoon toe. Gebruik een terminal-app of SSH om de opdrachten uit te voeren.";

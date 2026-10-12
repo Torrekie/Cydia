@@ -25,6 +25,10 @@
 
 namespace {
 
+NSString *SupportLocalized(NSString *key) {
+    return [[NSBundle mainBundle] localizedStringForKey:key value:nil table:@"PackageSupport"];
+}
+
 NSString *EncodeMailComponent(NSString *value) {
     NSMutableCharacterSet *allowed([[NSCharacterSet alphanumericCharacterSet] mutableCopy]);
     [allowed addCharactersInString:@"-._~"];
@@ -85,7 +89,7 @@ UIImage *SupportRowImage(void) {
         _database = database;
         _packageIdentity = [identity copy];
         _viewModel = model;
-        self.title = UCLocalizeEx(@"PACKAGE_SUPPORT_TITLE", @"Support");
+        self.title = SupportLocalized(@"SUPPORT_TITLE");
         [self rebuildSections];
     }
     return self;
@@ -108,8 +112,8 @@ UIImage *SupportRowImage(void) {
     if ([support length] != 0 && !cydiaSupport) {
         [sections addObject:@[
             @{ @"kind": @"body", @"text":
-                @"This package has a website registered for technical support; please read it ;P." },
-            @{ @"kind": @"link", @"title": @"Package Support",
+                SupportLocalized(@"SUPPORT_WEBSITE_NOTICE") },
+            @{ @"kind": @"link", @"title": UCLocalize("PACKAGE_SUPPORT"),
                @"detail": support, @"url": support }
         ]];
     }
@@ -117,9 +121,9 @@ UIImage *SupportRowImage(void) {
     if ([_viewModel isCommercial]) {
         [sections addObject:@[
             @{ @"kind": @"body", @"text":
-                @"For concerns regarding a Cydia Store payment (not the product, but just the payment), please directly contact the author of Cydia: the developer of this package is unlikely to be able to help." },
+                SupportLocalized(@"SUPPORT_PAYMENT_NOTICE") },
             @{ @"kind": @"body", @"text":
-                @"Cydia's owner cannot help you with functionality questions: you must contact the developer or artist below." },
+                SupportLocalized(@"SUPPORT_PRODUCT_NOTICE") },
             @{ @"kind": @"link", @"title": @"Cydia",
                @"detail": @"Jay Freeman (saurik)",
                @"url": MailtoURL(@"saurik@saurik.com", @"C", _viewModel) }
@@ -128,7 +132,7 @@ UIImage *SupportRowImage(void) {
     if ([[_viewModel authorName] length] != 0) {
         [sections addObject:@[
             @{ @"kind": @"body", @"text":
-                @"Issues with the package's functionality should go to its developer or artist." },
+                SupportLocalized(@"SUPPORT_AUTHOR_NOTICE") },
             @{ @"kind": @"link", @"title": UCLocalize("AUTHOR"),
                @"detail": [_viewModel authorName],
                @"url": MailtoURL([_viewModel authorAddress], @"A", _viewModel) ?: @"" }
@@ -137,7 +141,7 @@ UIImage *SupportRowImage(void) {
     if ([[_viewModel maintainerName] length] != 0) {
         [sections addObject:@[
             @{ @"kind": @"body", @"text":
-                @"Installation problems should be sent to the person who helped make the package, known as its \"maintainer\"." },
+                SupportLocalized(@"SUPPORT_MAINTAINER_NOTICE") },
             @{ @"kind": @"link", @"title": UCLocalize("MAINTAINER"),
                @"detail": [_viewModel maintainerName],
                @"url": MailtoURL([_viewModel maintainerAddress], @"M", _viewModel) ?: @"" }

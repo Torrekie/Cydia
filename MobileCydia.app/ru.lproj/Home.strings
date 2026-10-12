@@ -6,9 +6,9 @@
 "HOME_CREDITS_THANK_YOU" = "Благодарности / Спасибо!";
 "HOME_DEVELOPER_RESOURCES" = "Ресурсы для разработчиков";
 "HOME_FEATURED" = "Избранные";
-"HOME_FIND_EXTENSIONS" = "Find Extensions for Applications";
-"HOME_IPAD_EXTENSIONS" = "Extensions Useful on iPad";
-"HOME_IPAD_PRODUCTS" = "Products Designed for iPad";
+"HOME_FIND_EXTENSIONS" = "Найти расширения для приложений";
+"HOME_IPAD_EXTENSIONS" = "Полезные расширения для iPad";
+"HOME_IPAD_PRODUCTS" = "Продукты, разработанные для iPad";
 "HOME_MANAGE_ACCOUNT" = "Управление аккаунтом";
 "HOME_NEW" = "Новое";
 "HOME_OPENSSH_HELP" = "Доступ к OpenSSH";

@@ -5,7 +5,8 @@ The historical baseline is the September 2023 source revision
 This is the reachable revision after repository history cleanup; all 21
 original string-table digests match the previously recorded baseline.
 The repair covers text introduced after the historical baseline. Existing
-untranslated guide prose and original partial locale coverage are excluded.
+untranslated guide prose remains deferred. Original partial coverage is retained
+except for the reviewed active cache-error repair.
 
 ## Locale baseline
 
@@ -38,7 +39,11 @@ The baseline and current app both provide these 21 locales:
 `pt` is Brazilian Portuguese and `pt-PT` is European Portuguese.
 `zh-Hans` and `zh-Hant` remain separate simplified/traditional Chinese tables.
 The original 220-key tables and the 185-key tables in `he`, `ja`, `ko`, `pl`,
-`pt`, `pt-PT`, `ru`, `th`, `tr`, and `vi` retain every historical entry and value.
+`pt`, `pt-PT`, `ru`, `th`, `tr`, and `vi` retain every historical entry.
+Reviewed current-interface repairs are recorded separately in
+`tests/fixtures/ui/native-localization-repairs.json`: fifteen existing values
+are updated and ten formerly missing cache-error entries are supplied.
+All remaining historical values and `DPKG_LOCKED` are unchanged.
 All original section-name tables also remain unchanged.
 
 ## Historical web UI comparison
@@ -50,7 +55,7 @@ native UI. Raw English HTML alone therefore does not establish an English UI.
 
 | Former web surface | Historical translation mechanism | Current finding |
 | --- | --- | --- |
-| Home | Server-provided locale labels and native title | Existing `Home.strings` tables recover 21 labels in all 21 locales and retain original partial English fallbacks. |
+| Home | Server-provided locale labels and native title | Native `Home.strings` completes visible labels; original server coverage and native overrides are recorded separately. |
 | Package details | Ten wrapper localization keys plus queue mode | Native details reuse the original keys and values. |
 | Confirmation | DOM localization and bridge calls for warnings, statistics and actions | Native confirmation reuses the original keys. |
 | Progress | Native localized title/finish values passed to JavaScript | Native progress retains those translations. The new last-progress label needed 19 missing locale entries. |
@@ -67,8 +72,9 @@ be inferred from English HTML alone.
 
 The existing Home catalog maps `en-us` to `en`, `pt-br` to `pt`, `pt-pt` to
 `pt-PT`, `zh-cn` to `zh-Hans`, and `zh-tw` to `zh-Hant`. Its recorded server
-fallbacks remain untouched, including the English Find Extensions label and
-Japanese welcome/byline gaps.
+fallbacks remain as provenance. Separate native overrides now translate
+Find Extensions, Japanese welcome/byline/credits, both iPad headings and Greek
+credits/developer labels. Home subpage bodies remain deferred.
 
 ## Repaired migration additions
 
@@ -128,8 +134,9 @@ Brazilian/European Portuguese and Simplified/Traditional Chinese resources.
 | `RuntimeAccess.strings` | 20 | The explicit package-management access check in Advanced Settings, its six checks, contention, changed-state and timeout results, and technical-details navigation. Unsuccessful attempted checks and skipped checks have distinct labels; raw diagnostic output has a separate page. This diagnostic view is newly authored. |
 | `BootstrapAccess.strings` | 24 | Native review of the selected package database and group-writable ancestor directories, explicit Allow and Revoke actions, trust explanations, changed-access and failure states. This optional approval preserves existing bootstrap permissions. |
 | `InfoPlist.strings` | 2 | Localized OpenPGP public-key document-type labels for file sharing and Open in Cydia. Both `CFBundleTypeName` and the declared `OpenPGP Public Key` label are provided. |
+| `PackageSupport.strings` | 8 | Package support title/guidance and the console-package title/notice; existing author, maintainer and Package Support labels are reused. All 21 locales are provided; contact routes and commercial conditions are preserved. |
 
-All seven tables have matching key sets in every shipped locale. Existing shared
+All eight tables have matching key sets in every shipped locale. Existing shared
 navigation and action labels continue to use `Localizable.strings`, including
 Settings, About, Cancel, Confirm, Remove, Reinstall and Forcibly Clear. Historical
 About attributions and English-only guide bodies retain their previous scope.
@@ -186,7 +193,7 @@ grouped lists where supported.
 
 `make verify-home-localization` checks the original Home catalog/mappings,
 all 18 new keys across all 21 locales, format-slot compatibility, Apple strings
-syntax on macOS, duplicate entries, and preservation of original 2023 values.
+syntax on macOS, duplicate entries, and preservation of original 2023 values outside the recorded repairs.
 French `destination` is intentionally identical to English because the same
 word is correct in both languages.
 

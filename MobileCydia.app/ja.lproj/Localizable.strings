@@ -32,6 +32,7 @@
 "CONFIRM" = "確認";
 "CONSOLE_PACKAGE" = "これはコンソールパッケージです！";
 "CONTINUE_QUEUING" = "キューに追加";
+"COUNTS_NONZERO_EX" = "APT が予期しないインストールまたは削除の要求を報告したため、Cydia はパッケージデータベースを読み込めませんでした。Cydia を終了してから再度開き、もう一度お試しください。";
 "CREDITS" = "クレジット";
 "DATABASE" = "データベース";
 "DETAILS" = "詳細";
@@ -59,7 +60,7 @@
 "FORCE_REMOVAL" = "削除する";
 "FORCIBLY_CLEAR" = "強制クリア";
 "FREQUENTLY_ASKED_QUESTIONS" = "よくある質問";
-"FROM" = "from %@";
+"FROM" = "提供元: %@";
 "FROWNY_PANTS" = "エラー";
 "HACKER" = "ハッカー";
 "HACKER_EX" = "コマンドインツールの追加";

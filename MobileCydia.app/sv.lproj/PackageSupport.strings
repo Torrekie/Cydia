@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "Support";
+"SUPPORT_WEBSITE_NOTICE" = "Det här paketet har en webbplats för teknisk support. Läs informationen där.";
+"SUPPORT_PAYMENT_NOTICE" = "Kontakta Cydias upphovsperson direkt om du har frågor om en betalning i Cydia Store. Utvecklaren av det här paketet kan sannolikt inte hjälpa till med betalningar.";
+"SUPPORT_PRODUCT_NOTICE" = "Cydias ägare kan inte hjälpa till med frågor om hur det här paketet fungerar. Kontakta utvecklaren eller konstnären nedan.";
+"SUPPORT_AUTHOR_NOTICE" = "Kontakta paketets utvecklare eller konstnär för hjälp med hur det fungerar.";
+"SUPPORT_MAINTAINER_NOTICE" = "Kontakta paketets underhållare för hjälp med installationsproblem.";
+"CONSOLE_TITLE" = "Konsol";
+"CONSOLE_NOTICE" = "Det här är ett kommandoradspaket. Det lägger inte till någon appikon. Använd en terminalapp eller SSH för att köra dess kommandon.";

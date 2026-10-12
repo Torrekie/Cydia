@@ -32,6 +32,7 @@
 "CONFIRM" = "Onayla";
 "CONSOLE_PACKAGE" = "Bu bir konsol paketi!";
 "CONTINUE_QUEUING" = "Sıralamaya Devam Et";
+"COUNTS_NONZERO_EX" = "APT beklenmeyen kurulum veya kaldırma istekleri bildirdiği için Cydia paket veritabanını yükleyemedi. Cydia'yı kapatıp yeniden açın ve tekrar deneyin.";
 "CREDITS" = "Katkıda Bulunanlar";
 "DATABASE" = "Veri Tabanı";
 "DETAILS" = "Ayrıntılar";

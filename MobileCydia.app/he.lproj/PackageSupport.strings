@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "תמיכה";
+"SUPPORT_WEBSITE_NOTICE" = "לחבילה זו יש אתר לתמיכה טכנית. מומלץ לקרוא אותו.";
+"SUPPORT_PAYMENT_NOTICE" = "לשאלות בנוגע לתשלום ב־Cydia Store, יש לפנות ישירות למחבר של Cydia. סביר שמפתח החבילה לא יוכל לסייע בענייני תשלום.";
+"SUPPORT_PRODUCT_NOTICE" = "הבעלים של Cydia אינו יכול לסייע בשאלות על אופן הפעולה של חבילה זו. יש לפנות למפתח או לאמן המופיע בהמשך.";
+"SUPPORT_AUTHOR_NOTICE" = "לעזרה בנוגע לאופן הפעולה של החבילה, יש לפנות למפתח או לאמן שלה.";
+"SUPPORT_MAINTAINER_NOTICE" = "לעזרה בבעיות התקנה, יש לפנות למתחזק החבילה.";
+"CONSOLE_TITLE" = "מסוף";
+"CONSOLE_NOTICE" = "זו חבילת שורת פקודה. היא אינה מוסיפה סמל יישום. יש להשתמש ביישום מסוף או ב־SSH כדי להריץ את הפקודות שלה.";

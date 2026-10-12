@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "Destek";
+"SUPPORT_WEBSITE_NOTICE" = "Bu paketin teknik destek için bir web sitesi var. Lütfen buradaki bilgileri okuyun.";
+"SUPPORT_PAYMENT_NOTICE" = "Cydia Store ödemesiyle ilgili sorular için doğrudan Cydia’nın yazarına başvurun. Bu paketin geliştiricisi muhtemelen ödemeler konusunda yardımcı olamaz.";
+"SUPPORT_PRODUCT_NOTICE" = "Cydia’nın sahibi, bu paketin işleyişiyle ilgili sorulara yardımcı olamaz. Aşağıdaki geliştiriciye veya sanatçıya başvurun.";
+"SUPPORT_AUTHOR_NOTICE" = "Paketin işleyişiyle ilgili yardım için geliştiricisine veya sanatçısına başvurun.";
+"SUPPORT_MAINTAINER_NOTICE" = "Kurulum sorunlarıyla ilgili yardım için paketin bakımını üstlenen kişiye başvurun.";
+"CONSOLE_TITLE" = "Konsol";
+"CONSOLE_NOTICE" = "Bu bir komut satırı paketidir. Uygulama simgesi eklemez. Komutlarını çalıştırmak için bir terminal uygulaması veya SSH kullanın.";

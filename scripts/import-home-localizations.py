@@ -197,6 +197,9 @@ def main():
     args_parser.add_argument("--storage-dir", type=Path,
                              help="optional directory containing <source-locale>.storage.html downloads")
     args = args_parser.parse_args()
+    previous_catalog = args.app_root / "HomeLocalizationCatalog.json"
+    native_overrides = (json.loads(previous_catalog.read_text()).get("native_overrides", {})
+                        if previous_catalog.exists() else {})
     downloaded = {}
     hashes = {}
     for path in sorted(args.html_dir.glob("*.html")):
@@ -247,6 +250,22 @@ def main():
         "keys": sorted(english),
         "locales": datasets,
     }
+    # Source coverage describes the downloaded pages. Native improvements are
+    # preserved independently so another import cannot restore English gaps.
+    refreshed_overrides = {}
+    for source_locale, native_locale in SOURCE_TO_NATIVE.items():
+        for key, override in native_overrides.get(native_locale, {}).items():
+            if key not in downloaded[source_locale] or not override.get("native_value"):
+                raise SystemExit("invalid native Home override: " + native_locale + "/" + key)
+            source_value = downloaded[source_locale][key]
+            if source_value != override["native_value"]:
+                refreshed_overrides.setdefault(native_locale, {})[key] = {
+                    "source_value": source_value, "native_value": override["native_value"]}
+    if set(native_overrides) - set(SOURCE_TO_NATIVE.values()):
+        raise SystemExit("unknown native Home override locale")
+    if refreshed_overrides:
+        catalog["native_overrides"] = refreshed_overrides
+        catalog["notes"].append("Native overrides complete visible Home labels while retaining the recorded source translations and coverage separately.")
     if args.storage_dir is not None:
         storage_files = {}
         for source_locale in SOURCE_TO_NATIVE:
@@ -306,8 +325,11 @@ def main():
         catalog["notes"].append("Storage's non-English translated button reuses the exact Home label; untranslated explanations and metric labels are not new translated content.")
     print("*** Begin Patch")
     for source_locale, native_locale in SOURCE_TO_NATIVE.items():
+        values = dict(downloaded[source_locale])
+        for key, override in refreshed_overrides.get(native_locale, {}).items():
+            values[key] = override["native_value"]
         emit_patch(args.app_root / (native_locale + ".lproj") / "Home.strings",
-                   strings_text(downloaded[source_locale]))
+                   strings_text(values))
     emit_patch(args.app_root / "HomeLocalizationCatalog.json",
                json.dumps(catalog, ensure_ascii=False, indent=2) + "\n")
     print("*** End Patch")

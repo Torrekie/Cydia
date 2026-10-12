@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "This is a console package!";
 "CONSOLE_UTILITIES_DAEMONS" = "Console Utilities & Daemons";
 "CONTINUE_QUEUING" = "Continue Queuing";
-"COUNTS_NONZERO_EX" = "So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.";
+"COUNTS_NONZERO_EX" = "Cydia could not load the package database because APT reported unexpected installation or removal requests. Close and reopen Cydia, then try again.";
 "CREDITS" = "Credits";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Database";

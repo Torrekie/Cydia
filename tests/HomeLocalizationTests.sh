@@ -172,7 +172,10 @@ keys = set(catalog["keys"])
 assert len(keys) == 21, "first-party Home label count changed"
 quoted = r'"(?:[^"\\]|\\.)*"'
 entry_pattern = re.compile(r'(' + quoted + r')\s*=\s*(' + quoted + r')\s*;')
+format_pattern_home = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztL])?[@diuoxXfFeEgGaAcCsSpn%]')
 tables = {}
+overrides = catalog.get("native_overrides", {})
+assert set(overrides) <= set(expected.values()), "unknown native Home override locale"
 for locale in expected.values():
     content = (app / (locale + ".lproj") / "Home.strings").read_text()
     entries = [(json.loads(key), json.loads(value))
@@ -182,10 +185,17 @@ for locale in expected.values():
     assert set(values) == keys, locale + ": incomplete Home table"
     assert all(value and value != key for key, value in entries), locale + ": invalid value"
     assert values["BY"].count("%@") == 1, locale + ": byline must preserve one author slot"
-    assert values["HOME_FIND_EXTENSIONS"] == "Find Extensions for Applications", locale + ": invented source translation"
     tables[locale] = values
 for entry in catalog["locales"]:
-    values = tables[entry["native_locale"]]
+    locale = entry["native_locale"]
+    values = dict(tables[locale])
+    for key, override in overrides.get(locale, {}).items():
+        assert key in keys, "unknown native Home override key"
+        assert values[key] == override["native_value"], locale + ": native Home override changed"
+        assert override["native_value"] and override["native_value"] != override["source_value"], "empty native Home repair"
+        assert format_pattern_home.findall(override["native_value"]) == format_pattern_home.findall(override["source_value"]), "Home override format changed"
+        values[key] = override["source_value"]
+    assert values["HOME_FIND_EXTENSIONS"] == "Find Extensions for Applications", locale + ": source record changed"
     translated = {key for key in keys if values[key] != tables["en"][key]}
     assert translated == set(entry["translated_keys"]), "incorrect translation coverage"
     assert keys - translated == set(entry["untranslated_keys"]), "incorrect fallback coverage"
@@ -196,12 +206,13 @@ controller = (root / "Cydia" / "HomeController.mm").read_text()
 assert 'table:@"Home"' in controller, "native Home bypasses first-party strings"
 for key in ("WELCOME_TO_CYDIA", "BY", "USER_GUIDES", "DEVELOPERS_ONLY"):
     assert re.search(r'HomeLocalized\("' + key + r'"', controller), key + ": not wired to Home"
-print("[verify-home-localization][ ok ] 21 first-party labels in 21 native locale tables; partial coverage and regional mappings preserved")
+print("[verify-home-localization][ ok ] 21 Home labels in 21 locales; native repairs and original source coverage checked separately")
 
 # The 2023 baseline was captured from Git into this fixture so this check also
 # works in exported source trees. Only existing baseline entries contribute to
-# its digests; historical missing translations remain outside the repair scope.
+# its digests; recorded native repairs restore their before values for comparison.
 baseline = json.loads((root / "tests/fixtures/ui/native-localization-baseline.json").read_text())
+repairs = json.loads((root / "tests/fixtures/ui/native-localization-repairs.json").read_text())
 locales = sorted(path.name[:-6] for path in app.glob("*.lproj"))
 assert locales == sorted(baseline["locales"]), "native locale baseline changed"
 assert set(locales) == set(expected.values()), "Home/native locale baselines differ"
@@ -220,6 +231,16 @@ for locale in locales:
     legacy_keys = full_keys - missing_keys if locale in partial_locales else full_keys
     assert legacy_keys <= set(values), locale + ": lost original localization"
     legacy = {key: values[key] for key in legacy_keys}
+    for key in repairs["preserved_unresolved_keys"]:
+        assert key not in values, locale + ": reserved historical identifier changed"
+    for key, repair in repairs["localizable"].get(locale, {}).items():
+        assert values.get(key) == repair["after"], locale + ": reviewed native repair changed"
+        assert format_pattern.findall(repair["after"]) == format_pattern.findall(repair["before"] or ""), locale + ": native repair format changed"
+        if key in legacy_keys:
+            assert repair["before"] is not None, locale + ": lost original repair value"
+            legacy[key] = repair["before"]
+        else:
+            assert repair["before"] is None, locale + ": repair provenance differs"
     digest = hashlib.sha256(json.dumps(legacy, ensure_ascii=False, sort_keys=True,
                                       separators=(",", ":")).encode()).hexdigest()
     assert digest == baseline["legacy_table_sha256"][locale], locale + ": original translations changed"
@@ -236,5 +257,5 @@ for locale in locales:
     if sys.platform == "darwin":
         result = subprocess.run(["plutil", "-lint", "--", str(path)], capture_output=True, text=True)
         assert result.returncode == 0, result.stdout + result.stderr
-print("[verify-home-localization][ ok ] %d native additions in %d locales; format slots and 2023 translations preserved" % (len(additions), len(locales)))
+print("[verify-home-localization][ ok ] %d native additions in %d locales; reviewed repairs and remaining 2023 translations preserved" % (len(additions), len(locales)))
 PY

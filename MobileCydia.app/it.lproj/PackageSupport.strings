@@ -1,0 +1,9 @@
+/* Native package support and command-line package notice. */
+"SUPPORT_TITLE" = "Assistenza";
+"SUPPORT_WEBSITE_NOTICE" = "Questo pacchetto ha un sito web di assistenza tecnica. Consultalo.";
+"SUPPORT_PAYMENT_NOTICE" = "Per domande su un pagamento nel Cydia Store, contatta direttamente l’autore di Cydia. È improbabile che lo sviluppatore di questo pacchetto possa aiutarti con i pagamenti.";
+"SUPPORT_PRODUCT_NOTICE" = "Il proprietario di Cydia non può aiutarti con domande sul funzionamento di questo pacchetto. Contatta lo sviluppatore o l’artista indicato qui sotto.";
+"SUPPORT_AUTHOR_NOTICE" = "Contatta lo sviluppatore o l’artista del pacchetto per ricevere assistenza sul suo funzionamento.";
+"SUPPORT_MAINTAINER_NOTICE" = "Contatta il responsabile del pacchetto per ricevere assistenza con i problemi di installazione.";
+"CONSOLE_TITLE" = "Console";
+"CONSOLE_NOTICE" = "Questo è un pacchetto da linea di comando. Non aggiunge un’icona di app. Usa un’app terminale o SSH per eseguire i suoi comandi.";

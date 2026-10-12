@@ -74,11 +74,13 @@
         return nil;
     if ([identifier isEqualToString:@"console"]) {
         // The purpose::console destination is an informational Cydia page,
-        // not a repository depiction. Keep its original notice native.
+        // not a repository depiction. Keep its command-line guidance native and localized.
+        NSBundle *bundle = [NSBundle mainBundle];
         return [self initWithPageIdentifier:identifier page:@{
-            @"title_key": @"CONSOLE", @"title": @"Console",
+            @"title":
+                [bundle localizedStringForKey:@"CONSOLE_TITLE" value:nil table:@"PackageSupport"],
             @"sections": @[@{@"rows": @[@{@"id": @"console-notice", @"kind": @"text",
-                @"text": @"This package does not have an icon, nor should it. To use this package you must SSH into your device or use MobileTerminal. If you do not recognize this package you probably should not be using it."}]}]
+                @"text": [bundle localizedStringForKey:@"CONSOLE_NOTICE" value:nil table:@"PackageSupport"]}]}]
         }];
     }
     NSURL *URL = [[NSBundle mainBundle] URLForResource:@"HomeGuides" withExtension:@"json"];

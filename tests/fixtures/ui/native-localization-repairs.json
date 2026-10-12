@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "localizable": {
+    "ar": {
+      "COUNTS_NONZERO_EX": {
+        "before": "لقد قمت بعدّ بعض القيم التي تبدو مهمة، ولم يبلغ مجموعها صفرًا. هذا أمر مخيف. فأنا لا أعرف لماذا لم أعد أحب ذلك، ولكن أظن أن APT كان متمسكًا بعدم حدوث ذلك.",
+        "after": "تعذر على Cydia تحميل قاعدة بيانات الحزم لأن APT أبلغ عن طلبات غير متوقعة لتثبيت الحزم أو إزالتها. أغلق Cydia وافتحه مجددًا، ثم حاول مرة أخرى."
+      }
+    },
+    "de": {
+      "COUNTS_NONZERO_EX": {
+        "before": "So, ich habe gerade ein paar wichtig scheinende Werte gezählt, und ihre Summe war nicht null. Das ist beängstigend. Ich weiß nicht mehr, warum ich das nicht mag, aber ich denke APT bestand darauf, dass das nicht passieren darf.",
+        "after": "Cydia konnte die Paketdatenbank nicht laden, da APT unerwartete Installations- oder Entfernungsanfragen gemeldet hat. Schließen Sie Cydia und öffnen Sie es erneut. Versuchen Sie es dann noch einmal."
+      },
+      "Q_D": {
+        "before": "Q'd",
+        "after": "Geplant"
+      }
+    },
+    "el": {
+      "COUNTS_NONZERO_EX": {
+        "before": "So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.",
+        "after": "Το Cydia δεν μπόρεσε να φορτώσει τη βάση δεδομένων πακέτων, επειδή το APT ανέφερε μη αναμενόμενα αιτήματα εγκατάστασης ή αφαίρεσης. Κλείστε και ανοίξτε ξανά το Cydia και δοκιμάστε ξανά."
+      },
+      "SOURCES": {
+        "before": "Sources",
+        "after": "Πηγές"
+      }
+    },
+    "en": {
+      "COUNTS_NONZERO_EX": {
+        "before": "So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.",
+        "after": "Cydia could not load the package database because APT reported unexpected installation or removal requests. Close and reopen Cydia, then try again."
+      }
+    },
+    "es": {
+      "COUNTS_NONZERO_EX": {
+        "before": "Bueno, acabo de encontrar algunos valores importantes, así que ellos no se suman a cero. Esto es terrorífico. No sé por qué esto no me gusta más, pero creo que APT estaba seguro de que esto no debería pasar.",
+        "after": "Cydia no pudo cargar la base de datos de paquetes porque APT informó de solicitudes inesperadas de instalación o eliminación. Cierra y vuelve a abrir Cydia e inténtalo de nuevo."
+      }
+    },
+    "fr": {
+      "COUNTS_NONZERO_EX": {
+        "before": "Après avoir calculé la somme de valeurs importantes, elle n'est pas égale à zéro. Ceci est épeurant. J'ai aucune idée pourquoi ceci est dangereux, mais je crois que APT ne voulait absolument pas que ceci arrive.",
+        "after": "Cydia n’a pas pu charger la base de données des paquets, car APT a signalé des demandes inattendues d’installation ou de suppression. Fermez puis rouvrez Cydia et réessayez."
+      }
+    },
+    "he": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "Cydia לא הצליח לטעון את מסד נתוני החבילות כי APT דיווח על בקשות לא צפויות להתקנה או להסרה. יש לסגור את Cydia ולפתוח אותו מחדש, ואז לנסות שוב."
+      }
+    },
+    "it": {
+      "COUNTS_NONZERO_EX": {
+        "before": "Allora, ho appena controllato dei valori importanti e la loro somma non è zero. Questo è spaventoso. Non so perchè ma non mi piace più, ma penso che l'APT è stato irremovibile, questo non dovrebbe accadere.",
+        "after": "Cydia non ha potuto caricare il database dei pacchetti perché APT ha segnalato richieste di installazione o rimozione inattese. Chiudi e riapri Cydia, quindi riprova."
+      }
+    },
+    "ja": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "APT が予期しないインストールまたは削除の要求を報告したため、Cydia はパッケージデータベースを読み込めませんでした。Cydia を終了してから再度開き、もう一度お試しください。"
+      },
+      "FROM": {
+        "before": "from %@",
+        "after": "提供元: %@"
+      }
+    },
+    "ko": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "APT에서 예상치 못한 설치 또는 제거 요청을 보고하여 Cydia가 패키지 데이터베이스를 불러오지 못했습니다. Cydia를 종료한 후 다시 열고 다시 시도하세요."
+      }
+    },
+    "nl": {
+      "COUNTS_NONZERO_EX": {
+        "before": "Ik heb dus even een rekensommetje van belangrijke waarden gemaakt, en de uitkomst was niet nul. Vreemd... Ik weet niet hoe dit komt maar het had niet zo mogen zijn.",
+        "after": "Cydia kon de pakketdatabase niet laden omdat APT onverwachte installatie- of verwijderingsverzoeken meldde. Sluit Cydia en open het opnieuw. Probeer het daarna nogmaals."
+      }
+    },
+    "pl": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "Cydia nie mogła wczytać bazy danych pakietów, ponieważ APT zgłosił nieoczekiwane żądania instalacji lub usunięcia. Zamknij i ponownie otwórz Cydię, a następnie spróbuj jeszcze raz."
+      }
+    },
+    "pt-PT": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "O Cydia não conseguiu carregar a base de dados de pacotes porque o APT comunicou pedidos inesperados de instalação ou remoção. Feche e volte a abrir o Cydia e tente novamente."
+      }
+    },
+    "pt": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "O Cydia não conseguiu carregar o banco de dados de pacotes porque o APT relatou solicitações inesperadas de instalação ou remoção. Feche e abra o Cydia novamente e tente outra vez."
+      }
+    },
+    "ru": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "Cydia не удалось загрузить базу данных пакетов, поскольку APT сообщил о неожиданных запросах на установку или удаление. Закройте и снова откройте Cydia, затем повторите попытку."
+      }
+    },
+    "sv": {
+      "COUNTS_NONZERO_EX": {
+        "before": "Hmm, ett fel har inträffat. Summan blev inte noll. APT... Borde inte kunna inträffa.",
+        "after": "Cydia kunde inte läsa in paketdatabasen eftersom APT rapporterade oväntade begäranden om installation eller borttagning. Stäng och öppna Cydia igen och försök sedan på nytt."
+      }
+    },
+    "th": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "Cydia ไม่สามารถโหลดฐานข้อมูลแพ็กเกจได้ เนื่องจาก APT รายงานคำขอติดตั้งหรือลบที่ไม่คาดคิด โปรดปิดแล้วเปิด Cydia ใหม่ จากนั้นลองอีกครั้ง"
+      }
+    },
+    "tr": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "APT beklenmeyen kurulum veya kaldırma istekleri bildirdiği için Cydia paket veritabanını yükleyemedi. Cydia'yı kapatıp yeniden açın ve tekrar deneyin."
+      }
+    },
+    "vi": {
+      "COUNTS_NONZERO_EX": {
+        "before": null,
+        "after": "Cydia không thể tải cơ sở dữ liệu gói vì APT báo cáo các yêu cầu cài đặt hoặc gỡ bỏ không mong đợi. Hãy đóng rồi mở lại Cydia và thử lại."
+      },
+      "Q_D": {
+        "before": "Q'd",
+        "after": "Chờ"
+      }
+    },
+    "zh-Hans": {
+      "COUNTS_NONZERO_EX": {
+        "before": "我刚计算了一些看起来很重要的数值，这些数值加起来不为零。这很吓人。我不知道我为什么再也不希望这样，但我认为 APT 也坚信这种情况不应该发生。",
+        "after": "Cydia 无法加载软件包数据库，因为 APT 报告了意外的安装或移除请求。请关闭并重新打开 Cydia，然后重试。"
+      }
+    },
+    "zh-Hant": {
+      "COUNTS_NONZERO_EX": {
+        "before": "我算了幾個看起來很重要的數值，可是加起來不是零，實在很恐怖。我不知道自己為什麼討厭這樣，可是 APT 實在很固執，而且這種情形不應該發生。",
+        "after": "Cydia 無法載入套件資料庫，因為 APT 回報了非預期的安裝或移除請求。請關閉並重新開啟 Cydia，然後再試一次。"
+      }
+    }
+  },
+  "preserved_unresolved_keys": [
+    "DPKG_LOCKED"
+  ]
+}

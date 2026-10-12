@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Detta är ett konsolpaket!";
 "CONSOLE_UTILITIES_DAEMONS" = "Konsoll Utilities & Daemons";
 "CONTINUE_QUEUING" = "Fortsätt köa";
-"COUNTS_NONZERO_EX" = "Hmm, ett fel har inträffat. Summan blev inte noll. APT... Borde inte kunna inträffa.";
+"COUNTS_NONZERO_EX" = "Cydia kunde inte läsa in paketdatabasen eftersom APT rapporterade oväntade begäranden om installation eller borttagning. Stäng och öppna Cydia igen och försök sedan på nytt.";
 "CREDITS" = "Beröm";
 "CYDIA_STORE" = "Cydia Store";
 "DATABASE" = "Databas";

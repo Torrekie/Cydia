@@ -32,6 +32,7 @@
 "CONFIRM" = "Potwierdź";
 "CONSOLE_PACKAGE" = "To jest pakiet konsoli!";
 "CONTINUE_QUEUING" = "Kontynuuj kolejkowanie";
+"COUNTS_NONZERO_EX" = "Cydia nie mogła wczytać bazy danych pakietów, ponieważ APT zgłosił nieoczekiwane żądania instalacji lub usunięcia. Zamknij i ponownie otwórz Cydię, a następnie spróbuj jeszcze raz.";
 "CREDITS" = "Współtwórcy";
 "DATABASE" = "Baza danych";
 "DETAILS" = "Szczegóły";

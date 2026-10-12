@@ -38,7 +38,7 @@
 "CONSOLE_PACKAGE" = "Αυτό είναι πακέτο κονσόλας!";
 "CONSOLE_UTILITIES_DAEMONS" = "Εργαλεία κονσόλας & Daemons";
 "CONTINUE_QUEUING" = "Συνέχιση προσθήκης σε ουρά";
-"COUNTS_NONZERO_EX" = "So, I just counted some important-looking values, and they didn't sum to zero. This is scary. I don't know why I don't like this anymore, but I think APT was adamant this should not occur.";
+"COUNTS_NONZERO_EX" = "Το Cydia δεν μπόρεσε να φορτώσει τη βάση δεδομένων πακέτων, επειδή το APT ανέφερε μη αναμενόμενα αιτήματα εγκατάστασης ή αφαίρεσης. Κλείστε και ανοίξτε ξανά το Cydia και δοκιμάστε ξανά.";
 "CREDITS" = "Credits";
 "CYDIA_STORE" = "Κατάστημα Cydia";
 "DATABASE" = "Βάση δεδομένων";
@@ -198,7 +198,7 @@
 "SIMPLE" = "Απλό";
 "SINGLE_QUOTED" = "‘%@’";
 "SLASH_DELIMITED" = "%@ / %@";
-"SOURCES" = "Sources";
+"SOURCES" = "Πηγές";
 "SOURCES_EX" = "Δείτε τρέχοντα sources και προσθέστε sources που γνωρίζετε.";
 "SOURCE_DETAILS" = "Πληροφορίες Source";
 "SOURCE_WARNING" = "Προειδοποίηση Source";

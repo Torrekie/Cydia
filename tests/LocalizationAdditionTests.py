@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENTRY = re.compile(r'("(?:[^"\\]|\\.)*")\s*=\s*("(?:[^"\\]|\\.)*")\s*;')
 TABLES = (
     "Settings", "Sources", "Actions", "Recovery", "RuntimeAccess",
-    "BootstrapAccess", "InfoPlist", "Localizable",
+    "BootstrapAccess", "InfoPlist", "PackageSupport", "Localizable",
 )
 # These words are correct in both English and the named language. Approve the
 # exact word, rather than exempting a key from future English-prose checks.
@@ -20,6 +20,11 @@ SHARED_WORDS = {
     ("sv", "Sources", "SOURCE_STATUS"): "Status",
     ("es", "Settings", "SECURITY_ERROR"): "Error",
     ("fr", "Localizable", "ERROR_DESTINATION"): "destination",
+    ("sv", "PackageSupport", "SUPPORT_TITLE"): "Support",
+    ("fr", "PackageSupport", "CONSOLE_TITLE"): "Console",
+    ("it", "PackageSupport", "CONSOLE_TITLE"): "Console",
+    ("nl", "PackageSupport", "CONSOLE_TITLE"): "Console",
+    ("pt", "PackageSupport", "CONSOLE_TITLE"): "Console",
 }
 
 

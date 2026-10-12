@@ -32,6 +32,7 @@
 "CONFIRM" = "Confirmar";
 "CONSOLE_PACKAGE" = "Este é um pacote de terminal!";
 "CONTINUE_QUEUING" = "Continuar a Colocar em Fila";
+"COUNTS_NONZERO_EX" = "O Cydia não conseguiu carregar a base de dados de pacotes porque o APT comunicou pedidos inesperados de instalação ou remoção. Feche e volte a abrir o Cydia e tente novamente.";
 "CREDITS" = "Ficha Técnica";
 "DATABASE" = "Base de Dados";
 "DETAILS" = "Detalhes";
