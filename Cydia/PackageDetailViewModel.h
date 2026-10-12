@@ -29,11 +29,13 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
     CydiaPackageDetailModifyActionKindDowngrade,
     CydiaPackageDetailModifyActionKindPurge,
     CydiaPackageDetailModifyActionKindVersions,
+    CydiaPackageDetailModifyActionKindAccount,
 };
 
 @interface CydiaPackageDetailSource : NSObject
 
 @property(nonatomic, copy, readonly, nullable) NSString *key;
+@property(nonatomic, copy, readonly, nullable) NSString *repositoryURLString;
 @property(nonatomic, copy, readonly) NSString *name;
 @property(nonatomic, copy, readonly, nullable) NSString *sourceDescription;
 @property(nonatomic, copy, readonly, nullable) NSString *host;

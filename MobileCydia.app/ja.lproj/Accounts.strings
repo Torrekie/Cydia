@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "アカウント";
+"ACCOUNT_SIGN_IN" = "サインイン";
+"ACCOUNT_SIGN_OUT" = "サインアウト";
+"ACCOUNT_SIGN_IN_REQUIRED" = "サインインしてアカウントと購入済み項目を確認します。";
+"ACCOUNT_UNSUPPORTED" = "このソースには Cydia が対応するアカウントサービスがありません。";
+"ACCOUNT_REQUEST_FAILED" = "アカウントへの要求を完了できませんでした。後でもう一度お試しください。";
+"ACCOUNT_OWNED" = "購入済み";
+"ACCOUNT_NOT_OWNED" = "未購入です。購入方法はリポジトリのウェブサイトで確認してください。";
+"ACCOUNT_UNAVAILABLE" = "このアカウントでは利用できません。";
+"ACCOUNT_SOURCE_HELP" = "追加済みのソースを選んでアカウントを管理します。アカウントサービスのないソースも通常どおり使用できます。";
+"ACCOUNT_LINK_CONSENT" = "%@ を %@ に連携しますか？決済サービスにデバイスの識別子と機種が送信されます。信頼できる場合にのみサインインしてください。";

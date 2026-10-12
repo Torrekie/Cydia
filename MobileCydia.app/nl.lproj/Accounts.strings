@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "Accounts";
+"ACCOUNT_SIGN_IN" = "Inloggen";
+"ACCOUNT_SIGN_OUT" = "Uitloggen";
+"ACCOUNT_SIGN_IN_REQUIRED" = "Log in om je account en aankopen te bekijken.";
+"ACCOUNT_UNSUPPORTED" = "Deze bron biedt geen accountdienst die Cydia ondersteunt.";
+"ACCOUNT_REQUEST_FAILED" = "Het accountverzoek kon niet worden voltooid. Probeer het later opnieuw.";
+"ACCOUNT_OWNED" = "Gekocht";
+"ACCOUNT_NOT_OWNED" = "Niet gekocht. Bekijk de aankoopmogelijkheden op de website van de pakketbron.";
+"ACCOUNT_UNAVAILABLE" = "Niet beschikbaar voor dit account.";
+"ACCOUNT_SOURCE_HELP" = "Kies een toegevoegde bron om het account te beheren. Bronnen zonder accountdienst blijven normaal bruikbaar.";
+"ACCOUNT_LINK_CONSENT" = "%@ koppelen aan %@? De betalingsaanbieder ontvangt de identificatie en het model van je apparaat. Log alleen in als je deze aanbieder vertrouwt.";

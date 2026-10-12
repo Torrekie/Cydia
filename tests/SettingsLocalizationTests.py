@@ -38,6 +38,13 @@ def main():
             expected = sorted(FORMAT.findall(english[key].replace("%%", "")))
             actual = sorted(FORMAT.findall(value.replace("%%", "")))
             assert actual == expected, f"Format arguments differ: {bundle.name}/{key}"
+    accounts = read_table(ROOT / "MobileCydia.app/en.lproj/Accounts.strings")
+    for bundle in bundles:
+        table = read_table(bundle / "Accounts.strings")
+        assert table.keys() == accounts.keys(), f"Account keys differ in {bundle.name}"
+        for key, value in table.items():
+            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(accounts[key].replace("%%", ""))), \
+                f"Account arguments differ: {bundle.name}/{key}"
     file_types = read_table(ROOT / "MobileCydia.app/en.lproj/InfoPlist.strings", allow_equal=True)
     for bundle in bundles:
         assert read_table(bundle / "InfoPlist.strings", allow_equal=True).keys() == file_types.keys(), \
@@ -68,6 +75,7 @@ def main():
             assert bundle.name == "en.lproj" or value != outcome_english[key], \
                 f"English progress outcome fallback: {bundle.name}/{key}"
     print(f"[settings-localization] PASS: {len(english)} keys in {len(bundles)} locales")
+    print(f"[accounts-localization] PASS: {len(accounts)} keys in {len(bundles)} locales")
     print(f"[runtime-access-localization] PASS: {len(access)} keys in {len(bundles)} locales")
     print(f"[bootstrap-access-localization] PASS: {len(bootstrap)} keys in {len(bundles)} locales")
     print(f"[transaction-outcome-localization] PASS: {len(outcomes)} keys in {len(bundles)} locales")

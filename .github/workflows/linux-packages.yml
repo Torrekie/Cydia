@@ -60,7 +60,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             build-essential ca-certificates curl dpkg-dev git libtinfo5 \
-            perl ripgrep unzip xz-utils cmake ninja-build pkg-config \
+            perl ripgrep unzip xz-utils cmake ninja-build pkg-config gettext \
             libbz2-dev libdb-dev libgnutls28-dev libgcrypt20-dev liblz4-dev \
             liblzma-dev libxxhash-dev zlib1g-dev gnupg gpgv fakeroot
 
@@ -146,7 +146,7 @@ jobs:
             BUILD_DIR="build/linux-${{ matrix.layout }}" \
             PACKAGE_LAYOUT="${{ matrix.layout }}" \
             verify-static verify-package-paths verify-dpkg-runner verify-exec-compat \
-            verify-apt-runtime verify-package-archive-policy verify-repository-security verify-source-documents verify-source-drafts verify-source-discovery \
+            verify-apt-runtime verify-apt-messages verify-apt-provider verify-package-archive-policy verify-repository-security verify-source-documents verify-source-drafts verify-source-discovery \
             verify-source-commits verify-settings-localization verify-repository-hygiene \
             verify-extended-state verify-privileged-runtime verify-privileged-client \
             verify-runtime-snapshot verify-repository-trust-proof verify-runtime-access \

@@ -1,4 +1,4 @@
-$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(images) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT scripts/write-application-identity.py
+$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(images) $(apt_catalogs) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT scripts/write-application-identity.py
 	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia
@@ -29,6 +29,7 @@ $(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_
 	cp -a MobileCydia.app $(CYDIA_STAGE_ROOT)/Applications/Cydia.app
 	rm -rf $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/*.lproj
 	cp -a $(APP_BINARY) $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/Cydia
+	cp -a $(APT_LOCALE_DIR) $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/APTLocale
 
 	for meth in bzip2 gzip lzma http https store $(methods); do ln -s Cydia $(CYDIA_STAGE_ROOT)/Applications/Cydia.app/"$${meth}"; done
 

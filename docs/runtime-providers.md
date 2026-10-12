@@ -10,25 +10,33 @@ keyrings, or package database. No distribution is identified from a repository
 hostname or assumed to be the default. The package ID remains `cydia`;
 legacy package-owned file migrations remain maintscript responsibilities.
 
-This document specifies the target architecture. Provider selection is not
-implemented yet. Currently APT 2.7.9 is statically linked into the application
-and privileged helper, dpkg is external, and Cydia directly links Apple's
-system `libicucore`. The ICU compatibility headers contain declarations, not
-an embedded ICU implementation. Bundled APT also disables gettext through
-`apt-extra/apti18n.h`.
+This document distinguishes the target architecture from the available
+implementation. APT 2.7.9 remains statically linked into the application and
+privileged helper, and dpkg is external. The versioned provider codecs,
+protected executable probe and session client are preparation for adapters;
+they do not activate an external backend. Activation requires an adapter
+accepted against the complete transaction and source-check contract below.
+An ordinary installed APT executable is not such an adapter.
+
+Cydia-owned locale conversion and regular expressions prefer validated
+bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
+entirely Apple-owned. Optional private ICU and libintl loading interfaces do
+not supply those binaries or their dependency closures. Embedded APT uses a
+real libintl bridge and source-matched upstream catalogs; it falls back to
+upstream English messages if no usable libintl is available.
 
 | Area | Current implementation | Required behavior |
 | --- | --- | --- |
 | APT | The facade always constructs the embedded backend | Prefer a validated distribution provider; keep the bundled provider available for recovery |
-| Repository policy | Cydia's default Warning mode overwrites APT security options | Inherit distribution enforcement by default; preserve explicit administrator overrides |
-| Other APT settings | Startup forces expiration checking off and supplies acquisition defaults | Preserve effective distribution configuration; distinguish absent defaults from explicit overrides |
+| Repository policy | Existing Warning default is retained; explicit Use selected APT settings restores independent loaded settings | Inherit validated distribution-provider enforcement by default; preserve explicit administrator overrides |
+| Other APT settings | Expiration policy and explicit language/parallel settings are preserved | Preserve the selected provider's configuration and compiled behavior |
 | Source checks | Preflight runs bundled APT | Check with the same selected provider and policy used for refresh and transactions |
 | dpkg | Selected external tools and protected runtime paths | Retain external dpkg and its policies; extend validation to the selected APT provider |
-| ICU | Direct calls into Apple system ICU | Prefer compatible bootstrap ICU for Cydia-owned services, then Apple ICU, then a private bundled fallback |
-| Messages | Locale conversion exists; bundled APT stubs gettext | Use each provider's own gettext and catalogs; bundle localization support with the recovery backend |
+| ICU | Validated bootstrap/Apple service tables; isolated private fallback loader; Apple-owned UIKit collation | Supply reproducible private fallback binaries and matching data |
+| Messages | Converted locale environment, upstream catalog packaging and optional libintl bridge | Supply the private libintl closure for localization when external libraries are broken |
 | Failure handling | No APT provider transition | Diagnose provider failure separately from repository, configuration, dependency, and lock errors |
 | Remorix packages | Future distribution integration is not yet defined | Publish localized APT/dpkg and a tested provider interface without making Remorix a requirement for Cydia |
-| Commercial sources | Legacy commercial metadata and web integration | Distinguish public indexes, account access, purchase entitlement and authorized downloads; integrate supported vendor APIs separately from APT trust |
+| Commercial sources | Native accounts and exact archive authorization with ordinary hash/layout checks; no purchase API | Complete vendor-authorized account/download acceptance separately from public-source access |
 
 ## Remorix distribution contract
 
@@ -128,7 +136,11 @@ holds and automatic-package markings.
 
 ## Distribution policy and explicit overrides
 
-Default enforcement is **Use distribution settings**. Preserve the provider's
+The selected-provider target default is **Use distribution settings**. Until
+external activation, the shipped default remains Warning. The explicit
+**Use selected APT settings** choice restores the active embedded engine's
+loaded settings; it does not claim to reproduce another binary's compiled
+distribution policies. Existing saved choices remain unchanged. Preserve the provider's
 compiled behavior as well as its configuration: `apt-config dump` cannot
 describe or reproduce arbitrary distribution patches. This includes source
 authentication, expiry checks, keyrings, pins, holds, architecture policy,
@@ -145,8 +157,8 @@ Cydia may show a nonblocking warning for a repository that the distribution
 accepts without authentication. This warning is presentation, not a hidden
 change to enforcement. Existing Allow/Warning/Error choices remain available
 as explicit Cydia overrides. Settings must distinguish an absent preference
-from a saved choice: migrate absence to inheritance and retain explicitly
-saved choices. Apply an override through supported provider controls, show its
+from a saved choice: migrate absence to inheritance only with supported
+provider activation, and retain explicitly saved choices. Apply an override through supported provider controls, show its
 scope, and report unsupported controls instead of silently changing providers.
 Do not write these overrides into shared distribution configuration files.
 
@@ -244,11 +256,15 @@ network. Havoc's absent `InRelease` can use its detached
 `Release.gpg`; that response alone is not a client block. Its documented 418
 error can also indicate an account/login problem.
 
-Current Cydia styles `cydia::commercial` packages, but has no modern
-`payment_endpoint`/`authorize_download` account service. Home's Manage Account
-controller is a placeholder, and package actions do not check entitlement.
-The read-only depiction bridge does not supply these capabilities. Do not
-restore broad privileged JavaScript access to implement them.
+Cydia's native `payment_endpoint` account service is shared by Home's Manage
+Account entry, Settings and commercial package details. It uses explicit
+device-link consent, scoped Keychain tokens and package/version/architecture
+authorization. Temporary HTTPS archive URLs are acquired privately and checked
+against the selected index hashes, size, identity and layout before dpkg.
+This implementation does not establish vendor acceptance. Havoc account
+linking and paid authorization remain unsupported; anonymous discovery and
+ordinary public acquisition stay available. Purchases use the vendor website,
+not an automatic purchase API. The read-only depiction bridge remains unchanged.
 
 ### Native accounts and download authorization
 

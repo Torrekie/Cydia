@@ -11,6 +11,7 @@
 #include "Cydia/AptCompatibility.hpp"
 #include "Cydia/Database.h"
 #include "Cydia/ProgressEvent.h"
+#include "Cydia/RedactedURL.hpp"
 #include "CyteKit/Localize.h"
 
 #include <apt-pkg/acquire-item.h>
@@ -104,14 +105,14 @@ class ProgressStatus : public CancelStatus {
 
     virtual void Fetch(pkgAcquire::ItemDesc &desc) {
         NSString *name([NSString stringWithUTF8String:desc.ShortDesc.c_str()]);
-        AcquireItemData item{desc.Description, desc.URI};
+        AcquireItemData item{CydiaRuntime::RedactDiagnosticURLs(desc.Description), CydiaRuntime::RedactDiagnosticURLs(desc.URI)};
         CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:UCLocalize("DOWNLOADING_"), name] ofType:kCydiaProgressEventTypeStatus forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
 
     virtual void Done(pkgAcquire::ItemDesc &desc) {
         NSString *name([NSString stringWithUTF8String:desc.ShortDesc.c_str()]);
-        AcquireItemData item{desc.Description, desc.URI};
+        AcquireItemData item{CydiaRuntime::RedactDiagnosticURLs(desc.Description), CydiaRuntime::RedactDiagnosticURLs(desc.URI)};
         CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithFormat:Colon_, UCLocalize("DONE"), name] ofType:kCydiaProgressEventTypeStatus forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }
@@ -125,7 +126,7 @@ class ProgressStatus : public CancelStatus {
         if (error.empty())
             return;
 
-        AcquireItemData item{desc.Description, desc.URI};
+        AcquireItemData item{CydiaRuntime::RedactDiagnosticURLs(desc.Description), CydiaRuntime::RedactDiagnosticURLs(desc.URI)};
         CydiaProgressEvent *event([CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:kCydiaProgressEventTypeError forItem:item]);
         [delegate_ performSelectorOnMainThread:@selector(addProgressEvent:) withObject:event waitUntilDone:YES];
     }

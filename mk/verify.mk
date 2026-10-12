@@ -75,6 +75,9 @@ EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 MESSAGE_LOCALE_TEST := $(BUILD_DIR)/tests/MessageLocaleTests
 MESSAGE_LOCALE_DECLARATIONS_TEST := $(BUILD_DIR)/tests/MessageLocaleDeclarationsTests
+APT_MESSAGES_TEST := $(BUILD_DIR)/tests/AptMessagesTests
+APT_PROVIDER_TEST := $(BUILD_DIR)/tests/AptProviderProtocolTests
+APT_PROVIDER_SESSION_TEST := $(BUILD_DIR)/tests/AptProviderSessionTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 PACKAGE_ARCHIVE_POLICY_TEST := $(BUILD_DIR)/tests/PackageArchivePolicyTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
@@ -114,6 +117,41 @@ verify-package-archive-policy: $(PACKAGE_ARCHIVE_POLICY_TEST)
 	@$<
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
+
+.PHONY: verify-apt-messages
+verify: verify-apt-messages
+$(APT_MESSAGES_TEST): tests/AptMessagesTests.cpp Cydia/AptMessages.cpp Cydia/AptMessages.h \
+        Cydia/ProtectedLibraryPath.hpp apt-extra/apti18n.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		-DCYDIA_APT_MESSAGE_DOMAIN='"$(APT_MESSAGE_DOMAIN)"' \
+		tests/AptMessagesTests.cpp Cydia/AptMessages.cpp $(if $(filter Linux,$(HOST_OS)),-ldl -pthread,) -o $@
+verify-apt-messages: $(APT_MESSAGES_TEST)
+	@$<
+
+.PHONY: verify-apt-provider
+verify: verify-apt-provider
+$(APT_PROVIDER_TEST): tests/AptProviderProtocolTests.cpp Cydia/AptProviderProtocol.cpp \
+		Cydia/AptProviderProtocol.hpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/AptRuntime.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/AptProviderProtocolTests.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
+		Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -o $@
+$(APT_PROVIDER_SESSION_TEST): tests/AptProviderSessionTests.cpp Cydia/AptProviderSession.cpp \
+		Cydia/AptProviderSession.hpp Cydia/AptProviderClient.hpp Cydia/AptProviderProtocol.cpp \
+		Cydia/AptProviderProtocol.hpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
+		Cydia/RepositorySecurityPolicy.cpp Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		-DCYDIA_PROVIDER_SESSION_TESTING=1 tests/AptProviderSessionTests.cpp \
+		Cydia/AptProviderSession.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
+		Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp \
+		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp \
+		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation,-pthread) -o $@
+verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_PROVIDER_SESSION_TEST)
+	@$<
+	@$(APT_PROVIDER_SESSION_TEST)
 
 ifeq ($(HOST_OS),Linux)
 host_cxx ?= $(or $(HOST_CXX),c++)
@@ -573,20 +611,20 @@ verify-home-localization: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
 ifeq ($(HOST_OS),Darwin)
 $(MESSAGE_LOCALE_DECLARATIONS_TEST): host_cxx_flags += -DCYDIA_USE_ICU_LOCALE_DECLARATIONS=1
 $(MESSAGE_LOCALE_TEST) $(MESSAGE_LOCALE_DECLARATIONS_TEST): tests/MessageLocaleTests.mm Cydia/MessageLocale.h Cydia/MessageLocale.mm \
-		Cydia/MessageLocaleConversion.h Cydia/MessageLocaleConversion.mm Cydia/ICULocale.h
+		Cydia/MessageLocaleConversion.h Cydia/MessageLocaleConversion.mm Cydia/ICULocale.h Cydia/ICURuntime.hpp Cydia/ICURuntime.cpp Cydia/ProtectedLibraryPath.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
 		-idirafter $(ICU_INCLUDE_DIR) tests/MessageLocaleTests.mm Cydia/MessageLocale.mm \
-		Cydia/MessageLocaleConversion.mm -framework Foundation -licucore -o $@
+		Cydia/MessageLocaleConversion.mm Cydia/ICURuntime.cpp -framework Foundation -licucore -o $@
 
 verify-message-locale: $(MESSAGE_LOCALE_TEST) $(MESSAGE_LOCALE_DECLARATIONS_TEST)
 	@$(MESSAGE_LOCALE_TEST)
 	@$(MESSAGE_LOCALE_DECLARATIONS_TEST)
 
-$(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h CyteKit/stringWith.mm
+$(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h CyteKit/stringWith.mm Cydia/ICURuntime.hpp Cydia/ICURuntime.cpp Cydia/ProtectedLibraryPath.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
-		tests/RegExArcTests.mm CyteKit/stringWith.mm -framework Foundation -licucore -o $@
+		-idirafter $(ICU_INCLUDE_DIR) tests/RegExArcTests.mm CyteKit/stringWith.mm Cydia/ICURuntime.cpp -framework Foundation -licucore -o $@
 
 verify-regex-arc: $(REGEX_ARC_TEST)
 	@$<

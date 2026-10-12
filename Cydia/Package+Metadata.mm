@@ -190,7 +190,8 @@ static bool PackageIsLetterCharacter_(UniChar character) {
         UniChar character(CFStringGetCharacterAtIndex(name, 0));
         if (!PackageIsLetterCharacter_(character))
             return '#';
-        return u_toupper(character);
+        const CydiaICU::API &icu(CydiaICU::AppleCollation());
+        return icu.available() ? icu.uppercase(character) : character;
     _end
 }
 

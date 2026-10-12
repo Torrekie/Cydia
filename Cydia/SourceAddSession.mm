@@ -159,7 +159,7 @@ static BOOL ValidNewFilename(NSString *filename, Src::Format format) {
             NSString *message(nil); Src::CommitRequest commit; Keys::Review keyReview;
             CydiaAPT::SourcePreflightResult checked; std::string before;
             CydiaRuntime::Privileged::Request request;
-            auto mode(CydiaAPT::RepositorySecurityMode::Warning);
+            auto mode(CydiaAPT::DefaultRepositorySecurityMode());
             const BOOL acquired([database_ beginSettingsChange]);
             if (!acquired) message = CydiaSourceText(@"SOURCE_WAIT_FOR_OPERATION");
             else {
@@ -255,7 +255,8 @@ static BOOL ValidNewFilename(NSString *filename, Src::Format format) {
                 message_ = message; commit_ = commit; request_ = request; key_ = key; keyReview_ = keyReview;
                 result_ = checked; snapshot_ = before; policy_ = mode; disabled_ = disabled;
                 reviewed_ = message == nil; ready_ = reviewed_ && checked.allowed;
-                warning_ = ready_ && !disabled && !checked.authenticated && mode == CydiaAPT::RepositorySecurityMode::Warning;
+                warning_ = ready_ && !disabled && !checked.authenticated &&
+                    (mode == CydiaAPT::RepositorySecurityMode::Warning || mode == CydiaAPT::RepositorySecurityMode::Distribution);
                 definition_ = SourceString(commit.mutation.contents);
                 NSMutableArray *fingerprints([NSMutableArray array]);
                 for (const auto &fingerprint : keyReview.fingerprints) [fingerprints addObject:SourceString(fingerprint)];

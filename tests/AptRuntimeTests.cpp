@@ -98,6 +98,7 @@ VerifierFixture gVerifierFixture(VerifierFixture::Defaults);
 std::string gCompressionToolsDirectory;
 std::string gConfiguredPackagePrefix;
 bool gExplicitCompressionTools(false);
+bool gDistributionSecurityConfigured(true);
 int gCompressorRefreshes(0), gCompressionTypeRefreshes(0);
 
 void Fail(const std::string &message) {
@@ -222,6 +223,13 @@ void ExpectSourceConfiguration(const Configuration &configuration, const char *s
 }
 
 void OverrideBootstrapConfiguration(Configuration &configuration) {
+    if (gDistributionSecurityConfigured) {
+        configuration.Set("Acquire::AllowInsecureRepositories", true);
+        configuration.Set("Acquire::AllowWeakRepositories", false);
+        configuration.Set("Acquire::Check-Valid-Until", true);
+    }
+    configuration.Set("Acquire::Languages", "configured-language");
+    configuration.Set("Acquire::http::MaxParallel", 7);
     configuration.Set("APT::Architecture", "apt-conf-override");
     configuration.Set("Dir::State::status", "/apt-conf-override/status");
     if (!gConfiguredPackagePrefix.empty())
@@ -717,7 +725,8 @@ void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
         options.nativeDpkgPath = gFakeDpkgExecutable;
     else if (fixture == RuntimeFixture::NativeQueryConfigured || fixture == RuntimeFixture::QueryFailure)
         options.nativeDpkgPath = "/unavailable-dpkg";
-    options.checkValidUntil = false;
+    options.maxParallel = 16;
+    options.repositorySecurityMode = CydiaAPT::RepositorySecurityMode::Distribution;
     options.helperPath = "/selected-helper";
     if (fixture == RuntimeFixture::InvalidExecutableOverrides)
         options.privateRuntimeConfigurationPath = "/dev/null";
@@ -734,6 +743,14 @@ void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
     gRuntimeDescriptorFixture = true;
     std::string architecture;
     Expect(CydiaAPT::Initialize(options, &architecture), "runtime descriptor remains readable");
+    Expect(CydiaAPT::GetRepositorySecurityMode() == CydiaAPT::RepositorySecurityMode::Distribution,
+           "explicit inheritance uses active provider configuration");
+    Expect(!configuration.Exists("Cydia::RepositorySecurityMode"), "inheritance disables embedded Cydia authentication override");
+    ExpectValue(configuration, "Acquire::AllowInsecureRepositories", "true", "independent distribution allowance");
+    ExpectValue(configuration, "Acquire::AllowWeakRepositories", "false", "independent weak security policy");
+    Expect(!configuration.Exists("Acquire::AllowDowngradeToInsecureRepositories"), "absent downgrade policy remains absent");
+    ExpectValue(configuration, "Acquire::Languages", "configured-language", "configured acquisition languages");
+    ExpectValue(configuration, "Acquire::http::MaxParallel", "7", "configured parallelism");
     Expect(CydiaAPT::MethodsDirectory() == "/bootstrap/methods", "loaded methods must survive initialization");
     Expect(CydiaAPT::ExtendedStatesPath() == "/bootstrap/extended_states", "loaded shared extended state path");
     Expect(CydiaAPT::TrustedKeyringDirectory() == ExpectedEtcDirectory() + "/bootstrap-trusted.gpg",
@@ -799,12 +816,26 @@ void VerifyRuntimeEnvironment(RuntimeFixture fixture) {
         ExpectValue(configuration, "Acquire::AllowInsecureRepositories", expected, "security mode");
         ExpectValue(configuration, "Acquire::AllowWeakRepositories", expected, "security mode");
         ExpectValue(configuration, "Acquire::AllowDowngradeToInsecureRepositories", expected, "security mode");
-        ExpectValue(configuration, "Acquire::Check-Valid-Until", "false", "separate freshness policy");
+        ExpectValue(configuration, "Acquire::Check-Valid-Until", "true", "separate freshness policy");
         ExpectValue(configuration, "APT::Get::AllowUnauthenticated", "maintainer-setting", "archive source preference");
     }
+    CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityMode::Distribution);
+    Expect(!configuration.Exists("Cydia::RepositorySecurityMode"), "returning to inheritance removes the override");
+    ExpectValue(configuration, "Acquire::AllowInsecureRepositories", "true", "restored distribution allowance");
+    ExpectValue(configuration, "Acquire::AllowWeakRepositories", "false", "restored independent weak policy");
+    Expect(!configuration.Exists("Acquire::AllowDowngradeToInsecureRepositories"), "returning to inheritance restores absent values");
     CydiaAPT::SetCachedRepositoryTrustValid(false);
     CydiaAPT::SetRepositorySecurityMode(CydiaAPT::RepositorySecurityMode::Error);
     Expect(!CydiaAPT::CachedRepositoryTrustValid(), "changing to Error cannot establish trust proof");
+    gDistributionSecurityConfigured = false;
+    Expect(CydiaAPT::Initialize(options, &architecture), "reinitialization without distribution policy");
+    Expect(!configuration.Exists("Cydia::RepositorySecurityMode") &&
+           !configuration.Exists("Acquire::AllowInsecureRepositories") &&
+           !configuration.Exists("Acquire::AllowWeakRepositories") &&
+           !configuration.Exists("Acquire::AllowDowngradeToInsecureRepositories") &&
+           !configuration.Exists("Acquire::Check-Valid-Until"),
+           "reinitialization discards both overrides and old distribution security values");
+    gDistributionSecurityConfigured = true;
     gRuntimeFixture = RuntimeFixture::Default;
     gRuntimeDescriptorFixture = false;
 }

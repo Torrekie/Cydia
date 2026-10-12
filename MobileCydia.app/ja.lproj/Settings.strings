@@ -111,3 +111,7 @@
 "ARCHIVE_INVALID" = "%@ のアーカイブが無効または不完全なため、安全に検査できませんでした。";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@ のアーカイブが、選択したパッケージの名前、バージョン、またはアーキテクチャと一致しません。インストールはブロックされました。";
 "ARCHIVE_UNVERIFIED" = "Cydia は %@ のファイル配置を完全には確認できませんでした。続行する前にパッケージの互換性を確認してください。";
+
+"SECURITY_DISTRIBUTION" = "選択中の APT の設定を使用";
+"SECURITY_DISTRIBUTION_DETAIL" = "現在使用している APT エンジンのセキュリティ設定に従います。";
+"REPOSITORY_SECURITY_ENGINE_EX" = "これらの選択は Cydia が現在使用している APT エンジンに適用されます。内蔵 APT はディストリビューションの設定を読み込みますが、そのディストリビューションの APT とは動作が異なる場合があります。";

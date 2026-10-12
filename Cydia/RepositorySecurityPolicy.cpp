@@ -8,6 +8,9 @@
 namespace CydiaAPT {
 
 RepositorySecurityMode DefaultRepositorySecurityMode() {
+    // Preserve the shipped frontend default while external-provider
+    // activation is deferred. Configuration inheritance alone cannot
+    // reproduce a distribution's compiled APT policy.
     return RepositorySecurityMode::Warning;
 }
 
@@ -16,6 +19,10 @@ RepositorySecurityMode RepositorySecurityModeFromString(const std::string &value
         return RepositorySecurityMode::Allow;
     if (value == "error")
         return RepositorySecurityMode::Error;
+    if (value == "warning")
+        return RepositorySecurityMode::Warning;
+    if (value == "distribution")
+        return RepositorySecurityMode::Distribution;
     return DefaultRepositorySecurityMode();
 }
 
@@ -24,6 +31,7 @@ const char *RepositorySecurityModeName(RepositorySecurityMode mode) {
         case RepositorySecurityMode::Allow: return "allow";
         case RepositorySecurityMode::Warning: return "warning";
         case RepositorySecurityMode::Error: return "error";
+        case RepositorySecurityMode::Distribution: return "distribution";
     }
     return "warning";
 }
@@ -35,15 +43,17 @@ bool AllowsInsecureRepositories(RepositorySecurityMode mode) {
 
 ArchiveSecurityDecision EvaluateArchiveSecurity(RepositorySecurityMode mode,
                                                 bool trusted,
-                                                ArchiveIntegrity integrity) {
+                                                ArchiveIntegrity integrity,
+                                                bool distributionAllowsUnauthenticated) {
     ArchiveSecurityDecision result = { false, false };
     if (integrity != ArchiveIntegrity::Verified &&
         integrity != ArchiveIntegrity::NotRequired)
         return result;
 
-    result.allowed = trusted || AllowsInsecureRepositories(mode);
+    result.allowed = trusted || AllowsInsecureRepositories(mode) ||
+        (mode == RepositorySecurityMode::Distribution && distributionAllowsUnauthenticated);
     result.warning = result.allowed && !trusted &&
-        mode == RepositorySecurityMode::Warning;
+        (mode == RepositorySecurityMode::Warning || mode == RepositorySecurityMode::Distribution);
     return result;
 }
 

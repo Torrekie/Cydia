@@ -47,7 +47,13 @@ apt_compat_object := $(OBJECT_DIR)/Cydia/AptCompatibility.o
 object := $(filter-out $(OBJECT_DIR)/$(apt_http_source:.cc=.o),$(object))
 object += $(apt_http_object)
 
+# The gettext bridge is needed by acquisition methods and cydo as well as the
+# app. Keep one definition in the embedded archive, not duplicate app objects.
+apt_messages_object := $(OBJECT_DIR)/Cydia/AptMessages.o
+object := $(filter-out $(apt_messages_object),$(object))
+
 libapt64 := $(patsubst $(APT_SOURCE_DIR)/%.cc,$(OBJECT_DIR)/apt64/%.o,$(apt_sources))
+libapt64 += $(apt_messages_object)
 
 tagfile_keys_dir := $(GENERATED_DIR)/apt64/apt-pkg
 tagfile_keys_header := $(tagfile_keys_dir)/tagfile-keys.h

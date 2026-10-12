@@ -35,6 +35,7 @@
 
 #include <cstdio>
 #include <cerrno>
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -42,19 +43,30 @@
 #define lprintf(args...) fprintf(stderr, args)
 #define CacheState_ Cache("CacheState.plist")
 
-static bool ErrorSuggestsDpkgRepair(const std::string &error) {
-    std::string lower;
-    lower.reserve(error.size());
-    for (std::string::const_iterator character(error.begin()); character != error.end(); ++character)
-        lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(*character))));
-
-    /* Do not key recovery to one English sentence: dpkg and newer APT builds
-     * change punctuation and localization.  A single repair attempt is
-     * bounded by the caller so an unrelated persistent error cannot loop. */
-    return lower.find("dpkg") != std::string::npos &&
-        (lower.find("interrupt") != std::string::npos ||
-         lower.find("configur") != std::string::npos ||
-         lower.find("status") != std::string::npos);
+static bool DpkgJournalNeedsRecovery() {
+    // APT detects an interrupted dpkg by numeric entries in its updates
+    // journal. Inspect that state independently of translated diagnostics;
+    // an unreadable or unrelated database error cannot authorize repair.
+    if (!CydiaAPT::MutationEnvironmentValid()) return false;
+    const std::string path(CydiaAPT::DpkgAdminDirectory() + "/updates");
+    const int descriptor(open(path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    if (descriptor < 0) return false;
+    DIR *directory(fdopendir(descriptor));
+    if (directory == NULL) { close(descriptor); return false; }
+    bool pending(false);
+    while (dirent *entry = readdir(directory)) {
+        const char *name(entry->d_name);
+        if (*name == '\0') continue;
+        while (*name >= '0' && *name <= '9') ++name;
+        if (*name != '\0') continue;
+        struct stat info;
+        if (fstatat(descriptor, entry->d_name, &info, AT_SYMLINK_NOFOLLOW) == 0 && S_ISREG(info.st_mode)) {
+            pending = true;
+            break;
+        }
+    }
+    closedir(directory);
+    return pending;
 }
 
 static NSString * const kCydiaProgressEventTypeError = @"Error";
@@ -733,23 +745,13 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
 
-            SEL repair(NULL);
-            if (!attemptedDpkgRepair && ErrorSuggestsDpkgRepair(error)) {
-                repair = @selector(configure);
-                attemptedDpkgRepair = true;
-            }
-            //else if (error == "The package lists or status file could not be parsed or opened.")
-            //    repair = @selector(update);
-            // else if (error == "Could not get lock /var/lib/dpkg/lock - open (35 Resource temporarily unavailable)")
-            // else if (error == "Could not open lock file /var/lib/dpkg/lock - open (13 Permission denied)")
-            // else if (error == "Malformed Status line")
-            // else if (error == "The list of sources could not be read.")
+        }
 
-            if (repair != NULL) {
-                apt_->discardErrors();
-                [delegate_ repairWithSelector:repair];
-                goto reload;
-            }
+        if (!attemptedDpkgRepair && DpkgJournalNeedsRecovery()) {
+            attemptedDpkgRepair = true;
+            apt_->discardErrors();
+            [delegate_ repairWithSelector:@selector(configure)];
+            goto reload;
         }
 
         return;

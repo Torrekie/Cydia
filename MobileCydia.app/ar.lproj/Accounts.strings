@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "الحسابات";
+"ACCOUNT_SIGN_IN" = "تسجيل الدخول";
+"ACCOUNT_SIGN_OUT" = "تسجيل الخروج";
+"ACCOUNT_SIGN_IN_REQUIRED" = "سجّل الدخول لعرض حسابك ومشترياتك.";
+"ACCOUNT_UNSUPPORTED" = "لا يوفر هذا المصدر خدمة حسابات يدعمها Cydia.";
+"ACCOUNT_REQUEST_FAILED" = "تعذر إكمال طلب الحساب. حاول مرة أخرى لاحقًا.";
+"ACCOUNT_OWNED" = "تم الشراء";
+"ACCOUNT_NOT_OWNED" = "لم يتم الشراء. راجع خيارات الشراء على موقع المستودع.";
+"ACCOUNT_UNAVAILABLE" = "غير متاح لهذا الحساب.";
+"ACCOUNT_SOURCE_HELP" = "اختر مصدرًا مضافًا لإدارة حسابه. تبقى المصادر التي لا توفر خدمة حسابات قابلة للاستخدام كالمعتاد.";
+"ACCOUNT_LINK_CONSENT" = "هل تريد ربط %@ بـ %@؟ سيحصل مزود الدفع على معرّف جهازك وطرازه. لا تسجّل الدخول إلا إذا كنت تثق بهذا المزود.";

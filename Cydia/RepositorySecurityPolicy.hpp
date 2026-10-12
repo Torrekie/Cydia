@@ -15,6 +15,7 @@ enum class RepositorySecurityMode {
     Allow,
     Warning,
     Error,
+    Distribution,
 };
 
 RepositorySecurityMode DefaultRepositorySecurityMode();
@@ -40,7 +41,8 @@ struct ArchiveSecurityDecision {
 
 ArchiveSecurityDecision EvaluateArchiveSecurity(RepositorySecurityMode mode,
                                                 bool trusted,
-                                                ArchiveIntegrity integrity);
+                                                ArchiveIntegrity integrity,
+                                                bool distributionAllowsUnauthenticated = false);
 
 } // namespace CydiaAPT
 

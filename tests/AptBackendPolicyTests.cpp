@@ -3,10 +3,17 @@
  */
 #include "Cydia/AptBackendInternal.hpp"
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/RepositoryArchiveAuthorization.hpp"
+#include <apt-pkg/acquire-item.h>
 #include <apt-pkg/error.h>
+#include <apt-pkg/hashes.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/pkgsystem.h>
+#include <apt-pkg/progress.h>
+#include <apt-pkg/strutl.h>
 #include <cstdlib>
+#include <fcntl.h>
+#include <fstream>
 #include <iostream>
 #include <unistd.h>
 
@@ -374,12 +381,153 @@ void CheckNegativePins(CydiaAPT::Internal::AptBackend &backend) {
         "whole transaction cancellation retained a candidate or package-state change under negative pins");
 }
 
-void CheckArchivePreflight(CydiaAPT::Internal::AptBackend &backend) {
+void CheckCommercialArchiveInputs(bool cached) {
+    using namespace CydiaAPT;
+    using namespace CydiaRuntime;
+    pkgCacheFile cache;
+    OpProgress progress;
+    Require(cache.Open(&progress, false), "commercial archive fixture cache unavailable");
+    pkgCache &packages(cache);
+    const pkgCache::PkgIterator package(packages.FindPkg("archive-parent", "amd64"));
+    Require(!package.end() && !package.VersionList().end(), "commercial archive fixture package unavailable");
+    pkgSourceList sources;
+    Require(sources.ReadMainList(), "commercial archive fixture sources unavailable");
+    pkgRecords records(cache);
+    FixtureAcquireStatus status;
+    pkgAcquire fetcher(&status);
+    std::string filename;
+    auto archive = new pkgAcqArchive(&fetcher, &sources, &records, package.VersionList(), filename);
+    const std::string selectedSource(LookupTag(archive->Custom600Headers(), "Target-Repo-URI"));
+    Require(!selectedSource.empty() && archive->GetExpectedHashes().usable(),
+        "real APT archive did not retain selected repository and expected hashes");
+    Require((archive->Complete && archive->Status == pkgAcquire::Item::StatDone) == cached,
+        "commercial archive fixture cache state differs from intended path");
+    Internal::PreparedArchiveData expected;
+    expected.identity = {"archive-parent", "1", "all"}; expected.package = "archive-parent";
+    expected.commercial = true; expected.commercialSources.insert(selectedSource);
+    std::map<const pkgAcquire::Item *, Internal::PreparedArchiveData> prepared{{archive, expected}};
+    unsigned calls = 0;
+    std::string grantURL;
+    SetRepositoryArchiveAuthorizationHandler([&](const RepositoryArchiveAuthorizationRequest &request,
+        const std::function<bool()> &) {
+        ++calls;
+        Require(request.sourceURL == selectedSource && request.package == "archive-parent" &&
+            request.version == "1" && request.architecture == "all",
+            "authorization request changed selected source or exact package identity");
+        RepositoryArchiveAuthorizationResult result;
+        result.status = RepositoryArchiveAuthorizationStatus::Authorized;
+        result.transportURL = grantURL;
+        return result;
+    });
+    if (cached) {
+        FetchResultData result; bool staged = true;
+        Require(Internal::StageAuthorizedArchives(fetcher, status, prepared, &result, &staged, 1000) &&
+            !staged && calls == 0 && result.failures.empty(),
+            "cached commercial archive requested unnecessary account authorization");
+    } else {
+        // The selected archive may be ordinary even when an alternative
+        // repository labels the same package/version as commercial.
+        prepared[archive].commercial = false;
+        prepared[archive].commercialSources = {"https://unselected.invalid/"};
+        FetchResultData ordinary; bool staged = true;
+        Require(Internal::StageAuthorizedArchives(fetcher, status, prepared, &ordinary, &staged, 1000) &&
+            !staged && calls == 0 && ordinary.failures.empty(),
+            "ordinary selected archive invoked commercial authorization");
+        prepared[archive] = expected;
+        for (const std::string &invalid : {std::string(), std::string("http://download.invalid/file.deb"),
+             std::string("file:///archive.deb"), std::string("https://user:secret@download.invalid/file.deb"),
+             std::string("https://download.invalid/file.deb\nInjected: header")}) {
+            grantURL = invalid;
+            const unsigned before(calls); FetchResultData result; staged = true;
+            Require(!Internal::StageAuthorizedArchives(fetcher, status, prepared, &result, &staged, 1000) &&
+                !staged && calls == before + 1 && result.failures.size() == 1 &&
+                result.failures.front().reason == "invalid_download_grant",
+                "invalid/non-HTTPS grant reached archive staging");
+        }
+        Require(access(archive->DestFile.c_str(), F_OK) != 0,
+            "rejected authorization created a package payload");
+    }
+    SetRepositoryArchiveAuthorizationHandler({});
+}
+
+void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    using namespace CydiaRuntime;
+    const char *method(std::getenv("CYDIA_APT_AUTHORIZED_METHOD"));
+    const char *marker(std::getenv("CYDIA_APT_AUTHORIZED_MARKER"));
+    Require(method != NULL && marker != NULL && access(marker, F_OK) != 0,
+        "authorized acquisition fixture was not configured or already ran");
+    const std::string cache(_config->FindDir("Dir::Cache::Archives") + "archive-authorized_1_all.deb");
+    Require(access(cache.c_str(), F_OK) != 0, "authorized acquisition fixture started with a cached payload");
+    const SourceListData sources(backend.sourceList());
+    Require(sources.success && sources.uris.size() == 1, "authorized fixture has an ambiguous source identity");
+    unsigned authorizations(0);
+    SetRepositoryArchiveAuthorizationHandler([&](const RepositoryArchiveAuthorizationRequest &request,
+        const std::function<bool()> &) {
+        ++authorizations;
+        Require(request.sourceURL == sources.uris.front() && request.package == "archive-authorized" &&
+            request.version == "1" && request.architecture == "all",
+            "authorized download lost selected repository or exact package identity");
+        RepositoryArchiveAuthorizationResult result;
+        result.status = RepositoryArchiveAuthorizationStatus::Authorized;
+        result.transportURL = "https://authorized.invalid/archive.deb?token=fixture";
+        return result;
+    });
+    const std::string previousMethod(_config->Find("Dir::Bin::Methods::https",
+        _config->FindDir("Dir::Bin::Methods") + "https"));
+    _config->Set("Dir::Bin::Methods::https", method);
+    fixtureSecurityMode = RepositorySecurityMode::Allow;
+    const PackageHandle package(backend.packageHandle("archive-authorized", "amd64"));
+    Require(package.valid() && backend.installPackage(package) && backend.resolveDependencies() &&
+        backend.transactionData().installs.size() == 1 && backend.prepareArchives(),
+        "authorized acquisition fixture could not prepare its exact independent package");
+    const FetchResultData staged(backend.runFetcher(1000));
+    Require(staged.completed && staged.failures.empty() && staged.warnings.empty() && authorizations == 1 &&
+        access(cache.c_str(), F_OK) == 0,
+        "authorized archive did not survive staging, GetArchives reconstruction and hash/layout validation");
+
+    Require(backend.prepareArchives(), "authorized cache could not be reconstructed a second time");
+    const FetchResultData cached(backend.runFetcher(1000));
+    Require(cached.completed && cached.failures.empty() && cached.warnings.empty() && authorizations == 1,
+        "verified authorized cache was downloaded or authorized again");
+    // Authorization changes acquisition only: the usual selected-layout gate
+    // must still reject the same verified rooted archive in a rootless plan.
+    fixtureInstallPrefix = "/var/jb";
+    Require(backend.prepareArchives(), "authorized archive layout fixture could not be prepared");
+    const FetchResultData incompatible(backend.runFetcher(1000));
+    bool layoutRejected(false);
+    for (const FetchFailureData &failure : incompatible.failures)
+        if (failure.package == "archive-authorized" && failure.kind == FetchDiagnosticKind::ArchiveLayoutMismatch)
+            layoutRejected = true;
+    Require(incompatible.completed && layoutRejected && authorizations == 1,
+        "authorization bypassed the package layout gate or requested an account for cached bytes");
+    std::ifstream acquisition(marker);
+    std::string first, extra;
+    Require(std::getline(acquisition, first) && first == "private" && !std::getline(acquisition, extra),
+        "authorized acquisition did not use exactly one private pkgAcqFile download");
+    backend.clearSelections();
+    fixtureInstallPrefix = "/";
+    fixtureSecurityMode = RepositorySecurityMode::Warning;
+    _config->Set("Dir::Bin::Methods::https", previousMethod);
+    SetRepositoryArchiveAuthorizationHandler({});
+}
+
+void CheckArchivePreflight(CydiaAPT::Internal::AptBackend &backend, bool cached = false) {
     using namespace CydiaAPT;
     const char *marker(std::getenv("CYDIA_APT_PREFLIGHT_DPKG_MARKER"));
     const char *sentinel(std::getenv("CYDIA_APT_PREFLIGHT_DPKG_SENTINEL"));
     Require(marker != NULL && sentinel != NULL, "archive preflight sentinel was not configured");
     Require(access(marker, F_OK) != 0, "dpkg sentinel was already triggered");
+    // These tagged fixtures model free packages in a commercial repository.
+    // The separate success fixture exercises a package requiring a grant.
+    CydiaRuntime::SetRepositoryArchiveAuthorizationHandler([](
+        const CydiaRuntime::RepositoryArchiveAuthorizationRequest &request, const std::function<bool()> &) {
+        Require(request.package == "archive-parent" || request.package == "archive-layout-dependency",
+            "ordinary archive fixture authorized an unexpected package");
+        CydiaRuntime::RepositoryArchiveAuthorizationResult result;
+        result.status = CydiaRuntime::RepositoryArchiveAuthorizationStatus::NotRequired;
+        return result;
+    });
     const PackageHandle parent(backend.packageHandle("archive-parent", "amd64"));
     Require(parent.valid() && backend.installPackage(parent) && backend.resolveDependencies(),
         "archive fixture dependency could not be selected");
@@ -427,6 +575,37 @@ void CheckArchivePreflight(CydiaAPT::Internal::AptBackend &backend) {
         "custom installation prefix treated the known /var/jb layout as an advisory instead of a mismatch");
     backend.clearSelections();
     fixtureInstallPrefix = "/";
+
+    // APT's file method may retain the repository pathname rather than copy
+    // the archive. Only the second invocation explicitly populates the cache.
+    if (!cached) {
+        CydiaRuntime::SetRepositoryArchiveAuthorizationHandler({});
+        return;
+    }
+
+    // APT's cache fast path checks size before marking an archive complete.
+    // A same-size modification must still fail Cydia's hash verification,
+    // even for an already-authorized commercial package.
+    const std::string cachedParent(_config->FindDir("Dir::Cache::Archives") + "archive-parent_1_all.deb");
+    const int payload(open(cachedParent.c_str(), O_RDWR | O_CLOEXEC));
+    Require(payload >= 0, "cached commercial payload could not be opened for tamper fixture");
+    unsigned char original;
+    Require(pread(payload, &original, 1, 0) == 1, "cached payload fixture could not be read");
+    const unsigned char changed(original ^ 0x40);
+    Require(pwrite(payload, &changed, 1, 0) == 1, "cached payload fixture could not be changed");
+    Require(backend.installPackage(parent) && backend.resolveDependencies() && backend.prepareArchives(),
+        "cached commercial integrity fixture could not be selected");
+    const FetchResultData tampered(backend.runFetcher(1000));
+    const bool restored(pwrite(payload, &original, 1, 0) == 1);
+    close(payload);
+    bool hashFailure(false);
+    for (const FetchFailureData &failure : tampered.failures)
+        if (failure.package == "archive-parent" && failure.kind == FetchDiagnosticKind::ArchiveMismatch)
+            hashFailure = true;
+    Require(restored && hashFailure && access(marker, F_OK) != 0,
+        "cached commercial archive bypassed hash validation or entered dpkg");
+    backend.clearSelections();
+    CydiaRuntime::SetRepositoryArchiveAuthorizationHandler({});
 }
 }
 
@@ -439,11 +618,13 @@ int main(int argc, char **) {
     Require(backend.openCache(), "real APT cache could not be opened");
     backend.createCacheViews();
     Require(backend.loadSources(), "fixture source definitions could not be loaded");
+    CheckCommercialArchiveInputs(argc > 1);
     if (argc > 1) {
-        CheckArchivePreflight(backend);
+        CheckArchivePreflight(backend, true);
         std::cout << "[apt-package-actions] cached archive preflight passed\n";
         return 0;
     }
+    CheckAuthorizedArchiveDownload(backend);
     const CydiaAPT::PackageHandle target(backend.packageHandle("target", "amd64"));
     Require(target.valid(), "fixture target was missing");
     Require(backend.packageSnapshot(target).version == "1", "APT pin did not select the lower candidate");

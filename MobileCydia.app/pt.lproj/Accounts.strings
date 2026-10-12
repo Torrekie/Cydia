@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "Contas";
+"ACCOUNT_SIGN_IN" = "Entrar";
+"ACCOUNT_SIGN_OUT" = "Sair";
+"ACCOUNT_SIGN_IN_REQUIRED" = "Entre para consultar sua conta e suas compras.";
+"ACCOUNT_UNSUPPORTED" = "Esta fonte não oferece um serviço de contas compatível com o Cydia.";
+"ACCOUNT_REQUEST_FAILED" = "Não foi possível concluir a solicitação da conta. Tente novamente mais tarde.";
+"ACCOUNT_OWNED" = "Comprado";
+"ACCOUNT_NOT_OWNED" = "Não comprado. Consulte as opções de compra no site do repositório.";
+"ACCOUNT_UNAVAILABLE" = "Indisponível para esta conta.";
+"ACCOUNT_SOURCE_HELP" = "Escolha uma fonte adicionada para gerenciar sua conta. Fontes sem serviço de contas continuam funcionando normalmente.";
+"ACCOUNT_LINK_CONSENT" = "Vincular %@ a %@? O provedor de pagamentos receberá o identificador e o modelo do seu dispositivo. Entre somente se você confiar neste provedor.";

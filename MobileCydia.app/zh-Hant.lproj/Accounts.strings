@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "帳號";
+"ACCOUNT_SIGN_IN" = "登入";
+"ACCOUNT_SIGN_OUT" = "登出";
+"ACCOUNT_SIGN_IN_REQUIRED" = "登入以查看帳號和已購項目。";
+"ACCOUNT_UNSUPPORTED" = "此軟體來源未提供 Cydia 支援的帳號服務。";
+"ACCOUNT_REQUEST_FAILED" = "無法完成帳號請求。請稍後再試。";
+"ACCOUNT_OWNED" = "已購買";
+"ACCOUNT_NOT_OWNED" = "尚未購買。請前往軟體來源網站查看購買選項。";
+"ACCOUNT_UNAVAILABLE" = "此帳號無法取得。";
+"ACCOUNT_SOURCE_HELP" = "選擇已加入的軟體來源以管理帳號。沒有帳號服務的軟體來源仍可正常使用。";
+"ACCOUNT_LINK_CONSENT" = "將 %@ 連結至 %@？付款服務供應商將收到你的裝置識別碼和型號。請僅在信任該供應商時登入。";

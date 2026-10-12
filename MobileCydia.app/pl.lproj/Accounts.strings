@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "Konta";
+"ACCOUNT_SIGN_IN" = "Zaloguj się";
+"ACCOUNT_SIGN_OUT" = "Wyloguj się";
+"ACCOUNT_SIGN_IN_REQUIRED" = "Zaloguj się, aby sprawdzić konto i zakupy.";
+"ACCOUNT_UNSUPPORTED" = "To źródło nie udostępnia usługi kont obsługiwanej przez Cydię.";
+"ACCOUNT_REQUEST_FAILED" = "Nie udało się wykonać żądania dotyczącego konta. Spróbuj ponownie później.";
+"ACCOUNT_OWNED" = "Kupiono";
+"ACCOUNT_NOT_OWNED" = "Nie kupiono. Opcje zakupu znajdziesz w witrynie repozytorium.";
+"ACCOUNT_UNAVAILABLE" = "Niedostępne dla tego konta.";
+"ACCOUNT_SOURCE_HELP" = "Wybierz dodane źródło, aby zarządzać jego kontem. Źródła bez usługi kont nadal działają normalnie.";
+"ACCOUNT_LINK_CONSENT" = "Połączyć %@ z %@? Dostawca płatności otrzyma identyfikator i model Twojego urządzenia. Zaloguj się tylko wtedy, gdy ufasz temu dostawcy.";

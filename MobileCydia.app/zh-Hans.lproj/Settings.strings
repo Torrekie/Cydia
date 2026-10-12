@@ -111,3 +111,7 @@
 "ARCHIVE_INVALID" = "%@ 的归档文件无效或不完整，无法安全检查。";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@ 的归档文件与所选软件包的名称、版本或架构不匹配。已阻止安装。";
 "ARCHIVE_UNVERIFIED" = "Cydia 无法完全验证 %@ 的文件布局。请在继续前确认软件包的兼容性。";
+
+"SECURITY_DISTRIBUTION" = "使用所选 APT 的设置";
+"SECURITY_DISTRIBUTION_DETAIL" = "遵循当前 APT 引擎的安全设置。";
+"REPOSITORY_SECURITY_ENGINE_EX" = "这些选项适用于 Cydia 当前使用的 APT 引擎。内置 APT 会读取发行源的设置，但其行为可能与发行源提供的 APT 不同。";

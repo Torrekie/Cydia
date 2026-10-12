@@ -80,6 +80,9 @@ utrans_trans(const UTransliterator *trans,
              int32_t *limit,
              UErrorCode *status);
 
+U_CAPI void U_EXPORT2
+utrans_close(UTransliterator *trans);
+
 U_CDECL_END
 #endif
 

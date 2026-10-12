@@ -27,6 +27,9 @@
 /* #include Directives {{{ */
 #include "CyteKit/UCPlatform.h"
 #include "CyteKit/Localize.h"
+#include "Cydia/AptMessages.h"
+#include "Cydia/ICURuntime.hpp"
+#include "Cydia/RepositoryArchiveAuthorization.hpp"
 
 #include <unicode/ustring.h>
 #include "Cydia/ICUTransliterator.h"
@@ -742,6 +745,16 @@ static void CydiaConfigureSimulatorEnvironment(void) {
 #endif
 
 int main(int argc, char *argv[]) {
+#if !TARGET_OS_SIMULATOR
+    // Method symlinks enter here before UIKit startup as well. Use the selected
+    // package layout; never load a host libintl through an inherited PATH.
+    const auto &messagePaths(CydiaRuntime::PackageDatabasePaths::Current());
+    const std::string messageShare(messagePaths.DpkgDataDirectory().substr(0,
+        messagePaths.DpkgDataDirectory().rfind('/')));
+    const std::string messageUsr(messageShare.substr(0, messageShare.rfind('/')));
+    CydiaConfigureAPTMessages((messageUsr + "/lib").c_str(),
+        (messageShare + "/locale").c_str(), messagePaths.CydiaApplicationDirectory().c_str());
+#endif
     const char *argv0(argv[0]);
     if (const char *slash = strrchr(argv0, '/'))
         argv0 = slash + 1;
@@ -796,6 +809,12 @@ int main(int argc, char *argv[]) {
 #if TARGET_OS_SIMULATOR
     CydiaConfigureSimulatorEnvironment();
 #endif
+
+    const auto &icuPaths(CydiaRuntime::PackageDatabasePaths::Current());
+    const std::string icuBin(icuPaths.DpkgBinaryPath().substr(0, icuPaths.DpkgBinaryPath().rfind('/')));
+    CydiaICU::Initialize(icuBin.substr(0, icuBin.rfind('/')) + "/lib",
+        icuPaths.CydiaApplicationDirectory() + "/Frameworks/ICU");
+    CydiaRuntime::ConfigureRepositoryArchiveAuthorization();
 
     NSString *messageLanguage([[[NSBundle mainBundle] preferredLocalizations] firstObject] ?: @"en");
     if (!CydiaConfigureMessageLocale(CydiaGettextLanguages(messageLanguage), CydiaPOSIXMessageLocales(messageLanguage)))
@@ -872,9 +891,10 @@ int main(int argc, char *argv[]) {
                 CollationModify_ = [=](NSString *value) { return [collation transformedCollationStringForString:value]; };*/
             const UChar *uid(reinterpret_cast<const UChar *>([transform cStringUsingEncoding:NSUnicodeStringEncoding]));
             UErrorCode code(U_ZERO_ERROR);
-            CollationTransl_ = utrans_openU(uid, -1, UTRANS_FORWARD, NULL, 0, NULL, &code);
+            CollationTransl_ = CydiaICU::AppleCollation().available() ?
+                CydiaICU::AppleCollation().transliteratorOpen(uid, -1, UTRANS_FORWARD, NULL, 0, NULL, &code) : NULL;
             if (!U_SUCCESS(code))
-                NSLog(@"%s", u_errorName(code));
+                NSLog(@"%s", CydiaICU::AppleCollation().errorName(code));
         }
 
         }
@@ -1040,7 +1060,6 @@ int main(int argc, char *argv[]) {
     aptOptions.maxParallel = usermem >= 384 * 1024 * 1024 ? 16 : 3;
     aptOptions.repositorySecurityMode = CydiaAPT::RepositorySecurityModeFromString(
         [CydiaRepositorySecurityPreference() UTF8String]);
-    aptOptions.checkValidUntil = false;
     aptOptions.forceEssential = false;
     std::string architecture;
     _assert(CydiaAPT::Initialize(aptOptions, &architecture));

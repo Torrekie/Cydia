@@ -5,3 +5,6 @@
 4) sudo fink install bash ldid sed tar wget xz
 5) run ./sysroot.sh and wait a bit
 6) type "make" to compile the executable
+
+Packaging also requires GNU gettext's msgfmt to compile the embedded APT
+catalogs. Set MSGFMT=/path/to/msgfmt if it is not in the build PATH.

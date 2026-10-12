@@ -5,7 +5,7 @@
 #include "Menes/ObjectHandle.h"
 
 #include <Foundation/Foundation.h>
-#include "Cydia/ICUTransliterator.h"
+#include "Cydia/ICURuntime.hpp"
 
 #include <string>
 #include <vector>
@@ -17,6 +17,8 @@ extern _H<NSArray> CollationThumbs_;
 extern std::vector<NSInteger> CollationOffset_;
 extern _H<NSArray> CollationTitles_;
 extern _H<NSArray> CollationStarts_;
+// Created and used exclusively by CydiaICU::AppleCollation(), alongside
+// UIKit section metadata and the CoreFoundation comparator.
 extern UTransliterator *CollationTransl_;
 extern CydiaUString CollationString_;
 extern struct UReplaceableCallbacks CollationUCalls_;

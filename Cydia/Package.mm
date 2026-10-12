@@ -344,7 +344,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
             _profile(Package$initWithVersion$Transliterate$u_strFromUTF8WithSub)
             CollationString_.resize(name_.size());
-            u_strFromUTF8WithSub(&CollationString_[0], CollationString_.size(), &length, name_.data(), name_.size(), 0xfffd, NULL, &code);
+            CydiaICU::AppleCollation().fromUTF8(&CollationString_[0], CollationString_.size(), &length, name_.data(), name_.size(), 0xfffd, NULL, &code);
             if (!U_SUCCESS(code))
                 break;
             CollationString_.resize(length);
@@ -352,14 +352,14 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
 
             _profile(Package$initWithVersion$Transliterate$utrans_trans)
             length = CollationString_.size();
-            utrans_trans(CollationTransl_, reinterpret_cast<UReplaceable *>(&CollationString_), &CollationUCalls_, 0, &length, &code);
+            CydiaICU::AppleCollation().transliterate(CollationTransl_, reinterpret_cast<UReplaceable *>(&CollationString_), &CollationUCalls_, 0, &length, &code);
             if (!U_SUCCESS(code))
                 break;
             _assert(CollationString_.size() == length);
             _end
 
             _profile(Package$initWithVersion$Transliterate$u_strToUTF8WithSub$preflight)
-            u_strToUTF8WithSub(NULL, 0, &length, CollationString_.data(), CollationString_.size(), 0xfffd, NULL, &code);
+            CydiaICU::AppleCollation().toUTF8(NULL, 0, &length, CollationString_.data(), CollationString_.size(), 0xfffd, NULL, &code);
             if (code == U_BUFFER_OVERFLOW_ERROR)
                 code = U_ZERO_ERROR;
             else if (!U_SUCCESS(code))
@@ -371,7 +371,7 @@ bool PackageNameOrdering::operator ()(Package *lhs, Package *rhs) const {
             transform = pool_->malloc<char>(length);
             _end
             _profile(Package$initWithVersion$Transliterate$u_strToUTF8WithSub$transform)
-            u_strToUTF8WithSub(transform, length, NULL, CollationString_.data(), CollationString_.size(), 0xfffd, NULL, &code);
+            CydiaICU::AppleCollation().toUTF8(transform, length, NULL, CollationString_.data(), CollationString_.size(), 0xfffd, NULL, &code);
             if (!U_SUCCESS(code))
                 break;
             _end

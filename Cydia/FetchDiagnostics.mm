@@ -2,6 +2,10 @@
 #include "Cydia/FetchDiagnostics.h"
 
 NSString *CydiaFetchDiagnosticMessage(const CydiaAPT::FetchFailureData &diagnostic) {
+    if (diagnostic.reason == "invalid_download_grant")
+        return [[NSBundle mainBundle] localizedStringForKey:@"ACCOUNT_REQUEST_FAILED" value:nil table:@"Accounts"];
+    if (diagnostic.reason == "repository_authorization_required" && diagnostic.error.empty())
+        return [[NSBundle mainBundle] localizedStringForKey:@"ACCOUNT_UNSUPPORTED" value:nil table:@"Accounts"];
     if (diagnostic.reason == "transaction_changed")
         return [[NSBundle mainBundle] localizedStringForKey:@"TRANSACTION_STALE" value:nil table:@"Settings"];
     NSString *key(nil);

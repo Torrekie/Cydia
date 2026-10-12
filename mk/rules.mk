@@ -1,5 +1,13 @@
 all: $(APP_BINARY)
 
+$(APT_LOCALE_DIR)/%/LC_MESSAGES/$(APT_MESSAGE_DOMAIN).mo: $(APT_SOURCE_DIR)/po/%.po
+	@mkdir -p $(dir $@)
+	@$(MSGFMT) --check --output-file=$@.tmp $< && mv $@.tmp $@
+
+$(apt_messages_object): Cydia/AptMessages.cpp Cydia/AptMessages.h
+	@mkdir -p $(dir $@)
+	@$(cycc) $(plus) -c -o $@ $< $(flag) -DCYDIA_APT_MESSAGE_DOMAIN='"$(APT_MESSAGE_DOMAIN)"'
+
 clean:
 	@case "$(BUILD_DIR)" in \
 		""|/|.|..|/*|./*|../*|*/.|*/..|*/./*|*/../*|*/) \

@@ -29,7 +29,7 @@ fail() {
     exit 1
 }
 
-legacy_pattern='UIWebView|CyteWebView|CydiaWebViewController|(^|[^A-Za-z0-9_])WebView([^A-Za-z0-9_]|$)|WebScriptObject|WebFrame|WebDataSource|WebPreferences|WebThread|WebPolicyDecisionListener|WAKView|WAKWindow|UIWebDocumentView|UIWebBrowserView|UIScroller|DOM[A-Za-z0-9_]*|applicationCache|_documentView|isKeyExcludedFromWebScript|isSelectorExcludedFromWebScript|webScriptNameForSelector'
+legacy_pattern='UIWebView|CyteWebView|CydiaWebViewController|(^|[^A-Za-z0-9_])WebView([^A-Za-z0-9_]|$)|WebScriptObject|WebFrame|WebDataSource|WebPreferences|WebThread|WebPolicyDecisionListener|WAKView|WAKWindow|UIWebDocumentView|UIWebBrowserView|UIScroller|(^|[^A-Za-z0-9_])DOM[A-Za-z0-9_]*|applicationCache|_documentView|isKeyExcludedFromWebScript|isSelectorExcludedFromWebScript|webScriptNameForSelector'
 public_webkit_pattern='WK[A-Z][A-Za-z0-9_]*|WebKit/[^>"[:space:]]+|@import[[:space:]]+WebKit'
 
 production_files() {

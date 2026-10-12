@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "חשבונות";
+"ACCOUNT_SIGN_IN" = "התחברות";
+"ACCOUNT_SIGN_OUT" = "התנתקות";
+"ACCOUNT_SIGN_IN_REQUIRED" = "יש להתחבר כדי להציג את החשבון והרכישות שלך.";
+"ACCOUNT_UNSUPPORTED" = "מקור זה אינו מספק שירות חשבונות הנתמך ב־Cydia.";
+"ACCOUNT_REQUEST_FAILED" = "לא ניתן להשלים את בקשת החשבון. יש לנסות שוב מאוחר יותר.";
+"ACCOUNT_OWNED" = "נרכש";
+"ACCOUNT_NOT_OWNED" = "לא נרכש. ניתן לעיין באפשרויות הרכישה באתר המאגר.";
+"ACCOUNT_UNAVAILABLE" = "לא זמין לחשבון זה.";
+"ACCOUNT_SOURCE_HELP" = "יש לבחור מקור שנוסף כדי לנהל את החשבון שלו. מקורות ללא שירות חשבונות ממשיכים לפעול כרגיל.";
+"ACCOUNT_LINK_CONSENT" = "לקשר את %@ אל %@? ספק התשלומים יקבל את מזהה המכשיר ואת הדגם שלו. יש להתחבר רק אם ספק זה מהימן בעיניך.";

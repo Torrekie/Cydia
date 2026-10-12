@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "Tài khoản";
+"ACCOUNT_SIGN_IN" = "Đăng nhập";
+"ACCOUNT_SIGN_OUT" = "Đăng xuất";
+"ACCOUNT_SIGN_IN_REQUIRED" = "Đăng nhập để xem tài khoản và các mục đã mua.";
+"ACCOUNT_UNSUPPORTED" = "Nguồn này không cung cấp dịch vụ tài khoản được Cydia hỗ trợ.";
+"ACCOUNT_REQUEST_FAILED" = "Không thể hoàn tất yêu cầu tài khoản. Vui lòng thử lại sau.";
+"ACCOUNT_OWNED" = "Đã mua";
+"ACCOUNT_NOT_OWNED" = "Chưa mua. Xem các lựa chọn mua trên trang web của kho gói.";
+"ACCOUNT_UNAVAILABLE" = "Không có sẵn cho tài khoản này.";
+"ACCOUNT_SOURCE_HELP" = "Chọn một nguồn đã thêm để quản lý tài khoản. Các nguồn không có dịch vụ tài khoản vẫn sử dụng bình thường.";
+"ACCOUNT_LINK_CONSENT" = "Liên kết %@ với %@? Nhà cung cấp thanh toán sẽ nhận mã định danh và kiểu thiết bị của bạn. Chỉ đăng nhập nếu bạn tin tưởng nhà cung cấp này.";

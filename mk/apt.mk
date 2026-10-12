@@ -36,6 +36,13 @@ APT_ABI_MAJOR := 6
 APT_ABI_MINOR := 0
 APT_ABI_RELEASE := 0
 APT_LICENSE_FILES := COPYING COPYING.GPL
+# These catalogs match the embedded source, independent of bootstrap locales.
+# Upstream excludes Hebrew at its translator's request (po/CMakeLists.txt).
+MSGFMT ?= msgfmt
+APT_MESSAGE_DOMAIN := cydia-apt-$(APT_SOURCE_VERSION)
+APT_LOCALE_DIR := $(GENERATED_DIR)/apt-locale
+apt_catalog_languages := $(filter-out he,$(notdir $(basename $(wildcard $(APT_SOURCE_DIR)/po/*.po))))
+apt_catalogs := $(foreach language,$(apt_catalog_languages),$(APT_LOCALE_DIR)/$(language)/LC_MESSAGES/$(APT_MESSAGE_DOMAIN).mo)
 APT_PROVENANCE_STAMP := $(GENERATED_DIR)/apt64/apt-provenance.stamp
 APT_TRIEHASH := scripts/apt-triehash.pl
 # APT headers use an `apt-pkg/...` include root.  Generate that small overlay
@@ -61,7 +68,11 @@ apt_api_sources := \
     Cydia/AptBackend.cpp \
     Cydia/AptBackendFacade.cpp \
     Cydia/AptBackendOperations.cpp \
+    Cydia/AptAuthorizedArchives.cpp \
     Cydia/AptCompatibility.cpp \
+    Cydia/AptProviderClient.cpp \
+    Cydia/AptProviderProtocol.cpp \
+    Cydia/AptProviderSession.cpp \
     Cydia/AptRuntime.cpp \
     Cydia/SourceAddController+Discovery.mm \
     Cydia/SourceAddController.mm \

@@ -25,7 +25,7 @@
 #include <limits>
 #include <vector>
 
-#include <unicode/uregex.h>
+#include "Cydia/ICURuntime.hpp"
 
 #include "CyteKit/UCPlatform.h"
 #include "CyteKit/stringWith.h"
@@ -34,7 +34,7 @@
     UErrorCode status(U_ZERO_ERROR); \
     auto _value(code(args, &status)); \
     if (U_FAILURE(status)) { \
-        fprintf(stderr, "%d:%s\n", error.offset, u_errorName(status)); \
+        fprintf(stderr, "%d:%s\n", error.offset, api_->errorName(status)); \
         _assert(false); \
     } \
 _value; })
@@ -43,25 +43,28 @@ _value; })
     UErrorCode status(U_ZERO_ERROR); \
     code(args, &status); \
     if (U_FAILURE(status)) { \
-        fprintf(stderr, "%d:%s\n", error.offset, u_errorName(status)); \
+        fprintf(stderr, "%d:%s\n", error.offset, api_->errorName(status)); \
         _assert(false); \
     } \
 })
 
 class RegEx {
   private:
+    const CydiaICU::API *api_;
     URegularExpression *regex_;
     int capture_;
     size_t size_;
 
   public:
     RegEx() :
+        api_(&CydiaICU::Services()),
         regex_(NULL),
         size_(_not(size_t))
     {
     }
 
     RegEx(const char *regex) :
+        api_(&CydiaICU::Services()),
         regex_(NULL),
         size_(_not(size_t))
     {
@@ -77,20 +80,21 @@ class RegEx {
 
     void operator =(const char *regex) {
         _assert(regex_ == NULL);
-        UParseError error;
-        regex_ = _rgxcall(uregex_openC, regex, 0, &error);
-        capture_ = _rgxcall(uregex_groupCount, regex_);
+        _assert(api_->available());
+        UParseError error = {};
+        regex_ = _rgxcall(api_->regexOpen, regex, 0, &error);
+        capture_ = _rgxcall(api_->regexGroupCount, regex_);
     }
 
     ~RegEx() {
-        uregex_close(regex_);
+        if (regex_ != NULL) api_->regexClose(regex_);
     }
 
     NSString *operator [](size_t match) const {
-        UParseError error;
+        UParseError error = {};
         _assert(size_ <= static_cast<size_t>(std::numeric_limits<int32_t>::max()));
         std::vector<UChar> data(size_ == 0 ? 1 : size_);
-        int32_t length(_rgxcall(uregex_group, regex_, match, data.data(), static_cast<int32_t>(size_)));
+        int32_t length(_rgxcall(api_->regexGroup, regex_, match, data.data(), static_cast<int32_t>(size_)));
         if (length < 0)
             return @"";
         return [[NSString alloc] initWithCharacters:reinterpret_cast<const unichar *>(data.data()) length:length];
@@ -105,10 +109,10 @@ class RegEx {
     }
 
     bool operator ()(const UChar *data, size_t size) {
-        UParseError error;
-        _rgxcallv(uregex_setText, regex_, data, size);
+        UParseError error = {};
+        _rgxcallv(api_->regexSetText, regex_, data, size);
 
-        if (_rgxcall(uregex_matches, regex_, -1)) {
+        if (_rgxcall(api_->regexMatches, regex_, -1)) {
             size_ = size;
             return true;
         } else {

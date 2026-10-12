@@ -5,6 +5,7 @@
 
 #include "CyteKit/UCPlatform.h"
 #include "Cydia/ProgressEvent.h"
+#include "Cydia/RedactedURL.hpp"
 
 #include "Cydia/Database.h"
 #include "Cydia/Package.h"
@@ -46,7 +47,7 @@ static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 
 - (id) initWithMessage:(NSString *)message ofType:(NSString *)type {
     if ((self = [super init]) != nil) {
-        message_ = message;
+        message_ = CydiaRedactedDiagnostic(message);
         type_ = type;
     } return self;
 }
@@ -64,7 +65,9 @@ static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 }
 
 - (void) setItem:(NSArray *)item {
-    item_ = item;
+    NSMutableArray *safe = [NSMutableArray arrayWithCapacity:item.count];
+    for (id value in item) [safe addObject:[value isKindOfClass:NSString.class] ? CydiaRedactedDiagnostic(value) : value];
+    item_ = safe;
 }
 
 - (NSString *) package {
@@ -80,7 +83,7 @@ static NSString *kCydiaProgressEventTypeWarning = @"Warning";
 }
 
 - (void) setURL:(NSString *)url {
-    url_ = url;
+    url_ = CydiaRedactedDiagnostic(url);
 }
 
 - (void) setVersion:(NSString *)version {

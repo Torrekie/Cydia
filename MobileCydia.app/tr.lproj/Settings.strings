@@ -111,3 +111,7 @@
 "ARCHIVE_INVALID" = "%@ paketinin arşivi geçersiz veya eksik olduğundan güvenli bir şekilde incelenemedi.";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@ paketinin arşivi, seçilen paket adı, sürümü veya mimarisiyle eşleşmiyor. Yükleme engellendi.";
 "ARCHIVE_UNVERIFIED" = "Cydia, %@ paketinin dosya düzenini tamamen doğrulayamadı. Devam etmeden önce paket uyumluluğunu gözden geçirin.";
+
+"SECURITY_DISTRIBUTION" = "Seçilen APT ayarlarını kullan";
+"SECURITY_DISTRIBUTION_DETAIL" = "Etkin APT motorunun güvenlik ayarlarını uygula.";
+"REPOSITORY_SECURITY_ENGINE_EX" = "Bu seçenekler Cydia’nın kullandığı APT motoruna uygulanır. Yerleşik APT, dağıtım ayarlarını okur ancak dağıtımın kendi APT’sinden farklı davranabilir.";

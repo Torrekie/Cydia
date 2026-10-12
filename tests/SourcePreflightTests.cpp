@@ -27,8 +27,8 @@
 namespace CydiaAPT {
 RepositorySecurityMode GetRepositorySecurityMode() {
     const std::string policy(_config->Find("Cydia::RepositorySecurityMode"));
-    return policy == "error" ? RepositorySecurityMode::Error :
-        policy == "allow" ? RepositorySecurityMode::Allow : RepositorySecurityMode::Warning;
+    if (policy.empty()) return RepositorySecurityMode::Distribution;
+    return RepositorySecurityModeFromString(policy);
 }
 bool IsArchitectureSupported(const std::string &architecture) {
     const auto architectures(_config->FindVector("APT::Architectures"));
@@ -278,6 +278,21 @@ void Outcomes(Fixture *fixture) {
     Expect(!result.allowed && HasIssue(result, FetchDiagnosticKind::UnsignedRepository), "Error refuses unsigned metadata");
     result = fixture->Run(fixture->Request(forced));
     Expect(!result.allowed && !result.authenticated, "trusted=yes cannot bypass Error policy");
+    _config->Clear("Cydia::RepositorySecurityMode");
+    fixture->RememberConfiguration();
+    result = fixture->Run(fixture->Request(native));
+    Expect(!result.allowed, "distribution policy rejects unsigned sources when APT rejects them");
+    _config->Set("Acquire::AllowInsecureRepositories", true); fixture->RememberConfiguration();
+    result = fixture->Run(fixture->Request(native));
+    Expect(result.allowed && !result.authenticated, "distribution insecure allowance survives preflight");
+    result = fixture->Run(fixture->Request(forced));
+    Expect(result.allowed && !result.authenticated, "distribution trusted=yes is not proof of signature verification");
+    result = fixture->Run(previous);
+    Expect(!result.allowed, "distribution insecure allowance does not imply downgrade allowance");
+    _config->Set("Acquire::AllowDowngradeToInsecureRepositories", true); fixture->RememberConfiguration();
+    result = fixture->Run(previous);
+    Expect(result.allowed && HasIssue(result, FetchDiagnosticKind::RepositoryTrustDowngrade),
+           "explicit distribution downgrade policy permits source with advisory");
     _config->Set("Cydia::RepositorySecurityMode", "allow");
     _config->Set("Acquire::AllowInsecureRepositories", true); fixture->RememberConfiguration();
     const std::string tampered(fixture->Flat("tampered", "iphoneos-arm64"));

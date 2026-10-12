@@ -1,3 +1,4 @@
+#include "Cydia/RedactedURL.hpp"
 /* Cydia - iPhone UIKit Front-End for Debian APT
  * Database operations kept behind the Cydia-owned APT boundary.
  * Original work Copyright (C) 2008-2017  Jay Freeman (saurik)
@@ -19,8 +20,11 @@
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/progress.h>
 #include <apt-pkg/hashes.h>
+#include <apt-pkg/debindexfile.h>
+#include <apt-pkg/strutl.h>
 
 #include <sys/stat.h>
+#include <sstream>
 
 namespace CydiaAPT {
 namespace Internal {
@@ -52,7 +56,7 @@ FetchFailureData ArchivePolicyDiagnostic(pkgAcqArchive *archive, const PreparedA
     diagnostic.reason = reason;
     diagnostic.error = message;
     if (archive != NULL) {
-        diagnostic.uri = archive->DescURI();
+        diagnostic.uri = CydiaRuntime::RedactDiagnosticURLs(archive->DescURI());
         diagnostic.package = expected == NULL ? archive->ShortDesc() : expected->package;
     }
     if (!diagnostic.package.empty()) diagnostic.error += ": " + diagnostic.package;
@@ -107,12 +111,12 @@ void ValidateArchiveItems(pkgAcquire &fetcher, FetchResultData &result) {
             if (archive == NULL && (*item)->Status == pkgAcquire::Item::StatIdle)
                 continue;
             FetchFailureData failure;
-            failure.uri = (*item)->DescURI();
+            failure.uri = CydiaRuntime::RedactDiagnosticURLs((*item)->DescURI());
             failure.package = (*item)->ShortDesc();
             failure.kind = (*item)->ErrorText.empty() ?
                 FetchDiagnosticKind::ArchiveIncomplete : FetchDiagnosticKind::General;
             failure.error = (*item)->ErrorText.empty() ?
-                "Package archive acquisition did not complete." : (*item)->ErrorText;
+                "Package archive acquisition did not complete." : CydiaRuntime::RedactDiagnosticURLs((*item)->ErrorText);
             result.failures.push_back(failure);
             continue;
         }
@@ -120,14 +124,15 @@ void ValidateArchiveItems(pkgAcquire &fetcher, FetchResultData &result) {
             continue;
 
         const ArchiveIntegrity integrity(VerifyArchiveIntegrity(*archive));
-        const bool trustProof(CachedRepositoryTrustValid());
+        const bool trustProof(mode == RepositorySecurityMode::Distribution || CachedRepositoryTrustValid());
         const ArchiveSecurityDecision decision(EvaluateArchiveSecurity(
-            mode, trustProof && archive->IsTrusted(), integrity));
+            mode, trustProof && archive->IsTrusted(), integrity,
+            _config->FindB("APT::Get::AllowUnauthenticated", false)));
         if (decision.allowed && !decision.warning)
             continue;
 
         FetchFailureData diagnostic;
-        diagnostic.uri = archive->DescURI();
+        diagnostic.uri = CydiaRuntime::RedactDiagnosticURLs(archive->DescURI());
         const std::string package(archive->ShortDesc());
         diagnostic.package = package;
         if (integrity == ArchiveIntegrity::MissingExpectedHashes) {
@@ -164,6 +169,7 @@ std::vector<ErrorData> AptBackend::drainErrors() {
         error.warning = !_error->PopMessage(error.message);
         while (!error.message.empty() && error.message[error.message.size() - 1] == '\n')
             error.message.resize(error.message.size() - 1);
+        error.message = CydiaRuntime::RedactDiagnosticURLs(error.message);
         result.push_back(error);
     }
     return result;
@@ -295,14 +301,41 @@ bool AptBackend::prepareArchives() {
         PreparedArchiveData data;
         data.identity = {package.Name(), version.VerStr(), version.Arch()};
         data.package = BuildPackageRouteName(package.Name(), package.Arch(), package.Cache()->NativeArch());
+        for (auto file(version.FileList()); !file.end(); ++file) {
+            if (file.File().Flagged(pkgCache::Flag::NotSource)) continue;
+            pkgRecords::Parser &record(records.Lookup(file));
+            std::string tags;
+#if APT_PKG_MAJOR >= 6
+            tags = record.RecordField("Tag");
+#else
+            const char *first = NULL, *last = NULL;
+            if (record.Find("Tag", first, last)) tags.assign(first, last);
+#endif
+            std::istringstream fields(tags);
+            std::string tag;
+            while (std::getline(fields, tag, ',')) {
+                const auto begin(tag.find_first_not_of(" \t\r\n"));
+                const auto end(tag.find_last_not_of(" \t\r\n"));
+                if (begin != std::string::npos && tag.substr(begin, end - begin + 1) == "cydia::commercial") {
+                    pkgIndexFile *index = NULL;
+                    if (!list.FindIndex(file.File(), index)) continue;
+                    const auto target(dynamic_cast<pkgDebianIndexTargetFile *>(index));
+                    if (target != NULL) data.commercialSources.insert(target->GetIndexTarget().Option(IndexTarget::REPO_URI));
+                }
+            }
+        }
         selected[package.FullName(true)].push_back(data);
     }
     for (pkgAcquire::ItemIterator item(fetcher_->ItemsBegin()); item != fetcher_->ItemsEnd(); ++item) {
         pkgAcqArchive *archive(dynamic_cast<pkgAcqArchive *>(*item));
         if (archive == NULL) continue;
         const auto found(selected.find(archive->ShortDesc()));
-        if (found != selected.end() && found->second.size() == 1)
-            preparedArchives_[archive] = found->second.front();
+        if (found != selected.end() && found->second.size() == 1) {
+            PreparedArchiveData expected(found->second.front());
+            expected.commercial = expected.commercialSources.count(
+                LookupTag(archive->Custom600Headers(), "Target-Repo-URI")) != 0;
+            preparedArchives_[archive] = expected;
+        }
     }
     preparedPlan_ = TransactionPlanIdentity(transactionData());
     preparedPrefix_ = PackageInstallPrefix();
@@ -372,6 +405,11 @@ FetchResultData AptBackend::runFetcher(int pulseInterval) {
     FetchResultData result;
     if (fetcher_ == NULL)
         return result;
+
+    bool staged = false;
+    if (!StageAuthorizedArchives(*fetcher_, *status_, preparedArchives_, &result, &staged, pulseInterval))
+        return result;
+    if (staged && !prepareArchives()) return result;
 
     result.completed = fetcher_->Run(pulseInterval) == pkgAcquire::Continue;
     if (!result.completed)

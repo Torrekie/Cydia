@@ -1,11 +1,14 @@
-/* APT 2.7 calls setlocale directly while initializing its locale policy.  The
- * old Cydia shim blanked the name, which now also corrupts the SDK's
- * <locale.h> declaration when it is included through libc++.  Keep the
- * platform implementation visible and continue to stub only gettext APIs. */
+/* Embedded APT uses its upstream catalogs through a compatible libintl.
+ * Missing optional gettext falls back to upstream English, never a parallel
+ * Cydia translation table. Keep the platform locale API visible. */
+#ifndef Cydia_APTI18N_H
+#define Cydia_APTI18N_H
 #include <locale.h>
-#define textdomain(a)
-#define bindtextdomain(a, b)
-#define _(x) x
-#define P_(msg,plural,n) (n == 1 ? msg : plural)
+#include "Cydia/AptMessages.h"
+#define textdomain(a) CydiaAPTTextDomain(a)
+#define bindtextdomain(a, b) CydiaAPTBindTextDomain(a, b)
+#define _(x) CydiaAPTMessage(x)
+#define P_(msg,plural,n) CydiaAPTPluralMessage(msg, plural, n)
 #define N_(x) x
-#define dgettext(d, m) m
+#define dgettext(d, m) CydiaAPTDomainMessage(d, m)
+#endif

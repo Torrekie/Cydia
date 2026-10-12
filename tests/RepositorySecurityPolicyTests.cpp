@@ -22,7 +22,7 @@ void Require(bool condition, const std::string &message) {
 int main() {
     using namespace CydiaAPT;
     Require(DefaultRepositorySecurityMode() == RepositorySecurityMode::Warning,
-            "default must permit insecure repositories with an advisory");
+            "default must retain compatibility until external provider activation");
     const RepositorySecurityMode modes[] = {
         RepositorySecurityMode::Allow,
         RepositorySecurityMode::Warning,
@@ -56,11 +56,29 @@ int main() {
             }
         }
     }
-    for (const char *value : { "", "warning", "unknown", "allow-unauthenticated" })
+    for (const char *value : { "", "unknown", "allow-unauthenticated" })
         Require(RepositorySecurityModeFromString(value) == RepositorySecurityMode::Warning,
-                "missing/unknown preference did not preserve the Warning default");
+                "missing/unknown preference changed the existing Warning default");
+    Require(RepositorySecurityModeFromString("distribution") == RepositorySecurityMode::Distribution,
+            "explicit inheritance preference did not round-trip");
+    Require(RepositorySecurityModeFromString("warning") == RepositorySecurityMode::Warning,
+            "explicitly saved Warning must not migrate to inheritance");
+    for (bool trusted : { false, true }) {
+        for (bool allowUnauthenticated : { false, true }) {
+            const auto accepted(EvaluateArchiveSecurity(RepositorySecurityMode::Distribution,
+                trusted, ArchiveIntegrity::Verified, allowUnauthenticated));
+            Require(accepted.allowed == (trusted || allowUnauthenticated),
+                    "distribution archive allowance was not respected");
+            Require(accepted.warning == (!trusted && allowUnauthenticated),
+                    "accepted unauthenticated distribution archives need an advisory");
+            const auto corrupt(EvaluateArchiveSecurity(RepositorySecurityMode::Distribution,
+                trusted, ArchiveIntegrity::Mismatch, allowUnauthenticated));
+            Require(!corrupt.allowed && !corrupt.warning,
+                    "distribution allowance bypassed archive integrity");
+        }
+    }
 
-    std::cout << "[repository-security][ ok ] three modes, integrity failures, "
+    std::cout << "[repository-security][ ok ] inheritance, explicit overrides, integrity failures, "
                  "local hash exception and preference compatibility" << std::endl;
     return 0;
 }

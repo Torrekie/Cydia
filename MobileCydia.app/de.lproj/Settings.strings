@@ -113,3 +113,7 @@
 "ARCHIVE_INVALID" = "Das Archiv für %@ ist ungültig oder unvollständig und konnte nicht sicher geprüft werden.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Das Archiv für %@ stimmt nicht mit dem ausgewählten Paketnamen, der Version oder der Architektur überein. Die Installation wurde verhindert.";
 "ARCHIVE_UNVERIFIED" = "Cydia konnte die Dateistruktur von %@ nicht vollständig überprüfen. Prüfen Sie die Paketkompatibilität, bevor Sie fortfahren.";
+
+"SECURITY_DISTRIBUTION" = "Einstellungen des gewählten APT verwenden";
+"SECURITY_DISTRIBUTION_DETAIL" = "Den Sicherheitseinstellungen der aktiven APT-Engine folgen.";
+"REPOSITORY_SECURITY_ENGINE_EX" = "Diese Optionen gelten für die von Cydia verwendete APT-Engine. Das mitgelieferte APT liest die Distributionseinstellungen, kann sich aber anders verhalten als deren eigenes APT.";

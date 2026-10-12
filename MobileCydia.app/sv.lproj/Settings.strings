@@ -112,3 +112,7 @@
 "ARCHIVE_INVALID" = "Arkivet för %@ är ogiltigt eller ofullständigt och kunde inte granskas på ett säkert sätt.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Arkivet för %@ stämmer inte överens med det valda paketets namn, version eller arkitektur. Installationen blockerades.";
 "ARCHIVE_UNVERIFIED" = "Cydia kunde inte verifiera hela filstrukturen för %@. Kontrollera paketets kompatibilitet innan du fortsätter.";
+
+"SECURITY_DISTRIBUTION" = "Använd inställningarna för vald APT";
+"SECURITY_DISTRIBUTION_DETAIL" = "Följ säkerhetsinställningarna för den aktiva APT-motorn.";
+"REPOSITORY_SECURITY_ENGINE_EX" = "Dessa val gäller den APT-motor som Cydia använder. Inbyggd APT läser distributionens inställningar, men kan fungera annorlunda än distributionens egen APT.";

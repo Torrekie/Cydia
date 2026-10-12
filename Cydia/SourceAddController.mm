@@ -217,6 +217,7 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
 - (NSArray<NSArray<NSDictionary *> *> *)rows {
     const auto &draft([self.session draft]);
     NSString *policy([[NSBundle mainBundle] localizedStringForKey:
+        CydiaAPT::GetRepositorySecurityMode() == CydiaAPT::RepositorySecurityMode::Distribution ? @"SECURITY_DISTRIBUTION" :
         CydiaAPT::GetRepositorySecurityMode() == CydiaAPT::RepositorySecurityMode::Allow ? @"SECURITY_ALLOW" :
         CydiaAPT::GetRepositorySecurityMode() == CydiaAPT::RepositorySecurityMode::Error ? @"SECURITY_ERROR" : @"SECURITY_WARNING"
         value:nil table:@"Settings"]);

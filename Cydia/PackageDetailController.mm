@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #include "Cydia/PackageDetailController.h"
+#import "Cydia/RepositoryAccountsController.h"
+#import "Cydia/RepositoryAccountService.h"
 #include "Cydia/PackageDetailDepictionCell.h"
 
 #include "Cydia/Appearance.h"
@@ -346,7 +348,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     CydiaMinimumTargetButton *modifyButton(
         [CydiaMinimumTargetButton buttonWithType:UIButtonTypeSystem]);
     modifyButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [modifyButton setTitle:([key hasPrefix:@"PACKAGE_"] ?
+    [modifyButton setTitle:([key isEqualToString:@"ACCOUNTS"] ? CydiaAccountLocalize(key) : [key hasPrefix:@"PACKAGE_"] ?
         [[NSBundle mainBundle] localizedStringForKey:key value:key table:@"Actions"] : UCLocalizeEx(key))
         forState:UIControlStateNormal];
     modifyButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
@@ -1017,7 +1019,7 @@ dispatch:
         alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet]);
     for (CydiaPackageDetailModifyAction *action in actions) {
         NSString *key([action titleLocalizationKey]);
-        NSString *title([key hasPrefix:@"PACKAGE_"] ? [[NSBundle mainBundle]
+        NSString *title([key isEqualToString:@"ACCOUNTS"] ? CydiaAccountLocalize(key) : [key hasPrefix:@"PACKAGE_"] ? [[NSBundle mainBundle]
             localizedStringForKey:key value:key table:@"Actions"] : UCLocalizeEx(key));
         [sheet addAction:[UIAlertAction actionWithTitle:title
                                                   style:UIAlertActionStyleDefault
@@ -1032,6 +1034,12 @@ dispatch:
 }
 
 - (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action {
+    if ([action kind] == CydiaPackageDetailModifyActionKindAccount) {
+        [self.navigationController pushViewController:[[RepositoryAccountsController alloc]
+            initWithSourceURL:[NSURL URLWithString:_viewModel.source.repositoryURLString]
+            name:_viewModel.source.name package:_viewModel.baseIdentity ?: _viewModel.identity] animated:YES];
+        return;
+    }
     if ([action kind] != CydiaPackageDetailModifyActionKindVersions) {
         [_packageDelegate packageDetailController:self
                             didSelectModifyAction:action

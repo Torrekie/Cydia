@@ -112,3 +112,7 @@
 "ARCHIVE_INVALID" = "O arquivo do pacote %@ é inválido ou está incompleto e não pôde ser inspecionado em segurança.";
 "ARCHIVE_IDENTITY_MISMATCH" = "O arquivo do pacote %@ não corresponde ao nome, à versão ou à arquitetura do pacote selecionado. A instalação foi bloqueada.";
 "ARCHIVE_UNVERIFIED" = "O Cydia não conseguiu verificar totalmente a estrutura de ficheiros de %@. Verifique a compatibilidade do pacote antes de continuar.";
+
+"SECURITY_DISTRIBUTION" = "Usar as definições do APT selecionado";
+"SECURITY_DISTRIBUTION_DETAIL" = "Seguir as definições de segurança do motor APT ativo.";
+"REPOSITORY_SECURITY_ENGINE_EX" = "Estas opções aplicam-se ao motor APT utilizado pelo Cydia. O APT integrado lê as definições da distribuição, mas pode comportar-se de forma diferente do APT da própria distribuição.";

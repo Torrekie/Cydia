@@ -1,6 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/MessageLocaleConversion.h"
-#include "Cydia/ICULocale.h"
+#include "Cydia/ICURuntime.hpp"
 #include <cstring>
 
 namespace {
@@ -36,7 +36,7 @@ BOOL SafeIdentifier(NSString *value) {
 }
 
 NSString *CanonicalIdentifier(NSString *identifier) {
-    if (!SafeIdentifier(identifier)) return nil;
+    if (!CydiaICU::Services().available() || !SafeIdentifier(identifier)) return nil;
     // Foundation understands Apple's identifiers and legacy language aliases.
     // https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPInternational/LanguageandLocaleIDs/LanguageandLocaleIDs.html
     NSString *canonical([NSLocale canonicalLanguageIdentifierFromString:identifier]);
@@ -56,13 +56,13 @@ NSString *CanonicalIdentifier(NSString *identifier) {
     UErrorCode status(U_ZERO_ERROR);
     int32_t consumed(0);
     const char *tag([canonical UTF8String]);
-    int32_t length(uloc_forLanguageTag(tag, parsed, sizeof(parsed), &consumed, &status));
+    int32_t length(CydiaICU::Services().localeForLanguageTag(tag, parsed, sizeof(parsed), &consumed, &status));
     // ICU permits a valid prefix followed by an invalid suffix unless checked.
     if (U_FAILURE(status) || consumed != static_cast<int32_t>(std::strlen(tag)) ||
         length <= 0 || length >= static_cast<int32_t>(sizeof(parsed))) return nil;
     char result[ULOC_FULLNAME_CAPACITY] = {};
     status = U_ZERO_ERROR;
-    length = uloc_canonicalize(parsed, result, sizeof(result), &status);
+    length = CydiaICU::Services().localeCanonicalize(parsed, result, sizeof(result), &status);
     if (U_FAILURE(status) || length <= 0 || length >= static_cast<int32_t>(sizeof(result))) return nil;
     return [NSString stringWithUTF8String:result];
 }
@@ -77,11 +77,11 @@ NSString *Component(NSString *identifier, int32_t (*read)(const char *, char *, 
 
 NSString *LikelyIdentifier(NSString *identifier) {
     // CLDR supplies likely script/territory instead of maintaining a country
-    // table in Cydia. This is available in the already-linked system ICU.
+    // table in Cydia. Use the same immutable provider as the rest of this conversion.
     // https://unicode-org.github.io/icu-docs/apidoc/released/icu4c/uloc_8h.html
     char result[ULOC_FULLNAME_CAPACITY] = {};
     UErrorCode status(U_ZERO_ERROR);
-    int32_t length(uloc_addLikelySubtags([identifier UTF8String], result, sizeof(result), &status));
+    int32_t length(CydiaICU::Services().localeLikelySubtags([identifier UTF8String], result, sizeof(result), &status));
     if (U_FAILURE(status) || length <= 0 || length >= static_cast<int32_t>(sizeof(result))) return nil;
     return [NSString stringWithUTF8String:result];
 }
@@ -93,11 +93,11 @@ void Append(NSMutableArray<NSString *> *values, NSString *value) {
 NSArray<NSString *> *ConvertedLocales(NSString *appleIdentifier, BOOL includeDefaultTerritory) {
     NSString *identifier(CanonicalIdentifier(appleIdentifier));
     if (identifier == nil) return @[];
-    NSString *language(Component(identifier, uloc_getLanguage));
+    NSString *language(Component(identifier, CydiaICU::Services().localeLanguage));
     if (language.length == 0 || [@[@"und", @"root", @"c", @"posix"] containsObject:language]) return @[];
     NSString *likely(LikelyIdentifier(identifier));
-    NSString *script(likely == nil ? nil : Component(likely, uloc_getScript));
-    NSString *country(likely == nil ? nil : Component(likely, uloc_getCountry));
+    NSString *script(likely == nil ? nil : Component(likely, CydiaICU::Services().localeScript));
+    NSString *country(likely == nil ? nil : Component(likely, CydiaICU::Services().localeCountry));
     if (script.length == 0 || country.length == 0) return @[];
 
     NSMutableArray<NSString *> *values([NSMutableArray array]);
@@ -108,19 +108,19 @@ NSArray<NSString *> *ConvertedLocales(NSString *appleIdentifier, BOOL includeDef
         if (![@[@"Hans", @"Hant"] containsObject:script]) return @[];
         NSString *regional([NSString stringWithFormat:@"%@_%@", language, country]);
         NSString *regionalLikely(LikelyIdentifier(regional));
-        if (regionalLikely != nil && [Component(regionalLikely, uloc_getScript) isEqualToString:script]) Append(values, regional);
+        if (regionalLikely != nil && [Component(regionalLikely, CydiaICU::Services().localeScript) isEqualToString:script]) Append(values, regional);
         NSString *scriptLikely(LikelyIdentifier([NSString stringWithFormat:@"%@_%@", language, script]));
-        NSString *scriptCountry(scriptLikely == nil ? nil : Component(scriptLikely, uloc_getCountry));
+        NSString *scriptCountry(scriptLikely == nil ? nil : Component(scriptLikely, CydiaICU::Services().localeCountry));
         if (scriptCountry.length != 0) Append(values, [NSString stringWithFormat:@"%@_%@", language, scriptCountry]);
         // In particular, zh-Hant-CN must not explicitly select zh_CN or zh.
         return values;
     }
 
     NSString *defaultLikely(LikelyIdentifier(language));
-    NSString *defaultScript(defaultLikely == nil ? nil : Component(defaultLikely, uloc_getScript));
+    NSString *defaultScript(defaultLikely == nil ? nil : Component(defaultLikely, CydiaICU::Services().localeScript));
     NSString *regional([NSString stringWithFormat:@"%@_%@", language, country]);
     NSString *regionalLikely(LikelyIdentifier(regional));
-    NSString *regionalScript(regionalLikely == nil ? nil : Component(regionalLikely, uloc_getScript));
+    NSString *regionalScript(regionalLikely == nil ? nil : Component(regionalLikely, CydiaICU::Services().localeScript));
     BOOL defaultMatches([script isEqualToString:defaultScript]);
     BOOL regionalMatches([script isEqualToString:regionalScript]);
     NSDictionary<NSString *, NSString *> *modifiers(@{@"Latn": @"latin", @"Cyrl": @"cyrillic", @"Arab": @"arabic", @"Mong": @"mongolian"});
@@ -135,11 +135,11 @@ NSArray<NSString *> *ConvertedLocales(NSString *appleIdentifier, BOOL includeDef
         // Try a compatible language/script region before the caller's global
         // fallback, e.g. es_419 -> es_ES for tools that do not read LANGUAGE.
         NSString *scriptLikely(LikelyIdentifier([NSString stringWithFormat:@"%@_%@", language, script]));
-        NSString *scriptCountry(scriptLikely == nil ? nil : Component(scriptLikely, uloc_getCountry));
+        NSString *scriptCountry(scriptLikely == nil ? nil : Component(scriptLikely, CydiaICU::Services().localeCountry));
         if (scriptCountry.length != 0) {
             NSString *fallback([NSString stringWithFormat:@"%@_%@", language, scriptCountry]);
             NSString *fallbackLikely(LikelyIdentifier(fallback));
-            BOOL fallbackMatches(fallbackLikely != nil && [Component(fallbackLikely, uloc_getScript) isEqualToString:script]);
+            BOOL fallbackMatches(fallbackLikely != nil && [Component(fallbackLikely, CydiaICU::Services().localeScript) isEqualToString:script]);
             NSString *fallbackModifier(defaultMatches && fallbackMatches ? nil : modifiers[script]);
             if (defaultMatches && fallbackMatches) Append(values, fallback);
             else if (fallbackModifier != nil) Append(values, [NSString stringWithFormat:@"%@@%@", fallback, fallbackModifier]);

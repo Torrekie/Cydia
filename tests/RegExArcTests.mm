@@ -31,6 +31,16 @@ bool ExpectReplacement(const char *locale, NSString *expected) {
 
 int main() {
     @autoreleasepool {
+        // A missing bootstrap/private installation must preserve normal system
+        // behavior, and a later setting change cannot replace a live handle's
+        // provider. The captures below then exercise that retained provider.
+        if (!CydiaICU::Initialize("/nonexistent-cydia-icu", "/nonexistent-cydia-private-icu") ||
+            !CydiaICU::Services().available() ||
+            CydiaICU::Services().kind != CydiaICU::ProviderKind::Apple ||
+            CydiaICU::Initialize("", "")) {
+            std::fprintf(stderr, "ICU fallback or provider lifetime contract failed\n");
+            return 1;
+        }
         for (unsigned iteration(0); iteration != 1024; ++iteration) {
             @autoreleasepool {
                 if (!ExpectReplacement("zh_SG", @"zh_SG"))

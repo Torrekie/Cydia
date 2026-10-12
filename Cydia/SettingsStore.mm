@@ -32,12 +32,12 @@ BOOL WriteSettings(NSDictionary *settings) {
 NSString *CydiaRepositorySecurityPreference() {
     @synchronized (SettingsLock()) {
         id value(ReadSettings()[@"RepositorySecurity"]);
-        return [@[@"allow", @"warning", @"error"] containsObject:value] ? value : @"warning";
+        return [@[@"distribution", @"allow", @"warning", @"error"] containsObject:value] ? value : @"warning";
     }
 }
 
 BOOL CydiaSetRepositorySecurityPreference(NSString *value) {
-    if (![@[@"allow", @"warning", @"error"] containsObject:value]) return NO;
+    if (![@[@"distribution", @"allow", @"warning", @"error"] containsObject:value]) return NO;
     @synchronized (SettingsLock()) {
         NSMutableDictionary *settings(ReadSettings());
         settings[@"RepositorySecurity"] = value;

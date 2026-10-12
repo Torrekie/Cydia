@@ -111,3 +111,7 @@
 "ARCHIVE_INVALID" = "Tệp lưu trữ của %@ không hợp lệ hoặc chưa đầy đủ nên không thể kiểm tra an toàn.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Tệp lưu trữ của %@ không khớp với tên, phiên bản hoặc kiến trúc gói đã chọn. Quá trình cài đặt đã bị chặn.";
 "ARCHIVE_UNVERIFIED" = "Cydia không thể xác minh đầy đủ cấu trúc tệp của %@. Hãy xem xét tính tương thích của gói trước khi tiếp tục.";
+
+"SECURITY_DISTRIBUTION" = "Dùng cài đặt của APT đã chọn";
+"SECURITY_DISTRIBUTION_DETAIL" = "Tuân theo cài đặt bảo mật của bộ máy APT đang hoạt động.";
+"REPOSITORY_SECURITY_ENGINE_EX" = "Các lựa chọn này áp dụng cho bộ máy APT mà Cydia đang dùng. APT tích hợp đọc cài đặt của bản phân phối, nhưng có thể hoạt động khác với APT do bản phân phối cung cấp.";

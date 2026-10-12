@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "账户";
+"ACCOUNT_SIGN_IN" = "登录";
+"ACCOUNT_SIGN_OUT" = "退出登录";
+"ACCOUNT_SIGN_IN_REQUIRED" = "登录以查看账户和已购项目。";
+"ACCOUNT_UNSUPPORTED" = "此软件源未提供 Cydia 支持的账户服务。";
+"ACCOUNT_REQUEST_FAILED" = "无法完成账户请求。请稍后重试。";
+"ACCOUNT_OWNED" = "已购买";
+"ACCOUNT_NOT_OWNED" = "尚未购买。请前往软件源网站查看购买选项。";
+"ACCOUNT_UNAVAILABLE" = "此账户无法获取。";
+"ACCOUNT_SOURCE_HELP" = "选择已添加的软件源以管理账户。没有账户服务的软件源仍可正常使用。";
+"ACCOUNT_LINK_CONSENT" = "将 %@ 关联到 %@？支付服务提供商将收到你的设备标识符和型号。请仅在信任该提供商时登录。";

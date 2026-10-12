@@ -4,6 +4,8 @@
 #import "Cydia/AdvancedSettingsController.h"
 #import "Cydia/SourceControllers.h"
 #import "Cydia/KeyringImportController.h"
+#import "Cydia/RepositoryAccountsController.h"
+#import "Cydia/RepositoryAccountService.h"
 #import "Cydia/Database.h"
 #import "Cydia/CydiaDelegate.h"
 #import "Cydia/UIColor+Cydia.h"
@@ -64,7 +66,8 @@ static UITableViewCell *SettingsCell(UITableView *table) {
 }
 static NSString *SecurityValue(void) {
     NSString *value(CydiaRepositorySecurityPreference());
-    return SettingText([value isEqual:@"allow"] ? @"SECURITY_ALLOW" : [value isEqual:@"error"] ? @"SECURITY_ERROR" : @"SECURITY_WARNING");
+    return SettingText([value isEqual:@"distribution"] ? @"SECURITY_DISTRIBUTION" :
+        [value isEqual:@"allow"] ? @"SECURITY_ALLOW" : [value isEqual:@"error"] ? @"SECURITY_ERROR" : @"SECURITY_WARNING");
 }
 
 @implementation CydiaRepositorySecurityController
@@ -99,17 +102,18 @@ static NSString *SecurityValue(void) {
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 1; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return 3; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return 4; }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
     if (section != 0) return nil;
-    return [NSString stringWithFormat:@"%@\n\n%@", SettingText(@"REPOSITORY_SECURITY_EXPLANATION"),
+    return [NSString stringWithFormat:@"%@\n\n%@\n\n%@", SettingText(@"REPOSITORY_SECURITY_EXPLANATION"),
+        SettingText(@"REPOSITORY_SECURITY_ENGINE_EX"),
         SettingText(@"REPOSITORY_SECURITY_REFRESH_EX")];
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell(SettingsCell(table));
-    NSArray *names(@[@"SECURITY_ALLOW", @"SECURITY_WARNING", @"SECURITY_ERROR"]);
-    NSArray *details(@[@"SECURITY_ALLOW_DETAIL", @"SECURITY_WARNING_DETAIL", @"SECURITY_ERROR_DETAIL"]);
-    NSArray *values(@[@"allow", @"warning", @"error"]);
+    NSArray *names(@[@"SECURITY_DISTRIBUTION", @"SECURITY_ALLOW", @"SECURITY_WARNING", @"SECURITY_ERROR"]);
+    NSArray *details(@[@"SECURITY_DISTRIBUTION_DETAIL", @"SECURITY_ALLOW_DETAIL", @"SECURITY_WARNING_DETAIL", @"SECURITY_ERROR_DETAIL"]);
+    NSArray *values(@[@"distribution", @"allow", @"warning", @"error"]);
     cell.textLabel.text = SettingText(names[path.row]);
     cell.detailTextLabel.text = SettingText(details[path.row]);
     BOOL selected([CydiaRepositorySecurityPreference() isEqual:values[path.row]]);
@@ -123,7 +127,7 @@ static NSString *SecurityValue(void) {
     id<CydiaDelegate, NSObject> delegate([self delegate]);
     BOOL busy([delegate respondsToSelector:@selector(updating)] && [delegate updating]);
     if (busy) { [self showMessage:SettingText(@"SETTINGS_WAIT_FOR_OPERATION")]; return; }
-    NSString *value(@[@"allow", @"warning", @"error"][path.row]);
+    NSString *value(@[@"distribution", @"allow", @"warning", @"error"][path.row]);
     if (![self.database beginSettingsChange]) {
         [self showMessage:SettingText(@"SETTINGS_WAIT_FOR_OPERATION")]; return;
     }
@@ -171,14 +175,15 @@ static NSString *SecurityValue(void) {
     }
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 3 : 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 4 : 1; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return section == 0 ? UCLocalize("SOURCES") : nil; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell(SettingsCell(table));
     if (path.section == 0) {
-        NSArray *keys(@[@"REPOSITORY_SETTINGS", @"REPOSITORY_SECURITY", @"KEY_IMPORT"]);
-        NSArray *identifiers(@[@"cydia.settings.repositories", @"cydia.settings.security", @"cydia.settings.key-import"]);
-        cell.textLabel.text = SettingText(keys[path.row]); cell.accessibilityIdentifier = identifiers[path.row];
+        NSArray *keys(@[@"REPOSITORY_SETTINGS", @"REPOSITORY_SECURITY", @"KEY_IMPORT", @"ACCOUNTS"]);
+        NSArray *identifiers(@[@"cydia.settings.repositories", @"cydia.settings.security", @"cydia.settings.key-import", @"cydia.settings.accounts"]);
+        cell.textLabel.text = path.row == 3 ? CydiaAccountLocalize(@"ACCOUNTS") : SettingText(keys[path.row]);
+        cell.accessibilityIdentifier = identifiers[path.row];
         if (path.row == 0) cell.detailTextLabel.text = SettingText(@"REPOSITORY_SETTINGS_HELP");
         if (path.row == 1) cell.detailTextLabel.text = SecurityValue();
     } else if (path.section == 1) {
@@ -198,6 +203,7 @@ static NSString *SecurityValue(void) {
     if (path.section == 1) controller = [[CydiaAdvancedSettingsController alloc] initWithDatabase:self.database];
     else if (path.row == 0) controller = [[CydiaRepositorySettingsController alloc] initWithDatabase:self.database advancedAccess:NO];
     else if (path.row == 1) controller = [[CydiaRepositorySecurityController alloc] initWithDatabase:self.database];
+    else if (path.row == 3) controller = [[RepositoryAccountsController alloc] init];
     else controller = [[CydiaKeyringImportController alloc] initWithDatabase:self.database];
     controller.delegate = self.delegate;
     [self.navigationController pushViewController:controller animated:YES];

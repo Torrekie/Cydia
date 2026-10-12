@@ -27,7 +27,8 @@ def main():
               token.startswith(("-l", "-L")) or re.search(r"\.(?:a|so)(?:\.\d+)*$", token))]
     assert any(token.endswith(".o") for token in inputs), "Native APT object files were not found"
     sources = ["tests/AptBackendPolicyTests.cpp", "Cydia/AptBackend.cpp",
-               "Cydia/AptBackendOperations.cpp", "Cydia/AptCompatibility.cpp",
+               "Cydia/AptBackendOperations.cpp", "Cydia/AptAuthorizedArchives.cpp", "Cydia/RepositoryArchiveAuthorization.cpp",
+               "Cydia/AptCompatibility.cpp", "Cydia/AptProviderValues.cpp",
                "Cydia/AptVersionPolicy.cpp", "Cydia/PackageIdentity.cpp",
                "Cydia/PackageArchivePolicy.cpp", "Cydia/PackageArchiveReader.cpp",
                "Cydia/RepositorySecurityPolicy.cpp"]
@@ -46,7 +47,7 @@ def main():
     compile_driver(["tests/SourcePreflightTests.cpp", "Cydia/SourcePreflight.cpp",
                     "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",
                     "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp",
-                    "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                    "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp", "Cydia/RepositorySecurityPolicy.cpp"],
                    "cydia-source-preflight")
     compile_driver(["tests/PackageArchivePolicyTests.cpp", "Cydia/PackageArchivePolicy.cpp",
                     "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-reader", sanitize=True,

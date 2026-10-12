@@ -388,6 +388,8 @@ NSURL *PackageRouteURL(NSString *URLString) {
             return [self.delegate installPackage:package];
         case CydiaPackageDetailModifyActionKindVersions:
             break;
+        case CydiaPackageDetailModifyActionKindAccount:
+            return; // Handled by the native account controller, never a package mutation.
     }
 
     if (versionChoice == nil)

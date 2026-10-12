@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "Konton";
+"ACCOUNT_SIGN_IN" = "Logga in";
+"ACCOUNT_SIGN_OUT" = "Logga ut";
+"ACCOUNT_SIGN_IN_REQUIRED" = "Logga in för att visa ditt konto och dina köp.";
+"ACCOUNT_UNSUPPORTED" = "Den här källan erbjuder ingen kontotjänst som stöds av Cydia.";
+"ACCOUNT_REQUEST_FAILED" = "Kontoförfrågan kunde inte slutföras. Försök igen senare.";
+"ACCOUNT_OWNED" = "Köpt";
+"ACCOUNT_NOT_OWNED" = "Inte köpt. Se köpalternativen på paketkällans webbplats.";
+"ACCOUNT_UNAVAILABLE" = "Inte tillgängligt för det här kontot.";
+"ACCOUNT_SOURCE_HELP" = "Välj en tillagd källa för att hantera dess konto. Källor utan kontotjänst kan fortfarande användas som vanligt.";
+"ACCOUNT_LINK_CONSENT" = "Länka %@ till %@? Betaltjänsten får din enhets identifierare och modell. Logga bara in om du litar på leverantören.";

@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "Hesaplar";
+"ACCOUNT_SIGN_IN" = "Giriş Yap";
+"ACCOUNT_SIGN_OUT" = "Çıkış Yap";
+"ACCOUNT_SIGN_IN_REQUIRED" = "Hesabınızı ve satın aldıklarınızı görmek için giriş yapın.";
+"ACCOUNT_UNSUPPORTED" = "Bu kaynak, Cydia tarafından desteklenen bir hesap hizmeti sunmuyor.";
+"ACCOUNT_REQUEST_FAILED" = "Hesap isteği tamamlanamadı. Daha sonra tekrar deneyin.";
+"ACCOUNT_OWNED" = "Satın alındı";
+"ACCOUNT_NOT_OWNED" = "Satın alınmadı. Satın alma seçeneklerini deponun web sitesinden inceleyin.";
+"ACCOUNT_UNAVAILABLE" = "Bu hesap için kullanılamıyor.";
+"ACCOUNT_SOURCE_HELP" = "Hesabını yönetmek için eklenmiş bir kaynak seçin. Hesap hizmeti olmayan kaynaklar normal şekilde kullanılabilir.";
+"ACCOUNT_LINK_CONSENT" = "%@, %@ ile bağlansın mı? Ödeme sağlayıcısı cihazınızın tanımlayıcısını ve modelini alacaktır. Yalnızca bu sağlayıcıya güveniyorsanız giriş yapın.";

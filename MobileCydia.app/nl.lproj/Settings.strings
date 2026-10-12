@@ -113,3 +113,7 @@
 "ARCHIVE_INVALID" = "Het archief voor %@ is ongeldig of onvolledig en kon niet veilig worden geïnspecteerd.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Het archief voor %@ komt niet overeen met de geselecteerde pakketnaam, versie of architectuur. De installatie is geblokkeerd.";
 "ARCHIVE_UNVERIFIED" = "Cydia kon de bestandsindeling van %@ niet volledig verifiëren. Controleer de compatibiliteit van het pakket voordat u doorgaat.";
+
+"SECURITY_DISTRIBUTION" = "Instellingen van de gekozen APT gebruiken";
+"SECURITY_DISTRIBUTION_DETAIL" = "Volg de beveiligingsinstellingen van de actieve APT-engine.";
+"REPOSITORY_SECURITY_ENGINE_EX" = "Deze opties gelden voor de APT-engine die Cydia gebruikt. De meegeleverde APT leest de distributie-instellingen, maar kan zich anders gedragen dan de eigen APT van de distributie.";

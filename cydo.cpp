@@ -29,6 +29,9 @@
 #include "Cydia/KeyringImport.hpp"
 #include "Cydia/RecoveryPrivileged.hpp"
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/AptMessages.h"
+#include <locale.h>
+#include <set>
 
 #include <cstdio>
 #include <cstdlib>
@@ -318,12 +321,28 @@ bool InstalledPaths(CydiaRuntime::PackageDatabasePaths *paths, std::string *self
     return false;
 }
 
+bool SafeLocaleEnvironment(const std::string &name, const std::string &value) {
+    static const std::set<std::string> names = {"LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE", "LC_MESSAGES",
+        "LC_NUMERIC", "LC_TIME", "LC_COLLATE", "LC_MONETARY", "LC_PAPER", "LC_NAME", "LC_ADDRESS",
+        "LC_TELEPHONE", "LC_MEASUREMENT", "LC_IDENTIFICATION"};
+    if (names.count(name) == 0 || value.size() > (name == "LANGUAGE" ? 1024u : 128u)) return false;
+    for (unsigned char character : value) {
+        if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+            (character >= '0' && character <= '9') || character == '_' || character == '-' ||
+            character == '.' || character == '@' || (name == "LANGUAGE" && character == ':')) continue;
+        return false;
+    }
+    return true;
+}
+
 void SanitizeEnvironment(const CydiaRuntime::PackageDatabasePaths &paths) {
     std::vector<std::string> names;
     for (char **entry = ::environ; *entry != NULL; ++entry) {
         const std::string value(*entry);
         const std::string name = value.substr(0, value.find('='));
-        if (name != "LANG" && name != "LANGUAGE" && name.compare(0, 3, "LC_") != 0 && name != "TERM" &&
+        const auto separator(value.find('='));
+        const std::string content(separator == std::string::npos ? "" : value.substr(separator + 1));
+        if (!SafeLocaleEnvironment(name, content) && name != "TERM" &&
             name != "DEBIAN_FRONTEND" && name != "DPKG_COLORS") names.push_back(name);
     }
     for (const std::string &name : names) unsetenv(name.c_str());
@@ -450,6 +469,15 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         if (!Privileged::ResolveCurrentEnvironment(paths, configuration == NULL ? "" : configuration, &environment, &error)) return Denied(error);
     }
     SanitizeEnvironment(paths);
+    // The caller and package environment are now validated. Apply only the
+    // human-readable categories; configuration/status parsing retains C rules.
+    setlocale(LC_ALL, "C");
+    setlocale(LC_CTYPE, "");
+    setlocale(LC_MESSAGES, "");
+    const std::string messageShare(paths.DpkgDataDirectory().substr(0, paths.DpkgDataDirectory().rfind('/')));
+    const std::string messageUsr(messageShare.substr(0, messageShare.rfind('/')));
+    CydiaConfigureAPTMessages((messageUsr + "/lib").c_str(), (messageShare + "/locale").c_str(),
+        paths.CydiaApplicationDirectory().c_str());
     environment.sourceReaderUID = callerUID; environment.sourceReaderGID = callerGID;
     environment.sourceReaderGroups = callerGroups;
     if (snapshot || trustSnapshot) {

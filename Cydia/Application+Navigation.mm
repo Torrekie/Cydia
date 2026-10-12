@@ -17,6 +17,7 @@
 #include "Cydia/CopyingFilesGuideController.h"
 #include "Cydia/HomeGuideController.h"
 #include "Cydia/HomePlaceholderController.h"
+#include "Cydia/RepositoryAccountsController.h"
 #include "Cydia/HomeStorageController.h"
 #include "Cydia/HomeController.h"
 #include "Cydia/SettingsController.h"
@@ -212,7 +213,9 @@ static UIViewController *CydiaExternalPresentationHost(UIViewController *control
                         [[CydiaAdvancedSettingsController alloc] initWithDatabase:database_];
             else if ([[arguments objectAtIndex:0] isEqualToString:@"storage"])
                 controller = [[HomeStorageController alloc] init];
-            else if ([[@[@"featured", @"themes", @"account"] copy]
+            else if ([[arguments objectAtIndex:0] isEqualToString:@"account"])
+                controller = [[RepositoryAccountsController alloc] init];
+            else if ([[@[@"featured", @"themes"] copy]
                       containsObject:[arguments objectAtIndex:0]])
                 controller = [[HomePlaceholderController alloc]
                     initWithPageIdentifier:[arguments objectAtIndex:0]];

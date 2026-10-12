@@ -1,0 +1,12 @@
+/* Cydia-owned repository account interface. */
+"ACCOUNTS" = "계정";
+"ACCOUNT_SIGN_IN" = "로그인";
+"ACCOUNT_SIGN_OUT" = "로그아웃";
+"ACCOUNT_SIGN_IN_REQUIRED" = "로그인하여 계정과 구입 항목을 확인하세요.";
+"ACCOUNT_UNSUPPORTED" = "이 소스는 Cydia가 지원하는 계정 서비스를 제공하지 않습니다.";
+"ACCOUNT_REQUEST_FAILED" = "계정 요청을 완료할 수 없습니다. 나중에 다시 시도하세요.";
+"ACCOUNT_OWNED" = "구입함";
+"ACCOUNT_NOT_OWNED" = "구입하지 않았습니다. 저장소 웹사이트에서 구입 방법을 확인하세요.";
+"ACCOUNT_UNAVAILABLE" = "이 계정에서는 이용할 수 없습니다.";
+"ACCOUNT_SOURCE_HELP" = "추가된 소스를 선택하여 계정을 관리하세요. 계정 서비스가 없는 소스도 정상적으로 사용할 수 있습니다.";
+"ACCOUNT_LINK_CONSENT" = "%@을(를) %@에 연결할까요? 결제 서비스 제공업체에 기기 식별자와 모델이 전송됩니다. 신뢰할 수 있는 제공업체인 경우에만 로그인하세요.";

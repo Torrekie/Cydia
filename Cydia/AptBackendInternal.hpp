@@ -30,7 +30,16 @@ class SourceRegistry;
 struct PreparedArchiveData {
     CydiaPackages::ArchiveIdentity identity;
     std::string package;
+    bool commercial = false;
+    std::set<std::string> commercialSources;
 };
+
+/* Obtain commercial grants without changing APT's selected package/version
+ * or replacing its integrity checks. Newly staged files require GetArchives
+ * to be rebuilt before the ordinary acquisition/validation path continues. */
+bool StageAuthorizedArchives(pkgAcquire &fetcher, pkgAcquireStatus &status,
+    const std::map<const pkgAcquire::Item *, PreparedArchiveData> &archives,
+    FetchResultData *result, bool *staged, int pulseInterval);
 
 class AptBackend {
   private:

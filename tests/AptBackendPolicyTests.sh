@@ -80,6 +80,7 @@ insertpackage 'unstable' 'negative-consumer' 'amd64' '1' 'Depends: negative-only
 # whose Architecture: all label does not make a rootless payload rooted-safe.
 mkdir -p archive-build/archive-parent/DEBIAN archive-build/archive-parent/usr/share/archive-parent
 mkdir -p archive-build/archive-layout-dependency/DEBIAN archive-build/archive-layout-dependency/var/jb/usr/share/archive-layout-dependency
+mkdir -p archive-build/archive-authorized/DEBIAN archive-build/archive-authorized/usr/share/archive-authorized
 mkdir -p aptarchive/pool/archive-policy
 cat >archive-build/archive-parent/DEBIAN/control <<'EOF'
 Package: archive-parent
@@ -87,6 +88,7 @@ Version: 1
 Architecture: all
 Maintainer: Fixture <fixture@example.invalid>
 Depends: archive-layout-dependency
+Tag: cydia::commercial
 Description: Archive preflight parent
 EOF
 cat >archive-build/archive-parent/DEBIAN/postinst <<'EOF'
@@ -100,10 +102,20 @@ Version: 1
 Architecture: all
 Maintainer: Fixture <fixture@example.invalid>
 Description: Deliberately incompatible archive layout
+Tag: cydia::commercial
+EOF
+cat >archive-build/archive-authorized/DEBIAN/control <<'EOF'
+Package: archive-authorized
+Version: 1
+Architecture: all
+Maintainer: Fixture <fixture@example.invalid>
+Description: Authorized archive acquisition without dependencies or scripts
+Tag: cydia::commercial
 EOF
 printf 'parent fixture\n' >archive-build/archive-parent/usr/share/archive-parent/payload
 printf 'rootless fixture\n' >archive-build/archive-layout-dependency/var/jb/usr/share/archive-layout-dependency/payload
-for package in archive-parent archive-layout-dependency; do
+printf 'authorized fixture\n' >archive-build/archive-authorized/usr/share/archive-authorized/payload
+for package in archive-parent archive-layout-dependency archive-authorized; do
     testsuccess dpkg-deb --root-owner-group -Zgzip --build "archive-build/$package" "aptarchive/pool/archive-policy/${package}_1_all.deb"
 done
 (cd aptarchive && aptftparchive packages pool/archive-policy) >>aptarchive/dists/unstable/main/binary-amd64/Packages
@@ -135,6 +147,17 @@ setupaptarchive
 # The backend opens the archive lock before constructing acquire items. The
 # application initializes this cache directory; the isolated fixture must too.
 mkdir -p rootdir/var/cache/apt/archives/partial
+# The HTTPS method fixture serves the real indexed bytes through APT's acquire
+# protocol without network access. Remove the normal source payload: success
+# must come from private staging and GetArchives recognizing the verified cache.
+mkdir -m 700 authorized-fixture
+export CYDIA_APT_AUTHORIZED_PAYLOAD="$TMPWORKINGDIRECTORY/authorized-fixture/payload.deb"
+export CYDIA_APT_AUTHORIZED_MARKER="$TMPWORKINGDIRECTORY/authorized-fixture/acquisitions"
+export CYDIA_APT_AUTHORIZED_CACHE="$TMPWORKINGDIRECTORY/rootdir/var/cache/apt/archives"
+export CYDIA_APT_AUTHORIZED_METHOD="$TMPWORKINGDIRECTORY/authorized-fixture/https"
+mv aptarchive/pool/archive-policy/archive-authorized_1_all.deb "$CYDIA_APT_AUTHORIZED_PAYLOAD"
+cp "$PROJECT_DIR/tests/fixtures/authorized-https-method.py" "$CYDIA_APT_AUTHORIZED_METHOD"
+chmod 700 "$CYDIA_APT_AUTHORIZED_METHOD"
 # APT retains process-wide configuration allocations. Check invalid accesses in
 # the frontend fixture without treating those library globals as fixture leaks.
 ASAN_OPTIONS=detect_leaks=0 testsuccess runapt "$ACTION_DRIVER"

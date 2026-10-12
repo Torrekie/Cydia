@@ -12,8 +12,12 @@ The implementation described below still embeds APT and executes dpkg as an
 external program. It does not yet select an external APT backend. The bundled
 backend must remain reproducible from a reviewed source revision, and dpkg
 integration must tolerate supported runtime implementations without linking
-against dpkg's private C library. ICU currently comes from Apple's system
-`libicucore`; there is no bundled ICU runtime or bootstrap ICU selector yet.
+against dpkg's private C library. Cydia-owned ICU services prefer a validated
+bootstrap ICU, then Apple's `libicucore`; UIKit collation remains Apple-owned.
+The private fallback loader requires separately supplied ICU/data binaries.
+Embedded APT packages its matching upstream catalogs and uses a protected
+bootstrap libintl when available, with optional private libintl fallback.
+The provider protocol client does not yet activate an external APT backend.
 
 ## Adding and editing sources
 

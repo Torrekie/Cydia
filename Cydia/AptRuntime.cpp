@@ -56,6 +56,30 @@ std::string gTrustedKeyringDirectory;
 std::string gTrustedKeyringPartsDirectory;
 RepositorySecurityMode gRepositorySecurityMode(DefaultRepositorySecurityMode());
 bool gCachedRepositoryTrustValid(false);
+struct PolicySetting {
+    const char *name;
+    bool present;
+    std::string value;
+};
+PolicySetting gDistributionSecurity[] = {
+    {"Acquire::AllowInsecureRepositories", false, {}},
+    {"Acquire::AllowWeakRepositories", false, {}},
+    {"Acquire::AllowDowngradeToInsecureRepositories", false, {}},
+};
+
+void CaptureDistributionSecurity() {
+    for (auto &setting : gDistributionSecurity) {
+        setting.present = _config->Exists(setting.name);
+        setting.value = _config->Find(setting.name);
+    }
+}
+
+void RestoreDistributionSecurity() {
+    for (const auto &setting : gDistributionSecurity) {
+        if (setting.present) _config->Set(setting.name, setting.value);
+        else _config->Clear(setting.name);
+    }
+}
 
 std::string JoinPath(const std::string &directory, const char *leaf) {
     std::string path(directory);
@@ -541,14 +565,6 @@ void MaterializeArchitectures(const std::string &nativeArchitecture) {
 }
 } // namespace
 
-InitializationOptions::InitializationOptions() :
-    maxParallel(0),
-    repositorySecurityMode(DefaultRepositorySecurityMode()),
-    checkValidUntil(true),
-    forceEssential(false)
-{
-}
-
 bool Initialize(const InitializationOptions &options, std::string *architecture) {
     ResetRuntimeState();
     const char *aptConfig(std::getenv("APT_CONFIG"));
@@ -574,6 +590,10 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     _config->Clear("Acquire::CompressionTypes");
     _config->Clear("Apt::Key::gpgvcommand");
     _config->Clear("Apt::Key::gpgcommand");
+    // Never let a prior Cydia override become the next distribution baseline.
+    _config->Clear("Cydia::RepositorySecurityMode");
+    for (const auto &setting : gDistributionSecurity) _config->Clear(setting.name);
+    _config->Clear("Acquire::Check-Valid-Until");
     ApplyBootstrapConfiguration(options);
     if (!pkgInitConfig(*_config)) {
         ResetRuntimeState();
@@ -653,14 +673,15 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     ResolveCompressionTools(options);
 
     SetCachedRepositoryTrustValid(false);
+    CaptureDistributionSecurity();
     SetRepositorySecurityMode(options.repositorySecurityMode);
-    _config->Set("Acquire::Check-Valid-Until", options.checkValidUntil);
     if (options.forceEssential)
         _config->Set("pkgCacheGen::ForceEssential", "");
-    if (!options.translation.empty())
+    if (!options.translation.empty() && !_config->Exists("APT::Acquire::Translation"))
         _config->Set("APT::Acquire::Translation", options.translation);
-    _config->Set("Acquire::Languages", options.languages);
-    if (options.maxParallel > 0)
+    if (!_config->Exists("Acquire::Languages"))
+        _config->Set("Acquire::Languages", options.languages);
+    if (options.maxParallel > 0 && !_config->Exists("Acquire::http::MaxParallel"))
         _config->Set("Acquire::http::MaxParallel", options.maxParallel);
 
     /* Acquisition helpers inherit the app's environment. Launch services
@@ -681,6 +702,13 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
 void SetRepositorySecurityMode(RepositorySecurityMode mode) {
     gRepositorySecurityMode = RepositorySecurityModeFromString(
         RepositorySecurityModeName(mode));
+    RestoreDistributionSecurity();
+    if (gRepositorySecurityMode == RepositorySecurityMode::Distribution) {
+        // Absence disables Cydia's acquisition-policy patch. Keep each APT
+        // setting independent, including its absence/compiled default.
+        _config->Clear("Cydia::RepositorySecurityMode");
+        return;
+    }
     const bool allow(AllowsInsecureRepositories(gRepositorySecurityMode));
     /* This process-local override is consumed by the bundled acquisition
      * policy. It takes precedence over per-source Trusted/allow shortcuts,

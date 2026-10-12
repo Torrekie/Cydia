@@ -106,8 +106,9 @@ struct ConfigurationScope {
          * This flag is only consumed inside this fresh, private acquisition. */
         isolated.Set("Cydia::CachedRepositoryTrustValid", true);
         const auto security(GetRepositorySecurityMode());
-        isolated.Set("Cydia::RepositorySecurityMode", security == RepositorySecurityMode::Allow ? "allow" :
-            security == RepositorySecurityMode::Error ? "error" : "warning");
+        if (security == RepositorySecurityMode::Distribution)
+            isolated.Clear("Cydia::RepositorySecurityMode");
+        else isolated.Set("Cydia::RepositorySecurityMode", RepositorySecurityModeName(security));
         /* Authentication failures invoke their update hook directly from
          * acquire-item, even when ListUpdate is never called. */
         isolated.Clear("APT::Update");
@@ -428,9 +429,11 @@ SourcePreflightResult RunSourcePreflight(const SourcePreflightRequest &request,
         diagnostic.kind = FetchDiagnosticKind::General;
 #endif
         if (!reported.insert({diagnostic.uri, diagnostic.kind}).second) continue;
-        const bool hard(failed || diagnostic.kind == FetchDiagnosticKind::BadRepositorySignature ||
-            diagnostic.kind == FetchDiagnosticKind::InvalidRepositorySignature ||
-            GetRepositorySecurityMode() == RepositorySecurityMode::Error);
+        const RepositorySecurityMode policy(GetRepositorySecurityMode());
+        const bool hard(failed || policy == RepositorySecurityMode::Error ||
+            (policy != RepositorySecurityMode::Distribution &&
+             (diagnostic.kind == FetchDiagnosticKind::BadRepositorySignature ||
+              diagnostic.kind == FetchDiagnosticKind::InvalidRepositorySignature)));
         if (hard) result.failures.push_back(diagnostic);
         else result.warnings.push_back(diagnostic);
     }
@@ -446,7 +449,7 @@ SourcePreflightResult RunSourcePreflight(const SourcePreflightRequest &request,
                 binaryRepositories.insert({uri, SubstVar(suite, "$(ARCH)", _config->Find("APT::Architecture"))});
         }
     }
-    bool anySupported(false), anyUnsupported(false);
+    bool anySupported(false), anyUnsupported(false), distributionAllowsDowngrade(true);
     result.authenticated = !list.empty();
     for (auto source = list.begin(); source != list.end(); ++source) {
         bool sawPackage(false), supported(false), hasBinaryIndexes(false);
@@ -457,10 +460,18 @@ SourcePreflightResult RunSourcePreflight(const SourcePreflightRequest &request,
         /* The embedded IsTrusted ignores Trusted:yes under the explicit
          * Cydia policy. Also require the actual acquisition to report no
          * authentication issue; a forced trust option is never crypto proof. */
-        metadata.authenticated = complete && !authenticationIssue && (*source)->IsTrusted();
+        metadata.authenticated = complete && !authenticationIssue && (*source)->IsTrusted() &&
+            (GetRepositorySecurityMode() != RepositorySecurityMode::Distribution ||
+             (*source)->GetTrusted() != metaIndex::TRI_YES);
 #endif
         result.authenticated = result.authenticated && metadata.authenticated;
         const auto targets((*source)->GetIndexTargets());
+        if (!metadata.authenticated) {
+            bool allowsDowngrade(_config->FindB("Acquire::AllowDowngradeToInsecureRepositories", false));
+            for (const auto &target : targets)
+                allowsDowngrade = allowsDowngrade || target.OptionBool(IndexTarget::ALLOW_DOWNGRADE_TO_INSECURE);
+            distributionAllowsDowngrade = distributionAllowsDowngrade && allowsDowngrade;
+        }
         std::string base;
         if (!targets.empty()) base = targets.front().Option(IndexTarget::BASE_URI);
         metadata.metadataBaseURI = base;
@@ -517,7 +528,9 @@ SourcePreflightResult RunSourcePreflight(const SourcePreflightRequest &request,
         downgrade.kind = FetchDiagnosticKind::RepositoryTrustDowngrade;
         downgrade.error = "Repository is no longer authenticated.";
         if (!result.repositories.empty()) downgrade.uri = result.repositories.front().uri;
-        result.failures.push_back(downgrade);
+        if (GetRepositorySecurityMode() == RepositorySecurityMode::Distribution && distributionAllowsDowngrade)
+            result.warnings.push_back(downgrade);
+        else result.failures.push_back(downgrade);
     }
     result.allowed = result.status == SourceCheckStatus::Complete && result.failures.empty() &&
         result.architecture != SourceArchitectureAvailability::Unsupported &&

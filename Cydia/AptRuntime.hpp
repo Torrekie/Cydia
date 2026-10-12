@@ -40,10 +40,10 @@ struct InitializationOptions {
     std::string languages;
     int maxParallel;
     RepositorySecurityMode repositorySecurityMode;
-    bool checkValidUntil;
     bool forceEssential;
 
-    InitializationOptions();
+    InitializationOptions() : maxParallel(0),
+        repositorySecurityMode(DefaultRepositorySecurityMode()), forceEssential(false) {}
 };
 
 /* Initializes the process-wide APT configuration and returns its selected
@@ -52,7 +52,9 @@ struct InitializationOptions {
 bool Initialize(const InitializationOptions &options, std::string *architecture);
 /* Process-local overrides only: no other frontend's apt.conf is modified.
  * Call the setter under Database's serialization boundary, outside an active
- * acquisition, since APT's configuration is process-global. */
+ * acquisition, since APT's configuration is process-global. Distribution
+ * restores the independent settings captured from this runtime's clean
+ * initialization, including absent values and the provider's defaults. */
 void SetRepositorySecurityMode(RepositorySecurityMode mode);
 RepositorySecurityMode GetRepositorySecurityMode();
 /* Only a completed metadata refresh may establish the current process's

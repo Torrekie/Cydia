@@ -15,6 +15,7 @@
 
 @protocol CydiaPackageDetailSourceSource <NSObject>
 - (nullable NSString *)key;
+- (nullable NSString *)rooturi;
 - (nullable NSString *)name;
 - (nullable NSString *)shortDescription;
 - (nullable NSString *)host;
@@ -312,6 +313,7 @@ NSDictionary *SourceSnapshot(id source) {
 - (instancetype)initWithSource:(id<CydiaPackageDetailSourceSource>)source {
     if ((self = [super init]) != nil) {
         _key = StringOrNil([source key]);
+        _repositoryURLString = [source respondsToSelector:@selector(rooturi)] ? StringOrNil([source rooturi]) : nil;
         _name = StringOrNil([source name]) ?: @"";
         _sourceDescription = StringOrNil([source shortDescription]);
         _host = StringOrNil([source host]);
@@ -648,6 +650,9 @@ NSDictionary *SourceSnapshot(id source) {
             [actions addObject:[[CydiaPackageDetailModifyAction alloc]
                 initWithKind:CydiaPackageDetailModifyActionKindVersions key:@"PACKAGE_VERSIONS"
                      versions:versions]];
+        if (_commercial && _source.repositoryURLString.length)
+            [actions addObject:[[CydiaPackageDetailModifyAction alloc]
+                initWithKind:CydiaPackageDetailModifyActionKindAccount key:@"ACCOUNTS" versions:@[]]];
         _modifyActions = [actions copy];
         if ([actions count] == 1)
             _primaryModifyTitleLocalizationKey = [[[actions objectAtIndex:0]
