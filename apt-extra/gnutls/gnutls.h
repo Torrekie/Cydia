@@ -14,7 +14,9 @@
 
 #include <Security/SecureTransport.h>
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -53,48 +55,57 @@ struct cydia_gnutls_session {
     int fd;
     gnutls_pull_func pull;
     gnutls_push_func push;
+    int direction;
 };
 
 static inline OSStatus cydia_gnutls_read(SSLConnectionRef connection, void *data, size_t *length)
 {
     gnutls_session_t session = (gnutls_session_t)connection;
+    const size_t requested = *length;
     ssize_t result;
-    if (session->pull != NULL)
-        result = session->pull(session->transport, data, *length);
-    else
-        result = read(session->fd, data, *length);
+    session->direction = 0;
+    do {
+        if (session->pull != NULL)
+            result = session->pull(session->transport, data, requested);
+        else
+            result = read(session->fd, data, requested);
+    } while (result < 0 && errno == EINTR);
     if (result < 0) {
         *length = 0;
-        return errno == EAGAIN || errno == EWOULDBLOCK ? errSSLWouldBlock : (OSStatus)-1;
+        return errno == EAGAIN || errno == EWOULDBLOCK ? errSSLWouldBlock : errSSLClosedAbort;
     }
     *length = (size_t)result;
-    return noErr;
+    if (result == 0 && requested != 0)
+        return errSSLClosedGraceful;
+    return *length == requested ? noErr : errSSLWouldBlock;
 }
 
 static inline OSStatus cydia_gnutls_write(SSLConnectionRef connection, const void *data, size_t *length)
 {
     gnutls_session_t session = (gnutls_session_t)connection;
+    const size_t requested = *length;
     ssize_t result;
-    if (session->push != NULL)
-        result = session->push(session->transport, data, *length);
-    else
-        result = write(session->fd, data, *length);
+    session->direction = 1;
+    do {
+        if (session->push != NULL)
+            result = session->push(session->transport, data, requested);
+        else
+            result = write(session->fd, data, requested);
+    } while (result < 0 && errno == EINTR);
     if (result < 0) {
         *length = 0;
-        return errno == EAGAIN || errno == EWOULDBLOCK ? errSSLWouldBlock : (OSStatus)-1;
+        return errno == EAGAIN || errno == EWOULDBLOCK ? errSSLWouldBlock : errSSLClosedAbort;
     }
     *length = (size_t)result;
-    return noErr;
+    return *length == requested ? noErr : errSSLWouldBlock;
 }
 
 static inline int cydia_gnutls_status(OSStatus status)
 {
-    if (status == noErr || status == errSSLServerAuthCompleted)
+    if (status == noErr)
         return 0;
     if (status == errSSLWouldBlock)
         return GNUTLS_E_AGAIN;
-    if (status == errSSLClosedGraceful)
-        return 0;
     return (int)status;
 }
 
@@ -126,32 +137,40 @@ static inline ssize_t gnutls_record_recv(gnutls_session_t session, void *data, s
 {
     size_t processed = 0;
     OSStatus status = SSLRead(session->context, data, length, &processed);
-    return status == noErr ? (ssize_t)processed : cydia_gnutls_status(status);
+    // SecureTransport may deliver bytes together with WouldBlock or closure.
+    // Returning a retry instead would discard plaintext already consumed.
+    if (processed != 0)
+        return (ssize_t)processed;
+    return status == errSSLClosedGraceful ? 0 : cydia_gnutls_status(status);
 }
 
 static inline ssize_t gnutls_record_send(gnutls_session_t session, const void *data, size_t length)
 {
     size_t processed = 0;
     OSStatus status = SSLWrite(session->context, data, length, &processed);
-    return status == noErr ? (ssize_t)processed : cydia_gnutls_status(status);
+    // Count consumed application bytes even when the encrypted socket write
+    // is incomplete; APT must retry only the remaining application bytes.
+    return processed != 0 ? (ssize_t)processed : cydia_gnutls_status(status);
 }
 
 static inline int gnutls_record_get_direction(gnutls_session_t session)
 {
-    (void)session;
-    return 0;
+    return session->direction;
 }
 
 static inline int gnutls_record_check_pending(gnutls_session_t session)
 {
-    (void)session;
-    return 0;
+    size_t pending = 0;
+    if (SSLGetBufferedReadSize(session->context, &pending) != noErr)
+        return 0;
+    return pending > INT_MAX ? INT_MAX : (int)pending;
 }
 
 static inline int gnutls_bye(gnutls_session_t session, int how)
 {
     (void)how;
-    return cydia_gnutls_status(SSLClose(session->context));
+    const OSStatus status = SSLClose(session->context);
+    return status == errSSLClosedGraceful ? 0 : cydia_gnutls_status(status);
 }
 
 static inline void gnutls_deinit(gnutls_session_t session)
@@ -299,7 +318,9 @@ static inline const char *gnutls_strerror(int error)
 {
     if (error == GNUTLS_E_UNIMPLEMENTED_FEATURE)
         return "Custom CA files, client certificates and revocation lists are not supported by this SecureTransport backend";
-    return "SecureTransport error";
+    static __thread char description[64];
+    snprintf(description, sizeof(description), "SecureTransport error (status %d)", error);
+    return description;
 }
 
 #endif

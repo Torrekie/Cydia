@@ -238,6 +238,29 @@ for package in firmware gsc.ipad gsc.wildcat cy+cpu.arm64 cy+cpu.arm64e; do
 done
 assert_row $'candidate\tfirmware\t17.0\tpreserve\tvirtual-provider\tall\thold ok unpacked\t1\tzebra-firmware\tbootstrap-capabilities'
 
+# Previously installed names may use the legacy underscore spelling. They
+# remain providers and preview rows, without becoming generated package names.
+reset_fixture
+cat >"${query_fixture}" <<'EOF'
+gsc.legacy_capability|all|install ok installed|1||
+legacy_provider|all|hold ok installed|1|firmware, gsc.retina-display|external
+EOF
+cp "${query_fixture}" "${test_root}/legacy-providers-before"
+run_preview
+assert_no_changes
+assert_row $'candidate\tgsc.legacy_capability\t1\tpreserve\tretained-provider\tall\tinstall ok installed\t1\t\tgsc.legacy_capability'
+assert_row $'candidate\tfirmware\t17.0\tpreserve\tvirtual-provider\tall\thold ok installed\t1\texternal\tlegacy_provider'
+run_apply
+assert_not_built gsc.legacy_capability
+assert_not_built legacy_provider
+assert_not_built firmware
+assert_not_built gsc.retina-display
+cmp -s "${query_fixture}" "${test_root}/legacy-providers-before" || fail "legacy provider database was rewritten"
+reset_fixture
+printf 'identity\tgsc.invalid_name\t1\n' >>"${discovery_fixture}"
+if run_preview >/dev/null 2>&1; then fail "generation accepted a legacy-only package name"; fi
+assert_no_changes
+
 # Cydia may update only its single, unheld, healthy native record.
 reset_fixture
 printf 'firmware|iphoneos-arm64|install ok installed|16.0||cydia-refurbished.torrekie.dev/v1\n' >"${query_fixture}"

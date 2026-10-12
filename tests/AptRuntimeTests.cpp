@@ -15,7 +15,39 @@
 #if defined(__APPLE__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#include <Security/SecureTransport.h>
+// Deterministic SecureTransport results exercise the public record API without
+// depending on a live server, socket timing or a device network policy.
+struct TLSRecordFixture {
+    OSStatus status;
+    size_t processed;
+    size_t pending;
+    OSStatus pendingStatus;
+};
+static TLSRecordFixture tlsRecordFixture = {noErr, 0, 0, noErr};
+static OSStatus FixtureSSLRead(SSLContextRef, void *data, size_t length, size_t *processed) {
+    *processed = tlsRecordFixture.processed;
+    std::memset(data, 'x', length < *processed ? length : *processed);
+    return tlsRecordFixture.status;
+}
+static OSStatus FixtureSSLWrite(SSLContextRef, const void *, size_t, size_t *processed) {
+    *processed = tlsRecordFixture.processed;
+    return tlsRecordFixture.status;
+}
+static OSStatus FixtureSSLHandshake(SSLContextRef) { return tlsRecordFixture.status; }
+static OSStatus FixtureSSLGetBufferedReadSize(SSLContextRef, size_t *pending) {
+    *pending = tlsRecordFixture.pending;
+    return tlsRecordFixture.pendingStatus;
+}
+#define SSLRead FixtureSSLRead
+#define SSLWrite FixtureSSLWrite
+#define SSLHandshake FixtureSSLHandshake
+#define SSLGetBufferedReadSize FixtureSSLGetBufferedReadSize
 #include "apt-extra/gnutls/gnutls.h"
+#undef SSLRead
+#undef SSLWrite
+#undef SSLHandshake
+#undef SSLGetBufferedReadSize
 #endif
 
 Configuration *_config(NULL);
@@ -438,6 +470,79 @@ void VerifyVerifierConfiguration(CydiaRuntime::PackageDatabaseLayout layout, Ver
 }
 
 #if defined(__APPLE__)
+struct TLSIOFixture {
+    ssize_t result;
+    int error;
+    unsigned interrupted;
+    unsigned calls;
+};
+ssize_t FixtureTLSRead(gnutls_transport_ptr_t pointer, void *, size_t) {
+    auto &fixture(*static_cast<TLSIOFixture *>(pointer));
+    ++fixture.calls;
+    if (fixture.interrupted) { --fixture.interrupted; errno = EINTR; return -1; }
+    errno = fixture.error; return fixture.result;
+}
+ssize_t FixtureTLSWrite(gnutls_transport_ptr_t pointer, const void *, size_t length) {
+    return FixtureTLSRead(pointer, NULL, length);
+}
+void VerifyNativeTLSStreaming() {
+    gnutls_session_t session(NULL);
+    Expect(gnutls_init(&session, GNUTLS_CLIENT | GNUTLS_NONBLOCK) == 0, "native TLS streaming session allocated");
+    TLSIOFixture fixture = {3, 0, 0, 0};
+    gnutls_transport_set_ptr(session, &fixture);
+    gnutls_transport_set_pull_function(session, FixtureTLSRead);
+    gnutls_transport_set_push_function(session, FixtureTLSWrite);
+    char data[16] = {};
+    size_t count(8);
+    Expect(cydia_gnutls_read(session, data, &count) == errSSLWouldBlock && count == 3,
+           "short transport reads retain progress and report incomplete TLS I/O");
+    Expect(gnutls_record_get_direction(session) == 0, "read backpressure waits for readable socket");
+    fixture = {-1, EAGAIN, 0, 0}; count = 8;
+    Expect(cydia_gnutls_read(session, data, &count) == errSSLWouldBlock && count == 0,
+           "read backpressure reports no consumed bytes");
+    fixture = {8, 0, 1, 0}; count = 8;
+    Expect(cydia_gnutls_read(session, data, &count) == noErr && count == 8 && fixture.calls == 2,
+           "interrupted transport reads retry without fatal TLS errors");
+    fixture = {0, 0, 0, 0}; count = 8;
+    Expect(cydia_gnutls_read(session, data, &count) == errSSLClosedGraceful && count == 0,
+           "transport EOF closes TLS rather than reporting an incomplete successful read");
+    fixture = {4, 0, 0, 0}; count = 8;
+    Expect(cydia_gnutls_write(session, data, &count) == errSSLWouldBlock && count == 4,
+           "short transport writes retain progress and report incomplete TLS I/O");
+    Expect(gnutls_record_get_direction(session) == 1, "write backpressure waits for writable socket");
+    fixture = {-1, EAGAIN, 0, 0}; count = 8;
+    Expect(cydia_gnutls_write(session, data, &count) == errSSLWouldBlock && count == 0,
+           "write backpressure reports no consumed bytes");
+    fixture = {8, 0, 1, 0}; count = 8;
+    Expect(cydia_gnutls_write(session, data, &count) == noErr && count == 8 && fixture.calls == 2,
+           "interrupted transport writes retry without duplicate transfer");
+    fixture = {-1, EPIPE, 0, 0}; count = 8;
+    Expect(cydia_gnutls_write(session, data, &count) == errSSLClosedAbort && count == 0,
+           "fatal transport writes return a real SecureTransport closure status");
+    tlsRecordFixture = {errSSLWouldBlock, 5, 0, noErr};
+    Expect(gnutls_record_recv(session, data, sizeof(data)) == 5 && data[0] == 'x' && data[4] == 'x',
+           "partial decrypted bytes are delivered once even when more TLS I/O would block");
+    Expect(gnutls_record_send(session, data, sizeof(data)) == 5,
+           "partial encrypted write progress prevents resending consumed application bytes");
+    tlsRecordFixture.processed = 0;
+    Expect(gnutls_record_recv(session, data, sizeof(data)) == GNUTLS_E_AGAIN &&
+           gnutls_record_send(session, data, sizeof(data)) == GNUTLS_E_AGAIN,
+           "zero-progress TLS operations request a retry");
+    tlsRecordFixture = {errSSLClosedGraceful, 3, 0, noErr};
+    Expect(gnutls_record_recv(session, data, sizeof(data)) == 3, "final decrypted bytes precede EOF");
+    tlsRecordFixture.processed = 0;
+    Expect(gnutls_record_recv(session, data, sizeof(data)) == 0, "clean TLS receive closure is EOF");
+    Expect(gnutls_record_send(session, data, sizeof(data)) < 0 && gnutls_handshake(session) < 0,
+           "closed TLS session cannot claim a successful write or handshake");
+    tlsRecordFixture = {errSSLPeerAuthCompleted, 0, 9, noErr};
+    Expect(gnutls_handshake(session) != 0, "peer authentication event alone is not a completed handshake");
+    Expect(gnutls_record_check_pending(session) == 9, "buffered plaintext remains readable without new socket readiness");
+    tlsRecordFixture.pendingStatus = errSSLClosedAbort;
+    Expect(gnutls_record_check_pending(session) == 0, "failed pending-byte query cannot invent readable data");
+    Expect(std::strstr(gnutls_strerror(errSSLClosedAbort), "-9806") != NULL,
+           "TLS diagnostics preserve the native status code");
+    gnutls_deinit(session);
+}
 void VerifyNativeTLSTrust() {
     gnutls_certificate_credentials_t credentials(NULL);
     Expect(gnutls_certificate_allocate_credentials(&credentials) == 0, "native TLS credentials allocated");
@@ -737,6 +842,7 @@ int main(int argc, char **argv) {
     const std::string savedPath(hadPath ? originalPath : "");
 #if defined(__APPLE__)
     VerifyNativeTLSTrust();
+    VerifyNativeTLSStreaming();
 #endif
     for (auto layout : {CydiaRuntime::PackageDatabaseLayout::Rootful, CydiaRuntime::PackageDatabaseLayout::Rootless})
         for (auto fixture : {VerifierFixture::Defaults, VerifierFixture::NativeSearchPath, VerifierFixture::ConfiguredPaths, VerifierFixture::ConfiguredCommands})

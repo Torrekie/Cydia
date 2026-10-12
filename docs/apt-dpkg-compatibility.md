@@ -301,6 +301,17 @@ explicitly, instead of appearing to load while being ignored. Signature policy
 remains independent of TLS: Allow/Warning can accept unsigned repositories
 while normal HTTPS certificate validation remains enabled.
 
+The SecureTransport adapter retains partially transferred application bytes,
+reports incomplete socket operations as retryable, and waits for the required
+read or write direction. Buffered decrypted bytes remain available without
+waiting for another socket event. TLS errors include the native status code.
+
+Capability previews preserve existing provider identities from older
+generators, including legacy names containing underscores. These identities
+are read-only: new or updated generated packages still require standard
+lowercase package names. Previewing capabilities never renames or removes
+another generator's providers.
+
 The maintscript also initializes an absent source-protection policy with an
 empty selection. No official distribution source is inferred. Existing
 selections and invalid policies remain untouched; editing through delegated

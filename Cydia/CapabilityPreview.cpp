@@ -38,6 +38,18 @@ bool Token(const std::string &value) {
     for (char c : value) if (!(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f')) return false;
     return true;
 }
+
+bool PackageName(const std::string &value, bool existing) {
+    if (value.empty()) return false;
+    for (std::size_t index = 0; index != value.size(); ++index) {
+        const char c = value[index];
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+            (existing && c >= 'A' && c <= 'Z')) continue;
+        if (index != 0 && (c == '+' || c == '.' || c == '-' || (existing && c == '_'))) continue;
+        return false;
+    }
+    return true;
+}
 } // namespace
 
 bool ParseCapabilityPreview(const std::string &bytes, CapabilityPreview *preview) {
@@ -73,11 +85,15 @@ bool ParseCapabilityPreview(const std::string &bytes, CapabilityPreview *preview
                 "package-state", "multiple-providers", "foreign-architecture", "external-provider", "virtual-provider", "retained-provider"};
             if (fields.size() != 10 || fields[1].empty() || reasons.count(fields[4]) == 0) return false;
             CapabilityCandidate candidate = {fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], fields[8], fields[9]};
+            if (!candidate.providerPackage.empty() && !PackageName(candidate.providerPackage, true)) return false;
             if (candidate.action == "create" || candidate.action == "update") {
-                if (candidate.version.empty() || !changedPackages.insert(candidate.package).second ||
+                if (!PackageName(candidate.package, false) || candidate.version.empty() || !changedPackages.insert(candidate.package).second ||
                     (candidate.action == "create" ? candidate.reason != "missing" : candidate.reason != "owned-update")) return false;
                 result.changes.push_back(candidate);
-            } else if (candidate.action == "preserve") result.preserved.push_back(candidate);
+            } else if (candidate.action == "preserve") {
+                if (!PackageName(candidate.package, true)) return false;
+                result.preserved.push_back(candidate);
+            }
             else return false;
         } else if (fields[0] == "review") {
             if (fields.size() != 2 || !Token(fields[1]) || start != bytes.size()) return false;

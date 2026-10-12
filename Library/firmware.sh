@@ -39,6 +39,12 @@ function valid_package_name() {
     [[ $1 =~ ^[a-z0-9][a-z0-9+.-]*$ ]]
 }
 
+# Old capability generators installed names containing underscores. These
+# existing database identities are read-only providers, not names to generate.
+function valid_provider_name() {
+    [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9+._-]*$ ]]
+}
+
 function hyphenate() {
     local value=$1 result= character index
     for ((index = 0; index < ${#value}; ++index)); do
@@ -120,7 +126,7 @@ function index_package_records() {
     record_versions=() record_owners=() record_aliases=()
     while IFS='|' read -r package architecture status version provides owner; do
         [[ -n ${package} ]] || continue
-        if ! valid_package_name "${package}" || [[ -z ${status} ]]; then
+        if ! valid_provider_name "${package}" || [[ -z ${status} ]]; then
             echo "Invalid firmware provider snapshot" >&2
             return 1
         fi
