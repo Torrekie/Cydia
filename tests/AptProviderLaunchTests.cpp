@@ -159,7 +159,7 @@ void BoundsCancellationAndCleanup() {
     Require(f.Run("--cydia-provider-info", &output, true, 12000).kind == Launch::ProbeExit::Exited && output == "capsule-ok",
         "recovery startup bound was shortened before launch");
     const auto oversizedTimeout(f.Run("--hang", &output, true, MaximumRecoveryStartupMilliseconds + 1));
-    Require(oversizedTimeout.kind == Launch::ProbeExit::Failed && oversizedTimeout.error == EINVAL && output.empty(),
+    Require(oversizedTimeout.kind == Launch::ProbeExit::LaunchFailed && oversizedTimeout.error == EINVAL && output.empty(),
         "unbounded recovery startup timeout accepted");
     Launch::Child bad;
     Require(!Launch::Start("/not-present/cydia-provider", {}, f.capsule, &bad, &error) && bad.pid == -1 && bad.channel == -1,
