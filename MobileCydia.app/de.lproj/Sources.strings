@@ -120,3 +120,15 @@
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Diese Schlüssel passen zur abgerufenen Quellensignatur. Ihr Fundort allein belegt nicht, wem die Paketquelle gehört. Gleiche den vollständigen Fingerabdruck mit ihrem Betreuer ab. Die Auswahl bereitet eine Prüfung vor; sie erteilt weder Vertrauen noch installiert sie ein Paket.";
 "SOURCE_ADD_FIND_OPTIONS" = "Quellenoptionen suchen";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Diese Paketquelle bietet keine Pakete für die in APT aktivierten Architekturen. Prüfe die Einstellungen für Suite und Architekturen oder sichere sie deaktiviert.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Verwende ./ für Indizes unter der Quellen-URL oder gib die vom Betreuer angegebene Suite bzw. den Pfad ein.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Lasse dieses Feld leer, wenn die Suite auf / endet. Gib andernfalls durch Leerzeichen getrennte Komponenten ein, zum Beispiel main.";
+"SOURCE_ADD_TEXT_FORMAT" = "APT-Textformat";
+"SOURCE_ADD_ONE_LINE" = "Einzeilig (.list)";
+"SOURCE_ADD_DEB822" = "Deb822-Format (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Textänderungen aktualisieren die Felder oben. Optionen ohne eigenes Formularfeld bleiben erhalten.";
+"SOURCE_ADD_TEXT_INVALID" = "Vervollständige oder korrigiere den APT-Text, um die Formularfelder zu verwenden und diese Quelle zu überprüfen.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Diese Definition lässt sich nicht durch einzelne Formularfelder darstellen. Bearbeite ihren APT-Text weiter; deine vorhandenen Optionen bleiben erhalten.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Diese Definition lässt sich nicht ohne Informationsverlust in das andere Format umwandeln. Bearbeite sie im aktuellen Format weiter.";
+"SOURCE_ADD_FILENAME" = "Neuer Dateiname";

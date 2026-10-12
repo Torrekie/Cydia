@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Eşleşen İmzalama Anahtarları";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Bu anahtarlar alınan kaynak imzasıyla eşleşiyor. Bulundukları konum tek başına kaynağın sahibini kanıtlamaz. Tam parmak izini bakımcıyla karşılaştırın. Anahtar seçmek inceleme hazırlar; güven onayı vermez veya paket yüklemez.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Bu kaynak, APT'de etkinleştirilmiş mimariler için paket sağlamıyor. Sürüm grubu ve mimari ayarlarını denetleyin veya devre dışı olarak kaydedin.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Kaynak URL’sindeki dizinler için ./ kullanın veya bakımcının sağladığı sürüm grubunu ya da yolu girin.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Sürüm grubu / ile bitiyorsa boş bırakın. Aksi halde main gibi bileşenleri boşluklarla ayırarak girin.";
+"SOURCE_ADD_TEXT_FORMAT" = "APT Metin Biçimi";
+"SOURCE_ADD_ONE_LINE" = "Tek Satır (.list)";
+"SOURCE_ADD_DEB822" = "Deb822 Biçimi (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Metin değişiklikleri yukarıdaki alanları günceller. Formda bir denetimi olmayan seçenekler korunur.";
+"SOURCE_ADD_TEXT_INVALID" = "Form alanlarını kullanmak ve bu kaynağı gözden geçirmek için APT metnini tamamlayın veya düzeltin.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Bu tanım ayrı form alanlarıyla gösterilemez. APT metnini düzenlemeye devam edin; mevcut seçenekleriniz korunur.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Bu tanım bilgi kaybı olmadan diğer biçime dönüştürülemez. Geçerli biçiminde düzenlemeye devam edin.";
+"SOURCE_ADD_FILENAME" = "Yeni Dosya Adı";

@@ -2,8 +2,6 @@
 #include "Cydia/SourceDraft.hpp"
 
 #include <algorithm>
-#include <cstdint>
-#include <iomanip>
 #include <map>
 #include <set>
 #include <sstream>
@@ -144,9 +142,10 @@ std::string Serialize(const SourceDraft &draft) {
 }
 void ValidateStructured(const SourceDraft &draft, std::vector<DraftDiagnostic> *diagnostics) {
     if (!URI(draft.uri)) Diagnose(diagnostics, "invalid_uri", "uri", "Enter a source URI without spaces, fragments or control characters");
-    if (!Token(draft.distribution) || (draft.distribution.back() == '/') != draft.exactPath)
+    const bool exactPath(!draft.distribution.empty() && draft.distribution.back() == '/');
+    if (!Token(draft.distribution))
         Diagnose(diagnostics, "invalid_distribution", "distribution", "Exact paths must end with a slash; suites must not end with a slash");
-    if (!Tokens(draft.components) || (draft.exactPath ? !draft.components.empty() : draft.components.empty()))
+    if (!Tokens(draft.components) || (exactPath ? !draft.components.empty() : draft.components.empty()))
         Diagnose(diagnostics, "invalid_components", "components", "Exact paths have no components; suite sources need at least one component");
     if (!Architectures(draft.architectures) || !Architectures(draft.architecturesAdd) || !Architectures(draft.architecturesRemove) ||
         (draft.architectureMode == ArchitectureMode::Replace && (draft.architectures.empty() || !draft.architecturesAdd.empty() || !draft.architecturesRemove.empty())) ||
@@ -164,6 +163,9 @@ std::string OptionName(const Field &field, Format format) {
     if (field.name == "lang") return "languages";
     if (field.name == "lang+") return "languages-add";
     if (field.name == "lang-") return "languages-remove";
+    if (field.name == "target") return "targets";
+    if (field.name == "target+") return "targets-add";
+    if (field.name == "target-") return "targets-remove";
     return field.name;
 }
 bool Structural(const std::string &name, Format format) {
@@ -177,7 +179,8 @@ Options SourceOptions(const Definition &definition, Format format) {
         if (Structural(name, format) || Lower(name).compare(0, 2, "x-") == 0) continue;
         std::string value(Trim(field.value));
         if (name == "architectures" || name == "architectures-add" || name == "architectures-remove" ||
-            name == "languages" || name == "languages-add" || name == "languages-remove" || name == "signed-by") {
+            name == "languages" || name == "languages-add" || name == "languages-remove" ||
+            name == "targets" || name == "targets-add" || name == "targets-remove" || name == "signed-by") {
             // Inline public keys are compared byte-for-byte, not tokenized.
             if (value.find("-----BEGIN PGP") == std::string::npos)
                 value = Join(Sorted(Words(value, format == Format::OneLine)));
@@ -337,6 +340,319 @@ bool ConvertDraftToStructured(const SourceDraft &raw, SourceDraft *structured,
     return true;
 }
 
+namespace {
+const Field *DraftField(const Definition &definition, Format format, const std::string &name) {
+    for (const Field &field : definition.fields)
+        if (OptionName(field, format) == name) return &field;
+    return NULL;
+}
+bool Projectable(const Document &document) {
+    if (!document.valid() || document.definitions.empty() || document.definitions.size() > 2) return false;
+    const Definition &first(document.definitions[0]);
+    if (document.definitions.size() == 2) {
+        if (document.format != Format::OneLine) return false;
+        const Definition &second(document.definitions[1]);
+        if (first.enabled != second.enabled || first.uris != second.uris || first.suites != second.suites ||
+            first.components != second.components || first.types.size() != 1 || second.types.size() != 1 ||
+            first.types[0] == second.types[0] || first.fields.size() != second.fields.size()) return false;
+        for (std::size_t i(0); i < first.fields.size(); ++i)
+            if (first.fields[i].name != second.fields[i].name || first.fields[i].value != second.fields[i].value) return false;
+    }
+    for (const Definition &definition : document.definitions) {
+        if (definition.uris.size() != 1 || definition.suites.size() != 1 || definition.types.empty() ||
+            Sorted(definition.types).size() != definition.types.size()) return false;
+        for (const std::string &type : definition.types) if (type != "deb" && type != "deb-src") return false;
+        std::set<std::string> known;
+        for (const Field &field : definition.fields) {
+            const std::string name(OptionName(field, document.format));
+            if (name == "architectures" || name == "architectures-add" || name == "architectures-remove" || name == "signed-by")
+                if (!known.insert(name).second) return false;
+        }
+    }
+    return document.definitions.size() == 2 || std::find(first.types.begin(), first.types.end(), "deb") != first.types.end();
+}
+struct DraftEdit { Span span; std::string text; };
+bool PatchDraft(std::string *bytes, std::vector<DraftEdit> edits) {
+    std::sort(edits.begin(), edits.end(), [](const DraftEdit &a, const DraftEdit &b) { return a.span.begin != b.span.begin ? a.span.begin > b.span.begin : a.span.end > b.span.end; });
+    std::size_t limit(bytes->size());
+    for (const DraftEdit &edit : edits) {
+        if (edit.span.begin > edit.span.end || edit.span.end > limit) return false;
+        bytes->replace(edit.span.begin, edit.span.end - edit.span.begin, edit.text);
+        limit = edit.span.begin;
+    }
+    return true;
+}
+std::string DraftNewline(const std::string &bytes) { return bytes.find("\r\n") == std::string::npos ? "\n" : "\r\n"; }
+std::string FieldComments(const std::string &bytes) {
+    std::string result;
+    for (std::size_t begin(0); begin < bytes.size();) {
+        const std::size_t newline(bytes.find('\n', begin)), end(newline == std::string::npos ? bytes.size() : newline + 1);
+        if (bytes[begin] == '#') result += bytes.substr(begin, end - begin);
+        begin = end;
+    }
+    return result;
+}
+bool FieldInput(const SourceDraft &draft, const SourceDraft &previous) {
+    // Permit incomplete tokens while typing, but never let a field insert
+    // extra source lines or reinterpret the remaining fields as comments.
+    if (draft.uri != previous.uri)
+        for (unsigned char c : draft.uri) if (c <= 32 || c == 127 || c == '#' || c == '"') return false;
+    if (draft.distribution != previous.distribution)
+        for (unsigned char c : draft.distribution) if (c <= 32 || c == 127 || c == '#' || c == '"') return false;
+    if (draft.components != previous.components && !Tokens(draft.components)) return false;
+    if (draft.architectures != previous.architectures && !Tokens(draft.architectures)) return false;
+    if (draft.architecturesAdd != previous.architecturesAdd && !Tokens(draft.architecturesAdd)) return false;
+    return draft.architecturesRemove == previous.architecturesRemove || Tokens(draft.architecturesRemove);
+}
+std::string ClassicOptionName(const std::string &name) {
+    if (name == "architectures") return "arch";
+    if (name == "architectures-add") return "arch+";
+    if (name == "architectures-remove") return "arch-";
+    return name;
+}
+std::map<std::string, std::string> ArchitectureFields(const SourceDraft &draft) {
+    std::map<std::string, std::string> result;
+    result["architectures"] = draft.architectureMode == ArchitectureMode::Replace ? Join(draft.architectures) : "";
+    result["architectures-add"] = draft.architectureMode != ArchitectureMode::Inherit ? Join(draft.architecturesAdd) : "";
+    result["architectures-remove"] = draft.architectureMode != ArchitectureMode::Inherit ? Join(draft.architecturesRemove) : "";
+    return result;
+}
+std::string Deb822Name(const std::string &name) {
+    if (name == "uris") return "URIs";
+    std::string result(name); bool capitalize(true);
+    for (char &c : result) { if (capitalize && c >= 'a' && c <= 'z') c -= 'a' - 'A'; capitalize = c == '-'; }
+    return result;
+}
+struct OptionMapping { const char *classic; const char *deb822; bool multiple; };
+const OptionMapping OptionMappings[] = {
+    {"arch", "Architectures", true}, {"lang", "Languages", true}, {"target", "Targets", true},
+    {"pdiffs", "PDiffs", false}, {"by-hash", "By-Hash", false},
+    {"allow-insecure", "Allow-Insecure", false}, {"allow-weak", "Allow-Weak", false},
+    {"allow-downgrade-to-insecure", "Allow-Downgrade-To-Insecure", false}, {"trusted", "Trusted", false},
+    {"signed-by", "Signed-By", true}, {"check-valid-until", "Check-Valid-Until", false},
+    {"valid-until-min", "Valid-Until-Min", false}, {"valid-until-max", "Valid-Until-Max", false},
+    {"check-date", "Check-Date", false}, {"date-max-future", "Date-Max-Future", false},
+    {"inrelease-path", "InRelease-Path", false}, {"snapshot", "Snapshot", false}
+};
+bool MappedOption(const Field &field, Format source, std::string *name, std::string *value) {
+    std::string input(source == Format::Deb822 ? Lower(field.name) : field.name), modifier;
+    if (source == Format::OneLine && !input.empty() && (input.back() == '+' || input.back() == '-')) {
+        modifier = input.back() == '+' ? "-Add" : "-Remove"; input.pop_back();
+    } else if (source == Format::Deb822) {
+        if (input.size() > 4 && input.substr(input.size() - 4) == "-add") { modifier = "+"; input.resize(input.size() - 4); }
+        else if (input.size() > 7 && input.substr(input.size() - 7) == "-remove") { modifier = "-"; input.resize(input.size() - 7); }
+    }
+    for (const OptionMapping &mapping : OptionMappings) {
+        if (input != (source == Format::OneLine ? mapping.classic : Lower(mapping.deb822))) continue;
+        if (!modifier.empty() && !mapping.multiple) return false;
+        if (field.value.find("-----BEGIN PGP") != std::string::npos) return false;
+        *name = std::string(source == Format::OneLine ? mapping.deb822 : mapping.classic) + modifier;
+        if (mapping.multiple) *value = Join(Words(field.value, source == Format::OneLine), source == Format::OneLine ? " " : ",");
+        else {
+            if (field.value.find('\n') != std::string::npos || Words(field.value).size() != 1) return false;
+            *value = Trim(field.value);
+        }
+        if (value->empty()) return false;
+        for (unsigned char c : *value) if (c < 32 || c == 127 || c == '#' || c == '"' || c == '[' || c == ']') return false;
+        return true;
+    }
+    return false;
+}
+} // namespace
+
+std::string SerializeSourceDraft(const SourceDraft &draft) { return Serialize(draft); }
+
+bool ProjectDraftFields(const SourceDraft &draft, SourceDraft *fields) {
+    if (fields == NULL) return false;
+    if (!draft.raw) { *fields = draft; fields->exactPath = !fields->distribution.empty() && fields->distribution.back() == '/'; return true; }
+    const Document document(ParseDraftDocument(draft.format, draft.rawContents));
+    if (!Projectable(document)) return false;
+    const Definition &definition(document.definitions[0]);
+    SourceDraft projected; projected.format = draft.format;
+    projected.uri = definition.uris[0]; projected.distribution = definition.suites[0];
+    projected.exactPath = !projected.distribution.empty() && projected.distribution.back() == '/';
+    projected.components = definition.components; projected.enabled = definition.enabled;
+    projected.includeSourcePackages = document.definitions.size() > 1 || definition.types.size() > 1;
+    if (const Field *field = DraftField(definition, draft.format, "architectures")) {
+        projected.architectureMode = ArchitectureMode::Replace;
+        projected.architectures = Words(field->value, draft.format == Format::OneLine);
+    }
+    if (const Field *field = DraftField(definition, draft.format, "architectures-add")) projected.architecturesAdd = Words(field->value, draft.format == Format::OneLine);
+    if (const Field *field = DraftField(definition, draft.format, "architectures-remove")) projected.architecturesRemove = Words(field->value, draft.format == Format::OneLine);
+    if (projected.architectureMode != ArchitectureMode::Replace && (!projected.architecturesAdd.empty() || !projected.architecturesRemove.empty()))
+        projected.architectureMode = ArchitectureMode::Modify;
+    if (const Field *field = DraftField(definition, draft.format, "signed-by"))
+        projected.signedBy = field->value.find("-----BEGIN PGP") == std::string::npos ? Join(Words(field->value, draft.format == Format::OneLine)) : field->value;
+    *fields = projected;
+    return true;
+}
+
+bool ApplyDraftFields(const SourceDraft &original, const SourceDraft &fields, SourceDraft *updated,
+                      std::vector<DraftDiagnostic> *diagnostics) {
+    if (updated == NULL) return false;
+    SourceDraft previous;
+    if (!ProjectDraftFields(original, &previous) || !FieldInput(fields, previous)) {
+        if (diagnostics != NULL) Diagnose(diagnostics, "unsupported_conversion", "rawContents", "Edit this definition as source text to preserve its values");
+        return false;
+    }
+    if (!original.raw) {
+        *updated = fields; updated->raw = false; updated->format = original.format;
+        updated->exactPath = !fields.distribution.empty() && fields.distribution.back() == '/';
+        return true;
+    }
+    // Types are not an editable Add Source control. Imported pairs remain pairs.
+    if (fields.includeSourcePackages != previous.includeSourcePackages) return false;
+    const Document document(ParseDraftDocument(original.format, original.rawContents));
+    std::map<std::string, std::string> changed;
+    if (fields.uri != previous.uri) changed["uris"] = fields.uri;
+    if (fields.distribution != previous.distribution) changed["suites"] = fields.distribution;
+    if (fields.components != previous.components) changed["components"] = Join(fields.components);
+    const auto oldArchitecture(ArchitectureFields(previous)), newArchitecture(ArchitectureFields(fields));
+    for (const auto &entry : newArchitecture)
+        if (oldArchitecture.at(entry.first) != entry.second) changed[entry.first] = entry.second;
+    if (fields.signedBy != previous.signedBy) {
+        if (!SigningValues(fields.signedBy)) return false;
+        changed["signed-by"] = Join(Words(fields.signedBy, true));
+    }
+    std::vector<DraftEdit> edits;
+    const std::string newline(DraftNewline(document.bytes));
+    for (const Definition &definition : document.definitions) {
+        if (document.format == Format::Deb822) {
+            std::string appended;
+            std::map<std::string, std::string> stanzaChanges(changed);
+            if (fields.enabled != previous.enabled) stanzaChanges["enabled"] = fields.enabled ? "yes" : "no";
+            for (const auto &entry : stanzaChanges) {
+                const Field *field(DraftField(definition, document.format, entry.first));
+                if (field != NULL) {
+                    const std::string originalField(document.bytes.substr(field->span.begin, field->span.end - field->span.begin));
+                    // Keep comment lines even when replacing a folded value.
+                    const std::string comments(FieldComments(originalField));
+                    if (entry.second.empty() && entry.first != "uris" && entry.first != "suites")
+                        edits.push_back({field->span, comments});
+                    else {
+                        std::string replacement(document.bytes.substr(field->span.begin, field->firstLineValue.begin - field->span.begin));
+                        replacement += entry.second;
+                        if (!originalField.empty() && originalField.back() == '\n') replacement += newline;
+                        replacement += comments;
+                        edits.push_back({field->span, replacement});
+                    }
+                } else if (!entry.second.empty()) appended += Deb822Name(entry.first) + ": " + entry.second + newline;
+            }
+            if (!appended.empty()) {
+                if (definition.span.end != 0 && document.bytes[definition.span.end - 1] != '\n') appended.insert(0, newline);
+                edits.push_back({Span(definition.span.end, definition.span.end), appended});
+            }
+        } else {
+            const auto uri(changed.find("uris")), suite(changed.find("suites")), components(changed.find("components"));
+            if (uri != changed.end()) edits.push_back({definition.uriSpan, ClassicToken(fields.uri)});
+            if (suite != changed.end()) edits.push_back({definition.suiteSpan, ClassicToken(fields.distribution)});
+            if (components != changed.end()) {
+                std::string replacement;
+                for (const std::string &component : fields.components) { if (!replacement.empty()) replacement += ' '; replacement += ClassicToken(component); }
+                if (!replacement.empty() && definition.componentsSpan.begin == definition.suiteSpan.end) replacement.insert(0, " ");
+                if (!replacement.empty() && definition.componentsSpan.end < document.bytes.size() && document.bytes[definition.componentsSpan.end] == '#') replacement += ' ';
+                edits.push_back({definition.componentsSpan, replacement});
+            }
+            std::string appended;
+            for (const auto &entry : changed) {
+                if (entry.first == "uris" || entry.first == "suites" || entry.first == "components") continue;
+                std::string value(Join(Words(entry.second), ","));
+                const std::string option(value.empty() ? "" : ClassicOptionName(entry.first) + "=" + ClassicToken(value));
+                const Field *field(DraftField(definition, document.format, entry.first));
+                if (field != NULL) edits.push_back({field->tokenSpan, option});
+                else if (!option.empty()) { if (!appended.empty()) appended += ' '; appended += option; }
+            }
+            if (!appended.empty()) {
+                if (definition.optionsSpan.end > definition.optionsSpan.begin) {
+                    const std::size_t insertion(definition.optionsSpan.end - 1);
+                    if (insertion > definition.optionsSpan.begin + 1 && !Space(document.bytes[insertion - 1])) appended.insert(0, " ");
+                    edits.push_back({Span(insertion, insertion), appended});
+                } else edits.push_back({Span(definition.uriSpan.begin, definition.uriSpan.begin), "[" + appended + "] "});
+            }
+            if (fields.enabled != previous.enabled) {
+                if (fields.enabled) {
+                    const std::size_t begin(definition.commentOffset);
+                    edits.push_back({Span(begin, begin + (begin + 1 < document.bytes.size() && document.bytes[begin + 1] == ' ' ? 2 : 1)), ""});
+                } else {
+                    std::size_t begin(definition.span.begin);
+                    while (begin < definition.span.end && Space(document.bytes[begin])) ++begin;
+                    edits.push_back({Span(begin, begin), "# "});
+                }
+            }
+        }
+    }
+    std::string bytes(document.bytes);
+    if (!PatchDraft(&bytes, edits)) return false;
+    *updated = ImportSourceDraft(bytes, original.format);
+    return true;
+}
+
+bool ConvertDraftFormat(const SourceDraft &draft, Format format, SourceDraft *converted,
+                        std::vector<DraftDiagnostic> *diagnostics) {
+    if (converted == NULL) return false;
+    if (draft.format == format || !draft.raw) { *converted = draft; converted->format = format; return true; }
+    const DraftResult validation(BuildSourceDraft(draft, ""));
+    const Document &document(validation.document);
+    bool supported(validation.valid() && !document.definitions.empty());
+    std::string output;
+    if (supported) {
+        const Definition &definition(document.definitions[0]);
+        supported = definition.uris.size() == 1 && definition.suites.size() == 1;
+        std::vector<std::string> options;
+        std::set<std::string> names;
+        for (const Field &field : definition.fields) {
+            if (Structural(OptionName(field, document.format), document.format)) continue;
+            std::string name, value;
+            if (!MappedOption(field, document.format, &name, &value) || !names.insert(Lower(name)).second) { supported = false; break; }
+            options.push_back(format == Format::Deb822 ? name + ": " + value + "\n" : name + "=" + ClassicToken(value));
+        }
+        if (supported) {
+            // Keep all comments. Inline classic comments become separate Deb822
+            // comments because Deb822 does not have an inline-comment syntax.
+            if (document.format == Format::Deb822) output = FieldComments(document.bytes);
+            else {
+                std::size_t begin(0);
+                for (const Definition &entry : document.definitions) {
+                    output += document.bytes.substr(begin, entry.span.begin - begin);
+                    const std::size_t comment(document.bytes.find('#', std::max(entry.suiteSpan.end, entry.componentsSpan.end)));
+                    if (comment < entry.span.end) output += document.bytes.substr(comment, entry.span.end - comment);
+                    begin = entry.span.end;
+                }
+                output += document.bytes.substr(begin);
+            }
+            if (!output.empty() && output.back() != '\n') output += '\n';
+            std::vector<std::string> types(definition.types);
+            if (document.definitions.size() == 2) types.push_back(document.definitions[1].types[0]);
+            if (format == Format::Deb822) {
+                output += "Types: " + Join(types) + "\nURIs: " + definition.uris[0] + "\nSuites: " + definition.suites[0] + "\n";
+                if (!definition.components.empty()) output += "Components: " + Join(definition.components) + "\n";
+                for (const std::string &option : options) output += option;
+                if (!definition.enabled) output += "Enabled: no\n";
+            } else {
+                std::string body;
+                if (!options.empty()) body += "[" + Join(options) + "] ";
+                body += ClassicToken(definition.uris[0]) + " " + ClassicToken(definition.suites[0]);
+                for (const std::string &component : definition.components) body += " " + ClassicToken(component);
+                for (const std::string &type : types) output += std::string(definition.enabled ? "" : "# ") + type + " " + body + "\n";
+            }
+            const SourceDraft candidate(ImportSourceDraft(output, format));
+            const DraftResult check(BuildSourceDraft(candidate, ""));
+            if (check.valid() && !check.document.definitions.empty()) {
+                const Definition &after(check.document.definitions[0]);
+                std::vector<std::string> afterTypes(after.types);
+                if (check.document.definitions.size() == 2) afterTypes.push_back(check.document.definitions[1].types[0]);
+                if (after.uris == definition.uris && after.suites == definition.suites &&
+                    after.components == definition.components && after.enabled == definition.enabled &&
+                    Sorted(afterTypes) == Sorted(types) && SourceOptions(after, format) == SourceOptions(definition, document.format)) {
+                    *converted = candidate; return true;
+                }
+            }
+        }
+    }
+    if (diagnostics != NULL) Diagnose(diagnostics, "unsupported_conversion", "rawContents", "This definition has values that cannot be preserved in the other source format");
+    return false;
+}
+
 std::string SuggestedSourceFilename(const SourceDraft &draft, const std::vector<std::string> &existingBasenames) {
     const DraftResult result(BuildSourceDraft(draft, ""));
     std::string identity(draft.uri);
@@ -359,12 +675,7 @@ std::string SuggestedSourceFilename(const SourceDraft &draft, const std::vector<
         while (!label.empty() && label.back() == '-') label.pop_back();
         if (label.empty()) label = "source";
     }
-    // FNV-1a is a stable filename discriminator, never a security fingerprint.
-    std::uint64_t digest(UINT64_C(14695981039346656037));
-    const std::string bytes(Serialize(draft));
-    for (unsigned char c : bytes) { digest ^= c; digest *= UINT64_C(1099511628211); }
-    std::ostringstream hash; hash << std::hex << std::setw(16) << std::setfill('0') << digest;
-    const std::string stem("cydia-" + label + "-" + hash.str());
+    const std::string stem("cydia-" + label);
     const std::string extension(draft.format == Format::Deb822 ? ".sources" : ".list");
     std::set<std::string> existing(existingBasenames.begin(), existingBasenames.end());
     std::string candidate(stem + extension);

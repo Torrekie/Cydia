@@ -121,3 +121,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Matching Signing Keys";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "These keys match the fetched repository signature. Their location alone does not prove who owns the repository. Check the full fingerprint with its maintainer. Selecting a key prepares a review; it does not approve trust or install a package.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "This source does not provide packages for the architectures enabled in APT. Check the suite and architecture settings, or save it disabled.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Use ./ for indexes at the source URL, or enter the suite or path supplied by its maintainer.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Leave empty when the suite ends in /. Otherwise, enter components separated by spaces, such as main.";
+"SOURCE_ADD_TEXT_FORMAT" = "APT Text Format";
+"SOURCE_ADD_ONE_LINE" = "One-line (.list)";
+"SOURCE_ADD_DEB822" = "Deb822 format (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Text edits update the fields above. Options without a form control are preserved.";
+"SOURCE_ADD_TEXT_INVALID" = "Finish or correct the APT text to use the form fields and review this source.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "This definition cannot be represented by individual form fields. Continue editing its APT text; your existing options are preserved.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "This definition cannot be converted to the other format without losing information. Keep editing it in its current format.";
+"SOURCE_ADD_FILENAME" = "New File Name";

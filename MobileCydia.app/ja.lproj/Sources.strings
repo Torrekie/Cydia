@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "一致する署名鍵";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "これらの鍵は、取得したソースの署名と一致します。鍵の公開場所だけでは、ソースの所有者は確認できません。管理者に完全なフィンガープリントを確認してください。鍵を選択しても確認画面の準備が行われるだけで、信頼の承認やパッケージのインストールは行われません。";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "このソースには、APT で有効になっているアーキテクチャ向けのパッケージがありません。スイートとアーキテクチャの設定を確認するか、無効な状態で保存してください。";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "ソース URL にある索引には ./ を使用するか、管理者が指定したスイートまたはパスを入力してください。";
+"SOURCE_ADD_COMPONENTS_HELP" = "スイートが / で終わる場合は空欄にしてください。それ以外の場合は、main などのコンポーネントをスペースで区切って入力してください。";
+"SOURCE_ADD_TEXT_FORMAT" = "APT テキスト形式";
+"SOURCE_ADD_ONE_LINE" = "1 行形式 (.list)";
+"SOURCE_ADD_DEB822" = "Deb822 形式 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "テキストを編集すると上の項目が更新されます。フォームに対応する操作項目がないオプションも保持されます。";
+"SOURCE_ADD_TEXT_INVALID" = "フォームの項目を使用してこのソースを確認するには、APT テキストを完成させるか修正してください。";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "この定義はフォームの個別の項目では表せません。APT テキストで編集を続けてください。既存のオプションは保持されます。";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "この定義は情報を失わずにもう一方の形式へ変換することができません。現在の形式で編集を続けてください。";
+"SOURCE_ADD_FILENAME" = "新しいファイル名";

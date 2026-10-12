@@ -9,6 +9,7 @@
 #include "Cydia/KeyringImport.hpp"
 #include "Cydia/PrivilegedClient.h"
 #include <atomic>
+#include <cerrno>
 #include <memory>
 #include <sys/stat.h>
 
@@ -44,6 +45,16 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
     if (diagnostic.code == "conflicting_options") return CydiaSourceText(@"SOURCE_ADD_CONFLICT");
     return CydiaSourceText(@"SOURCE_DEFINITION_INVALID");
 }
+static BOOL ValidNewFilename(NSString *filename, Src::Format format) {
+    if (filename.length == 0 || [filename hasPrefix:@"."] ||
+        ![filename hasSuffix:format == Src::Format::Deb822 ? @".sources" : @".list"]) return NO;
+    const std::string bytes(SourceBytes(filename));
+    if (bytes.empty() || bytes.size() > 255) return NO;
+    for (const unsigned char character : bytes)
+        if (!((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+              (character >= '0' && character <= '9') || character == '_' || character == '-' || character == '.')) return NO;
+    return YES;
+}
 
 @implementation CydiaSourceAddSession {
     Database *database_;
@@ -60,6 +71,8 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
     std::string snapshot_;
     CydiaAPT::RepositorySecurityMode policy_;
     std::shared_ptr<std::atomic<bool>> cancelled_;
+    std::vector<std::string> occupiedBasenames_;
+    BOOL filenameEdited_, filenamesLoaded_;
     BOOL busy_, reviewed_, ready_, warning_, disabled_;
 }
 - (instancetype)initWithDatabase:(Database *)database draft:(const Src::SourceDraft &)draft
@@ -68,6 +81,7 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
         database_ = database; draft_ = draft; existing_ = row; access_ = access;
         _destinationPath = row.filePath; fingerprints_ = @[];
         cancelled_ = std::make_shared<std::atomic<bool>>(false);
+        [self refreshSuggestedFilename];
     }
     return self;
 }
@@ -82,6 +96,7 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
 - (BOOL)disabled { return disabled_; }
 - (NSString *)message { return message_; }
 - (NSString *)reviewedDefinition { return definition_ ?: @""; }
+- (NSString *)reviewedDestinationPath { return reviewed_ ? SourceString(commit_.expected.document.path) : nil; }
 - (NSArray<NSString *> *)fingerprints { return fingerprints_; }
 - (NSString *)keyProvenance { return provenance_; }
 - (BOOL)hasSelectedKey { return !key_.bytes.empty(); }
@@ -93,6 +108,34 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
 - (void)setDestinationPath:(NSString *)path {
     if ([_destinationPath isEqual:path]) return;
     _destinationPath = [path copy]; [self invalidateReview];
+}
+- (void)setSourceFilename:(NSString *)filename {
+    filenameEdited_ = YES;
+    if ([_sourceFilename isEqual:filename]) return;
+    _sourceFilename = [filename copy]; [self invalidateReview];
+}
+- (void)refreshSuggestedFilename {
+    if (existing_ != nil || filenameEdited_) return;
+    if (!filenamesLoaded_) {
+        filenamesLoaded_ = YES;
+        const auto locations(CydiaEffectiveSourceLocations());
+        // Include ignored files and directory/symlink entries too: a suggested
+        // name is not permission to replace any existing filesystem object.
+        if (!locations.partsDirectory.empty() && locations.partsDirectory != "/dev/null")
+            for (NSString *filename in [[NSFileManager defaultManager]
+                contentsOfDirectoryAtPath:SourceString(locations.partsDirectory) error:nil])
+                occupiedBasenames_.push_back(SourceBytes(filename));
+    }
+    NSString *suggested(SourceString(Src::SuggestedSourceFilename(draft_, occupiedBasenames_)));
+    if ([_sourceFilename isEqual:suggested]) return;
+    _sourceFilename = suggested; [self invalidateReview];
+}
+- (void)draftFormatDidChangeFrom:(Src::Format)previous {
+    if (filenameEdited_ && ValidNewFilename(_sourceFilename, previous)) {
+        _sourceFilename = [[_sourceFilename stringByDeletingPathExtension]
+            stringByAppendingPathExtension:draft_.format == Src::Format::Deb822 ? @"sources" : @"list"];
+        [self invalidateReview];
+    } else [self refreshSuggestedFilename];
 }
 - (void)selectKey:(NSData *)bytes provenance:(NSString *)provenance package:(NSString *)package path:(NSString *)path {
     [self invalidateReview]; key_ = Keys::Input();
@@ -107,6 +150,7 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
     cancelled_ = std::make_shared<std::atomic<bool>>(false);
     const auto cancellation(cancelled_); const auto originalDraft(draft_); const auto originalKey(key_);
     NSString *destination([_destinationPath copy]);
+    NSString *filename([_sourceFilename copy]);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
             Src::SourceDraft draft(originalDraft); Keys::Input key(originalKey);
@@ -123,19 +167,25 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
                     if (!CydiaCanEditSources(access_)) message = CydiaSourceText(@"SOURCE_PROTECTION_REVIEW_REQUIRED");
                     if (message == nil && disabled && !DisableDraft(&draft)) message = CydiaSourceText(@"SOURCE_DEFINITION_INVALID");
                     const auto store(CydiaReadSourceDocuments()); const auto locations(CydiaEffectiveSourceLocations());
-                    std::vector<Src::Document> documents; std::vector<std::string> names;
+                    std::vector<Src::Document> documents;
                     for (const auto &file : store.documents) {
                         documents.push_back(file.document);
-                        names.push_back(file.document.path.substr(file.document.path.find_last_of('/') + 1));
                     }
                     std::string path(SourceBytes(destination));
-                    if (message == nil && path.empty()) {
+                    const BOOL newFile(path.empty());
+                    if (message == nil && newFile) {
                         if (locations.partsDirectory.empty() || locations.partsDirectory == "/dev/null")
                             message = CydiaSourceText(@"SOURCE_ADD_DESTINATION_REQUIRED");
+                        else if (!ValidNewFilename(filename, draft.format))
+                            message = CydiaSourceText(@"SOURCE_FILENAME_INVALID");
                         else {
                             std::string directory(locations.partsDirectory);
                             while (!directory.empty() && directory.back() == '/') directory.pop_back();
-                            path = directory + '/' + Src::SuggestedSourceFilename(draft, names);
+                            path = directory + '/' + SourceBytes(filename);
+                            struct stat occupied;
+                            if (lstat(path.c_str(), &occupied) == 0)
+                                message = CydiaSourceText(@"SOURCE_FILE_EXISTS");
+                            else if (errno != ENOENT) message = CydiaSourceText(@"SOURCE_RELOAD_REQUIRED");
                         }
                     }
                     auto built(Src::BuildSourceDraft(draft, path, documents,
@@ -145,7 +195,10 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
                     if (message == nil) {
                         commit.access = access_; commit.expectedPolicy = CydiaReadSourceProtection().bytes;
                         commit.expected = Src::NewDocument(path, draft.format);
-                        for (const auto &file : store.documents) if (file.document.path == path) commit.expected = file;
+                        if (!newFile) {
+                            for (const auto &file : store.documents) if (file.document.path == path) commit.expected = file;
+                            if (!commit.expected.identity.exists) message = CydiaSourceText(@"SOURCE_RELOAD_REQUIRED");
+                        }
                         if (existing_) commit.expected = [existing_ snapshot];
                         commit.mutation = Src::Mutation(existing_ ? Src::EditKind::ReplaceDefinition : Src::EditKind::AppendDefinition);
                         commit.mutation.ordinal = existing_ ? existing_.ordinal : 0;
@@ -204,7 +257,6 @@ static NSString *DraftMessage(const Src::DraftDiagnostic &diagnostic) {
                 reviewed_ = message == nil; ready_ = reviewed_ && checked.allowed;
                 warning_ = ready_ && !disabled && !checked.authenticated && mode == CydiaAPT::RepositorySecurityMode::Warning;
                 definition_ = SourceString(commit.mutation.contents);
-                if (!commit.expected.document.path.empty()) _destinationPath = SourceString(commit.expected.document.path);
                 NSMutableArray *fingerprints([NSMutableArray array]);
                 for (const auto &fingerprint : keyReview.fingerprints) [fingerprints addObject:SourceString(fingerprint)];
                 fingerprints_ = fingerprints;

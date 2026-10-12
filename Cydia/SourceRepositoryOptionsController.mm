@@ -61,7 +61,7 @@
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
     if (section == 0) return CydiaSourceText(@"SOURCE_ADD_OPTIONS_UNVERIFIED");
     NSDictionary *option([self selectedOption]);
-    if ([option[@"flat"] boolValue]) return CydiaSourceText(@"SOURCE_ADD_FLAT_NO_COMPONENTS");
+    if ([option[@"flat"] boolValue]) return CydiaSourceText(@"SOURCE_ADD_COMPONENTS_HELP");
     return CydiaSourceText([option[@"components"] count] == 0 ? @"SOURCE_ADD_COMPONENTS_NOT_PUBLISHED" : @"SOURCE_ADD_COMPONENT_SELECTION");
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -69,7 +69,7 @@
     CydiaStyleSourceFormCell(cell, self.traitCollection); BOOL selected(NO);
     if (path.section == 0) {
         NSDictionary *option(options_[path.row]); NSString *suite(option[@"suite"]);
-        cell.textLabel.text = [option[@"flat"] boolValue] ? CydiaSourceText(@"SOURCE_ADD_FLAT") : suite;
+        cell.textLabel.text = suite;
         NSArray *architectures(option[@"architectures"]);
         cell.detailTextLabel.text = architectures.count ? [NSString stringWithFormat:CydiaSourceText(@"SOURCE_ADD_ADVERTISED_ARCHITECTURES"),
             [architectures componentsJoinedByString:@", "]] : CydiaSourceText(@"SOURCE_ADD_ARCHITECTURES_NOT_PUBLISHED");
@@ -86,6 +86,7 @@
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     [table deselectRowAtIndexPath:path animated:YES];
+    BOOL hadOption([self selectedOption] != nil);
     if (path.section == 0) {
         NSDictionary *option(options_[path.row]); NSString *suite(option[@"suite"]);
         if (![suite_ isEqual:suite]) {
@@ -96,7 +97,14 @@
         NSString *component([self selectedOption][@"components"][path.row]);
         if ([components_ containsObject:component]) [components_ removeObject:component]; else [components_ addObject:component];
     }
-    [self updateSelection];
+    NSDictionary *option([self selectedOption]);
+    self.navigationItem.rightBarButtonItem.enabled = option != nil && ([option[@"flat"] boolValue] || components_.count != 0);
+    [table beginUpdates];
+    if (!hadOption && option != nil) [table insertSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationAutomatic];
+    else if (hadOption && option == nil) [table deleteSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationAutomatic];
+    else if (hadOption) [table reloadSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationAutomatic];
+    [table endUpdates];
+    [table reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationNone];
 }
 - (void)save {
     NSDictionary *option([self selectedOption]);

@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Pasujące klucze podpisujące";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Te klucze pasują do pobranego podpisu źródła. Samo miejsce ich udostępnienia nie dowodzi, kto jest właścicielem źródła. Potwierdź pełny odcisk u opiekuna. Wybranie klucza przygotowuje go do sprawdzenia; nie zatwierdza zaufania ani nie instaluje pakietu.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "To źródło nie udostępnia pakietów dla architektur włączonych w APT. Sprawdź ustawienia wydania i architektur lub zapisz je jako wyłączone.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Użyj ./ dla indeksów pod adresem URL źródła lub wpisz wydanie albo ścieżkę podaną przez opiekuna.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Pozostaw puste, jeśli wydanie kończy się znakiem /. W przeciwnym razie wpisz komponenty oddzielone spacjami, na przykład main.";
+"SOURCE_ADD_TEXT_FORMAT" = "Format tekstu APT";
+"SOURCE_ADD_ONE_LINE" = "Jeden wiersz (.list)";
+"SOURCE_ADD_DEB822" = "Format Deb822 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Zmiany w tekście aktualizują powyższe pola. Opcje bez odpowiadającej im kontrolki formularza zostaną zachowane.";
+"SOURCE_ADD_TEXT_INVALID" = "Uzupełnij lub popraw tekst APT, aby używać pól formularza i sprawdzić to źródło.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Tej definicji nie można przedstawić za pomocą pojedynczych pól formularza. Kontynuuj edycję jej tekstu APT; istniejące opcje zostaną zachowane.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Tej definicji nie można przekonwertować na drugi format bez utraty informacji. Kontynuuj jej edycję w bieżącym formacie.";
+"SOURCE_ADD_FILENAME" = "Nazwa nowego pliku";

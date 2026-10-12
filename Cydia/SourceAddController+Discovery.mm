@@ -82,7 +82,11 @@ NSString *Provenance(const CydiaAPT::SourceSigningKeyCandidate &candidate) {
 
 - (void)findOptions {
     if (self.cancelled || self.finding || self.session.busy) return;
-    const auto draft([self.session draft]); const std::string uri(RepositoryURI(draft));
+    CydiaSources::SourceDraft draft;
+    if (![self formFields:&draft]) return;
+    const std::string uri(draft.uri);
+    NSURL *URL([NSURL URLWithString:Text(uri)]);
+    if (![@[@"http", @"https"] containsObject:URL.scheme.lowercaseString] || URL.host.length == 0) return;
     if (uri.empty()) { [self showMessage:CydiaSourceText(@"SOURCE_ADD_DISCOVERY_SINGLE_URI")]; return; }
     NSProgress *progress([NSProgress progressWithTotalUnitCount:1]);
     self.discoveryProgress = progress; self.finding = YES; [self refreshForm];
@@ -117,12 +121,12 @@ NSString *Provenance(const CydiaAPT::SourceSigningKeyCandidate &candidate) {
                     initWithOptions:options selectedSuite:Text(draft.distribution) selectedComponents:[NSSet setWithArray:Strings(draft.components)]
                     saved:^(NSString *suite, NSSet<NSString *> *components) {
                         CydiaSourceAddController *owner(weakSelf); if (owner == nil || owner.cancelled) return;
-                        auto &selected([owner.session draft]);
-                        if (selected.raw) return; // Raw definitions need an explicit lossless conversion first.
+                        CydiaSources::SourceDraft selected;
+                        if (![owner formFields:&selected]) return;
                         selected.distribution = Bytes(suite); selected.exactPath = [suite hasSuffix:@"/"]; selected.components.clear();
                         for (NSString *component in [[components allObjects] sortedArrayUsingSelector:@selector(compare:)])
                             selected.components.push_back(Bytes(component));
-                        [owner changed];
+                        [owner applyFields:selected];
                     }]);
                 chooser.delegate = self.delegate;
                 [self.navigationController pushViewController:chooser animated:YES];

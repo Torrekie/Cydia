@@ -46,6 +46,23 @@ struct DraftResult {
 
 SourceDraft ImportSourceDraft(const std::string &bytes, Format format);
 
+/* Serializes even an incomplete in-progress form. This is not validation. */
+std::string SerializeSourceDraft(const SourceDraft &draft);
+/* Reads unambiguous fields without surrendering ownership of the original raw
+ * bytes. Comments, unknown options and folded fields do not prevent projection.
+ * Multiple URIs/suites or unrelated definitions remain raw-only. */
+bool ProjectDraftFields(const SourceDraft &draft, SourceDraft *fields);
+/* Patch only changed supported fields in the supplied raw baseline. Unknown
+ * fields, unchanged values, comments and paired entry types survive. Incomplete
+ * field values are allowed while editing; BuildSourceDraft gates every save.
+ * Use the same baseline across an inline edit that temporarily empties tokens. */
+bool ApplyDraftFields(const SourceDraft &original, const SourceDraft &fields,
+                      SourceDraft *updated, std::vector<DraftDiagnostic> *diagnostics = NULL);
+/* Convert documented options and comments, refusing representations that would
+ * discard information (e.g. embedded keys or unknown field mappings). */
+bool ConvertDraftFormat(const SourceDraft &draft, Format format, SourceDraft *converted,
+                        std::vector<DraftDiagnostic> *diagnostics = NULL);
+
 /* Reparse every supplied document; never trust caller-supplied spans or DTOs.
  * ignorePath/ignoreOrdinal exclude only an explicitly edited definition.
  * Disabled duplicates are reported without blocking; conflicting enabled

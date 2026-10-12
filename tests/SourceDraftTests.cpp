@@ -96,6 +96,95 @@ void LosslessImports() {
                                               "deb-src https://packages.example/ ./\n", Format::OneLine));
     Expect(!BuildSourceDraft(mismatch, "new.list").valid(), "binary/source pair cannot conceal differing trust configuration");
 }
+void SynchronizedEditing() {
+    const std::string bytes("# maintainer note\r\ndeb [custom=keep arch=iphoneos-arm64 lang=en] https://packages.example/ stable main # inline note\r\n");
+    const SourceDraft raw(ImportSourceDraft(bytes, Format::OneLine));
+    SourceDraft fields, updated;
+    Expect(ProjectDraftFields(raw, &fields) && fields.uri == "https://packages.example/" && fields.components == std::vector<std::string>({"main"}),
+           "raw source projects editable fields without discarding custom options or comments");
+    Expect(ApplyDraftFields(raw, fields, &updated) && updated.raw && updated.rawContents == bytes,
+           "unchanged structured projection leaves imported bytes exact");
+    fields.components = {"main", "extra"};
+    Expect(ApplyDraftFields(raw, fields, &updated) && updated.rawContents ==
+           "# maintainer note\r\ndeb [custom=keep arch=iphoneos-arm64 lang=en] https://packages.example/ stable main extra # inline note\r\n",
+           "inline component edits patch only the original component tokens");
+    fields.architectureMode = ArchitectureMode::Modify; fields.architectures.clear(); fields.architecturesAdd = {"iphoneos-arm64e"};
+    fields.signedBy = "/keys/vendor.gpg";
+    Expect(ApplyDraftFields(raw, fields, &updated) && BuildSourceDraft(updated, "new.list").valid() &&
+           updated.rawContents.find("custom=keep") != std::string::npos && updated.rawContents.find("lang=en") != std::string::npos &&
+           updated.rawContents.find("arch+=iphoneos-arm64e") != std::string::npos && updated.rawContents.find("signed-by=/keys/vendor.gpg") != std::string::npos,
+           "changing architecture and signing fields retains unrelated one-line options");
+    const SourceDraft simple(ImportSourceDraft("deb https://packages.example/ ./\n", Format::OneLine));
+    Expect(ProjectDraftFields(simple, &fields), "flat source projects suite ./ and empty components");
+    fields.distribution = "stable";
+    Expect(ApplyDraftFields(simple, fields, &updated) && !BuildSourceDraft(updated, "new.list").valid(),
+           "temporary suite without components can be edited but cannot be committed");
+    SourceDraft incomplete;
+    Expect(ProjectDraftFields(updated, &incomplete) && incomplete.distribution == "stable" && incomplete.components.empty(),
+           "draft projection retains a temporary incomplete suite while strict validation rejects it");
+    fields.components = {"main"}; fields.uri = "https://new.example/"; fields.signedBy = "/keys/new.gpg";
+    Expect(ApplyDraftFields(simple, fields, &updated) && BuildSourceDraft(updated, "new.list").valid() &&
+           updated.rawContents == "deb [signed-by=/keys/new.gpg] https://new.example/ stable main\n",
+           "simultaneous URI replacement, option insertion and components insertions retain correct token spans");
+    fields.uri.clear();
+    Expect(ApplyDraftFields(simple, fields, &updated) && !BuildSourceDraft(updated, "new.list").valid(),
+           "temporarily empty URI does not lose the editing baseline or pass strict validation");
+    const std::string stanza("# source note\nTypes: deb\nURIs: https://packages.example/\nSuites: stable\nComponents: main\n"
+                             "# retained between folded values\n extra\nX-Maintainer: one\n two\nSigned-By:\n"
+                             " -----BEGIN PGP PUBLIC KEY BLOCK-----\n .\n key-data\n -----END PGP PUBLIC KEY BLOCK-----\n");
+    const SourceDraft deb822(ImportSourceDraft(stanza, Format::Deb822));
+    Expect(ProjectDraftFields(deb822, &fields), "folded Deb822 fields and embedded keys do not prevent unrelated inline edits");
+    fields.components = {"main", "new"};
+    Expect(ApplyDraftFields(deb822, fields, &updated) && BuildSourceDraft(updated, "new.sources").valid() &&
+           updated.rawContents.find("Components: main new\n# retained between folded values\n") != std::string::npos &&
+           updated.rawContents.find("X-Maintainer: one\n two\nSigned-By:\n -----BEGIN PGP") != std::string::npos,
+           "folded field replacement retains its comments and leaves unknown fields and embedded keys unchanged");
+    const SourceDraft pair(ImportSourceDraft("# note\ndeb [custom=keep] https://packages.example/ stable main\n"
+                                            "deb-src [custom=keep] https://packages.example/ stable main # sources\n", Format::OneLine));
+    Expect(ProjectDraftFields(pair, &fields), "paired import projects fields");
+    fields.distribution = "testing"; fields.enabled = false;
+    Expect(ApplyDraftFields(pair, fields, &updated) && BuildSourceDraft(updated, "new.list").valid() &&
+           updated.rawContents.find("# deb [custom=keep] https://packages.example/ testing main") != std::string::npos &&
+           updated.rawContents.find("# deb-src [custom=keep] https://packages.example/ testing main # sources") != std::string::npos,
+           "paired raw entries retain source types and update together without an extra UI source option");
+    const SourceDraft multiple(ImportSourceDraft("Types: deb\nURIs: https://one.example/ https://two.example/\nSuites: stable\nComponents: main\n", Format::Deb822));
+    Expect(!ProjectDraftFields(multiple, &fields), "ambiguous multiple URI values remain authoritative raw text");
+}
+void SourceFormatConversions() {
+    const SourceDraft raw(ImportSourceDraft("# maintainer note\n# deb [arch=iphoneos-arm64 lang+=en target=Packages,DEP-11 target+=Sources target-=Translations trusted=no signed-by=/keys/vendor.gpg] https://packages.example/ stable main # inline note\n", Format::OneLine));
+    SourceDraft deb822, classic;
+    Expect(ConvertDraftFormat(raw, Format::Deb822, &deb822) && deb822.raw &&
+           deb822.rawContents.find("# maintainer note\n# inline note\n") != std::string::npos &&
+           deb822.rawContents.find("Enabled: no\n") != std::string::npos &&
+           deb822.rawContents.find("Languages-Add: en\n") != std::string::npos &&
+           deb822.rawContents.find("Targets: Packages DEP-11\n") != std::string::npos &&
+           deb822.rawContents.find("Targets-Add: Sources\n") != std::string::npos &&
+           deb822.rawContents.find("Targets-Remove: Translations\n") != std::string::npos,
+           "format conversion retains comments, disabled state and documented multivalue modifiers");
+    Expect(ConvertDraftFormat(deb822, Format::OneLine, &classic) && classic.rawContents.find("# deb [") != std::string::npos &&
+           classic.rawContents.find("target=Packages,DEP-11") != std::string::npos &&
+           classic.rawContents.find("target+=Sources") != std::string::npos &&
+           classic.rawContents.find("target-=Translations") != std::string::npos && classic.rawContents.find("trusted=no") != std::string::npos,
+           "Deb822 converts back without changing explicit trust or targets");
+    const SourceDraft pair(ImportSourceDraft("deb https://packages.example/ ./ # binary\ndeb-src https://packages.example/ ./ # source\n", Format::OneLine));
+    Expect(ConvertDraftFormat(pair, Format::Deb822, &deb822) && deb822.rawContents.find("Types: deb deb-src\n") != std::string::npos &&
+           deb822.rawContents.find("# binary\n# source\n") != std::string::npos && ConvertDraftFormat(deb822, Format::OneLine, &classic) &&
+           BuildSourceDraft(classic, "new.list").document.definitions.size() == 2,
+           "binary/source pairs convert through one owning Deb822 stanza without losing entry types or notes");
+    const SourceDraft opaque(ImportSourceDraft("Types: deb\nURIs: https://packages.example/\nSuites: ./\nX-Maintainer: keep\n", Format::Deb822));
+    Expect(!ConvertDraftFormat(opaque, Format::OneLine, &classic), "unknown field mapping refuses conversion instead of dropping data");
+    const SourceDraft inlineKey(ImportSourceDraft("Types: deb\nURIs: https://packages.example/\nSuites: ./\nSigned-By:\n"
+                                                 " -----BEGIN PGP PUBLIC KEY BLOCK-----\n .\n key\n -----END PGP PUBLIC KEY BLOCK-----\n", Format::Deb822));
+    Expect(!ConvertDraftFormat(inlineKey, Format::OneLine, &classic), "embedded keys cannot be silently reduced to one-line fields");
+    const SourceDraft invalid(ImportSourceDraft("deb https://packages.example/ stable\n", Format::OneLine));
+    Expect(!ConvertDraftFormat(invalid, Format::Deb822, &deb822), "invalid raw text must be repaired before format conversion");
+    SourceDraft empty;
+    Expect(ConvertDraftFormat(empty, Format::Deb822, &deb822) && SerializeSourceDraft(deb822).find("Suites: ./\n") != std::string::npos,
+           "incomplete native form can switch source format while remaining uncommittable");
+    const SourceDraft escaped(ImportSourceDraft("deb https://packages.example/a%2520b ./\n", Format::OneLine));
+    Expect(ConvertDraftFormat(escaped, Format::Deb822, &deb822) && ConvertDraftFormat(deb822, Format::OneLine, &classic) &&
+           classic.rawContents == escaped.rawContents, "URL percent escapes survive both source formats");
+}
 void ExistingSources() {
     SourceDraft draft; draft.uri = "https://packages.example"; draft.exactPath = false;
     draft.distribution = "stable"; draft.components = {"main"};
@@ -127,6 +216,8 @@ void FilenameCollisions() {
     SourceDraft draft; draft.uri = "https://user:secret@packages.example/path?token=hidden";
     const std::string first(SuggestedSourceFilename(draft, {}));
     const std::string second(SuggestedSourceFilename(draft, {first}));
+    Expect(first == "cydia-packages-example.list" && second == "cydia-packages-example-2.list",
+           "source filenames use readable host names and numeric collision suffixes without hashes");
     Expect(first != second && first.find('/') == std::string::npos && first.find("secret") == std::string::npos &&
            first.find("hidden") == std::string::npos && first.find("packages-example") != std::string::npos,
            "suggestion avoids collisions and never leaks URL credentials or query data");
@@ -138,7 +229,7 @@ void FilenameCollisions() {
 } // namespace
 
 int main() {
-    StructuredSources(); InputBoundaries(); LosslessImports(); ExistingSources(); FilenameCollisions();
+    StructuredSources(); InputBoundaries(); LosslessImports(); SynchronizedEditing(); SourceFormatConversions(); ExistingSources(); FilenameCollisions();
     std::cout << "Source draft tests passed" << std::endl;
     return 0;
 }

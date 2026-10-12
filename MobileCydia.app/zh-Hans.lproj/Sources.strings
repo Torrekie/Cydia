@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "匹配的签名密钥";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "这些密钥与获取到的软件源签名匹配，但存放位置本身并不能证明软件源归谁所有。请向维护者核对完整指纹。选择密钥仅用于准备检查，不会批准信任或安装软件包。";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "此软件源未提供适用于 APT 已启用架构的软件包。请检查分发目录和架构设置，或将其保存为禁用状态。";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "若索引位于软件源网址下，请使用 ./；也可输入维护者提供的分发目录或路径。";
+"SOURCE_ADD_COMPONENTS_HELP" = "分发目录以 / 结尾时，请留空。否则，请输入以空格分隔的组件，例如 main。";
+"SOURCE_ADD_TEXT_FORMAT" = "APT 文本格式";
+"SOURCE_ADD_ONE_LINE" = "单行格式 (.list)";
+"SOURCE_ADD_DEB822" = "Deb822 格式 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "编辑文本会更新上方字段。表单中没有对应控件的选项也会保留。";
+"SOURCE_ADD_TEXT_INVALID" = "请补全或修正 APT 文本，以使用表单字段并检查此软件源。";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "此配置无法用表单中的独立字段表示。请继续编辑其 APT 文本；现有选项将予以保留。";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "此配置无法在不丢失信息的情况下转换为另一种格式。请继续使用当前格式编辑。";
+"SOURCE_ADD_FILENAME" = "新文件名";

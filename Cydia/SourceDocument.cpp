@@ -151,7 +151,7 @@ std::size_t ClassicEnd(const std::string &bytes, std::size_t begin, std::size_t 
     }
     return end;
 }
-bool ParseClassic(Document *document, const Line &line) {
+bool ParseClassic(Document *document, const Line &line, bool draft = false) {
     std::size_t offset(line.span.begin);
     while (offset < line.contentEnd && Space(document->bytes[offset])) ++offset;
     Definition definition;
@@ -180,22 +180,34 @@ bool ParseClassic(Document *document, const Line &line) {
                 close = quote;
             }
         if (close == end) return false;
+        definition.optionsSpan = Span(begin, close + 1);
         TokenResult result;
         std::string option;
-        while ((result = NextToken(document->bytes, close, &offset, &option)) == TokenResult::Value) {
+        while (true) {
+            while (offset < close && Space(document->bytes[offset])) ++offset;
+            const std::size_t optionBegin(offset);
+            result = NextToken(document->bytes, close, &offset, &option);
+            if (result != TokenResult::Value) break;
             const std::size_t equals(option.find('='));
             if (equals == std::string::npos || equals == 0 || equals + 1 == option.size()) return false;
             Field field; field.name = option.substr(0, equals); field.value = option.substr(equals + 1);
             field.span = Span(begin, close + 1); field.firstLineValue = field.span;
+            field.tokenSpan = Span(optionBegin, offset);
             definition.fields.push_back(field);
         }
         if (result == TokenResult::Invalid) return false;
         offset = close + 1;
         if (offset < end && !Space(document->bytes[offset])) return false;
     }
+    while (offset < end && Space(document->bytes[offset])) ++offset;
+    definition.uriSpan.begin = offset;
     if (NextToken(document->bytes, end, &offset, &token) != TokenResult::Value) return false;
+    definition.uriSpan.end = offset;
     definition.uris.push_back(token);
+    while (offset < end && Space(document->bytes[offset])) ++offset;
+    definition.suiteSpan.begin = offset;
     if (NextToken(document->bytes, end, &offset, &token) != TokenResult::Value) return false;
+    definition.suiteSpan.end = offset;
     definition.suites.push_back(token);
     std::size_t componentsBegin(offset);
     while (componentsBegin < end && Space(document->bytes[componentsBegin])) ++componentsBegin;
@@ -205,7 +217,7 @@ bool ParseClassic(Document *document, const Line &line) {
     TokenResult result;
     while ((result = NextToken(document->bytes, end, &offset, &token)) == TokenResult::Value) definition.components.push_back(token);
     if (result == TokenResult::Invalid) return false;
-    if (!ValidShape(definition)) return false;
+    if (!draft && !ValidShape(definition)) return false;
     definition.path = document->path; definition.ordinal = document->definitions.size();
     definition.span = line.span;
     definition.original = document->bytes.substr(line.span.begin, line.span.end - line.span.begin);
@@ -213,7 +225,7 @@ bool ParseClassic(Document *document, const Line &line) {
     document->definitions.push_back(definition);
     return true;
 }
-bool ParseStanza(Document *document, const std::vector<Line> &lines, std::size_t begin, std::size_t end) {
+bool ParseStanza(Document *document, const std::vector<Line> &lines, std::size_t begin, std::size_t end, bool draft = false) {
     Definition definition;
     for (std::size_t index(begin); index < end; ++index) {
         const Line &line(lines[index]);
@@ -246,7 +258,7 @@ bool ParseStanza(Document *document, const std::vector<Line> &lines, std::size_t
     if ((field = FindField(definition, "suites"))) definition.suites = Words(field->value);
     if ((field = FindField(definition, "components"))) definition.components = Words(field->value);
     if ((field = FindField(definition, "enabled")) && !Boolean(field->value, &definition.enabled)) return false;
-    if (!ValidShape(definition, true)) return false;
+    if (!draft && !ValidShape(definition, true)) return false;
     definition.path = document->path; definition.ordinal = document->definitions.size();
     definition.span = Span(lines[begin].span.begin, lines[end - 1].span.end);
     definition.original = document->bytes.substr(definition.span.begin, definition.span.end - definition.span.begin);
@@ -299,7 +311,7 @@ EditResult Failure(EditStatus status, const Document &document, const char *deta
 
 Definition::Definition() : ordinal(0), enabled(true), commentOffset(std::string::npos) {}
 
-Document ParseDocument(const std::string &path, Format format, const std::string &bytes) {
+static Document ParseDocumentImpl(const std::string &path, Format format, const std::string &bytes, bool draft) {
     Document document; document.path = path; document.format = format; document.bytes = bytes;
     if (bytes.find('\0') != std::string::npos) {
         document.diagnostics.push_back("Source document contains a NUL byte"); return document;
@@ -307,7 +319,7 @@ Document ParseDocument(const std::string &path, Format format, const std::string
     const std::vector<Line> lines(Lines(bytes));
     if (format == Format::OneLine) {
         for (std::size_t index(0); index < lines.size(); ++index)
-            if (!ParseClassic(&document, lines[index])) {
+            if (!ParseClassic(&document, lines[index], draft)) {
                 const std::string content(Trim(bytes.substr(lines[index].span.begin,
                     lines[index].contentEnd - lines[index].span.begin)));
                 // A commented example need not be an enableable definition.
@@ -320,12 +332,20 @@ Document ParseDocument(const std::string &path, Format format, const std::string
         for (std::size_t index(0); index <= lines.size(); ++index) {
             if (index != lines.size() && !Trim(bytes.substr(lines[index].span.begin,
                 lines[index].contentEnd - lines[index].span.begin)).empty()) continue;
-            if (begin < index && !ParseStanza(&document, lines, begin, index))
+            if (begin < index && !ParseStanza(&document, lines, begin, index, draft))
                 document.diagnostics.push_back("Invalid source stanza at line " + std::to_string(begin + 1));
             begin = index + 1;
         }
     }
     return document;
+}
+
+Document ParseDocument(const std::string &path, Format format, const std::string &bytes) {
+    return ParseDocumentImpl(path, format, bytes, false);
+}
+
+Document ParseDraftDocument(Format format, const std::string &bytes) {
+    return ParseDocumentImpl("", format, bytes, true);
 }
 
 bool IsSingleSourceAddition(const Document &requested) {

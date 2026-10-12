@@ -21,6 +21,7 @@ struct Field {
     std::string value;            // Folded value, never used to reconstruct bytes.
     Span span;
     Span firstLineValue;
+    Span tokenSpan;             // One-line option token only, excluding surrounding whitespace.
 };
 
 struct Definition {
@@ -35,6 +36,9 @@ struct Definition {
     std::vector<std::string> components;
     std::vector<Field> fields;    // Includes unknown Deb822 fields/list options.
     std::size_t commentOffset;   // Disabled classic line's '#', or std::string::npos.
+    Span uriSpan;               // One-line URI token.
+    Span suiteSpan;             // One-line suite token.
+    Span optionsSpan;           // One-line brackets; empty when no options exist.
     Span componentsSpan;        // Classic component tokens, excluding adjacent whitespace/comment.
     std::string semanticKey;     // Ignores Enabled and X-Cydia-* annotations only.
 
@@ -53,6 +57,9 @@ struct Document {
 /* Pure parser: no file reads, environment assumptions, URI HEAD probes, or
  * cached preference reconstruction. The caller supplies the actual APT file. */
 Document ParseDocument(const std::string &path, Format format, const std::string &bytes);
+/* Editing-only projection: retains tokenized entries while URI/suite/component
+ * relationships are incomplete. Never use this result to validate or commit. */
+Document ParseDraftDocument(Format format, const std::string &bytes);
 /* One source is one owning stanza/line, or a classic deb/deb-src pair with
  * otherwise identical configuration. Used for additions and single-source
  * replacements. Reparse bytes rather than trusting a caller's DTO. */

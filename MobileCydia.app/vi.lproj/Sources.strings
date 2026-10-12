@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Khóa ký phù hợp";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Những khóa này khớp với chữ ký nguồn đã lấy về. Chỉ riêng nơi lưu khóa không chứng minh được ai sở hữu nguồn. Hãy đối chiếu dấu vân tay đầy đủ với người duy trì. Chọn khóa chỉ chuẩn bị bước xem lại; thao tác này không phê duyệt độ tin cậy hoặc cài đặt gói.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Nguồn này không cung cấp gói cho các kiến trúc được bật trong APT. Hãy kiểm tra cài đặt bộ phân phối và kiến trúc hoặc lưu nguồn ở trạng thái tắt.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Dùng ./ cho các chỉ mục tại URL của nguồn, hoặc nhập bộ phân phối hay đường dẫn do người duy trì cung cấp.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Để trống nếu bộ phân phối kết thúc bằng /. Nếu không, hãy nhập các thành phần cách nhau bằng dấu cách, chẳng hạn như main.";
+"SOURCE_ADD_TEXT_FORMAT" = "Định dạng văn bản APT";
+"SOURCE_ADD_ONE_LINE" = "Một dòng (.list)";
+"SOURCE_ADD_DEB822" = "Định dạng Deb822 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Các chỉnh sửa văn bản sẽ cập nhật những trường phía trên. Các tùy chọn không có điều khiển tương ứng trong biểu mẫu vẫn được giữ nguyên.";
+"SOURCE_ADD_TEXT_INVALID" = "Hoàn thành hoặc sửa văn bản APT để dùng các trường trong biểu mẫu và kiểm tra nguồn này.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Không thể biểu diễn định nghĩa này bằng các trường riêng lẻ trong biểu mẫu. Hãy tiếp tục sửa văn bản APT của định nghĩa; các tùy chọn hiện có của bạn vẫn được giữ nguyên.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Không thể chuyển định nghĩa này sang định dạng còn lại mà không làm mất thông tin. Hãy tiếp tục sửa ở định dạng hiện tại.";
+"SOURCE_ADD_FILENAME" = "Tên tệp mới";

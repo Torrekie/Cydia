@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Chaves de assinatura correspondentes";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Estas chaves correspondem à assinatura obtida da fonte. Sua localização, por si só, não comprova quem é o proprietário da fonte. Confirme a impressão digital completa com o mantenedor. Selecionar uma chave prepara uma revisão; não aprova a confiança nem instala um pacote.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Esta fonte não fornece pacotes para as arquiteturas ativadas no APT. Confira os ajustes de distribuição e arquiteturas ou salve-a desativada.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Use ./ para índices no URL da fonte ou digite a distribuição ou o caminho fornecido pelo mantenedor.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Deixe vazio quando a distribuição terminar em /. Caso contrário, digite componentes separados por espaços, como main.";
+"SOURCE_ADD_TEXT_FORMAT" = "Formato de texto APT";
+"SOURCE_ADD_ONE_LINE" = "Linha única (.list)";
+"SOURCE_ADD_DEB822" = "Formato Deb822 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "As alterações no texto atualizam os campos acima. As opções sem um controle no formulário são preservadas.";
+"SOURCE_ADD_TEXT_INVALID" = "Complete ou corrija o texto APT para usar os campos do formulário e revisar esta fonte.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Esta definição não pode ser representada por campos individuais do formulário. Continue editando seu texto APT; suas opções existentes são preservadas.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Esta definição não pode ser convertida para o outro formato sem perder informações. Continue editando no formato atual.";
+"SOURCE_ADD_FILENAME" = "Nome do novo arquivo";

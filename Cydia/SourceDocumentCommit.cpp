@@ -218,7 +218,14 @@ CommitResult WriteAtomic(int parent, const std::string &leaf, const RawFile &exp
     if (!ReadRaw(parent, leaf, owner, &current, sharedState)) return fail(CommitStatus::UnsafePath);
     if (current.present != before.present || current.bytes != before.bytes ||
         (current.present && !SameStat(current.st, before.st))) return fail(CommitStatus::StaleSnapshot);
-    if (renameat(parent, temporary.c_str(), parent, leaf.c_str()) != 0) return fail(CommitStatus::IOFailure);
+    if (!before.present) {
+        // Publishing a new name must not replace a file created after the
+        // final absence check. linkat creates the destination atomically and
+        // refuses every occupied leaf, including a dangling symlink.
+        if (linkat(parent, temporary.c_str(), parent, leaf.c_str(), 0) != 0)
+            return fail(errno == EEXIST ? CommitStatus::StaleSnapshot : CommitStatus::IOFailure);
+        if (unlinkat(parent, temporary.c_str(), 0) != 0) return fail(CommitStatus::IOFailure);
+    } else if (renameat(parent, temporary.c_str(), parent, leaf.c_str()) != 0) return fail(CommitStatus::IOFailure);
     if (fsync(parent) != 0 && errno != EINVAL) return Result(CommitStatus::IOFailure, errno);
     return Result(CommitStatus::Completed);
 }

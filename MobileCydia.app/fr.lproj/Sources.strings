@@ -120,3 +120,15 @@
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Ces clés correspondent à la signature téléchargée de la source. Leur emplacement seul ne prouve pas à qui appartient la source. Vérifiez l’empreinte complète auprès de son responsable. Sélectionner une clé prépare un examen ; cela n’approuve pas la confiance et n’installe aucun paquet.";
 "SOURCE_ADD_FIND_OPTIONS" = "Rechercher les options de la source";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Cette source ne fournit pas de paquets pour les architectures activées dans APT. Vérifiez les réglages de la suite et des architectures ou enregistrez-la désactivée.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Utilisez ./ pour les index situés à l’URL de la source, ou saisissez la suite ou le chemin fourni par son responsable.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Laissez ce champ vide si la suite se termine par /. Sinon, saisissez des composants séparés par des espaces, comme main.";
+"SOURCE_ADD_TEXT_FORMAT" = "Format du texte APT";
+"SOURCE_ADD_ONE_LINE" = "Une ligne (.list)";
+"SOURCE_ADD_DEB822" = "Format Deb822 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Les modifications du texte mettent à jour les champs ci-dessus. Les options sans commande correspondante dans le formulaire sont conservées.";
+"SOURCE_ADD_TEXT_INVALID" = "Complétez ou corrigez le texte APT pour utiliser les champs du formulaire et vérifier cette source.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Cette définition ne peut pas être représentée par des champs individuels. Continuez à modifier son texte APT ; vos options existantes sont conservées.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Cette définition ne peut pas être convertie dans l’autre format sans perdre d’informations. Continuez à la modifier dans son format actuel.";
+"SOURCE_ADD_FILENAME" = "Nom du nouveau fichier";

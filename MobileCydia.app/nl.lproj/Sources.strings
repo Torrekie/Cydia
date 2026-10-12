@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Passende ondertekeningssleutels";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Deze sleutels passen bij de opgehaalde bronhandtekening. Hun locatie alleen bewijst niet wie de eigenaar van de pakketbron is. Controleer de volledige vingerafdruk bij de beheerder. Een sleutel selecteren bereidt een controle voor; het keurt geen vertrouwen goed en installeert geen pakket.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Deze pakketbron biedt geen pakketten voor de architecturen die in APT zijn ingeschakeld. Controleer de suite- en architectuurinstellingen of sla de bron uitgeschakeld op.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Gebruik ./ voor indexen op de bron-URL, of voer de suite of het pad in dat de beheerder heeft opgegeven.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Laat dit leeg als de suite eindigt op /. Voer anders componenten in, gescheiden door spaties, zoals main.";
+"SOURCE_ADD_TEXT_FORMAT" = "APT-tekstformaat";
+"SOURCE_ADD_ONE_LINE" = "Eén regel (.list)";
+"SOURCE_ADD_DEB822" = "Deb822-formaat (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Tekstwijzigingen werken de bovenstaande velden bij. Opties zonder eigen bedieningselement in het formulier blijven behouden.";
+"SOURCE_ADD_TEXT_INVALID" = "Voltooi of corrigeer de APT-tekst om de formuliervelden te gebruiken en deze bron te controleren.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Deze definitie kan niet met afzonderlijke formuliervelden worden weergegeven. Bewerk de APT-tekst verder; je bestaande opties blijven behouden.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Deze definitie kan niet zonder informatieverlies naar het andere formaat worden omgezet. Bewerk de definitie verder in het huidige formaat.";
+"SOURCE_ADD_FILENAME" = "Nieuwe bestandsnaam";

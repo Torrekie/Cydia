@@ -21,6 +21,84 @@ void CydiaStyleSourceFormCell(UITableViewCell *cell, UITraitCollection *traits) 
     cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:traits];
 }
 
+@implementation CydiaSourceFieldCell
+- (instancetype)initWithTitle:(NSString *)title value:(NSString *)value placeholder:(NSString *)placeholder
+                         URL:(BOOL)URL traits:(UITraitCollection *)traits {
+    if ((self = [super initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil]) != nil) {
+        CydiaStyleSourceFormCell(self, traits); self.selectionStyle = UITableViewCellSelectionStyleNone;
+        UILabel *label([[UILabel alloc] init]); label.text = title; label.numberOfLines = 0;
+        label.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; label.adjustsFontForContentSizeCategory = YES;
+        label.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:traits];
+        _field = [[UITextField alloc] init]; _field.text = value; _field.placeholder = placeholder;
+        _field.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; _field.adjustsFontForContentSizeCategory = YES;
+        _field.textColor = label.textColor; _field.borderStyle = UITextBorderStyleRoundedRect;
+        _field.autocapitalizationType = UITextAutocapitalizationTypeNone; _field.autocorrectionType = UITextAutocorrectionTypeNo;
+        _field.smartQuotesType = UITextSmartQuotesTypeNo; _field.smartDashesType = UITextSmartDashesTypeNo;
+        _field.keyboardType = URL ? UIKeyboardTypeURL : UIKeyboardTypeASCIICapable;
+        _field.clearButtonMode = UITextFieldViewModeWhileEditing; _field.returnKeyType = UIReturnKeyDone;
+        _field.accessibilityLabel = title;
+        UIStackView *stack([[UIStackView alloc] initWithArrangedSubviews:@[label, _field]]);
+        stack.axis = UILayoutConstraintAxisVertical; stack.spacing = 8; stack.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.contentView addSubview:stack];
+        [NSLayoutConstraint activateConstraints:@[
+            [stack.leadingAnchor constraintEqualToAnchor:self.contentView.layoutMarginsGuide.leadingAnchor],
+            [stack.trailingAnchor constraintEqualToAnchor:self.contentView.layoutMarginsGuide.trailingAnchor],
+            [stack.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
+            [stack.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
+            [_field.heightAnchor constraintGreaterThanOrEqualToConstant:44]]];
+    }
+    return self;
+}
+@end
+
+@implementation CydiaSourceFormatCell
+- (instancetype)initWithTitle:(NSString *)title traits:(UITraitCollection *)traits {
+    if ((self = [super initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil]) != nil) {
+        CydiaStyleSourceFormCell(self, traits); self.selectionStyle = UITableViewCellSelectionStyleNone;
+        UILabel *label([[UILabel alloc] init]); label.text = title; label.numberOfLines = 0;
+        label.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; label.adjustsFontForContentSizeCategory = YES;
+        label.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:traits];
+        _control = [[UISegmentedControl alloc] initWithItems:@[@".list", @".sources"]]; _control.accessibilityLabel = title;
+        UIStackView *stack([[UIStackView alloc] initWithArrangedSubviews:@[label, _control]]);
+        stack.axis = UILayoutConstraintAxisVertical; stack.spacing = 8; stack.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.contentView addSubview:stack];
+        [NSLayoutConstraint activateConstraints:@[
+            [stack.leadingAnchor constraintEqualToAnchor:self.contentView.layoutMarginsGuide.leadingAnchor],
+            [stack.trailingAnchor constraintEqualToAnchor:self.contentView.layoutMarginsGuide.trailingAnchor],
+            [stack.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
+            [stack.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
+            [_control.heightAnchor constraintGreaterThanOrEqualToConstant:44]]];
+    }
+    return self;
+}
+@end
+
+@implementation CydiaSourceTextCell
+- (instancetype)initWithText:(NSString *)text title:(NSString *)title traits:(UITraitCollection *)traits {
+    if ((self = [super initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil]) != nil) {
+        CydiaStyleSourceFormCell(self, traits); self.selectionStyle = UITableViewCellSelectionStyleNone;
+        _editor = [[UITextView alloc] init]; _editor.text = text;
+        _editor.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; _editor.adjustsFontForContentSizeCategory = YES;
+        _editor.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:traits];
+        _editor.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:traits];
+        _editor.layer.cornerRadius = 8; _editor.layer.borderWidth = 1;
+        _editor.layer.borderColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator traitCollection:traits].CGColor;
+        _editor.textContainerInset = UIEdgeInsetsMake(12, 8, 12, 8);
+        _editor.autocapitalizationType = UITextAutocapitalizationTypeNone; _editor.autocorrectionType = UITextAutocorrectionTypeNo;
+        _editor.smartQuotesType = UITextSmartQuotesTypeNo; _editor.smartDashesType = UITextSmartDashesTypeNo;
+        _editor.keyboardType = UIKeyboardTypeASCIICapable; _editor.accessibilityLabel = title;
+        _editor.translatesAutoresizingMaskIntoConstraints = NO; [self.contentView addSubview:_editor];
+        [NSLayoutConstraint activateConstraints:@[
+            [_editor.leadingAnchor constraintEqualToAnchor:self.contentView.layoutMarginsGuide.leadingAnchor],
+            [_editor.trailingAnchor constraintEqualToAnchor:self.contentView.layoutMarginsGuide.trailingAnchor],
+            [_editor.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:8],
+            [_editor.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-8],
+            [_editor.heightAnchor constraintEqualToConstant:200]]];
+    }
+    return self;
+}
+@end
+
 @implementation CydiaSourceTextController {
     NSString *initial_, *explanation_;
     BOOL URL_, multiline_;
@@ -49,6 +127,7 @@ void CydiaStyleSourceFormCell(UITableViewCell *cell, UITraitCollection *traits) 
     text_.smartQuotesType = UITextSmartQuotesTypeNo; text_.smartDashesType = UITextSmartDashesTypeNo;
     text_.accessibilityLabel = self.title; text_.accessibilityIdentifier = @"cydia.source-draft.text";
     text_.textContainerInset = UIEdgeInsetsMake(12, 8, 12, 8);
+    text_.layer.cornerRadius = 8; text_.layer.borderWidth = 1;
     UIStackView *stack([[UIStackView alloc] initWithArrangedSubviews:@[help, text_]]);
     stack.axis = UILayoutConstraintAxisVertical; stack.spacing = 12; stack.translatesAutoresizingMaskIntoConstraints = NO;
     [root addSubview:stack];
@@ -83,6 +162,7 @@ void CydiaStyleSourceFormCell(UITableViewCell *cell, UITraitCollection *traits) 
     self.view.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection];
     text_.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
     text_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+    text_.layer.borderColor = [UIColor cydiaColorForRole:CydiaColorRoleSeparator traitCollection:self.traitCollection].CGColor;
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previous { [super traitCollectionDidChange:previous]; [self applyAppearance]; }
 - (void)save {

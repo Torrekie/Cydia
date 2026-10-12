@@ -119,3 +119,15 @@
 "SOURCE_ADD_MATCHING_KEYS" = "Matchande signeringsnycklar";
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Dessa nycklar matchar den hämtade signaturen från paketkällan. Var de finns bevisar inte i sig vem som äger paketkällan. Kontrollera det fullständiga fingeravtrycket med underhållaren. När du väljer en nyckel förbereds en granskning; ingen tillit godkänns och inget paket installeras.";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Den här källan tillhandahåller inga paket för arkitekturerna som är aktiverade i APT. Kontrollera inställningarna för svit och arkitekturer eller spara den som inaktiverad.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Använd ./ för index på källans URL, eller ange den svit eller sökväg som underhållaren angett.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Lämna tomt om sviten slutar med /. Ange annars komponenter åtskilda av mellanslag, till exempel main.";
+"SOURCE_ADD_TEXT_FORMAT" = "APT-textformat";
+"SOURCE_ADD_ONE_LINE" = "En rad (.list)";
+"SOURCE_ADD_DEB822" = "Deb822-format (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Textändringar uppdaterar fälten ovan. Alternativ som saknar ett reglage i formuläret bevaras.";
+"SOURCE_ADD_TEXT_INVALID" = "Slutför eller rätta APT-texten för att använda formulärfälten och granska den här källan.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Den här definitionen kan inte återges med enskilda formulärfält. Fortsätt redigera dess APT-text; dina befintliga alternativ bevaras.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Den här definitionen kan inte konverteras till det andra formatet utan informationsförlust. Fortsätt redigera den i det aktuella formatet.";
+"SOURCE_ADD_FILENAME" = "Nytt filnamn";

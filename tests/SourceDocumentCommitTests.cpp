@@ -2,6 +2,7 @@
 #include "Cydia/SourceDocumentCommit.hpp"
 #include <algorithm>
 #include <cstdlib>
+#include <dirent.h>
 #include <fstream>
 #include <iostream>
 #include <sys/stat.h>
@@ -84,6 +85,35 @@ void Commits() {
         "malformed role metadata fails closed");
     chmod(fixture.policy.c_str(), 0666);
     Expect(!ReadProtectionPolicy(fixture.policy, getuid()).valid, "untrusted writable policy rejected");
+}
+void NewFileDestinations() {
+    Fixture fixture;
+    const std::string path(fixture.parts + "/chosen.list");
+    fixture.write(fixture.policy, SerializeProtectionPolicy({}));
+    CommitRequest add; add.expected = NewDocument(path, Format::OneLine);
+    add.expectedPolicy = ReadProtectionPolicy(fixture.policy, getuid()).bytes;
+    add.mutation = Mutation(EditKind::AppendDefinition);
+    add.mutation.contents = "deb https://new.invalid/ ./\n";
+    Expect(CommitSourceRequest(fixture.locations(), fixture.policy, add, getuid()).succeeded(),
+        "a reviewed absent destination creates its selected source file");
+    struct stat first;
+    Expect(lstat(path.c_str(), &first) == 0 && first.st_nlink == 1 && (first.st_mode & 0777) == 0644,
+        "new source is readable by APT with one final filesystem link");
+    Expect(CommitSourceRequest(fixture.locations(), fixture.policy, add, getuid()).status == CommitStatus::StaleSnapshot,
+        "reviewed new-file destination never appends to an occupied file");
+    struct stat unchanged;
+    Expect(lstat(path.c_str(), &unchanged) == 0 && first.st_ino == unchanged.st_ino &&
+        ReadDocument(path, Format::OneLine).documents[0].document.bytes == add.mutation.contents,
+        "a collision preserves the existing source inode and bytes");
+    Expect(unlink(path.c_str()) == 0 && symlink("missing-target", path.c_str()) == 0,
+        "create occupied dangling-symlink destination");
+    Expect(!CommitSourceRequest(fixture.locations(), fixture.policy, add, getuid()).succeeded() &&
+        lstat(path.c_str(), &unchanged) == 0 && S_ISLNK(unchanged.st_mode),
+        "a dangling symlink cannot be replaced by a new source file");
+    DIR *directory(opendir(fixture.parts.c_str())); Expect(directory != nullptr, "inspect commit temporary files");
+    for (dirent *entry; (entry = readdir(directory)) != nullptr;)
+        Expect(std::string(entry->d_name).find(".cydia-source-") != 0, "commit leaves no temporary source files");
+    closedir(directory);
 }
 bool StopRoleRefresh(void *) { return false; }
 void ProtectionRefresh() {
@@ -233,4 +263,4 @@ void InterruptedRemovalAndAmbiguity() {
     }
 }
 }
-int main() { Codec(); Commits(); ProtectionRefresh(); AdvancedDefinitionActions(); PairedDefinitionProtection(); InterruptedRemovalAndAmbiguity(); std::cout << "[source-commit] PASS\n"; }
+int main() { Codec(); Commits(); NewFileDestinations(); ProtectionRefresh(); AdvancedDefinitionActions(); PairedDefinitionProtection(); InterruptedRemovalAndAmbiguity(); std::cout << "[source-commit] PASS\n"; }

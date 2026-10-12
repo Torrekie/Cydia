@@ -120,3 +120,15 @@
 "SOURCE_ADD_MATCHING_KEYS_NOTICE" = "Queste chiavi corrispondono alla firma scaricata della sorgente. La loro posizione, da sola, non dimostra a chi appartiene la sorgente. Verifica l’impronta completa con chi la mantiene. Selezionare una chiave prepara un controllo; non approva la fiducia né installa un pacchetto.";
 "SOURCE_ADD_FIND_OPTIONS" = "Cerca opzioni della sorgente";
 "SOURCE_ADD_NO_COMPATIBLE_PACKAGES" = "Questa sorgente non fornisce pacchetti per le architetture abilitate in APT. Controlla le impostazioni della suite e delle architetture oppure salvala disabilitata.";
+
+/* Inline source editing and synchronized APT text. */
+"SOURCE_ADD_SUITE_HELP" = "Usa ./ per gli indici all’URL della sorgente, oppure inserisci la suite o il percorso fornito da chi la mantiene.";
+"SOURCE_ADD_COMPONENTS_HELP" = "Lascia vuoto se la suite termina con /. Altrimenti, inserisci i componenti separati da spazi, come main.";
+"SOURCE_ADD_TEXT_FORMAT" = "Formato del testo APT";
+"SOURCE_ADD_ONE_LINE" = "Riga singola (.list)";
+"SOURCE_ADD_DEB822" = "Formato Deb822 (.sources)";
+"SOURCE_ADD_TEXT_SYNC" = "Le modifiche al testo aggiornano i campi sopra. Le opzioni senza un controllo nel modulo vengono conservate.";
+"SOURCE_ADD_TEXT_INVALID" = "Completa o correggi il testo APT per usare i campi del modulo e verificare questa sorgente.";
+"SOURCE_ADD_TEXT_FIELDS_UNAVAILABLE" = "Questa definizione non può essere rappresentata tramite singoli campi del modulo. Continua a modificarne il testo APT; le opzioni esistenti vengono conservate.";
+"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE" = "Questa definizione non può essere convertita nell’altro formato senza perdere informazioni. Continua a modificarla nel formato attuale.";
+"SOURCE_ADD_FILENAME" = "Nome del nuovo file";

@@ -3,9 +3,12 @@
 #import "Cydia/SourceAddSession.h"
 #import "Cydia/SourceFormControls.h"
 
-@interface CydiaSourceAddController () <UITableViewDataSource, UITableViewDelegate, UIDocumentPickerDelegate>
+@interface CydiaSourceAddController () <UITableViewDataSource, UITableViewDelegate, UIDocumentPickerDelegate, UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic, strong) CydiaSourceAddSession *session;
 @property(nonatomic, strong) UITableView *table;
+@property(nonatomic, copy) NSArray<NSArray<NSDictionary *> *> *displayedRows;
+@property(nonatomic, copy) NSString *editingKey;
+@property(nonatomic) BOOL displayedReview;
 @property(nonatomic, weak) CyteViewController *presenter;
 @property(nonatomic, copy) NSString *originalURL;
 @property(nonatomic) BOOL reviewPage, finding, cancelled;
@@ -15,10 +18,10 @@
 - (void)showMessage:(NSString *)message;
 - (void)refreshForm;
 - (void)changed;
+- (BOOL)formFields:(CydiaSources::SourceDraft *)fields;
+- (BOOL)applyFields:(const CydiaSources::SourceDraft &)fields;
 - (void)showAdvanced;
 - (void)check;
-- (void)pushText:(NSString *)title value:(NSString *)value help:(NSString *)help URL:(BOOL)URL
-      multiline:(BOOL)multiline saved:(void (^)(NSString *value))saved;
 @end
 @interface CydiaSourceAddController (Discovery)
 - (void)findOptions;
