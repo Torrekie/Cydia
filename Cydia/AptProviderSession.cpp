@@ -108,6 +108,7 @@ int CloseOtherDescriptors(posix_spawn_file_actions_t *actions, int channel) {
 #ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
     return posix_spawn_file_actions_addclose(actions, channel);
 #else
+    (void)channel; // The descriptor snapshot includes the channel on Linux.
     DIR *directory(opendir("/proc/self/fd"));
     if (directory == nullptr) return errno;
     const int enumeration(dirfd(directory));
