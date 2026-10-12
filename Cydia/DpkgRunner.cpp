@@ -8,8 +8,11 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 
 #include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -105,18 +108,32 @@ Result Runner::RunAndCapture(const std::vector<std::string> &arguments,
     return RunInternal(arguments, statusFd, NULL, NULL, output, maxBytes);
 }
 
+Result Runner::RunAndCaptureBounded(const std::vector<std::string> &arguments,
+    std::string *output, std::size_t maxBytes, unsigned timeoutMilliseconds,
+    const std::function<bool()> &cancelled) const {
+    if (output == NULL || timeoutMilliseconds == 0) return launchFailure(EINVAL);
+    output->clear();
+    return RunInternal(arguments, -1, NULL, NULL, output, maxBytes, timeoutMilliseconds, cancelled);
+}
+
 Result Runner::RunInternal(const std::vector<std::string> &arguments,
                            int statusFd,
                            const std::string *input,
                            const std::string *outputPath,
                            std::string *capturedOutput,
-                           std::size_t maxCapturedBytes) const {
+                           std::size_t maxCapturedBytes,
+                           unsigned timeoutMilliseconds,
+                           const std::function<bool()> &cancelled) const {
+    const bool bounded(timeoutMilliseconds != 0);
+    const auto deadline(std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMilliseconds));
     if (executable_.empty() || statusFd < -1 ||
+        (bounded && (capturedOutput == NULL || input != NULL || outputPath != NULL)) ||
         (outputPath != NULL && outputPath->empty()) ||
         (outputPath != NULL && capturedOutput != NULL) ||
         (input != NULL && statusFd == STDIN_FILENO) ||
         ((outputPath != NULL || capturedOutput != NULL) && statusFd == STDOUT_FILENO))
         return launchFailure(EINVAL);
+    if (bounded && cancelled && cancelled()) return launchFailure(ECANCELED);
 
     if (statusFd >= 0 && fcntl(statusFd, F_GETFD) == -1)
         return launchFailure(errno);
@@ -274,8 +291,19 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
         }
     }
 
+    posix_spawnattr_t attributes;
+    bool attributesReady(false);
+    int spawnError(0);
+    if (bounded) {
+        spawnError = posix_spawnattr_init(&attributes);
+        attributesReady = spawnError == 0;
+        if (spawnError == 0) spawnError = posix_spawnattr_setpgroup(&attributes, 0);
+        if (spawnError == 0) spawnError = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
+    }
     pid_t child;
-    int spawnError = posix_spawn(&child, executable_.c_str(), &actions, NULL, argv.data(), environ);
+    if (spawnError == 0) spawnError = posix_spawn(&child, executable_.c_str(), &actions,
+        bounded ? &attributes : NULL, argv.data(), environ);
+    if (attributesReady) (void) posix_spawnattr_destroy(&attributes);
     (void) posix_spawn_file_actions_destroy(&actions);
     if (inheritedStatusFd >= 0)
         (void) close(inheritedStatusFd);
@@ -289,6 +317,50 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
             (void) close(outputPipe[1]);
         }
         return launchFailure(spawnError);
+    }
+
+    if (bounded) {
+        close(outputPipe[1]);
+        int failure(0), status(0);
+        const int flags(fcntl(outputPipe[0], F_GETFL));
+        if (flags < 0 || fcntl(outputPipe[0], F_SETFL, flags | O_NONBLOCK) != 0) failure = errno;
+        bool eof(false), reaped(false);
+        char buffer[4096];
+        while (failure == 0 && !reaped) {
+            if (cancelled && cancelled()) { failure = ECANCELED; break; }
+            if (std::chrono::steady_clock::now() >= deadline) { failure = ETIMEDOUT; break; }
+            if (!eof) {
+                const ssize_t count(read(outputPipe[0], buffer, sizeof(buffer)));
+                if (count > 0) {
+                    const std::size_t amount(static_cast<std::size_t>(count));
+                    if (amount > maxCapturedBytes || capturedOutput->size() > maxCapturedBytes - amount) { failure = EFBIG; break; }
+                    capturedOutput->append(buffer, amount); continue;
+                }
+                if (count == 0) { eof = true; close(outputPipe[0]); outputPipe[0] = -1; }
+                else if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) { failure = errno; break; }
+            }
+            // Do not reap while descendants still retain stdout: reserving
+            // the direct child's PID prevents process-group identity reuse.
+            if (eof) {
+                const pid_t waited(waitpid(child, &status, WNOHANG));
+                if (waited == child) { reaped = true; break; }
+                if (waited < 0 && errno != EINTR) { failure = errno; break; }
+            }
+            struct pollfd descriptor = {outputPipe[0], POLLIN, 0};
+            const int polled(poll(eof ? NULL : &descriptor, eof ? 0 : 1, 25));
+            if (polled < 0 && errno != EINTR) { failure = errno; break; }
+        }
+        if (outputPipe[0] >= 0) close(outputPipe[0]);
+        if (!reaped) {
+            // Bounded helpers own no package transaction; terminate the
+            // private group so children cannot retain pipes or staging files.
+            (void) kill(-child, SIGKILL);
+            (void) kill(child, SIGKILL);
+            pid_t waited;
+            do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
+            if (waited < 0 && failure == 0) failure = errno;
+        }
+        return failure != 0 ? launchFailure(failure) : fromWaitStatus(status);
     }
 
     int inputError = 0;

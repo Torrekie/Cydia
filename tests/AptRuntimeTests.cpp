@@ -491,6 +491,7 @@ void VerifyVerifierConfiguration(CydiaRuntime::PackageDatabaseLayout layout, Ver
     const std::string commands(fixture == VerifierFixture::ConfiguredCommands ? "/configured-commands/" : bin);
     ExpectValue(configuration, "Apt::Key::gpgvcommand", commands + "gpgv", "apt-key verifier command");
     ExpectValue(configuration, "Apt::Key::gpgcommand", commands + "gpg", "apt-key key command");
+    Expect(CydiaAPT::GpgExecutablePath() == commands + "gpg", "native key discovery follows the effective apt-key command");
     Expect(std::getenv("PATH") != NULL && std::string(std::getenv("PATH")) ==
         (fixture == VerifierFixture::NativeSearchPath ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin"),
         "acquisition child PATH follows selected native or explicitly configured tool policy");

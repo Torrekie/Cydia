@@ -53,6 +53,10 @@ struct Document {
 /* Pure parser: no file reads, environment assumptions, URI HEAD probes, or
  * cached preference reconstruction. The caller supplies the actual APT file. */
 Document ParseDocument(const std::string &path, Format format, const std::string &bytes);
+/* One source is one owning stanza/line, or a classic deb/deb-src pair with
+ * otherwise identical configuration. Used for additions and single-source
+ * replacements. Reparse bytes rather than trusting a caller's DTO. */
+bool IsSingleSourceAddition(const Document &document);
 /* Folded Deb822 components require explicit definition editing instead of
  * silently dropping comments during legacy component actions. */
 bool SourceWithComponents(const Document &document, std::size_t ordinal,

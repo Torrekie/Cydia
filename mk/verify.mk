@@ -318,6 +318,27 @@ verify-repository-security: $(REPOSITORY_SECURITY_TEST)
 	@$<
 verify-source-documents: $(SOURCE_DOCUMENT_TEST)
 	@$<
+SOURCE_DRAFT_TEST := $(BUILD_DIR)/tests/SourceDraftTests
+$(SOURCE_DRAFT_TEST): tests/SourceDraftTests.cpp Cydia/SourceDraft.cpp Cydia/SourceDraft.hpp \
+        Cydia/SourceDocument.cpp Cydia/SourceDocument.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		tests/SourceDraftTests.cpp Cydia/SourceDraft.cpp Cydia/SourceDocument.cpp -o $@
+.PHONY: verify-source-drafts
+verify: verify-source-drafts
+verify-source-drafts: $(SOURCE_DRAFT_TEST)
+	@$<
+SOURCE_DISCOVERY_TEST := $(BUILD_DIR)/tests/SourceDiscoveryTests
+$(SOURCE_DISCOVERY_TEST): tests/SourceDiscoveryTests.cpp Cydia/SourceDiscovery.cpp \
+        Cydia/SourceDiscovery.hpp Cydia/SourcePreflight.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
+		$(if $(filter Linux,$(HOST_OS)),$(shell pkg-config --cflags libxml-2.0),-I$(mac)/usr/include/libxml2) \
+		tests/SourceDiscoveryTests.cpp Cydia/SourceDiscovery.cpp -lxml2 -o $@
+.PHONY: verify-source-discovery
+verify: verify-source-discovery
+verify-source-discovery: $(SOURCE_DISCOVERY_TEST)
+	@$<
 $(SOURCE_COMMIT_TEST): tests/SourceDocumentCommitTests.cpp Cydia/SourceDocumentCommit.cpp \
 		Cydia/SourceDocumentCommit.hpp Cydia/SourceDocument.cpp Cydia/SourceDocument.hpp \
 		Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentStore.hpp

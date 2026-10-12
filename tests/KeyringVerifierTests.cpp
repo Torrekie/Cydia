@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <utility>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -41,9 +42,35 @@ struct Fixture {
         return contents;
     }
 };
+void StatusRecords() {
+    using Keyring::RepositorySignatureStatus;
+    const std::string fingerprint(40, 'A'), subkey(40, 'B');
+    const std::string valid("[GNUPG:] NEWSIG\n[GNUPG:] GOODSIG " + fingerprint.substr(24) + " Display label\n"
+        "[GNUPG:] VALIDSIG " + subkey + " 2026-01-01 1767225600 0 4 0 22 10 00 " + fingerprint + "\n");
+    Keyring::RepositorySignatureReview review; Privileged::Error error;
+    Expect(Keyring::ReadRepositorySignatureStatus(valid, true, &review, &error) && review.primaryFingerprints[0] == fingerprint &&
+        review.signerFingerprints[0] == subkey, "preserve primary identity separately from signing subkey");
+    for (const auto &pair : {std::make_pair("EXPSIG", RepositorySignatureStatus::Expired),
+            std::make_pair("EXPKEYSIG", RepositorySignatureStatus::Expired), std::make_pair("REVKEYSIG", RepositorySignatureStatus::Revoked),
+            std::make_pair("BADSIG", RepositorySignatureStatus::BadSignature)}) {
+        Expect(!Keyring::ReadRepositorySignatureStatus(valid + "[GNUPG:] " + pair.first + " ABCDEF0123456789 Label\n", true, &review, &error) &&
+            review.status == pair.second, "cryptographic VALIDSIG never masks expired, revoked or invalid signature status");
+    }
+    const std::string missing("[GNUPG:] ERRSIG " + fingerprint.substr(24) + " 22 10 00 1767225600 9 " + fingerprint + "\n"
+        "[GNUPG:] NO_PUBKEY " + fingerprint.substr(24) + "\n");
+    Expect(!Keyring::ReadRepositorySignatureStatus(missing, false, &review, &error) && review.status == RepositorySignatureStatus::MissingKey &&
+        review.missingKeyIdentifiers == std::vector<std::string>{fingerprint}, "prefer full issuer fingerprint over duplicate long key ID hint");
+    Expect(!Keyring::ReadRepositorySignatureStatus("[GNUPG:] ERRSIG ABCDEF0123456789 99 10 00 1767225600 4 -\n", false, &review, &error) &&
+        review.status == RepositorySignatureStatus::UnsupportedAlgorithm, "unsupported verifier algorithm is distinct from unavailable keys");
+    Expect(!Keyring::ReadRepositorySignatureStatus("[GNUPG:] GOODSIG ABCDEF0123456789 Fake identity\n", true, &review, &error),
+        "GOODSIG without verified fingerprint is insufficient");
+    Expect(!Keyring::ReadRepositorySignatureStatus("[GNUPG:] VALIDSIG not-a-fingerprint\n", true, &review, &error), "malformed status fails closed");
+    Expect(!Keyring::ReadRepositorySignatureStatus(valid, false, &review, &error), "unexplained failed verifier cannot authorize a key");
+}
 }
 int main(int argc, char **argv) {
     if (argc != 2 || argv[1][0] != '/') { std::cerr << "usage: key-verifier-tests /absolute/path/to/gpg\n"; return 2; }
+    StatusRecords();
     Fixture fixture(argv[1]);
     Expect(fixture.run({"--pinentry-mode", "loopback", "--passphrase", "", "--quick-generate-key",
         "Cydia fixture <fixture@example.invalid>", "ed25519", "sign", "0"}), "generate an isolated signing fixture");
@@ -54,6 +81,15 @@ int main(int argc, char **argv) {
     Expect(fixture.run({"--export", expected[0]}, &binary), "export binary public key");
     Expect(fixture.run({"--armor", "--export", expected[0]}, &armored), "export armored public key");
     Expect(fixture.run({"--pinentry-mode", "loopback", "--passphrase", "", "--export-secret-keys", expected[0]}, &secret), "export secret fixture for rejection");
+    const std::string metadata("Origin: Cydia test fixture\nSuite: stable\nArchitectures: arm64 all\nComponents: main\n");
+    { std::ofstream file(fixture.home + "/Release", std::ios::binary); file << metadata; Expect(file.good(), "write metadata fixture"); }
+    Expect(fixture.run({"--pinentry-mode", "loopback", "--passphrase", "", "--detach-sign", "--output", fixture.home + "/Release.gpg", fixture.home + "/Release"}),
+        "sign detached repository metadata fixture");
+    Expect(fixture.run({"--pinentry-mode", "loopback", "--passphrase", "", "--clearsign", "--output", fixture.home + "/InRelease", fixture.home + "/Release"}),
+        "sign clearsigned repository metadata fixture");
+    std::ifstream signatureFile(fixture.home + "/Release.gpg", std::ios::binary), inReleaseFile(fixture.home + "/InRelease", std::ios::binary);
+    const std::string signature((std::istreambuf_iterator<char>(signatureFile)), std::istreambuf_iterator<char>());
+    const std::string inRelease((std::istreambuf_iterator<char>(inReleaseFile)), std::istreambuf_iterator<char>());
     // Colon listings contain GnuPG trust-calculation metadata. Compare the
     // actual databases after fixture setup and before any review instead.
     const std::vector<std::string> trustBefore(fixture.databaseContents());
@@ -71,6 +107,18 @@ int main(int argc, char **argv) {
     Expect(!Keyring::VerifyPublicKey(fixture.verifier, fixture.root, corrupted, &normalized, &fingerprints, &error),
         "real GnuPG rejects corrupted self-signature rather than trusting packet shape");
     Expect(!Keyring::VerifyPublicKey("/nonexistent/verifier", fixture.root, binary, &normalized, &fingerprints, &error), "missing verifier never silently trusts a key");
+    Keyring::RepositorySignatureReview repository;
+    Expect(Keyring::VerifyRepositorySignature(fixture.verifier, fixture.root, armored, metadata, signature, &repository, &error) &&
+        repository.primaryFingerprints == expected, "candidate key verifies detached metadata using real GnuPG");
+    Expect(Keyring::VerifyRepositorySignature(fixture.verifier, fixture.root, binary, inRelease, "", &repository, &error),
+        "candidate key verifies clearsigned InRelease");
+    Expect(!Keyring::VerifyRepositorySignature(fixture.verifier, fixture.root, binary, metadata + "Modified: yes\n", signature, &repository, &error) &&
+        repository.status == Keyring::RepositorySignatureStatus::BadSignature, "modified metadata is an integrity failure");
+    Expect(!Keyring::VerifyRepositorySignature(fixture.verifier, fixture.root, "", metadata, signature, &repository, &error) &&
+        repository.status == Keyring::RepositorySignatureStatus::MissingKey && !repository.missingKeyIdentifiers.empty(),
+        "empty isolated keyring reports lookup hints without consulting existing user keys");
+    Expect(!Keyring::VerifyRepositorySignature(fixture.verifier, fixture.root, secret, metadata, signature, &repository, &error) &&
+        error.code == "private_key_rejected", "repository verification also rejects secret material");
     Expect(fixture.databaseContents() == trustBefore,
         "import review never changes the original key database");
     Expect(fixture.run({"--fixed-list-mode", "--with-colons", "--with-fingerprint", "--list-keys"}, &listing) &&

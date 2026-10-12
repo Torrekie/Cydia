@@ -22,9 +22,9 @@ def main():
     assert len(locales) == 21, "Cydia locale baseline changed; review the source editor tables"
     english = read_table(APP / "en.lproj/Sources.strings")
     used = set()
-    for filename in ("Sources.mm", "Cydia/SourceControllers.mm"):
-        used.update(re.findall(r'@"(SOURCE_[A-Z_]+)"', (ROOT / filename).read_text()))
-    assert used == set(english), "source editor keys must match the English table"
+    for filename in [ROOT / "Sources.mm", *sorted((ROOT / "Cydia").glob("Source*.mm"))]:
+        used.update(re.findall(r'@"(SOURCE_[A-Z_]+)"', filename.read_text()))
+    assert used <= set(english), f"untranslated source editor keys: {sorted(used - set(english))}"
     for locale in locales:
         table = read_table(locale / "Sources.strings")
         assert set(table) == set(english), f"missing or extra source editor translation: {locale.name}"

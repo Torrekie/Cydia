@@ -146,7 +146,7 @@ jobs:
             BUILD_DIR="build/linux-${{ matrix.layout }}" \
             PACKAGE_LAYOUT="${{ matrix.layout }}" \
             verify-static verify-package-paths verify-dpkg-runner verify-exec-compat \
-            verify-apt-runtime verify-package-archive-policy verify-repository-security verify-source-documents \
+            verify-apt-runtime verify-package-archive-policy verify-repository-security verify-source-documents verify-source-drafts verify-source-discovery \
             verify-source-commits verify-settings-localization verify-repository-hygiene \
             verify-extended-state verify-privileged-runtime verify-privileged-client \
             verify-runtime-snapshot verify-repository-trust-proof verify-runtime-access \

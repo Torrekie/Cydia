@@ -13,6 +13,8 @@ TABLES = (
 # These words are correct in both English and the named language. Approve the
 # exact word, rather than exempting a key from future English-prose checks.
 SHARED_WORDS = {
+    ("fr", "Sources", "SOURCE_ADD_ARCHITECTURES"): "Architectures",
+    ("fr", "Sources", "SOURCE_ADD_SIGNATURE"): "Signature",
     ("fr", "Actions", "PACKAGE_ARCHITECTURE_NATIVE"): "Native · %@",
     ("de", "Recovery", "RECOVERY_DETAILS"): "Details",
     ("nl", "Recovery", "RECOVERY_DETAILS"): "Details",

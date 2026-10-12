@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/SourceDocumentCommit.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -162,6 +163,48 @@ void AdvancedDefinitionActions() {
         removedPolicy.selectors[0].semanticKey == visible.document.definitions[0].semanticKey,
         "removal preserves the other actual stanza and its protection");
 }
+void PairedDefinitionProtection() {
+    for (bool reversed : {false, true}) {
+        Fixture fixture;
+        const std::string path(fixture.parts + "/chosen.list");
+        const std::string unrelated("deb https://other.invalid/ ./\n");
+        fixture.write(path, unrelated + "deb https://bootstrap.invalid/ stable main\n");
+        const StoredDocument visible(ReadDocument(path, Format::OneLine).documents[0]);
+        const ProtectionSelector other(SelectorForDefinition("other", visible.document.definitions[0]));
+        fixture.write(fixture.policy, SerializeProtectionPolicy({
+            other, SelectorForDefinition("bootstrap", visible.document.definitions[1]),
+            SelectorForDefinition("system", visible.document.definitions[1])}));
+        CommitRequest edit; edit.access = Access::AdvancedSettings; edit.expected = visible;
+        edit.expectedPolicy = ReadProtectionPolicy(fixture.policy, getuid()).bytes;
+        edit.mutation = Mutation(EditKind::ReplaceDefinition); edit.mutation.ordinal = 1;
+        const std::string binary("deb [signed-by=/fixture/keyrings/chosen.gpg] https://updated.invalid/ stable main\n");
+        const std::string source("deb-src [signed-by=/fixture/keyrings/chosen.gpg] https://updated.invalid/ stable main\n");
+        edit.mutation.contents = reversed ? source + binary : binary + source;
+        Expect(CommitSourceRequestWithProtectionRefresh(fixture.locations(), fixture.policy, edit, getuid()).succeeded(),
+            "protected source can become a binary/source pair in either order");
+        const StoredDocument fresh(ReadDocument(path, Format::OneLine).documents[0]);
+        const auto policy(ReadProtectionPolicy(fixture.policy, getuid()));
+        Expect(fresh.document.bytes == unrelated + edit.mutation.contents && policy.valid && policy.selectors.size() == 5,
+            "pair replacement preserves exact bytes and expands every original role");
+        Expect(policy.selectors[0].setIdentifier == other.setIdentifier &&
+            policy.selectors[0].semanticKey == other.semanticKey && policy.selectors[0].uris == other.uris &&
+            policy.selectors[0].originPath == other.originPath,
+            "pair replacement leaves unrelated protection unchanged");
+        for (std::size_t ordinal(1); ordinal != 3; ++ordinal) {
+            const ProtectionResult protection(EvaluateProtection({fresh.document}, policy.selectors, path, ordinal));
+            Expect(protection.state == ProtectionState::Protected && protection.sets.size() == 2 &&
+                std::find(protection.sets.begin(), protection.sets.end(), "bootstrap") != protection.sets.end() &&
+                std::find(protection.sets.begin(), protection.sets.end(), "system") != protection.sets.end(),
+                "both pair members retain all protected role IDs");
+            CommitRequest ordinary; ordinary.expected = fresh; ordinary.expectedPolicy = policy.bytes;
+            ordinary.mutation.ordinal = ordinal;
+            Expect(CommitSourceRequest(fixture.locations(), fixture.policy, ordinary, getuid()).status == CommitStatus::ProtectedDefinition,
+                "ordinary removal cannot delete either protected pair member");
+        }
+        Expect(ReadDocument(path, Format::OneLine).documents[0].document.bytes == fresh.document.bytes,
+            "blocked ordinary pair removals do not modify the source file");
+    }
+}
 void InterruptedRemovalAndAmbiguity() {
     for (bool duplicate : {false, true}) {
         Fixture fixture;
@@ -190,4 +233,4 @@ void InterruptedRemovalAndAmbiguity() {
     }
 }
 }
-int main() { Codec(); Commits(); ProtectionRefresh(); AdvancedDefinitionActions(); InterruptedRemovalAndAmbiguity(); std::cout << "[source-commit] PASS\n"; }
+int main() { Codec(); Commits(); ProtectionRefresh(); AdvancedDefinitionActions(); PairedDefinitionProtection(); InterruptedRemovalAndAmbiguity(); std::cout << "[source-commit] PASS\n"; }

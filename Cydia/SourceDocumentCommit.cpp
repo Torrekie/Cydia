@@ -407,14 +407,28 @@ CommitResult CommitSourceRequestWithProtectionRefresh(const EffectiveLocations &
         return Result(CommitStatus::ProtectionReviewRequired);
     const Document intended(ParseDocument(previous.path, previousDocument.format, planned.edit.updated));
     const bool removing(request.mutation.kind == EditKind::RemoveDefinition);
-    if (!intended.valid() || (!removing && request.mutation.ordinal >= intended.definitions.size()))
+    std::size_t replacementCount(1);
+    if (request.mutation.kind == EditKind::ReplaceDefinition) {
+        const Document replacement(ParseDocument(previous.path, previousDocument.format, request.mutation.contents));
+        if (!IsSingleSourceAddition(replacement)) return Result(CommitStatus::InvalidRequest);
+        replacementCount = replacement.definitions.size();
+    }
+    if (!intended.valid() || (!removing && (request.mutation.ordinal >= intended.definitions.size() ||
+        replacementCount > intended.definitions.size() - request.mutation.ordinal)))
         return Result(CommitStatus::InvalidRequest);
-    std::vector<ProtectionSelector> updated(selectors);
-    if (removing) updated.erase(std::remove_if(updated.begin(), updated.end(), matches), updated.end());
-    else {
-        const Definition &replacement(intended.definitions[request.mutation.ordinal]);
-        for (auto &selector : updated) if (matches(selector)) {
-            selector.semanticKey = replacement.semanticKey; selector.uris = replacement.uris;
+    std::vector<ProtectionSelector> updated;
+    for (const auto &selector : selectors) {
+        if (!matches(selector)) updated.push_back(selector);
+        else if (!removing) {
+            // A classic deb/deb-src replacement is one source expressed as two
+            // records. Every resulting record inherits every reviewed role,
+            // regardless of whether the binary or source record comes first.
+            for (std::size_t index(0); index != replacementCount; ++index) {
+                const Definition &replacement(intended.definitions[request.mutation.ordinal + index]);
+                ProtectionSelector refreshed(selector);
+                refreshed.semanticKey = replacement.semanticKey; refreshed.uris = replacement.uris;
+                updated.push_back(refreshed);
+            }
         }
     }
     std::vector<Document> after(before);

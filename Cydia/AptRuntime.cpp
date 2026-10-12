@@ -740,6 +740,9 @@ const std::string &ManagedSourceListPath() {
 const std::string &DpkgExecutablePath() { return gDpkgExecutablePath; }
 const std::string &DpkgQueryExecutablePath() { return gDpkgQueryExecutablePath; }
 const std::string &DpkgDebExecutablePath() { return gDpkgDebExecutablePath; }
+std::string GpgExecutablePath() {
+    return _config->Find("Apt::Key::gpgcommand", _config->Find("Dir::Bin::gpg").c_str());
+}
 const std::string &AptConfigOverride() { return gAptConfigOverride; }
 const std::string &PrivilegedHelperPath() { return gPrivilegedHelperPath; }
 const std::string &DpkgAdminDirectory() { return gDpkgAdminDirectory; }

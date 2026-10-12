@@ -26,8 +26,8 @@
 - (void)restoreSourceIdentifier:(NSString *)identifier presenter:(CyteViewController *)presenter
     completion:(void (^)(BOOL))completion {
     if (_restoration != nil || ![self canEditSources]) { completion(NO); return; }
-    // Reuse SourcesController's URL verification, identity-header policy,
-    // repository warnings and guarded native write/refresh. No second writer.
+    // Compatibility callers cannot recreate the retired default catalogue.
+    // Explicit repository URLs use the native Add Source draft flow.
     _restoration = [[SourcesController alloc] initWithDatabase:_database];
     [_restoration setDelegate:presenter.delegate];
     __weak CydiaMoreSourcesProvider *weakSelf = self;

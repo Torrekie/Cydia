@@ -65,8 +65,47 @@ void Bindings() {
     input.source.expected.identity.exists = true; input.source.mutation = Mutation(EditKind::ReplaceDefinition);
     input.source.mutation.contents = none.definitions[0].original; input.token = std::string(64, 'a');
     Expect(Keyring::ParseInput(Keyring::SerializeInput(input), &decoded, &error) && decoded.bytes == input.bytes, "bounded binary key/source token request round trip");
+    CommitRequest edited(input.source), editedBound;
+    edited.mutation.contents = "deb [arch=arm64 custom=keep] https://edited.invalid/ next main extras\n";
+    Expect(Keyring::BindSourceSignedBy(edited, path, &editedBound, &error) && editedBound.mutation.contents ==
+        "deb [arch=arm64 custom=keep signed-by=" + path + "] https://edited.invalid/ next main extras\n" &&
+        editedBound.expected.document.bytes == none.bytes && editedBound.access == edited.access,
+        "key binding preserves reviewed URL, suite, options and ordinary access without restoring the old source");
     input.source.mutation = Mutation(EditKind::RemoveDefinition);
     Expect(!Keyring::ParseInput(Keyring::SerializeInput(input), &decoded, &error), "key request cannot delete a source");
+
+    CommitRequest draft;
+    draft.expected = NewDocument("/fixture/new.list", Format::OneLine);
+    draft.mutation = Mutation(EditKind::AppendDefinition);
+    draft.mutation.contents = "# one source, two index types\ndeb [arch=arm64] https://repo.invalid/ stable main\n"
+        "# source indexes\ndeb-src [arch=arm64] https://repo.invalid/ stable main\n";
+    CommitRequest bound;
+    Expect(Keyring::BindSourceSignedBy(draft, path, &bound, &error), "bind both records in an unsaved new-source draft");
+    const auto paired(ParseDocument("/fixture/new.list", Format::OneLine, bound.mutation.contents));
+    Expect(paired.valid() && paired.definitions.size() == 2 && bound.expected.document.bytes.empty() &&
+        bound.mutation.contents.find("# source indexes\n") != std::string::npos, "retain draft comments and untouched file preimage");
+    for (const auto &definition : paired.definitions) {
+        bool found(false);
+        for (const auto &field : definition.fields) if (field.name == "signed-by") found = field.value == path;
+        Expect(found, "every new index type has the reviewed signing key scope");
+    }
+    input.source = draft; input.referencePackage = "example-keyring"; input.referencePath = "/usr/share/keyrings/example.gpg";
+    Expect(Keyring::ParseInput(Keyring::SerializeInput(input), &decoded, &error) && decoded.referencePackage == input.referencePackage &&
+        decoded.referencePath == input.referencePath, "installed package reference round trip for a new source");
+    input.referencePath.clear();
+    Expect(!Keyring::ParseInput(Keyring::SerializeInput(input), &decoded, &error), "reject incomplete package reference");
+    input.referencePackage.clear(); input.source.mutation.contents += "deb https://other.invalid/ ./\n";
+    Expect(!Keyring::ParseInput(Keyring::SerializeInput(input), &decoded, &error), "cannot bind one approval to unrelated source additions");
+    Keyring::Review review, decodedReview;
+    review.fingerprints.push_back(std::string(40, 'A')); review.destination = path;
+    review.source = bound; review.token = std::string(64, 'a');
+    Expect(Keyring::ParseReview(Keyring::SerializeReview(review), &decodedReview, &error), "new-source signing-key review round trip");
+    review.source.mutation.contents.replace(review.source.mutation.contents.rfind(path), path.size(), "/another.gpg");
+    Expect(!Keyring::ParseReview(Keyring::SerializeReview(review), &decodedReview, &error), "review rejects a pair with only one bound index type");
+    draft.expected = NewDocument("/fixture/new.sources", Format::Deb822);
+    draft.mutation.contents = "Types: deb deb-src\nURIs: https://repo.invalid/\nSuites: stable\nComponents: main\n";
+    Expect(Keyring::BindSourceSignedBy(draft, path, &bound, &error) && bound.mutation.contents.find("Signed-By: " + path) != std::string::npos,
+        "new Deb822 draft retains binary/source types in one scoped stanza");
 }
 }
 int main() { Packets(); Fingerprints(); Bindings(); std::cout << "[key-import] PASS\n"; }

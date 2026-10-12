@@ -5,6 +5,53 @@ application must be rebuildable from one reviewed APT source revision, while
 the dpkg integration must tolerate newer runtime implementations without
 linking against dpkg's private C library.
 
+## Adding and editing sources
+
+Sources keeps its URL alert, with **Add Source**, **Advanced…**, and **Cancel**.
+An ordinary flat source is checked and saved without a separate generic review
+screen. An unsigned source under the inherited Warning policy requires an
+explicit warning acknowledgment. Advanced opens a native form; cancelling it
+returns to the original URL draft. Repository editing remains in Settings.
+
+| Operation | Behavior |
+| --- | --- |
+| Structured draft | URL, exact path or suite/components, APT architecture filters, and optional source-code indexes |
+| Imported definition | Original `.list` or Deb822 bytes remain intact until explicitly converted to fields; unsupported options, comments and multiple values remain editable as raw text |
+| Find Repository Options | Follows bounded, same-origin published directory links and reads Release metadata; retains nested suite paths and offers only advertised components |
+| Architecture selection | Inherits effective APT settings by default; filtering indexes does not register a dpkg architecture or change the eligibility of `Architecture: all` |
+| Source check | Uses the embedded APT in a temporary source/list configuration with no update hooks or shared-cache changes; cancellation removes temporary files |
+| Save destination | A collision-safe new file in APT's effective source directory; Advanced can choose an eligible existing file of the same format |
+| Signing key | Finds candidates in permitted key files, installed keyring packages, publisher links, signature-guided keyserver results, or suitable packages already available from configured sources |
+| Trust approval | Shows provenance and full fingerprints, checks an actual repository signature, then requires **Trust Key and Save**; the key is scoped using `Signed-By` |
+| Installed keyring | References a verified package-owned key file so package updates can rotate keys; downloaded package candidates are inspected without installation or maintscript execution |
+| Save disabled | Stores a source without enabling acquisition or granting new key trust |
+
+Published metadata and keyserver responses are discovery hints, not publisher
+identity proofs. Discovery never guesses a distribution suite from the OS
+version, registers an architecture, adds a distribution source, installs a
+package, or grants trust. Hidden directory listings and unavailable key data
+retain manual entry/import as the fallback. Local key generation cannot replace
+a missing publisher public key.
+
+Allow/Warning/Error remains an inherited Settings policy. Invalid signatures,
+hash mismatches and known authenticated-to-unsigned transitions cannot silently
+be treated as ordinary unsigned sources. A selected candidate key must
+authenticate the checked source even under Allow or Warning. Package archive
+layout validation remains a separate installation gate.
+
+Source changes use fresh file and protection-policy snapshots plus a protected
+runtime snapshot checked at commit. A changed APT configuration, source file,
+keyring, tool, or protected distribution selection requires another review.
+Neither the editor nor external `cydia://`/legacy bridge drafts bypass native
+approval. No source registry is reconstructed from Cydia preferences, and no
+default distribution repository is assumed.
+
+The source-draft, published-directory discovery, source-commit, key-import and
+process-runner checks have focused host targets. The native APT policy CI also
+runs real acquisition/isolation fixtures for source preflight and real GnuPG
+signature verification. New source-editor text uses the existing 21-locale
+baseline.
+
 ## Reproducible baseline
 
 The current baseline is recorded in [`mk/apt.mk`](../mk/apt.mk):

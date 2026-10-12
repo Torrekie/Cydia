@@ -89,6 +89,14 @@ int RunFixture(int argc, char *argv[]) {
         std::cout << kOutput;
         return 0;
     }
+    if (strcmp(argv[2], "wait") == 0) {
+        std::cout << getpid() << std::endl;
+        for (;;) pause();
+    }
+    if (strcmp(argv[2], "close-output-wait") == 0) {
+        close(STDOUT_FILENO);
+        for (;;) pause();
+    }
 
     if (strcmp(argv[2], "status") == 0) {
         int count;
@@ -197,6 +205,24 @@ int main(int argc, char *argv[]) {
     result = runner.RunAndCapture({"--fixture", "output"}, NULL);
     Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL,
            "reject a null capture destination");
+
+    result = runner.RunAndCaptureBounded({"--fixture", "output"}, &captured, 1024, 2000);
+    Expect(result.succeeded() && captured == kOutput, "bounded helper capture preserves successful output");
+    result = runner.RunAndCaptureBounded({"--fixture", "wait"}, &captured, 1024, 300);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == ETIMEDOUT, "terminate a helper retaining stdout at its deadline");
+    if (!captured.empty()) {
+        const pid_t child(static_cast<pid_t>(strtol(captured.c_str(), NULL, 10)));
+        Expect(child > 0 && kill(child, 0) != 0 && errno == ESRCH, "deadline reaps the launched helper before returning");
+    }
+    result = runner.RunAndCaptureBounded({"--fixture", "close-output-wait"}, &captured, 1024, 100);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == ETIMEDOUT, "closed stdout does not disable the process deadline");
+    unsigned cancellationChecks(0);
+    result = runner.RunAndCaptureBounded({"--fixture", "wait"}, &captured, 1024, 2000,
+        [&]() { return ++cancellationChecks > 2; });
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == ECANCELED, "cancel an already launched disposable helper");
+    result = runner.RunAndCaptureBounded({"--fixture", "output"}, &captured, 4, 2000);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EFBIG && captured.size() <= 4,
+        "bounded helper output overflow terminates acquisition");
 
     VerifyStatusDescriptor(runner, false);
     VerifyStatusDescriptor(runner, true);

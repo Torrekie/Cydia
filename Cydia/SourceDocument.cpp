@@ -328,6 +328,22 @@ Document ParseDocument(const std::string &path, Format format, const std::string
     return document;
 }
 
+bool IsSingleSourceAddition(const Document &requested) {
+    const Document document(ParseDocument(requested.path, requested.format, requested.bytes));
+    if (!document.valid()) return false;
+    if (document.definitions.size() == 1) return true;
+    if (document.format != Format::OneLine || document.definitions.size() != 2) return false;
+    const Definition &first(document.definitions[0]), &second(document.definitions[1]);
+    if (first.enabled != second.enabled || first.types.size() != 1 || second.types.size() != 1 ||
+        first.types[0] == second.types[0] || first.fields.size() != second.fields.size()) return false;
+    for (std::size_t index(0); index < first.fields.size(); ++index)
+        if (first.fields[index].name != second.fields[index].name ||
+            first.fields[index].value != second.fields[index].value) return false;
+    Definition comparable(second);
+    comparable.types = first.types;
+    return SemanticKey(first, document.format) == SemanticKey(comparable, document.format);
+}
+
 bool SourceWithComponents(const Document &requested, std::size_t ordinal,
                           const std::vector<std::string> &components, std::string *replacement) {
     const Document document(ParseDocument(requested.path, requested.format, requested.bytes));
@@ -443,7 +459,9 @@ EditResult PlanMutation(const Document &requestedSnapshot, const std::string &cu
                         EnabledReplacement(snapshot, definition, mutation.enabled));
     } else {
         const Document replacement(ParseDocument(snapshot.path, snapshot.format, mutation.contents));
-        if (!replacement.valid() || (mutation.kind != EditKind::ReplaceDocument && replacement.definitions.size() != 1))
+        if (!replacement.valid() ||
+            (mutation.kind == EditKind::AppendDefinition && !IsSingleSourceAddition(replacement)) ||
+            (mutation.kind == EditKind::ReplaceDefinition && !IsSingleSourceAddition(replacement)))
             return Failure(EditStatus::InvalidMutation, snapshot, "Replacement must be a valid source definition");
         if (mutation.kind == EditKind::ReplaceDocument) updated = mutation.contents;
         else if (mutation.kind == EditKind::ReplaceDefinition) {

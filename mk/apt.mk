@@ -63,6 +63,11 @@ apt_api_sources := \
     Cydia/AptBackendOperations.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptRuntime.cpp \
+    Cydia/SourceAddController+Discovery.mm \
+    Cydia/SourceAddController.mm \
+    Cydia/SourceAddSession.mm \
+    Cydia/SourcePreflight.cpp \
+    Cydia/SourceKeyDiscovery.mm \
     Cydia/AptVersionPolicy.cpp \
     Cydia/PackageArchiveReader.cpp \
     Cydia/BootstrapAccessController.mm \

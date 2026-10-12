@@ -235,6 +235,36 @@ void InvalidInputs() {
     const std::string nul(nulBytes, sizeof(nulBytes) - 1);
     Expect(!ParseDocument("/parts/nul.list", Format::OneLine, nul).valid(), "NUL bytes rejected");
 }
+void PairedAdditions() {
+    const Document empty(ParseDocument("/parts/new.list", Format::OneLine, "# shared notes\n"));
+    const std::string pair("# vendor note\ndeb [signed-by=/keys/vendor.gpg] https://vendor.invalid/ stable main\n"
+                           "deb-src [signed-by=/keys/vendor.gpg] https://vendor.invalid/ stable main\n");
+    Mutation append(EditKind::AppendDefinition); append.contents = pair;
+    Expect(PlanMutation(empty, empty.bytes, append).updated == empty.bytes + pair,
+           "matching binary/source pair appends without altering imported bytes");
+    append.contents = "deb https://vendor.invalid/ stable main\ndeb-src https://other.invalid/ stable main\n";
+    Expect(PlanMutation(empty, empty.bytes, append).status == EditStatus::InvalidMutation,
+           "paired addition cannot add a second repository");
+    append.contents = "deb [trusted=yes] https://vendor.invalid/ stable main\ndeb-src https://vendor.invalid/ stable main\n";
+    Expect(PlanMutation(empty, empty.bytes, append).status == EditStatus::InvalidMutation,
+           "paired addition cannot hide conflicting source options");
+    append.contents = "deb https://vendor.invalid/ stable main\n# deb-src https://vendor.invalid/ stable main\n";
+    Expect(PlanMutation(empty, empty.bytes, append).status == EditStatus::InvalidMutation,
+           "paired addition requires matching enabled state");
+    append.contents = "deb https://vendor.invalid/ stable main\ndeb https://vendor.invalid/ stable main\n";
+    Expect(PlanMutation(empty, empty.bytes, append).status == EditStatus::InvalidMutation,
+           "paired addition cannot duplicate a binary record");
+    const Document one(ParseDocument(empty.path, empty.format, "deb https://vendor.invalid/ stable main\n"));
+    Mutation replace(EditKind::ReplaceDefinition); replace.contents = pair;
+    Expect(PlanMutation(one, one.bytes, replace).updated == pair,
+           "editing a binary entry can add its matching source-code entry");
+    replace.contents = "deb https://vendor.invalid/ stable main\ndeb-src https://other.invalid/ stable main\n";
+    Expect(PlanMutation(one, one.bytes, replace).status == EditStatus::InvalidMutation,
+           "paired replacement cannot insert an unrelated source");
+    Document forged(ParseDocument(empty.path, empty.format, append.contents));
+    forged.definitions.resize(1);
+    Expect(!IsSingleSourceAddition(forged), "addition shape is rederived from bytes rather than a forged DTO");
+}
 class FixtureDirectory {
   public:
     std::string path;
@@ -365,7 +395,7 @@ void FilesystemSnapshots() {
 } // namespace
 
 int main() {
-    ClassicEdits(); Deb822Edits(); ComponentEdits(); Protection(); InvalidInputs(); FilesystemSnapshots();
+    ClassicEdits(); Deb822Edits(); ComponentEdits(); Protection(); InvalidInputs(); PairedAdditions(); FilesystemSnapshots();
     std::cout << "[source-document] PASS\n";
     return 0;
 }

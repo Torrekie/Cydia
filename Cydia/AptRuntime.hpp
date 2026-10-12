@@ -87,6 +87,9 @@ const std::string &ManagedSourceListPath();
 const std::string &DpkgExecutablePath();
 const std::string &DpkgQueryExecutablePath();
 const std::string &DpkgDebExecutablePath();
+/* Effective configured GnuPG executable, including protected overrides.
+ * A caller executing it must independently validate its protected path. */
+std::string GpgExecutablePath();
 const std::string &AptConfigOverride();
 const std::string &PrivilegedHelperPath();
 const std::string &DpkgAdminDirectory();

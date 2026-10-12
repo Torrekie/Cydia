@@ -181,6 +181,7 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
     if (command != "--cydia-runtime-snapshot" && command != "--cydia-trust-snapshot" &&
         command != "--cydia-admin-access-review" && command != "--cydia-admin-access-approve" && command != "--cydia-admin-access-revoke" &&
         command != "--cydia-set-executable" &&
+        command != "--cydia-key-package-files" && command != "--cydia-key-package-read" &&
         command != "--cydia-extended-state-read" && command != "--cydia-open-lock") return false;
     const char *value(argv[*argc - 1] + sizeof(prefix) - 1);
     if (*value == '\0' || strlen(value) > 5) return false;
@@ -431,7 +432,8 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     const bool keyImport = command == "--cydia-key-import";
     const bool keyPackage = command == "--cydia-key-package-files" || command == "--cydia-key-package-read";
     const bool preview = command == "--cydia-firmware-preview";
-    const bool source = command == "--cydia-source" || command == "--cydia-source-advanced";
+    const bool checkedSource = command == "--cydia-source-checked" || command == "--cydia-source-checked-advanced";
+    const bool source = checkedSource || command == "--cydia-source" || command == "--cydia-source-advanced";
     const bool state = command == "--cydia-extended-state-read" || command == "--cydia-extended-state-commit";
     const bool snapshot = command == "--cydia-runtime-snapshot";
     const bool trustSnapshot = command == "--cydia-trust-snapshot";
@@ -544,9 +546,16 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         if (argc != 2 || (!preview && !lock.Acquire(environment.dpkgAdmin, &error)) ||
             !Privileged::RecheckEvidence(environment.evidence, &error)) return Denied(error);
         if (source) {
+            if (checkedSource) {
+                std::vector<std::string> fields; std::string current;
+                if (!Privileged::ParseFields(request.payload, 2, &fields, &error)) return EX_DATAERR;
+                if (!Privileged::RuntimeSnapshot(environment, &current, &error)) return Denied(error);
+                if (fields[0].size() != 64 || fields[0] != current) return EX_TEMPFAIL;
+                request.payload = fields[1];
+            }
             CydiaSources::CommitRequest commit;
             if (!CydiaSources::ParseCommitRequest(request.payload, &commit)) return EX_DATAERR;
-            if (command == "--cydia-source") {
+            if (command == "--cydia-source" || command == "--cydia-source-checked") {
                 if (commit.kind != CydiaSources::CommitKind::EditDocument ||
                     commit.access != CydiaSources::Access::Ordinary || commit.initializePolicy) return EX_NOPERM;
                 commit.access = CydiaSources::Access::Ordinary;
@@ -554,7 +563,8 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             const CydiaSources::EffectiveLocations locations{environment.sourceList, environment.sourceParts,
                                                              environment.sourceReaderUID, environment.sourceReaderGID, environment.sourceReaderGroups};
             const std::string policy(paths.CydiaStateDirectory() + "/source-protection");
-            const auto result = command == "--cydia-source-advanced" && commit.kind == CydiaSources::CommitKind::EditDocument ?
+            const auto result = (command == "--cydia-source-advanced" || command == "--cydia-source-checked-advanced") &&
+                commit.kind == CydiaSources::CommitKind::EditDocument ?
                 CydiaSources::CommitSourceRequestWithProtectionRefresh(locations, policy, commit) :
                 CydiaSources::CommitSourceRequest(locations, policy, commit);
             if (!result.succeeded()) fprintf(stderr, "cydo: source_commit_%d: %d\n", static_cast<int>(result.status), result.errorNumber);

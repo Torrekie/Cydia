@@ -11,6 +11,7 @@
 #define Cydia_DpkgRunner_H
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -77,6 +78,14 @@ class Runner {
                          std::size_t maxBytes = 4 * 1024 * 1024,
                          int statusFd = -1) const;
 
+    /* For disposable read-only helpers, not dpkg transactions. A timeout,
+     * cancellation or output overflow terminates and reaps the helper's own
+     * process group. Existing transaction invocations retain their behavior. */
+    Result RunAndCaptureBounded(const std::vector<std::string> &arguments,
+                               std::string *output, std::size_t maxBytes,
+                               unsigned timeoutMilliseconds,
+                               const std::function<bool()> &cancelled = std::function<bool()>()) const;
+
     static std::string DefaultPath(Executable executable);
 
   private:
@@ -85,7 +94,9 @@ class Runner {
                        const std::string *input,
                        const std::string *outputPath,
                        std::string *capturedOutput,
-                       std::size_t maxCapturedBytes) const;
+                       std::size_t maxCapturedBytes,
+                       unsigned timeoutMilliseconds = 0,
+                       const std::function<bool()> &cancelled = std::function<bool()>()) const;
 };
 
 } // namespace Dpkg

@@ -203,7 +203,11 @@ bool ResolveCurrentEnvironment(const PackageDatabasePaths &paths,
     if (!SelectExecutable(configuration, paths, environment, "dpkg", paths.DpkgBinaryPath(), &environment->dpkg, error) ||
         !SelectExecutable(configuration, paths, environment, "dpkg-query", prefix + "/usr/bin/dpkg-query", &environment->dpkgQuery, error) ||
         !SelectExecutable(configuration, paths, environment, "dpkg-deb", prefix + "/usr/bin/dpkg-deb", &environment->dpkgDeb, error)) return false;
-    environment->gpg = configuration.Find("Dir::Bin::gpg", prefix + "/usr/bin/gpg");
+    // Match the effective apt-key command used by native source checks. This
+    // remains an executable path, not a shell command; key preparation captures
+    // and validates its root-owned identity before it can execute.
+    environment->gpg = configuration.Find("Apt::Key::gpgcommand",
+        configuration.Find("Dir::Bin::gpg", prefix + "/usr/bin/gpg"));
     const auto gpgOverride = environment->executableOverrides.find("gpg");
     if (gpgOverride != environment->executableOverrides.end()) environment->gpg = gpgOverride->second;
     const std::string main = configuration.Find("Dir::Etc::sourcelist", "sources.list");

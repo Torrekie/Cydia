@@ -43,6 +43,11 @@ def main():
         subprocess.run(command, cwd=build, check=True)
 
     compile_driver(sources, "cydia-package-actions", sanitize=True)
+    compile_driver(["tests/SourcePreflightTests.cpp", "Cydia/SourcePreflight.cpp",
+                    "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",
+                    "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp",
+                    "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                   "cydia-source-preflight")
     compile_driver(["tests/PackageArchivePolicyTests.cpp", "Cydia/PackageArchivePolicy.cpp",
                     "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-reader", sanitize=True,
                    extra_compile_flags=["-DCYDIA_TEST_PACKAGE_ARCHIVE_READER"])

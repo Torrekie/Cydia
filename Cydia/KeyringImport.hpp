@@ -10,6 +10,10 @@ struct Input {
     std::string bytes;
     CydiaSources::CommitRequest source;
     std::string token;
+    /* Both are empty for a copied key. A package reference is independently
+     * revalidated against the installed manifest and file at review/apply. */
+    std::string referencePackage;
+    std::string referencePath;
 };
 struct Review {
     std::vector<std::string> fingerprints;
@@ -29,6 +33,10 @@ bool ReadFingerprints(const std::string &listing, std::vector<std::string> *fing
                       Privileged::Error *error);
 bool BindSignedBy(const CydiaSources::Document &document, std::size_t ordinal,
                   const std::string &keyring, std::string *replacement, Privileged::Error *error);
+/* Bind an existing selected definition, or every matching deb/deb-src record
+ * in one new-source append draft. The existing source preimage stays intact. */
+bool BindSourceSignedBy(const CydiaSources::CommitRequest &source, const std::string &keyring,
+                       CydiaSources::CommitRequest *bound, Privileged::Error *error);
 /* The caller independently resolves environment and holds the frontend lock
  * during Apply. The input never selects the verifier or destination. */
 bool Prepare(const PackageDatabasePaths &paths, const Privileged::Environment &environment,

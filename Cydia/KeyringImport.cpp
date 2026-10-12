@@ -72,9 +72,13 @@ bool Dearmor(const std::string &input, std::string *binary) {
     return !binary->empty() && binary->size() <= MaximumKeyBytes;
 }
 bool SourceRequest(const CydiaSources::CommitRequest &source) {
-    return source.kind == CydiaSources::CommitKind::EditDocument && source.expected.identity.exists &&
-        source.expected.document.valid() && source.mutation.kind == CydiaSources::EditKind::ReplaceDefinition &&
-        source.mutation.ordinal < source.expected.document.definitions.size() && !source.initializePolicy && source.selectors.empty();
+    if (source.kind != CydiaSources::CommitKind::EditDocument || !source.expected.document.valid() ||
+        source.initializePolicy || !source.selectors.empty()) return false;
+    if (source.mutation.kind == CydiaSources::EditKind::ReplaceDefinition)
+        if (!source.expected.identity.exists || source.mutation.ordinal >= source.expected.document.definitions.size()) return false;
+    if (source.mutation.kind != CydiaSources::EditKind::AppendDefinition && source.mutation.kind != CydiaSources::EditKind::ReplaceDefinition) return false;
+    return CydiaSources::IsSingleSourceAddition(CydiaSources::ParseDocument(source.expected.document.path,
+        source.expected.document.format, source.mutation.contents));
 }
 bool SafeKeyPath(const std::string &path) {
     if (path.empty() || path[0] != '/') return false;
@@ -95,13 +99,24 @@ std::vector<std::string> Fields(const std::string &line) {
 
 bool ParseInput(const std::string &payload, Input *input, Privileged::Error *error) {
     std::vector<std::string> fields;
-    if (!input || !Privileged::ParseFields(payload, 3, &fields, error) || fields[0].empty() || fields[0].size() > MaximumKeyBytes ||
+    if (!input) return false;
+    // Older native import requests contain three fields and remain accepted.
+    if (!Privileged::ParseFields(payload, 5, &fields, NULL) && !Privileged::ParseFields(payload, 3, &fields, NULL))
+        return Fail(error, "invalid_key_request", "Invalid reviewed key import request.");
+    if (fields[0].empty() || fields[0].size() > MaximumKeyBytes ||
         !CydiaSources::ParseCommitRequest(fields[1], &input->source) || !SourceRequest(input->source) ||
         (!fields[2].empty() && !Token(fields[2]))) return Fail(error, "invalid_key_request", "Invalid reviewed key import request.");
-    input->bytes = fields[0]; input->token = fields[2]; return true;
+    input->bytes = fields[0]; input->token = fields[2];
+    input->referencePackage = fields.size() == 5 ? fields[3] : "";
+    input->referencePath = fields.size() == 5 ? fields[4] : "";
+    if (input->referencePackage.empty() != input->referencePath.empty() || input->referencePackage.size() > 256 ||
+        (!input->referencePath.empty() && !SafeKeyPath(input->referencePath)))
+        return Fail(error, "invalid_key_request", "Invalid installed keyring reference.");
+    return true;
 }
 std::string SerializeInput(const Input &input) {
-    return Privileged::SerializeFields({input.bytes, CydiaSources::SerializeCommitRequest(input.source), input.token});
+    return Privileged::SerializeFields({input.bytes, CydiaSources::SerializeCommitRequest(input.source), input.token,
+        input.referencePackage, input.referencePath});
 }
 std::string SerializeReview(const Review &review) {
     std::string fingerprints; for (const auto &f : review.fingerprints) fingerprints += f + '\n';
@@ -119,9 +134,9 @@ bool ParseReview(const std::string &payload, Review *review, Privileged::Error *
         review->fingerprints.push_back(f);
     }
     if (review->fingerprints.empty() || review->fingerprints.size() > 16) return false;
-    std::string replacement;
-    if (!BindSignedBy(review->source.expected.document, review->source.mutation.ordinal, fields[1], &replacement, error) ||
-        replacement != review->source.mutation.contents) return false;
+    CydiaSources::CommitRequest bound;
+    if (!BindSourceSignedBy(review->source, fields[1], &bound, error) ||
+        bound.mutation.contents != review->source.mutation.contents) return false;
     review->destination = fields[1]; review->token = fields[3]; return true;
 }
 
@@ -240,5 +255,27 @@ bool BindSignedBy(const CydiaSources::Document &document, std::size_t ordinal,
         parsed.definitions[0].suites != definition.suites || parsed.definitions[0].components != definition.components ||
         parsed.definitions[0].types != definition.types || parsed.definitions[0].enabled != definition.enabled) return false;
     *replacement = bytes; return true;
+}
+
+bool BindSourceSignedBy(const CydiaSources::CommitRequest &source, const std::string &keyring,
+                       CydiaSources::CommitRequest *bound, Privileged::Error *error) {
+    if (!bound || !SourceRequest(source)) return Fail(error, "invalid_key_request", "Select one source for the signing key.");
+    *bound = source;
+    // Bind the definition the user reviewed, including unsaved edits. Using
+    // expected.document here would silently restore the old URL/options.
+    const auto document(CydiaSources::ParseDocument(source.expected.document.path,
+        source.expected.document.format, source.mutation.contents));
+    std::string bytes(document.bytes);
+    // Work backwards so source spans remain exact, including comments and
+    // trailing whitespace between a paired binary/source definition.
+    for (auto it = document.definitions.rbegin(); it != document.definitions.rend(); ++it) {
+        std::string replacement;
+        if (!BindSignedBy(document, it->ordinal, keyring, &replacement, error)) return false;
+        bytes.replace(it->span.begin, it->span.end - it->span.begin, replacement);
+    }
+    if (!CydiaSources::IsSingleSourceAddition(CydiaSources::ParseDocument(document.path, document.format, bytes)))
+        return Fail(error, "invalid_key_request", "The signing key could not be scoped to the complete source draft.");
+    bound->mutation.contents = bytes;
+    return true;
 }
 } }
