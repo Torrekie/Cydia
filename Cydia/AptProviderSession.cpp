@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderSession.hpp"
+#include "Cydia/AptProviderLaunch.hpp"
 #include "Cydia/RedactedURL.hpp"
 
 #include <algorithm>
@@ -8,19 +9,13 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
-#include <dirent.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <signal.h>
-#include <spawn.h>
 #include <sstream>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
-#include <thread>
 #include <unistd.h>
 
-extern char **environ;
 
 namespace CydiaAPT { namespace Provider {
 namespace {
@@ -104,37 +99,6 @@ bool ParentOperationAllowed(Operation parent, Operation active, bool locked, std
     }
 }
 
-// POSIX_SPAWN_CLOEXEC_DEFAULT prevents unrelated app descriptors reaching the
-// adapter on Darwin. The non-Darwin test path explicitly closes its snapshot.
-int CloseOtherDescriptors(posix_spawn_file_actions_t *actions, int channel) {
-#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
-    return posix_spawn_file_actions_addclose(actions, channel);
-#else
-    (void)channel; // The descriptor snapshot includes the channel on Linux.
-    DIR *directory(opendir("/proc/self/fd"));
-    if (directory == nullptr) return errno;
-    const int enumeration(dirfd(directory));
-    std::vector<int> descriptors;
-    while (dirent *entry = readdir(directory)) {
-        char *end(nullptr);
-        const long value(strtol(entry->d_name, &end, 10));
-        if (end != entry->d_name && *end == '\0' && value > STDERR_FILENO && value <= INT_MAX && value != enumeration)
-            descriptors.push_back(static_cast<int>(value));
-    }
-    closedir(directory);
-    for (int descriptor : descriptors) {
-        const int error(posix_spawn_file_actions_addclose(actions, descriptor));
-        if (error != 0) return error;
-    }
-    return 0;
-#endif
-}
-
-void ReapAfterTermination(pid_t child) {
-    int status;
-    pid_t waited;
-    do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
-}
 } // namespace
 
 class Session::Implementation {
@@ -158,24 +122,8 @@ public:
         ready = false;
         if (channel >= 0) { close(channel); channel = -1; }
         if (child > 0) {
-            // Only this unprivileged adapter's private group is terminated.
-            // The app's cydo/dpkg children are not descendants of this group.
-            (void) kill(-child, SIGKILL);
-            (void) kill(child, SIGKILL);
             const pid_t terminated(child); child = -1;
-            const Deadline deadline(Clock::now() + std::chrono::milliseconds(100));
-            int status;
-            for (;;) {
-                const pid_t waited(waitpid(terminated, &status, WNOHANG));
-                if (waited == terminated || (waited < 0 && errno == ECHILD)) break;
-                if (Remaining(deadline) == 0) {
-                    // Keep a stuck kernel wait out of the UI/transport deadline.
-                    // This one-shot reaper owns only the unreaped child PID.
-                    std::thread(ReapAfterTermination, terminated).detach();
-                    break;
-                }
-                (void) poll(nullptr, 0, 5);
-            }
+            Launch::Terminate(terminated);
         }
         incoming.clear();
         if (notifyClosed) {
@@ -190,60 +138,12 @@ public:
         return false;
     }
 
-    bool Launch(const std::string &path) {
-        int sockets[2];
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) != 0) return Fail("provider_channel_failed", false);
-        // Do not allow dup2/stdin collisions when Cydia inherited closed stdio.
-        for (unsigned i(0); i != 2; ++i) {
-            if (sockets[i] <= STDERR_FILENO) {
-                const int moved(fcntl(sockets[i], F_DUPFD, 3));
-                close(sockets[i]); sockets[i] = moved;
-            }
-            if (sockets[i] < 0 || fcntl(sockets[i], F_SETFD, FD_CLOEXEC) != 0) {
-                for (int descriptor : sockets) if (descriptor >= 0) close(descriptor);
-                return Fail("provider_channel_failed", false);
-            }
-        }
-#ifdef SO_NOSIGPIPE
-        const int one(1);
-        if (setsockopt(sockets[0], SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof(one)) != 0) {
-            close(sockets[0]); close(sockets[1]); return Fail("provider_channel_failed", false);
-        }
-#endif
-        posix_spawn_file_actions_t actions;
-        int result(posix_spawn_file_actions_init(&actions));
-        if (result != 0) { close(sockets[0]); close(sockets[1]); return Fail("provider_spawn_failed", false); }
-        result = posix_spawn_file_actions_adddup2(&actions, sockets[1], STDIN_FILENO);
-        if (result == 0) result = posix_spawn_file_actions_adddup2(&actions, sockets[1], STDOUT_FILENO);
-        if (result == 0) result = posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
-        if (result == 0) result = CloseOtherDescriptors(&actions, sockets[1]);
-        posix_spawnattr_t attributes;
-        bool attributesReady(false);
-        if (result == 0) { result = posix_spawnattr_init(&attributes); attributesReady = result == 0; }
-        if (result == 0) result = posix_spawnattr_setpgroup(&attributes, 0);
-        short flags(POSIX_SPAWN_SETPGROUP);
-#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
-        flags |= POSIX_SPAWN_CLOEXEC_DEFAULT;
-#endif
-        if (result == 0) result = posix_spawnattr_setflags(&attributes, flags);
-        std::vector<std::string> environment;
-        for (char **entry(environ); entry != nullptr && *entry != nullptr; ++entry) {
-            const std::string value(*entry);
-            if (value.compare(0, 5, "DYLD_") != 0 && value.compare(0, 11, "LD_PRELOAD=") != 0 &&
-                value.compare(0, 16, "LD_LIBRARY_PATH=") != 0) environment.push_back(value);
-        }
-        std::vector<char *> env;
-        for (std::string &value : environment) env.push_back(&value[0]);
-        env.push_back(nullptr);
-        char *arguments[] = {const_cast<char *>(path.c_str()), const_cast<char *>("--cydia-provider-session"), nullptr};
-        if (result == 0) result = posix_spawn(&child, path.c_str(), &actions, &attributes, arguments, env.data());
-        if (attributesReady) posix_spawnattr_destroy(&attributes);
-        posix_spawn_file_actions_destroy(&actions);
-        close(sockets[1]);
-        if (result != 0) { close(sockets[0]); child = -1; return Fail("provider_spawn_failed", false); }
-        channel = sockets[0];
-        const int original(fcntl(channel, F_GETFL));
-        if (original < 0 || fcntl(channel, F_SETFL, original | O_NONBLOCK) != 0) return Fail("provider_channel_failed");
+    bool LaunchWorker(const std::string &path, const std::shared_ptr<const RecoveryLaunchCapsule> &capsule) {
+        Launch::Child launched;
+        std::string launchError;
+        if (!Launch::Start(path, {"--cydia-provider-session"}, capsule, &launched, &launchError))
+            return Fail(launchError.c_str(), false);
+        child = launched.pid; channel = launched.channel;
         return true;
     }
 
@@ -492,10 +392,24 @@ Session::~Session() { implementation_->Stop(); }
 bool Session::Start(const std::string &executable, const ProbeResult &probe, Hello hello,
                     const SessionCallbacks &callbacks, unsigned timeoutMilliseconds,
                     const std::function<bool()> &cancelled) {
+    return StartInternal(executable, probe, std::move(hello), {}, callbacks, timeoutMilliseconds, cancelled);
+}
+bool Session::StartRecovery(const std::string &executable, const ProbeResult &probe, Hello hello,
+                    const std::shared_ptr<const RecoveryLaunchCapsule> &capsule,
+                    const SessionCallbacks &callbacks, unsigned timeoutMilliseconds,
+                    const std::function<bool()> &cancelled) {
+    if (!capsule) return implementation_->Fail("provider_capsule_invalid", false);
+    return StartInternal(executable, probe, std::move(hello), capsule, callbacks, timeoutMilliseconds, cancelled);
+}
+bool Session::StartInternal(const std::string &executable, const ProbeResult &probe, Hello hello,
+                    const std::shared_ptr<const RecoveryLaunchCapsule> &capsule,
+                    const SessionCallbacks &callbacks, unsigned timeoutMilliseconds,
+                    const std::function<bool()> &cancelled) {
     Implementation &state(*implementation_);
     if (state.busy || state.child > 0 || state.ready || state.mutated || state.locked) return state.Fail("provider_session_already_started", false);
     if (cancelled && cancelled()) return state.Fail("provider_cancelled", false);
     if (timeoutMilliseconds == 0 || timeoutMilliseconds > 10000 || !probe.compatible() ||
+        probe.recoveryCapsule != capsule || (capsule && (!capsule->unchanged() || !hello.registrationPath.empty())) ||
         probe.registrationPath != hello.registrationPath ||
         !Compatible(probe.info, hello.expected, nullptr) || !Challenge(&hello.challenge) || !ValidHello(hello))
         return state.Fail("provider_invalid_session", false);
@@ -514,9 +428,10 @@ bool Session::Start(const std::string &executable, const ProbeResult &probe, Hel
     state.current.packageStateIdentity = hello.expected.packageStateIdentity;
     state.approvedEnvironment = hello.expected;
     state.nextSequence = 2; state.lastParentSequence = 0; state.locked = false;
-    if (!state.Launch(executable)) { state.Stop(); return false; }
+    if (!state.LaunchWorker(executable, capsule)) { state.Stop(); return false; }
     if (stat(executable.c_str(), &identity) != 0 || Identity(identity) != probe.executableIdentity)
         return state.Fail("provider_changed_during_launch");
+    if (capsule && !capsule->unchanged()) return state.Fail("provider_capsule_changed");
     Message request, reply;
     request.sequence = 1; request.operation = Operation::Hello; request.binding = state.current;
     if (!Encode(hello, &request.payload)) return state.Fail("provider_invalid_session");
@@ -529,6 +444,7 @@ bool Session::Start(const std::string &executable, const ProbeResult &probe, Hel
         info.identifier != probe.info.identifier || info.implementationVersion != probe.info.implementationVersion ||
         info.libraryIdentity != probe.info.libraryIdentity || info.frontendIdentity != probe.info.frontendIdentity ||
         info.capabilities != probe.info.capabilities) return state.Fail("provider_changed_since_probe");
+    if (capsule && !capsule->unchanged()) return state.Fail("provider_capsule_changed");
     state.provider = std::move(info);
     state.ready = true;
     return true;

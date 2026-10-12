@@ -25,6 +25,10 @@ struct DependencyProof {
     // producer of this proof. No default inspector is supplied by this module.
     std::string inventoryIdentity, loaderIdentity;
     std::vector<std::string> nonPlatformDependencies;
+    // Only the trusted parent inspector may discover selected external
+    // dpkg/helper dylibs from their load commands. Private payload closures
+    // remain declared. Authority recaptures every discovered hash itself.
+    std::vector<Component> discoveredComponents;
     std::vector<std::string> unresolvedFields;
 };
 struct Identity {
@@ -38,6 +42,9 @@ struct Authority {
     CydiaRuntime::Privileged::Environment environment;
     InitializationOptions startup;
     std::string executable, executableSearchPath, cacheDirectory, archivesDirectory, logDirectory;
+    // Acquisition subprocesses prefer package-owned recovery-bin helpers.
+    // executableSearchPath remains the selected dpkg policy for parent execution.
+    std::string acquisitionSearchPath;
     // Effective clean parser output, including protected executable overrides.
     // The inspector must also cover configured subprocess/interpreter policy,
     // not only Mach-O load commands. Never log this potentially private text.

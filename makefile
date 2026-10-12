@@ -7,6 +7,7 @@ include mk/toolchain.mk
 include mk/exec-compat.mk
 include mk/sources.mk
 include mk/rules.mk
+include mk/recovery.mk
 include mk/package.mk
 include mk/verify.mk
 

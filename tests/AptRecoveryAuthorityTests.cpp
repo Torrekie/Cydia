@@ -1,6 +1,12 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptRecoveryAuthority.hpp"
+#include "Cydia/AptRecoverySnapshot.hpp"
+#include "Cydia/AptRecoveryInstalledAuthority.hpp"
+#include "Cydia/AptRecoveryInitialization.hpp"
+#include <apt-pkg/acquire-method.h>
 #include <apt-pkg/configuration.h>
+#include <apt-pkg/error.h>
+#include <apt-pkg/hashes.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -23,6 +29,31 @@ void Require(bool value, const char *message) {
 void Write(const std::string &path, const std::string &bytes, mode_t mode = 0644) {
     std::ofstream file(path, std::ios::binary | std::ios::trunc); file << bytes; file.close();
     Require(file.good() && chmod(path.c_str(), mode) == 0, "write isolated fixture input");
+}
+void MethodConfigurationCases() {
+    char name[] = "/tmp/cydia-method-policy.XXXXXX";
+    const int fd(mkstemp(name)); Require(fd >= 0, "create ambient method configuration"); close(fd);
+    Write(name, "Cydia::MethodAmbient \"must-not-load\";\n");
+    const char *ambient(std::getenv("APT_CONFIG")); const bool hadAmbient(ambient != nullptr);
+    const std::string previous(ambient ? ambient : "");
+    _config->Set("Cydia::OldMethodState", "must-not-retain");
+    setenv("APT_CONFIG", name, 1);
+    Require(CydiaAPT::InitializeRecoveryMethodConfiguration() && !std::getenv("APT_CONFIG") &&
+        !_config->Exists("Cydia::OldMethodState") && !_config->Exists("Cydia::MethodAmbient"),
+        "fresh method clears ambient options before protocol configuration");
+    struct Method : pkgAcqMethod {
+        Method() : pkgAcqMethod("1.0", SendConfig) {}
+        bool Apply(const std::string &message) { return Configuration(message); }
+    } method;
+    Require(method.Apply("601 Configuration\nConfig-Item: Acquire::http::Timeout=37\n"
+        "Config-Item: Dir::Etc::main=" + std::string(name) + "\n\n") &&
+        _config->FindI("Acquire::http::Timeout") == 37 && _config->Find("Dir::Etc::main") == name,
+        "real APT method protocol accepts owner-supplied configuration");
+    Require(!ReadConfigFile(*_config, name) && !_config->Exists("Cydia::MethodAmbient"),
+        "method cannot reread ambient files after protocol configuration");
+    SetConfigurationReadValidator(nullptr, nullptr); _error->Discard(); _config->Clear();
+    unlink(name);
+    if (hadAmbient) setenv("APT_CONFIG", previous.c_str(), 1);
 }
 struct Fixture {
     std::string root;
@@ -136,6 +167,53 @@ void AdmissionCases() {
     Require(!R::ResolveAuthority(CydiaRuntime::PackageDatabasePaths::ForLayout(CydiaRuntime::PackageDatabaseLayout::Rootful),
         {}, "", "", {}, nullptr, &result, &error) && error.code == "recovery_invalid_request" && result.executable.empty(),
         "untrusted or incomplete seeds clear prior authority without reading host files");
+    const auto inventory = [](const std::vector<std::string> &libraries, const std::vector<std::string> &data,
+            const std::vector<std::string> &methods) {
+        return P::SerializeFields({"CYDIA-RECOVERY-PAYLOAD-1", P::SerializeFields(libraries),
+            P::SerializeFields(data), P::SerializeFields(methods)});
+    };
+    R::BundleInputs bundle;
+    Require(R::ParsePayloadInventory(inventory({"/fixture/libprivate.dylib"}, {"/fixture/data"}, {"http", "https"}),
+        "/fixture/cydia-recovery", &bundle, &error) && bundle.executable == "/fixture/cydia-recovery", "payload inventory uses fixed parent executable");
+    Require(!R::ParsePayloadInventory(inventory({"/fixture/duplicate"}, {"/fixture/duplicate"}, {"http"}),
+        "/fixture/cydia-recovery", &bundle, &error), "duplicate cross-role payload path rejected");
+    Require(!R::ParsePayloadInventory(inventory({}, {}, {"../http"}), "/fixture/cydia-recovery", &bundle, &error) &&
+        !R::ParsePayloadInventory(inventory({}, {}, {}), "/fixture/cydia-recovery", &bundle, &error), "invalid or missing required methods rejected");
+    Require(!R::ParsePayloadInventory(std::string(128 * 1024 + 1, 'x'), "/fixture/cydia-recovery", &bundle, &error) &&
+        !R::ParsePayloadInventory(P::SerializeFields({"CYDIA-PROVIDER-REGISTRATION-1"}), "/fixture/cydia-recovery", &bundle, &error),
+        "oversized or other-authority inventory rejected");
+}
+void InitializationCases() {
+    Fixture fixture; R::Authority authority; P::Error error; R::Snapshot snapshot;
+    unsetenv("APT_CONFIG");
+    Require(Resolve(fixture, "warning", nullptr, &authority, &error) &&
+        R::MakeSnapshot(authority, std::string(64, 'a'), &snapshot), "prepare real captured initializer capsule");
+    const std::string marker(fixture.root + "/unexpected-query"); fixture.files.push_back(marker);
+    Write(fixture.environment.dpkg, "#!/bin/sh\nprintf probe > '" + marker + "'\nexit 71\n", 0755);
+    fixture.File(fixture.root + "/ambient.conf", "APT::Architecture \"wrong-ambient\";\n");
+    setenv("APT_CONFIG", (fixture.root + "/ambient.conf").c_str(), 1);
+    std::string code;
+    Require(CydiaAPT::InitializeRecoverySnapshot(snapshot, &code), "initialize solely from captured native APT configuration");
+    Require(CydiaAPT::Architecture() == snapshot.runtime.architecture &&
+        CydiaAPT::Architectures() == snapshot.runtime.acquisitionArchitectures &&
+        CydiaAPT::RegisteredArchitectures() == snapshot.runtime.registeredArchitectures &&
+        CydiaAPT::SourceListPath() == snapshot.runtime.sourceListPath &&
+        CydiaAPT::DpkgOptions() == snapshot.runtime.dpkgOptions && CydiaAPT::MutationEnvironmentValid(), "complete captured runtime is published coherently");
+    Require(access(marker.c_str(), F_OK) != 0 && getenv("APT_CONFIG") == nullptr &&
+        _config->Find("Dir::Bin::dpkg") == "/dev/null" &&
+        _config->Find("Acquire::Check-Valid-Until") == "false" &&
+        CydiaAPT::GetRepositorySecurityMode() == CydiaAPT::RepositorySecurityMode::Warning &&
+        !CydiaAPT::CachedRepositoryTrustValid() && !CydiaAPT::ActiveRuntimeDescriptor(),
+        "no architecture child, ambient read, direct dpkg endpoint, invented trust or external adoption");
+    auto invalid(snapshot); invalid.configuration += "\n#include \"" + fixture.root + "/ambient.conf\";\n";
+    Require(!CydiaAPT::InitializeRecoverySnapshot(invalid, &code) && code == "recovery_configuration_invalid" &&
+        !CydiaAPT::MutationEnvironmentValid(), "captured parser denies include reads and fails closed");
+    _error->Discard();
+    invalid = snapshot; invalid.configuration += "\nDir::State::Lists \"/unexpected/lists\";\n";
+    Require(!CydiaAPT::InitializeRecoverySnapshot(invalid, &code) && code == "recovery_environment_mismatch",
+        "parsed paths cannot contradict parent descriptor");
+    _error->Discard();
+    Require(CydiaAPT::InitializeRecoverySnapshot(snapshot, &code), "fresh valid capsule may initialize after parser refusal");
 }
 void ProtectedCases() {
     Fixture fixture; R::Authority authority, before; P::Error error;
@@ -161,6 +239,34 @@ void ProtectedCases() {
         authority.archivesDirectory == fixture.startup.cacheDirectory + "/archives" &&
         authority.runtime.dpkgOptions == std::vector<std::string>({"--instdir=" + fixture.environment.dpkgRoot, "--force-confdef"}),
         "sources, shared state, archives and protected options survive capture");
+    const std::string privateBin(fixture.root + "/bin/recovery-bin/");
+    Require(authority.executableSearchPath == fixture.startup.dpkgExecutableSearchPath &&
+        authority.acquisitionSearchPath == privateBin.substr(0, privateBin.size() - 1) + ':' + authority.executableSearchPath &&
+        authority.runtime.gpgExecutablePath == fixture.environment.gpg,
+        "private acquisition helpers do not replace the parent dpkg path or native key-import verifier");
+    for (const char *tool : {"apt-key", "apt-config", "gpg", "gpgv"})
+        Require(authority.configuration.find(std::string("Dir::Bin::") + tool + " \"" + privateBin + tool + "\";") != std::string::npos,
+            "private helper defaults are captured before protected APT configuration");
+    Require(authority.configuration.find("APT::Key::gpgcommand \"" + privateBin + "gpg\";") != std::string::npos &&
+        authority.configuration.find("APT::Key::gpgvcommand \"" + privateBin + "gpgv\";") != std::string::npos,
+        "signature verification uses independently captured private defaults");
+    R::Authority configured;
+    Write(fixture.root + "/apt/apt.conf", fixture.Configuration() +
+        "Dir::Bin::apt-key \"/explicit/apt-key\"; Dir::Bin::apt-config \"/explicit/apt-config\";\n"
+        "Dir::Bin::gpg \"/explicit/gpg\"; Dir::Bin::gpgv \"/explicit/gpgv\";\n"
+        "Apt::Key::gpgcommand \"/explicit/signature-gpg\"; Apt::Key::gpgvcommand \"/explicit/signature-gpgv\";\n");
+    Require(Resolve(fixture, "", nullptr, &configured, &error) &&
+        configured.configuration.find("Dir::Bin::apt-key \"/explicit/apt-key\";") != std::string::npos &&
+        configured.configuration.find("Dir::Bin::apt-config \"/explicit/apt-config\";") != std::string::npos &&
+        configured.configuration.find("Dir::Bin::gpg \"/explicit/gpg\";") != std::string::npos &&
+        configured.configuration.find("Dir::Bin::gpgv \"/explicit/gpgv\";") != std::string::npos &&
+        configured.configuration.find("APT::Key::gpgcommand \"/explicit/signature-gpg\";") != std::string::npos &&
+        configured.configuration.find("APT::Key::gpgvcommand \"/explicit/signature-gpgv\";") != std::string::npos &&
+        configured.identity.configuration != authority.identity.configuration &&
+        configured.runtime.gpgExecutablePath == fixture.environment.gpg,
+        "protected helper choices override defaults without changing native key-import policy");
+    Write(fixture.root + "/apt/apt.conf", fixture.Configuration());
+    Require(Resolve(fixture, "", nullptr, &authority, &error), "recapture restored helper configuration baseline");
     Require(!authority.securityPreferenceExplicit && authority.runtime.repositorySecurityMode == CydiaAPT::RepositorySecurityMode::Warning &&
         authority.configuredSecurity.at("Acquire::Check-Valid-Until") == "false" &&
         authority.configuredSecurity.at("Acquire::AllowWeakRepositories") == "true" &&
@@ -168,6 +274,28 @@ void ProtectedCases() {
         _config->Find("Cydia::AuthorityFixtureSentinel") == "keep",
         "absence preserves recovery warning default without overwriting clean APT settings or global configuration");
     before = authority;
+    const std::string externalLibrary(fixture.root + "/bootstrap-library.dylib"), externalBytes("external dependency\n");
+    fixture.File(externalLibrary, externalBytes);
+    Hashes externalHash(Hashes::SHA256SUM);
+    Require(externalHash.Add(externalBytes.data(), externalBytes.size()), "hash discovered dependency fixture");
+    const auto discoveredInspector = [&](const R::Authority &captured, const std::string &inventory,
+            const std::function<bool()> &cancelled) {
+        auto proof = FixtureProof(captured, inventory, cancelled);
+        R::Component component; component.path = externalLibrary;
+        component.sha256 = externalHash.GetHashString(Hashes::SHA256SUM).HashValue();
+        proof.discoveredComponents.push_back(component); proof.nonPlatformDependencies.push_back(component.path);
+        return proof;
+    };
+    Require(Resolve(fixture, "", nullptr, &authority, &error, discoveredInspector) &&
+        authority.components.size() == before.components.size() + 1 &&
+        authority.identity.dependencies != before.identity.dependencies,
+        "trusted parent discovers external dpkg libraries without changing private inventory");
+    const auto discoveredIdentity(authority.identity);
+    Require(Resolve(fixture, "", &discoveredIdentity, &authority, &error, discoveredInspector),
+        "unchanged discovered dependency is independently recaptured");
+    Write(externalLibrary, "changed dependency\n");
+    Require(!Resolve(fixture, "", nullptr, &authority, &error, discoveredInspector) && error.code == "recovery_component_changed",
+        "reported dependency hash cannot replace parent recapture");
     Require(Resolve(fixture, "warning", nullptr, &authority, &error) && authority.securityPreferenceExplicit &&
         authority.identity.configuration == before.identity.configuration && authority.identity.policy != before.identity.policy,
         "explicit warning remains distinguishable from no saved choice");
@@ -237,7 +365,8 @@ void ProtectedCases() {
 }
 int main() {
     AdmissionCases();
-    if (geteuid() == 0) ProtectedCases();
+    if (geteuid() == 0) { ProtectedCases(); InitializationCases(); }
+    MethodConfigurationCases();
     std::cout << "[apt-recovery-authority] admission passed" <<
         (geteuid() == 0 ? "; protected capture, policy, closure and recheck fixtures passed\n" : "; protected fixtures require fakeroot\n");
     return 0;

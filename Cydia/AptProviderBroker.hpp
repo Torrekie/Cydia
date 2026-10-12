@@ -5,6 +5,7 @@
 #include "Cydia/AptProviderDpkgState.hpp"
 #include "Cydia/AptProviderSelection.hpp"
 #include "Cydia/AptProviderSession.hpp"
+#include "Cydia/AptRecoverySnapshot.hpp"
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
@@ -15,6 +16,9 @@ struct BrokerArchiveEvidence {
 struct BrokerOptions {
     std::string helperPath, extendedStatesPath;
     RegistrationIdentity authority;
+    // Exactly one authority kind is permitted. Recovery is not an external
+    // registration and never borrows its provider/configuration identity.
+    std::shared_ptr<const Recovery::RequestAuthority> recoveryAuthority;
     std::uint64_t capabilities = 0;
     ReviewPolicy policy;
     // Cydia independently resolves these against the selected source/index

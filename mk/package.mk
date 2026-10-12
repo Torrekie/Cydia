@@ -1,4 +1,4 @@
-$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(images) $(apt_catalogs) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT scripts/write-application-identity.py
+$(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_BINARY) $(FIRMWARE_DISCOVERY_BINARY) $(CYDO_BINARY) $(RECOVERY_WORKER_BINARY) $(images) $(apt_catalogs) $(shell find MobileCydia.app Library -type f) cydia.control NOTICE COPYING Cydia/ICU-LICENSE SDURLCache/LICENCE apt64/COPYING apt64/COPYING.GPL libiosexec/LICENSE libiosexec/debian/copyright xxhash/LICENSE vendor/compiler-rt/LICENSE.TXT scripts/write-application-identity.py
 	rm -rf $(CYDIA_STAGE)
 	mkdir -p $(CYDIA_STAGE_ROOT)/var/lib/cydia
 	mkdir -p $(CYDIA_STAGE_ROOT)/usr/share/doc/cydia
@@ -24,6 +24,9 @@ $(CYDIA_DEB): $(APP_BINARY) preinst prerm postrm $(POSTINST_BINARY) $(CFVERSION_
 	cp -a $(CFVERSION_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cfversion
 	cp -a $(FIRMWARE_DISCOVERY_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/firmware-discovery
 	cp -a $(CYDO_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydo
+	cp -a $(RECOVERY_WORKER_BINARY) $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/cydia-recovery
+	mkdir -p $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/recovery-methods
+	for meth in http https store $(methods); do ln -s ../cydia-recovery $(CYDIA_STAGE_ROOT)/usr/libexec/cydia/recovery-methods/"$$meth"; done
 
 	mkdir -p $(CYDIA_STAGE_ROOT)/Applications
 	cp -a MobileCydia.app $(CYDIA_STAGE_ROOT)/Applications/Cydia.app

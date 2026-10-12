@@ -26,8 +26,15 @@ struct ProviderAuthorityContext {
     bool active = false;
     std::string helper;
     CydiaAPT::Provider::RegistrationIdentity identity;
+    bool recovery = false;
+    CydiaAPT::Recovery::RequestAuthority recoveryIdentity;
     Privileged::ExpectedEnvironment expected;
 } providerAuthority;
+bool SelectedAuthorityPayload(const std::string &payload, std::string *bytes) {
+    return providerAuthority.recovery ?
+        CydiaAPT::Provider::BrokerRequestPayload(providerAuthority.recoveryIdentity, payload, bytes) :
+        CydiaAPT::Provider::BrokerRequestPayload(providerAuthority.identity, payload, bytes);
+}
 void Close(int &fd) { if (fd >= 0) close(fd); fd = -1; }
 
 bool PrepareDescriptor(int &fd) {
@@ -283,10 +290,10 @@ Result Run(const std::string &helperPath, const std::string &command,
     if (command.compare(0, 8, "--cydia-") != 0 || command.find_first_of("\r\n") != std::string::npos)
         return Failed(EINVAL);
     const bool privateSetup = command == "--cydia-set-executable" || command.compare(0, 21, "--cydia-admin-access-") == 0;
-    if (providerAuthority.active && !privateSetup && command.compare(0, 17, "--cydia-provider-") != 0) {
+    if (providerAuthority.active && !privateSetup && command != "--cydia-recovery-snapshot" && command.compare(0, 17, "--cydia-provider-") != 0) {
         if (helperPath != providerAuthority.helper) return Failed(EINVAL);
         Privileged::Request wrapped = request;
-        if (!CydiaAPT::Provider::BrokerRequestPayload(providerAuthority.identity, request.payload, &wrapped.payload)) return Failed(EINVAL);
+        if (!SelectedAuthorityPayload(request.payload, &wrapped.payload)) return Failed(EINVAL);
         return RunInternal(helperPath, {"--cydia-provider-route", command}, wrapped, captureLimit, timeoutMilliseconds);
     }
     return RunInternal(helperPath, {command}, request, captureLimit, timeoutMilliseconds);
@@ -359,7 +366,7 @@ int OpenLock(const std::string &helperPath, const Privileged::Request &request,
     Privileged::Request selected = request; selected.payload = purpose;
     if (providerAuthority.active) {
         if (helperPath != providerAuthority.helper ||
-            !CydiaAPT::Provider::BrokerRequestPayload(providerAuthority.identity, purpose, &selected.payload)) { errno = EINVAL; return -1; }
+            !SelectedAuthorityPayload(purpose, &selected.payload)) { errno = EINVAL; return -1; }
         return OpenProviderLock(helperPath, selected, error, timeoutMilliseconds);
     }
     return OpenLockRequest(helperPath, "--cydia-open-lock", selected, error, timeoutMilliseconds);
@@ -367,8 +374,15 @@ int OpenLock(const std::string &helperPath, const Privileged::Request &request,
 
 void ConfigureProviderAuthority(const std::string &helperPath,
     const CydiaAPT::Provider::RegistrationIdentity &identity, const Privileged::ExpectedEnvironment &expected) {
+    providerAuthority = ProviderAuthorityContext();
     providerAuthority.helper = helperPath; providerAuthority.identity = identity;
     providerAuthority.expected = expected; providerAuthority.active = true;
+}
+void ConfigureRecoveryAuthority(const std::string &helperPath,
+    const CydiaAPT::Recovery::RequestAuthority &authority, const Privileged::ExpectedEnvironment &expected) {
+    providerAuthority = ProviderAuthorityContext();
+    providerAuthority.helper = helperPath; providerAuthority.recoveryIdentity = authority;
+    providerAuthority.expected = expected; providerAuthority.recovery = true; providerAuthority.active = true;
 }
 void ClearProviderAuthority() { providerAuthority = ProviderAuthorityContext(); }
 bool ReadProviderSnapshot(const std::string &helperPath, const std::string &registrationPath,
@@ -401,6 +415,32 @@ bool ReadProviderSnapshot(const std::string &helperPath, const std::string &regi
         parsed.identity.registrationPath != registrationPath ||
         (expected && !Provider::SameRegistrationIdentity(*expected, parsed.identity)))
         return fail("provider_snapshot_invalid");
+    *snapshot = std::move(parsed); return true;
+}
+bool ReadRecoverySnapshot(const std::string &helperPath, const CydiaAPT::Recovery::Preferences &preferences,
+    const CydiaAPT::Recovery::Identity *expected, CydiaAPT::Recovery::Snapshot *snapshot, Privileged::Error *error,
+    unsigned timeoutMilliseconds, const std::function<bool()> &cancelled) {
+    namespace Recovery = CydiaAPT::Recovery;
+    const auto fail = [&](const char *code) { if (error) { error->code = code; error->message.clear(); } return false; };
+    if (!snapshot || (cancelled && cancelled())) return fail("recovery_cancelled");
+    const auto choices = Recovery::SerializePreferences(preferences);
+    const auto identity = expected ? Recovery::SerializeIdentity(*expected) : std::string();
+    if (choices.empty() || (expected && identity.empty())) return fail("recovery_authority_invalid");
+    Privileged::Request request; request.payload = Privileged::SerializeFields({choices, identity});
+    const auto result = Run(helperPath, "--cydia-recovery-snapshot", request,
+        Recovery::MaximumSnapshotBytes + 65536, timeoutMilliseconds ? timeoutMilliseconds : 4000);
+    if (cancelled && cancelled()) return fail("recovery_cancelled");
+    std::vector<std::string> fields; Privileged::Error ignored;
+    if (!result.succeeded() || !Privileged::ParseFields(result.output, 4, &fields, &ignored) ||
+        fields[0] != "CYDIA-RECOVERY-SNAPSHOT-REPLY-1") return fail("recovery_snapshot_unavailable");
+    if (!fields[1].empty()) {
+        if (!CydiaAPT::Provider::ValidIdentityToken(fields[1]) || !fields[3].empty()) return fail("recovery_snapshot_invalid");
+        if (error) { error->code = fields[1]; error->message = fields[2]; } return false;
+    }
+    Recovery::Snapshot parsed;
+    if (!fields[2].empty() || !Recovery::ParseSnapshot(fields[3], &parsed) ||
+        Recovery::SerializePreferences(Recovery::AuthorityRequest(parsed).preferences) != choices ||
+        (expected && Recovery::SerializeIdentity(*expected) != Recovery::SerializeIdentity(parsed.identity))) return fail("recovery_snapshot_invalid");
     *snapshot = std::move(parsed); return true;
 }
 
@@ -493,7 +533,7 @@ Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int stat
     }
     std::string payload; Privileged::Request request; request.expected = providerAuthority.expected;
     if (!CydiaAPT::Provider::Encode(values, &payload) ||
-        !CydiaAPT::Provider::BrokerRequestPayload(providerAuthority.identity, payload, &request.payload))
+        !SelectedAuthorityPayload(payload, &request.payload))
         return {Dpkg::ResultKind::LaunchFailed, -1, EINVAL};
     return RunProviderDpkg(providerAuthority.helper, "--cydia-provider-direct", request, statusFd, input).result;
 }

@@ -6,6 +6,8 @@
  */
 
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/AptRecoverySnapshot.hpp"
+#include "Cydia/AptRecoveryInitialization.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/PrivilegedRuntime.hpp"
 #include "Cydia/RedactedURL.hpp"
@@ -707,6 +709,101 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     gEmbeddedNeedsInitialization = false;
     return true;
 }
+
+namespace Internal {
+bool BeginRecoveryInitialization(std::string *errorCode) {
+    if (gSelectedRuntime || _config == NULL) {
+        if (errorCode) *errorCode = "runtime_selection_active";
+        return false;
+    }
+    ResetRuntimeState();
+    return true;
+}
+bool CompleteRecoveryInitialization(const Recovery::Snapshot &snapshot, std::string *errorCode) {
+    const auto fail = [&](const char *code) {
+        ResetRuntimeState();
+        if (errorCode) *errorCode = code;
+        return false;
+    };
+    const auto &d(snapshot.runtime);
+    const auto &options(snapshot.startup);
+    const auto path = [&](const char *key, bool directory, bool optional) {
+        const std::string raw(_config->Find(key));
+        if (optional && (raw == "-" || IsDisabledSourceSetting(raw))) return std::string();
+        const std::string resolved(directory ? _config->FindDir(key) : _config->FindFile(key));
+        return optional && IsDisabledSourceValue(resolved) ? std::string() : NormalizeRootDirectory(resolved);
+    };
+    ResolveDpkgEnvironment(options);
+    if (!gMutationEnvironmentValid || !PathsReferToSameDirectory(gDpkgAdminDirectory, d.dpkgAdminDirectory) ||
+        gDpkgRootDirectory != d.dpkgRootDirectory || gDpkgChrootDirectory != d.dpkgChrootDirectory ||
+        gPackageInstallPrefix != d.packageInstallPrefix || gDpkgOptions != d.dpkgOptions ||
+        path("Dir::Etc::sourcelist", false, true) != d.sourceListPath ||
+        path("Dir::Etc::sourceparts", true, true) != d.sourcePartsDirectory ||
+        ResolveManagedSourceList(d.sourcePartsDirectory) != d.managedSourceListPath ||
+        path("Dir::State::extended_states", false, false) != d.extendedStatesPath ||
+        path("Dir::Bin::Methods", true, false) != d.methodsDirectory ||
+        path("Dir::State::Lists", true, false) != d.listsDirectory ||
+        path("Dir::Etc::trusted", false, true) != d.trustedKeyringPath ||
+        path("Dir::Etc::trustedparts", true, true) != d.trustedKeyringPartsDirectory ||
+        path("Dir::Cache", true, false) != snapshot.cacheDirectory ||
+        path("Dir::Cache::Archives", true, false) != snapshot.archivesDirectory ||
+        path("Dir::Log", true, false) != snapshot.logDirectory ||
+        _config->Find("DPkg::Path") != snapshot.executableSearchPath ||
+        _config->Find("APT::Architecture") != d.architecture ||
+        _config->FindVector("APT::Architectures") != d.acquisitionArchitectures)
+        return fail("recovery_environment_mismatch");
+    for (const char *setting : {"Acquire::AllowInsecureRepositories", "Acquire::AllowWeakRepositories",
+        "Acquire::AllowDowngradeToInsecureRepositories", "Acquire::Check-Valid-Until", "APT::Get::AllowUnauthenticated"}) {
+        const auto expected(snapshot.configuredSecurity.find(setting));
+        if (_config->Exists(setting) != (expected != snapshot.configuredSecurity.end()) ||
+            (expected != snapshot.configuredSecurity.end() && _config->Find(setting) != expected->second))
+            return fail("recovery_security_mismatch");
+    }
+    if (HasIncompatibleRootedOptions(_config->Find("RootDir")) || !pkgInitSystem(*_config, _system))
+        return fail("recovery_system_unavailable");
+
+    gArchitecture = d.architecture;
+    gArchitectures = d.acquisitionArchitectures;
+    gRegisteredArchitectures = d.registeredArchitectures;
+    gExplicitAcquisitionArchitectures = true;
+    gSourceListPath = d.sourceListPath;
+    gSourcePartsDirectory = d.sourcePartsDirectory;
+    gManagedSourceListPath = d.managedSourceListPath;
+    gDpkgExecutablePath = d.dpkgExecutablePath;
+    gDpkgAdminDirectory = d.dpkgAdminDirectory;
+    gDpkgQueryExecutablePath = d.dpkgQueryExecutablePath;
+    gDpkgDebExecutablePath = d.dpkgDebExecutablePath;
+    gAptConfigOverride = d.aptConfigOverride;
+    gPrivilegedHelperPath = d.privilegedHelperPath;
+    gExtendedStatesPath = d.extendedStatesPath;
+    gMethodsDirectory = d.methodsDirectory;
+    gListsDirectory = d.listsDirectory;
+    gTrustedKeyringDirectory = d.trustedKeyringPath;
+    gTrustedKeyringPartsDirectory = d.trustedKeyringPartsDirectory;
+    CaptureDistributionSecurity();
+    SetRepositorySecurityMode(d.repositorySecurityMode);
+    SetCachedRepositoryTrustValid(false);
+    if (options.forceEssential) _config->Set("pkgCacheGen::ForceEssential", "");
+    if (!options.translation.empty() && !_config->Exists("APT::Acquire::Translation"))
+        _config->Set("APT::Acquire::Translation", options.translation);
+    if (!_config->Exists("Acquire::Languages")) _config->Set("Acquire::Languages", options.languages);
+    if (options.maxParallel > 0 && !_config->Exists("Acquire::http::MaxParallel"))
+        _config->Set("Acquire::http::MaxParallel", options.maxParallel);
+    // The native manager is acquisition-only in this process. A mistaken
+    // direct installation must fail before executing a privileged wrapper.
+    _config->Set("Dir::Bin::dpkg", "/dev/null");
+    _config->Clear("APT::Keep-Fds");
+    APT::Configuration::getArchitectures(false);
+    APT::Configuration::getCompressors(false);
+    APT::Configuration::getCompressionTypes(false);
+    if (setenv("PATH", snapshot.acquisitionSearchPath.c_str(), 1) != 0 || unsetenv("APT_CONFIG") != 0)
+        return fail("recovery_environment_unavailable");
+    gEmbeddedNeedsInitialization = false;
+    if (errorCode) errorCode->clear();
+    return true;
+}
+
+} // namespace Internal
 
 RuntimeDescriptor ReadEmbeddedRuntimeDescriptor() {
     // Do not use public getters here: they may describe a selected worker.

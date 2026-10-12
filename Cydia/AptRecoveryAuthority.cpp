@@ -104,7 +104,7 @@ bool ReadOptional(Configuration &config, const std::string &path, bool directory
     if (capture.evidence.back().absent) return true;
     return directory ? ReadConfigDir(config, path) : ReadConfigFile(config, path);
 }
-bool ReadConfiguration(const InitializationOptions &s, const std::string &overridePath,
+bool ReadConfiguration(const InitializationOptions &s, const std::string &overridePath, const std::string &worker,
     Configuration &config, Capture &capture) {
     // Obtain this linked APT's compiled defaults without reading ambient or
     // host configuration. Then perform its documented override/parts/main read
@@ -124,8 +124,18 @@ bool ReadConfiguration(const InitializationOptions &s, const std::string &overri
     config.Set("Cydia::Package-Install-Prefix", s.packageInstallPrefix); config.Set("DPkg::Path", s.dpkgExecutableSearchPath);
     for (const char *table : {"cputable", "tupletable", "triplettable"})
         config.Set((std::string("Dir::dpkg::") + table).c_str(), s.dpkgDataDirectory + '/' + table);
-    const auto bin(s.nativeDpkgPath.substr(0, s.nativeDpkgPath.rfind('/') + 1));
-    for (const char *tool : {"apt-key", "gpgv", "gpg"}) config.Set((std::string("Dir::Bin::") + tool).c_str(), bin + tool);
+    // Recovery's private tools are defaults only. Protected APT configuration
+    // and explicit executable preferences below retain their normal precedence.
+    // Native key imports continue to use the separately resolved environment.gpg.
+    const auto bin(worker.substr(0, worker.rfind('/') + 1) + "recovery-bin/");
+    for (const char *tool : {"apt-key", "apt-config", "gpgv", "gpg"})
+        config.Set((std::string("Dir::Bin::") + tool).c_str(), bin + tool);
+    for (const char *format : {"bzip2", "xz", "lzma", "lz4", "zstd"}) {
+        config.Set((std::string("Dir::Bin::") + format).c_str(), bin + format);
+        config.Set((std::string("APT::Compressor::") + format + "::Binary").c_str(), bin + format);
+    }
+    for (const char *tool : {"gpg", "gpgv"})
+        config.Set((std::string("Apt::Key::") + tool + "command").c_str(), bin + tool);
     if (!overridePath.empty() && (!capture.Add(overridePath, false, false) || !ReadConfigFile(config, overridePath)))
         return capture.denied ? false : Fail(capture.error, "recovery_configuration_invalid", "Cannot read the protected recovery configuration.");
     if (!ReadOptional(config, ConfigPath(config, "Dir::Etc::parts", true, true), true, capture) ||
@@ -176,7 +186,12 @@ bool Architectures(RuntimeDescriptor &d, Configuration &config, const std::funct
         }
         d.acquisitionArchitectures.swap(values);
     }
-    config.Set("APT::Architecture", d.architecture); return true;
+    config.Set("APT::Architecture", d.architecture);
+    // The worker consumes this captured configuration without reopening the
+    // bootstrap files. Include APT's normalized native-first policy here.
+    config.Clear("APT::Architectures");
+    for (const auto &value : d.acquisitionArchitectures) config.Set("APT::Architectures::", value);
+    return true;
 }
 bool Derive(Authority &value, Configuration &config, P::Error *error) {
     auto &d(value.runtime); const auto &e(value.environment);
@@ -216,13 +231,16 @@ bool Derive(Authority &value, Configuration &config, P::Error *error) {
     std::istringstream search(value.executableSearchPath); std::string directory; unsigned count = 0;
     while (std::getline(search, directory, ':')) if (!Path(directory) || ++count > 128)
         return Fail(error, "recovery_search_path_invalid", "The recovery executable search path is invalid.");
+    const std::string privateBin(value.executable.substr(0, value.executable.rfind('/') + 1) + "recovery-bin");
+    if (!Path(privateBin) || privateBin.find(':') != std::string::npos)
+        return Fail(error, "recovery_search_path_invalid", "The recovery acquisition search path is invalid.");
+    value.acquisitionSearchPath = privateBin + ':' + value.executableSearchPath;
     const std::string status(ConfigPath(config, "Dir::State::status", false));
     if (!SamePath(status, e.dpkgAdmin + "/status") || !SamePath(d.sourceListPath, e.sourceList) ||
         !SamePath(d.sourcePartsDirectory, e.sourceParts) || !SamePath(d.extendedStatesPath, e.extendedStates) ||
         !SamePath(d.trustedKeyringPath, e.trusted) || !SamePath(d.trustedKeyringPartsDirectory, e.trustedParts) ||
         !SamePath(ConfigPath(config, "Dir::Etc::preferences", false, true), e.preferences) ||
         !SamePath(ConfigPath(config, "Dir::Etc::preferencesparts", true, true), e.preferencesParts) ||
-        !SamePath(config.Find("Apt::Key::gpgcommand"), e.gpg) ||
         d.dpkgChrootDirectory != "/" || !P::ValidateDpkgArguments(e, d.dpkgOptions, error))
         return Fail(error, "recovery_environment_mismatch", "Recovery configuration disagrees with the protected package environment.");
     const std::string managed(config.Find("Cydia::APT::ManagedSourceList"));
@@ -305,10 +323,7 @@ bool Resolve(const CydiaRuntime::PackageDatabasePaths &paths, const Initializati
     if (value.environment.aptConfigOverride != overridePath) return Fail(error, "recovery_environment_mismatch", "The protected resolver changed the configuration override.");
     Capture capture; capture.stopped = stopped; capture.error = error;
     Configuration config;
-    if (!ReadConfiguration(startup, overridePath, config, capture)) return false;
-    for (const char *tool : {"gpg", "gpgv"})
-        config.CndSet((std::string("Apt::Key::") + tool + "command").c_str(),
-            config.Find((std::string("Dir::Bin::") + tool).c_str()).c_str());
+    if (!ReadConfiguration(startup, overridePath, bundle.executable, config, capture)) return false;
     for (const auto &overrideValue : value.environment.executableOverrides) {
         // The independently protected resolver has already parsed the accepted
         // executable purposes. Retain the same effective command policy for
@@ -325,9 +340,15 @@ bool Resolve(const CydiaRuntime::PackageDatabasePaths &paths, const Initializati
     value.runtime.repositorySecurityMode = EffectiveRepositorySecurityMode(preference, false);
     value.startup.repositorySecurityMode = value.runtime.repositorySecurityMode;
     for (const auto *key : securityKeys) if (config.Exists(key)) value.configuredSecurity[key] = config.Find(key);
+    // Bind Cydia's frontend choices into the exact parser snapshot as well as
+    // its identity. Security is applied separately from the clean baseline.
+    if (startup.forceEssential) config.Set("pkgCacheGen::ForceEssential", "");
+    if (!startup.translation.empty() && !config.Exists("APT::Acquire::Translation")) config.Set("APT::Acquire::Translation", startup.translation);
+    if (!config.Exists("Acquire::Languages")) config.Set("Acquire::Languages", startup.languages);
+    if (startup.maxParallel > 0 && !config.Exists("Acquire::http::MaxParallel")) config.Set("Acquire::http::MaxParallel", startup.maxParallel);
     std::ostringstream effective; config.Dump(effective); value.configuration = effective.str();
-    if (value.configuration.size() > 32 * 1024 * 1024) return Fail(error, "recovery_configuration_invalid", "The effective recovery configuration exceeds its limits.");
-    std::vector<std::string> configFields{value.configuration, overridePath, startup.translation, startup.languages,
+    if (value.configuration.size() > 1024 * 1024) return Fail(error, "recovery_configuration_invalid", "The effective recovery configuration exceeds its launch capsule limit.");
+    std::vector<std::string> configFields{value.configuration, value.acquisitionSearchPath, overridePath, startup.translation, startup.languages,
         std::to_string(startup.maxParallel), startup.forceEssential ? "1" : "0",
         P::SerializeFields(value.runtime.registeredArchitectures), P::SerializeFields(value.runtime.acquisitionArchitectures)};
     for (const auto &input : value.environment.evidence) configFields.push_back(EvidenceBytes(input));
@@ -396,6 +417,21 @@ bool Resolve(const CydiaRuntime::PackageDatabasePaths &paths, const Initializati
     value.unresolvedFields = proof.unresolvedFields;
     if (inspect && (proof.inventoryIdentity != inventoryIdentity || !Token(proof.loaderIdentity)))
         return Fail(error, "recovery_dependency_proof_invalid", "Recovery dependency evidence does not bind the captured components.");
+    std::vector<std::string> discovered;
+    if (proof.discoveredComponents.size() > 256 || value.components.size() + proof.discoveredComponents.size() > 512)
+        return Fail(error, "recovery_dependency_proof_invalid", "Recovery dependency inventory exceeds its limits.");
+    for (const auto &reported : proof.discoveredComponents) {
+        if (!Path(reported.path) || reported.executable || requested.count(reported.path) ||
+            std::find(proof.nonPlatformDependencies.begin(), proof.nonPlatformDependencies.end(), reported.path) == proof.nonPlatformDependencies.end())
+            return Fail(error, "recovery_dependency_proof_invalid", "An external dependency is outside the reported closure.");
+        HashedComponent component;
+        if (!Fingerprint(reported.path, false, stopped, total, &component, error)) return false;
+        if (component.value.sha256 != reported.sha256)
+            return Fail(error, "recovery_component_changed", "An external dependency changed during verification.");
+        requested.emplace(reported.path, false);
+        discovered.push_back(ComponentBytes(component));
+        value.components.push_back(component.value); components.push_back(std::move(component));
+    }
     std::set<std::string> dependencies;
     for (const auto &path : proof.nonPlatformDependencies) {
         if (!Path(path) || !requested.count(path) || !dependencies.insert(path).second)
@@ -404,7 +440,8 @@ bool Resolve(const CydiaRuntime::PackageDatabasePaths &paths, const Initializati
     if (value.unresolvedFields.size() > 128 || std::any_of(value.unresolvedFields.begin(), value.unresolvedFields.end(),
         [](const std::string &field) { return !Token(field); })) return Fail(error, "recovery_dependency_proof_invalid", "Invalid unresolved recovery dependency fields.");
     if (inspect) value.identity.dependencies = Hash("CYDIA-RECOVERY-DEPENDENCIES-1",
-        {inventoryIdentity, proof.loaderIdentity, P::SerializeFields(proof.nonPlatformDependencies), P::SerializeFields(proof.unresolvedFields)});
+        {inventoryIdentity, proof.loaderIdentity, P::SerializeFields(proof.nonPlatformDependencies),
+            P::SerializeFields(discovered), P::SerializeFields(proof.unresolvedFields)});
     std::vector<std::string> policyFields{value.identity.configuration, value.identity.libraries, value.identity.frontend,
         value.identity.methods, value.identity.dependencies, value.securityPreferenceExplicit ? "explicit" : "absent",
         RepositorySecurityModeName(value.runtime.repositorySecurityMode)};

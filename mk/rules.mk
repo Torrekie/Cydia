@@ -210,6 +210,9 @@ $(SETNSFPN_BINARY): setnsfpn.cpp
 $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
 		Cydia/AptProviderBrokerPrivileged.cpp Cydia/AptProviderBrokerValues.cpp \
 		Cydia/AptProviderSelection.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderClient.cpp \
+		Cydia/AptProviderLaunch.cpp Cydia/AptRecoverySnapshot.cpp \
+		Cydia/AptRecoveryAuthority.cpp Cydia/AptRecoveryInstalledAuthority.cpp \
+		Cydia/AptRecoveryDependencyInspector.cpp Cydia/AptRecoveryMachO.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 		Cydia/AptProviderDpkgState.cpp Cydia/AptProviderDpkgStateCapture.cpp Cydia/PackageIdentity.cpp \
 		Cydia/PackageArchivePolicy.cpp Cydia/PackageArchiveReader.cpp Cydia/AptProviderArchiveDecoders.cpp \

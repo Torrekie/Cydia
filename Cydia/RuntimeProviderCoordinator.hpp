@@ -21,9 +21,12 @@ public:
     // On a failed explicit change an existing runtime is left intact. Automatic
     // startup fallback occurs only here, never during an operation or retry.
     bool Select(AptBackend **backend, AcquireStatus &status, NSString *preference,
-        NSString *securityPreference, bool allowRecovery, NSString **diagnostic);
+        NSString *securityPreference, bool allowRecovery, NSString **diagnostic, bool explicitRequest = false);
     CydiaRuntimeProviderStatus *Status() const;
     bool external() const;
+    // Both a distribution adapter and the bundled recovery worker require
+    // parent-reviewed execution. Only external() implies distro-owned policy.
+    bool remote() const;
     bool healthy() const;
     bool ready() const;
     bool indeterminate() const;

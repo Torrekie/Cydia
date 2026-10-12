@@ -10,6 +10,7 @@
 #include "Cydia/AptCompatibilityInternal.hpp"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/AptVersionPolicyInternal.hpp"
+#include "Cydia/AptLocalStateVersion.hpp"
 
 #include <apt-pkg/policy.h>
 #include <apt-pkg/acquire-item.h>
@@ -202,19 +203,6 @@ bool HasLocalState(pkgCache::PkgIterator package) {
     return !package.end() &&
         (package->CurrentState != pkgCache::State::NotInstalled ||
          !package.CurrentVer().end());
-}
-
-pkgCache::VerIterator LocalStateVersion(pkgCache::PkgIterator package) {
-    const pkgCache::VerIterator installed(package.CurrentVer());
-    if (!installed.end()) return installed;
-    if (package->CurrentState == pkgCache::State::ConfigFiles) {
-        for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version)
-            for (pkgCache::VerFileIterator file(version.FileList()); !file.end(); ++file) {
-                const char *type(file.File().IndexType());
-                if (type != NULL && strcmp(type, "Debian dpkg status file") == 0) return version;
-            }
-    }
-    return pkgCache::VerIterator();
 }
 
 void RecomputeCandidateState(pkgDepCache &cache) {

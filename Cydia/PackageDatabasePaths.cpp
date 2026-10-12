@@ -248,6 +248,7 @@ PackageDatabasePaths PackageDatabasePaths::Detect() {
         candidates.push_back({layout, installed.cydiaApplication});
         candidates.push_back({layout, installed.cydo});
         candidates.push_back({layout, JoinPath(installed.cydiaLibexecDirectory, "cydo.dummy")});
+        candidates.push_back({layout, JoinPath(installed.cydiaLibexecDirectory, "cydia-recovery")});
     }
     PackageDatabaseLayout installed;
     if (ResolveInstalledExecutableLayout(CurrentExecutablePath(), candidates, &installed))

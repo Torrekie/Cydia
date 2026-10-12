@@ -16,6 +16,8 @@
 
 namespace CydiaAPT {
 
+namespace Recovery { struct Snapshot; }
+
 struct InitializationOptions {
     std::string architecture;
     std::string aptConfigDirectory;
@@ -52,6 +54,11 @@ struct InitializationOptions {
  * architecture.  The implementation is the only place that calls the APT
  * init/configuration API. */
 bool Initialize(const InitializationOptions &options, std::string *architecture);
+// Recovery-worker startup only: consume a parent-verified, complete capsule.
+// No ambient configuration, includes, executable discovery, architecture child
+// or shared-state mutation is performed. Shape validation is not authority.
+bool InitializeRecoverySnapshot(const Recovery::Snapshot &snapshot,
+    std::string *errorCode = nullptr);
 /* All selection APIs require Database serialization, closed caches and no
  * active operation. Adoption never initializes or alters embedded APT. The
  * coordinator must independently verify authority before supplying binding.

@@ -1,6 +1,7 @@
 /* Real libapt ordering and provenance fixtures; no dpkg/provider is executed.
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptRecoveryPackageManager.hpp"
+#include "Cydia/AptLocalStateVersion.hpp"
 #include "Cydia/AptProviderArchiveEvidence.hpp"
 #include <apt-pkg/cachefile.h>
 #include <apt-pkg/configuration.h>
@@ -17,6 +18,8 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 #include <unistd.h>
 
 namespace {
@@ -33,6 +36,9 @@ void Write(const std::string &path, const std::string &bytes) {
 std::string Read(const std::string &path) {
     std::ifstream file(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+}
+std::string ConfigurationBytes() {
+    std::ostringstream bytes; _config->Dump(bytes); return bytes.str();
 }
 std::string SHA256(const std::string &bytes) {
     Hashes hash(Hashes::SHA256SUM); Require(hash.Add(bytes.data(), bytes.size()), "hash fixture");
@@ -70,12 +76,15 @@ struct Fixture {
         Write(runtime.sourceListPath, "# Preserve this comment.\ndeb [trusted=yes] https://example.invalid/ ./\n");
         index = runtime.listsDirectory + '/' + URItoFileName("https://example.invalid/./Packages");
         Write(index, Record("base", "1", "amd64") + Record("top", "2", "amd64", "Pre-Depends: base (= 1)\n") +
+            Record("cycle-a", "1", "amd64", "Depends: cycle-b (= 1)\n") + Record("cycle-b", "1", "amd64", "Depends: cycle-a (= 1)\n") +
             Record("portable", "1:3.0~rc1-2", "all") + Record("portable", "2", "amd64") +
             Record("twin", "1", "amd64", "Multi-Arch: same\n") + Record("twin", "1", "i386", "Multi-Arch: same\n") +
-            Record("old", "9", "amd64") + Record("purge-me", "9", "amd64"));
+            Record("old", "9", "amd64") + Record("purge-me", "9", "amd64") + Record("residual", "9", "amd64"));
         statusBytes = "Package: old\nStatus: install ok installed\nVersion: 1\nArchitecture: all\nDescription: old\n\n"
             "Package: purge-me\nStatus: install ok installed\nVersion: 2\nArchitecture: amd64\nDescription: old\n\n"
-            "Package: legacy-other\nStatus: install ok installed\nVersion: 3\nArchitecture: armhf\nDescription: other\n\n";
+            "Package: legacy-other\nStatus: install ok installed\nVersion: 3\nArchitecture: armhf\nDescription: other\n\n"
+            "Package: residual\nStatus: deinstall ok config-files\nVersion: 1\nArchitecture: amd64\nDescription: residual\n\n"
+            "Package: residual-only\nStatus: deinstall ok config-files\nVersion: 4\nArchitecture: all\nDescription: residual\n\n";
         Write(root + "/status", statusBytes); Write(root + "/extended_states", "");
         unsetenv("APT_CONFIG"); _config->Clear(); _error->Discard();
         _config->Set("Dir", "/"); _config->Set("Dir::Etc", root + "/etc");
@@ -110,7 +119,7 @@ struct Fixture {
         for (auto package = cache->PkgBegin(); !package.end(); ++package) {
             auto &state = (*cache.GetDepCache())[package];
             if (!state.Install() && !state.Delete()) continue;
-            const auto version = state.Delete() ? package.CurrentVer() : state.InstVerIter(*cache.GetDepCache());
+            const auto version = state.Delete() ? LocalStateVersion(package) : state.InstVerIter(*cache.GetDepCache());
             Require(!version.end(), "selected exact version");
             const auto mode = version->MultiArch & pkgCache::Version::Same ? MultiArchMode::Same : MultiArchMode::None;
             const auto identity = BuildPackageIdentity(package.Name(), package.Arch(), version.Arch(), "amd64", mode);
@@ -168,13 +177,24 @@ void OrderedInstallAndProvenance() {
     fixture.Select("twin", "amd64"); fixture.Select("twin", "i386");
     std::unique_ptr<pkgPackageManager> owner(new AptRecoveryPackageManager(fixture.cache.GetDepCache()));
     auto &manager = *static_cast<AptRecoveryPackageManager *>(owner.get()); fixture.Bind(manager);
+    Configuration *const original = _config; const auto configuration(ConfigurationBytes());
     const auto result = fixture.Capture(manager); Require(result.status == RecoveryCaptureStatus::Recorded, result.errorCode.c_str());
+    Require(_config == original && ConfigurationBytes() == configuration, "default smart ordering changed original configuration");
     const auto &review = result.review;
     Require(Action(review, "base", P::ExecutionAction::Configure) < Action(review, "top", P::ExecutionAction::Unpack), "APT Pre-Depends order changed");
     Require(Action(review, "twin", P::ExecutionAction::Unpack, "amd64") != Action(review, "twin", P::ExecutionAction::Unpack, "i386"), "coinstalled architectures aliased");
     const auto &portable = review.execution.actions[Action(review, "portable", P::ExecutionAction::Unpack)];
     Require(portable.package.architecture == "all" && portable.package.version == "1:3.0~rc1-2", "exact all/version identity lost to native candidate");
     Require(review.execution.archives.size() == 5, "selected archive count changed");
+    unsigned configured = 0;
+    for (const auto &action : review.execution.actions) {
+        if (action.action != P::ExecutionAction::Configure) continue;
+        ++configured;
+        Require(Action(review, action.package.package.c_str(), P::ExecutionAction::Unpack, action.package.architecture.c_str()) <
+            Action(review, action.package.package.c_str(), P::ExecutionAction::Configure, action.package.architecture.c_str()),
+            "explicit final configuration must follow exact-architecture unpack");
+    }
+    Require(configured == 5, "smart pending configuration was not expanded into exact reviewed actions");
     for (const auto &archive : review.execution.archives) {
         const auto record = Read(archive.sourceIndexPath).substr(archive.recordOffset, archive.recordSize);
         Require(record.find("Package: " + archive.package.package + '\n') == 0 && archive.sourceDefinitionOrdinal == 0 &&
@@ -187,6 +207,45 @@ void OrderedInstallAndProvenance() {
     Require(owner->DoInstallPostFork(nullptr) == pkgPackageManager::Failed, "recording manager executed through base interface");
     Require(fixture.Capture(manager).errorCode == "recovery_capture_already_consumed", "mutable ordering reused");
     fixture.Unchanged();
+}
+void ConfigurationRestoration() {
+    for (unsigned variant = 0; variant != 4; ++variant) {
+        Fixture fixture; fixture.Select("portable", "amd64", "1:3.0~rc1-2");
+        _config->Set("PackageManager::Configure", variant == 1 ? "all" : "smart");
+        _config->Set("PackageManager::Configure::Fixture::", "first");
+        _config->Set("PackageManager::Configure::Fixture::", "second");
+        _config->Set("Dir::Log::Planner", fixture.root + "/log/unchanged.xz");
+        _config->Set("Dir::Log::Planner::Fixture::", "retained");
+        Configuration *const original = _config; const auto before(ConfigurationBytes());
+        AptRecoveryPackageManager manager(fixture.cache.GetDepCache()); fixture.Bind(manager);
+        bool threw = false;
+        try {
+            const auto result = fixture.Capture(manager, [&]() {
+                if (_config == original) return false;
+                if (variant == 3) throw std::runtime_error("cancelled ordering fixture");
+                return variant == 2;
+            });
+            Require(variant == 2 ? result.status == RecoveryCaptureStatus::Cancelled : result.status == RecoveryCaptureStatus::Recorded,
+                result.errorCode.c_str());
+        } catch (const std::runtime_error &) { threw = true; }
+        Require(threw == (variant == 3) && _config == original && ConfigurationBytes() == before,
+            "ordering success, cancellation or exception failed to restore exact configuration object");
+        fixture.Unchanged();
+    }
+}
+void DependencyCycleRecording() {
+    Fixture fixture; fixture.Select("cycle-a", "amd64");
+    AptRecoveryPackageManager manager(fixture.cache.GetDepCache()); fixture.Bind(manager);
+    const auto result(fixture.Capture(manager));
+    Require(result.status == RecoveryCaptureStatus::Recorded, result.errorCode.c_str());
+    const auto unpackA(Action(result.review, "cycle-a", P::ExecutionAction::Unpack));
+    const auto unpackB(Action(result.review, "cycle-b", P::ExecutionAction::Unpack));
+    const auto configureA(Action(result.review, "cycle-a", P::ExecutionAction::Configure));
+    const auto configureB(Action(result.review, "cycle-b", P::ExecutionAction::Configure));
+    Require(unpackA < configureA && unpackA < configureB && unpackB < configureA && unpackB < configureB &&
+        (configureA + 1 == configureB || configureB + 1 == configureA),
+        "cyclic Depends must retain libapt's adjacent configure group after both unpacks");
+    fixture.AcceptReview(result.review); fixture.Unchanged();
 }
 void RemovalUsesInstalledVersion() {
     Fixture fixture; Require(fixture.cache->MarkDelete(fixture.Find("old"), false), "select removal");
@@ -203,8 +262,26 @@ void RemovalUsesInstalledVersion() {
     fixture.AcceptReview(result.review);
     fixture.Unchanged();
 }
+void ResidualConfigurationPurge() {
+    Fixture fixture;
+    for (const char *name : {"residual", "residual-only"}) {
+        const auto package(fixture.Find(name));
+        Require(package->CurrentState == pkgCache::State::ConfigFiles && package.CurrentVer().end(),
+            "residual fixture must have no installed CurrentVer");
+        Require(fixture.cache->MarkDelete(package, true), "select residual purge");
+    }
+    AptRecoveryPackageManager manager(fixture.cache.GetDepCache());
+    const auto result(fixture.Capture(manager));
+    Require(result.status == RecoveryCaptureStatus::Recorded, result.errorCode.c_str());
+    const auto &residual(result.review.execution.actions[Action(result.review, "residual", P::ExecutionAction::Purge)]);
+    const auto &localOnly(result.review.execution.actions[Action(result.review, "residual-only", P::ExecutionAction::Purge)]);
+    Require(residual.package.version == "1" && residual.package.architecture == "amd64" &&
+        localOnly.package.version == "4" && localOnly.package.architecture == "all" &&
+        result.review.execution.archives.empty(), "residual purge must retain exact local status version/arch without an archive");
+    fixture.AcceptReview(result.review); fixture.Unchanged();
+}
 void Refusals() {
-    for (unsigned variant = 0; variant < 9; ++variant) {
+    for (unsigned variant = 0; variant < 11; ++variant) {
         Fixture fixture; fixture.Select("portable", "amd64", "1:3.0~rc1-2");
         AptRecoveryPackageManager manager(fixture.cache.GetDepCache());
         if (variant != 0) fixture.Bind(manager);
@@ -217,6 +294,8 @@ void Refusals() {
         if (variant == 6) { _config->Set("DPkg::Options::", "--pre-invoke=touch " + fixture.root + "/forbidden"); expected = "recovery_hooks_unsupported"; }
         if (variant == 7) expected = "recovery_cancelled";
         if (variant == 8) { _config->Set("RootDir", fixture.root); expected = "recovery_rootdir_ordering_unsupported"; }
+        if (variant == 9) { _config->Set("PackageManager::Configure", "none"); expected = "recovery_configure_policy_unsupported"; }
+        if (variant == 10) { _config->Set("DPkg::ConfigurePending", false); expected = "recovery_configure_policy_unsupported"; }
         const auto result = fixture.Capture(manager, variant == 7 ? std::function<bool()>([] { return true; }) : std::function<bool()>());
         Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == expected && result.review.execution.actions.empty(), expected);
         Require(!std::filesystem::exists(fixture.root + "/forbidden"), "hook was executed before refusal"); fixture.Unchanged();
@@ -224,6 +303,7 @@ void Refusals() {
 }
 }
 int main() {
-    OrderedInstallAndProvenance(); RemovalUsesInstalledVersion(); Refusals();
+    OrderedInstallAndProvenance(); ConfigurationRestoration(); DependencyCycleRecording();
+    RemovalUsesInstalledVersion(); ResidualConfigurationPurge(); Refusals();
     std::cout << "[apt-recovery-recording] native ordering/provenance/refusal fixtures passed\n";
 }

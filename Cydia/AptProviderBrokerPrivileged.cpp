@@ -86,8 +86,28 @@ bool ResolveBrokerRequest(const CydiaRuntime::PackageDatabasePaths &paths, const
         !SameExpected(request.expected, selected->environment)) return Fail(error, "provider_authority_changed");
     *payload = fields[2]; return true;
 }
+bool ResolveBrokerRequest(const CydiaRuntime::PackageDatabasePaths &paths, const P::Request &request,
+    uid_t uid, BrokerEnvironment *selected, std::string *payload, P::Error *error,
+    const Recovery::DependencyInspector &inspect) {
+    std::vector<std::string> fields;
+    if (!selected || !payload || !Decode(request.payload, &fields) || fields.size() != 3)
+        return Fail(error, "provider_authority_changed");
+    BrokerEnvironment value;
+    if (fields[0] == "CYDIA-BROKER-1") {
+        RegisteredProviderEnvironment registered;
+        if (!ResolveBrokerRequest(paths, request, &registered, payload, error)) return false;
+        value = BrokerEnvironment(registered);
+    } else if (fields[0] == "CYDIA-RECOVERY-BROKER-1") {
+        Recovery::RequestAuthority authority; Recovery::Authority captured;
+        if (!Recovery::ParseRequestAuthority(fields[1], &authority)) return Fail(error, "recovery_authority_invalid");
+        if (!Recovery::ResolveInstalledAuthority(paths, uid, authority.preferences, &authority.identity, &captured, error, inspect)) return false;
+        if (!SameExpected(request.expected, captured.environment)) return Fail(error, "recovery_authority_changed");
+        value = BrokerEnvironment(captured); *payload = fields[2];
+    } else return Fail(error, "provider_authority_changed");
+    *selected = std::move(value); return true;
+}
 bool ExecuteBrokerDpkg(const CydiaRuntime::PackageDatabasePaths &paths,
-    const RegisteredProviderEnvironment &selected, pid_t parent, const BrokerDpkgRequest &request,
+    const BrokerEnvironment &selected, pid_t parent, const BrokerDpkgRequest &request,
     const std::function<int(const std::string &, const std::vector<std::string> &)> &execute,
     int *exitCode, P::Error *error) {
     const auto &environment = selected.environment; DpkgState state; std::string reason;
@@ -102,7 +122,7 @@ bool ExecuteBrokerDpkg(const CydiaRuntime::PackageDatabasePaths &paths,
     auto arguments = request.arguments; Staging staging; std::set<std::string> pathsSeen, identities;
     std::map<std::string, std::string> decoders;
     if (!request.archives.empty() && !CydiaPackages::ResolveTrustedArchiveDecoders(
-        selected.executableSearchPath, &decoders, &reason)) return Fail(error, "provider_archive_decoder_unavailable");
+        selected.archiveDecoderSearchPath, &decoders, &reason)) return Fail(error, "provider_archive_decoder_unavailable");
     if (!request.archives.empty() && (request.action != ExecutionAction::Unpack || !staging.Create(paths, error))) return false;
     for (const auto &archive : request.archives) {
         if (!pathsSeen.insert(archive.path).second || !identities.insert(archive.identifier).second ||
@@ -129,5 +149,12 @@ bool ExecuteBrokerDpkg(const CydiaRuntime::PackageDatabasePaths &paths,
     arguments.insert(arguments.begin(), {"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin});
     *exitCode = execute(environment.dpkg, arguments);
     return true;
+}
+bool ExecuteBrokerDpkg(const CydiaRuntime::PackageDatabasePaths &paths,
+    const RegisteredProviderEnvironment &selected, pid_t parent, const BrokerDpkgRequest &request,
+    const std::function<int(const std::string &, const std::vector<std::string> &)> &execute,
+    int *exitCode, P::Error *error) {
+    const BrokerEnvironment value(selected);
+    return ExecuteBrokerDpkg(paths, value, parent, request, execute, exitCode, error);
 }
 }} // namespace CydiaAPT::Provider

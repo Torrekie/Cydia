@@ -675,7 +675,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     // during either discovery or cache opening cannot authorize this queue.
     transactionSnapshot_ = nil;
     NSString *openingSnapshot(CurrentTransactionSnapshot());
-    if (!runtime_->external() && !CydiaAPT::RefreshArchitectures()) {
+    if (!runtime_->remote() && !CydiaAPT::RefreshArchitectures()) {
         /* Keep browsing with the last verified acquisition state while the
          * runtime separately denies all package mutations. */
         [self requirePackageChangesForTask:title];
@@ -974,10 +974,10 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return false;
     }
     [self recheckRepositoryTrust];
-    // External preparation needs a bound cache review and the parent's lock,
+    // Worker preparation needs a bound cache review and the parent's lock,
     // but the lock is released while the user reads the confirmation sheet.
     std::unique_ptr<PackageTransactionLock> transaction;
-    if (runtime_->external()) {
+    if (runtime_->remote()) {
         transaction.reset(new PackageTransactionLock(apt_));
         if (!transaction->held()) {
             if (![self popErrorWithTitle:title])
@@ -988,7 +988,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         if (![self captureConfirmationReview]) return false;
     }
     if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()]) return false;
-    return runtime_->external() || [self captureConfirmationReview];
+    return runtime_->remote() || [self captureConfirmationReview];
 }
 
 - (bool) perform {
@@ -1020,15 +1020,15 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     };
     if (!requireUnchanged()) return false;
     CydiaRuntime::PrivilegedClient::Result sharedState = {};
-    if (!runtime_->external()) sharedState = CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-extended-state-read", "");
-    if (!runtime_->external() && !sharedState.succeeded()) {
+    if (!runtime_->remote()) sharedState = CydiaRuntime::PrivilegedClient::RunNativeCommand("--cydia-extended-state-read", "");
+    if (!runtime_->remote() && !sharedState.succeeded()) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
             ofType:kCydiaProgressEventTypeError] forTask:title];
         return false;
     }
     [self recheckRepositoryTrust];
     if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()]) return false;
-    const CydiaAPT::TransactionData reviewed(runtime_->external() ? runtime_->review()->transaction : apt_->transactionData());
+    const CydiaAPT::TransactionData reviewed(runtime_->remote() ? runtime_->review()->transaction : apt_->transactionData());
     if (!reviewed.issues.empty()) return false;
     const CydiaAPT::SourceListData before(apt_->sourceList());
     if ([self popErrorWithTitle:title forOperation:before.success]) return false;
@@ -1066,7 +1066,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
             ofType:kCydiaProgressEventTypeError] forTask:title];
         return false;
     }
-    const std::vector<CydiaAPT::AutoInstalledDelta> deltas(runtime_->external() ?
+    const std::vector<CydiaAPT::AutoInstalledDelta> deltas(runtime_->remote() ?
         std::vector<CydiaAPT::AutoInstalledDelta>() : apt_->autoInstalledDeltas());
     std::vector<std::string> fields = {CydiaAPT::ExtendedStatesPath(), sharedState.output};
     for (const CydiaAPT::AutoInstalledDelta &delta : deltas) {

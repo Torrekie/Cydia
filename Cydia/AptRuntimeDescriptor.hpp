@@ -15,7 +15,8 @@ struct RuntimeDescriptorBinding {
 };
 bool SameRuntimeDescriptorBinding(const RuntimeDescriptorBinding &left, const RuntimeDescriptorBinding &right);
 
-enum class RuntimeDescriptorOrigin { Embedded, External };
+enum class RuntimeDescriptorOrigin { Embedded, External, RecoveryWorker };
+constexpr const char RecoveryRuntimeProviderIdentifier[] = "cydia.bundled-recovery";
 
 // Mutable only while being assembled. Adoption copies this entire value into
 // a shared_ptr<const RuntimeDescriptor>; readers never see partially replaced

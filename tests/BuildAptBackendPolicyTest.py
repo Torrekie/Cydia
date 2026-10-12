@@ -63,7 +63,7 @@ def main():
     # no second APT build, external provider service, or network is involved.
     compile_driver(["tests/AptProviderSelectionTests.cpp",
                     "Cydia/AptProviderSelection.cpp", "Cydia/AptProviderSelectionValues.cpp",
-                    "Cydia/AptProviderClient.cpp", "Cydia/AptProviderProtocol.cpp",
+                    "Cydia/AptProviderClient.cpp", "Cydia/AptProviderLaunch.cpp", "Cydia/AptProviderProtocol.cpp",
                     "Cydia/AptProviderValues.cpp", "Cydia/AptRuntimeDescriptor.cpp",
                     "Cydia/RepositorySecurityPolicy.cpp", "Cydia/PackageIdentity.cpp",
                     "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocument.cpp",
@@ -95,12 +95,35 @@ def main():
                     "Cydia/PackageDatabasePaths.cpp"], "cydia-recovery-plan", sanitize=True,
                    extra_link_flags=["-lz"])
     compile_driver(["tests/AptRecoveryAuthorityTests.cpp", "Cydia/AptRecoveryAuthority.cpp",
+                    "Cydia/AptRecoveryDependencyInspector.cpp", "Cydia/AptRecoveryMachO.cpp",
+                    "Cydia/AptRecoveryInstalledAuthority.cpp", "Cydia/AptRecoverySnapshot.cpp",
+                    "Cydia/AptRecoveryInitialization.cpp", "Cydia/AptRuntime.cpp", "Cydia/AptRuntimeDescriptor.cpp",
+                    "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
                     "Cydia/PrivilegedConfig.cpp", "Cydia/PrivilegedRuntime.cpp",
                     "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocument.cpp",
                     "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp",
                     "Cydia/DpkgRunner.cpp", "Cydia/PackageDatabasePaths.cpp",
                     "Cydia/RepositorySecurityPolicy.cpp"], "cydia-recovery-authority",
                    extra_compile_flags=["-DCYDIA_RECOVERY_AUTHORITY_TESTING"])
+    compile_driver(["tests/AptRecoveryDependencyInspectorTests.cpp", "Cydia/AptRecoveryDependencyInspector.cpp",
+                    "Cydia/AptRecoveryMachO.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                   "cydia-recovery-dependencies", extra_compile_flags=["-DCYDIA_RECOVERY_DEPENDENCY_TESTING"])
+    compile_driver(["tests/AptRecoveryTrustTests.cpp", "Cydia/AptRecoveryTrust.cpp",
+                    "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/PrivilegedRuntime.cpp",
+                    "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                   "cydia-recovery-trust")
+    worker_sources = sources[1:] + [
+        "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp", "Cydia/AptRecoveryPackageManager.cpp",
+        "Cydia/SourcePreflight.cpp", "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",
+        "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp", "Cydia/AptRuntime.cpp",
+        "Cydia/AptRuntimeDescriptor.cpp", "Cydia/AptRecoveryInitialization.cpp", "Cydia/AptRecoverySnapshot.cpp",
+        "Cydia/PrivilegedConfig.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
+        "Cydia/DpkgRunner.cpp", "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/AptProviderProtocol.cpp",
+        "Cydia/AptProviderServer.cpp", "Cydia/AptProviderServerTransport.cpp", "Cydia/AptWorkerAcquireStatus.cpp",
+        "Cydia/AptProviderArchiveAuthorization.cpp", "Cydia/AptRecoveryTrust.cpp", "Cydia/AptRecoveryWorker.cpp",
+        "Cydia/AptProviderDpkgState.cpp", "Cydia/ExtendedState.cpp", "Cydia/AptMessages.cpp"]
+    compile_driver(["tests/AptRecoveryWorkerTests.cpp"] + worker_sources, "cydia-recovery-worker",
+                   sanitize=True, extra_link_flags=["-lz", "-ldl"])
     # The same APT objects back snapshot hashing. fakeroot exercises the real
     # protected-file boundary while keeping every mutation in a disposable root.
     compile_driver(["tests/NativeRuntimeStateTests.cpp", "Cydia/RuntimeState.cpp",

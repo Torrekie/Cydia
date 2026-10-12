@@ -69,6 +69,12 @@ apt_api_sources := \
     Cydia/AptNativeBackend.cpp \
     Cydia/AptBackendRecovery.cpp \
     Cydia/AptRecoveryAuthority.cpp \
+    Cydia/AptRecoveryDependencyInspector.cpp \
+    Cydia/AptRecoveryInitialization.cpp \
+    Cydia/AptRecoveryInstalledAuthority.cpp \
+    Cydia/AptRecoverySnapshot.cpp \
+    Cydia/AptRecoveryTrust.cpp \
+    Cydia/AptRecoveryWorker.cpp \
     Cydia/AptRecoveryPackageManager.cpp \
     Cydia/AptWorkerAcquireStatus.cpp \
     Cydia/AptProviderSelectionValues.cpp \
@@ -90,6 +96,7 @@ apt_api_sources := \
     Cydia/AptAuthorizedArchives.cpp \
     Cydia/AptCompatibility.cpp \
     Cydia/AptProviderClient.cpp \
+    Cydia/AptProviderLaunch.cpp \
     Cydia/AptProviderDpkgState.cpp \
     Cydia/AptProviderDpkgStateCapture.cpp \
     Cydia/AptProviderProtocol.cpp \

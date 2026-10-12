@@ -9,9 +9,19 @@ std::string Words(const std::vector<std::string> &values) {
     return result;
 }
 }
+BrokerEnvironment::BrokerEnvironment(const RegisteredProviderEnvironment &selected) :
+    runtime(selected.runtime), environment(selected.environment),
+    executableSearchPath(selected.executableSearchPath), archiveDecoderSearchPath(selected.executableSearchPath) {}
+BrokerEnvironment::BrokerEnvironment(const Recovery::Authority &selected) :
+    runtime(selected.runtime), environment(selected.environment),
+    executableSearchPath(selected.executableSearchPath), archiveDecoderSearchPath(selected.acquisitionSearchPath) {}
 bool BrokerRequestPayload(const RegistrationIdentity &authority, const std::string &payload, std::string *bytes) {
     const auto identity = SerializeRegistrationIdentity(authority);
     return !identity.empty() && Encode(std::vector<std::string>{"CYDIA-BROKER-1", identity, payload}, bytes);
+}
+bool BrokerRequestPayload(const Recovery::RequestAuthority &authority, const std::string &payload, std::string *bytes) {
+    const auto identity = Recovery::SerializeRequestAuthority(authority);
+    return !identity.empty() && Encode(std::vector<std::string>{"CYDIA-RECOVERY-BROKER-1", identity, payload}, bytes);
 }
 bool EncodeBrokerState(const DpkgState &state, std::string *bytes) {
     static const char *selections[] = {"unknown", "install", "hold", "deinstall", "purge"};

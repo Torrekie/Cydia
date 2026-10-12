@@ -26,9 +26,17 @@ review and parent-execution hooks and does not itself implement a distribution
 adapter. Progress carries source activity separately from display diagnostics,
 so source spinners can follow a worker without exposing transport credentials.
 There is no completed Remorix adapter or production end-to-end acceptance claim.
-APT 2.7.9 remains statically linked into the application and privileged helper;
-the recovery backend still runs inside the application. A separate bundled
-recovery worker is not implemented. dpkg remains an external component.
+APT 2.7.9 remains statically linked into the application, privileged helper and
+private recovery worker. The worker is built without UIKit or optional
+bootstrap libraries. Automatic selection can use it after the helper captures
+a protected payload inventory, inspects its dependencies, and the worker
+completes a bound probe/session handshake. dpkg remains external.
+The private signature/helper payload is not supplied in this repository, so
+the current package cannot establish complete worker readiness on its own.
+Automatic startup retains the existing in-process backend as a transitional
+fallback. Candidate source loading, cache opening and a fresh protected authority
+check finish before adoption; a failed worker selection preserves the working
+backend and does not save the attempted preference.
 
 Recovery preparation includes a nonexecuting libapt package-manager recorder
 and a helper-owned authority capture module. The recorder preserves explicit
@@ -38,10 +46,17 @@ The native backend binds those identities to libapt's actual archive selection.
 Review does not download archives or alter existing final/partial cache files,
 and ambiguous source records cannot silently select the first matching origin.
 Its result is input to independent parent review, never execution authority.
+Default smart configuration is expanded through libapt's exact configure
+callbacks rather than copied into an unbounded dpkg configure-pending command.
 Authority capture fingerprints protected configuration, components and methods,
 and requires an independent dependency/loadability inspection before it can
-report a usable recovery environment. These modules do not activate a worker
-or change the existing recovery execution path.
+report a usable recovery environment. The parent derives an immutable launch
+capsule from that authority. Private acquisition tools and parent archive
+decoders use their own search path; parent dpkg execution keeps the selected
+distribution's path. Cache
+reloads retain refresh trust only while the independently fingerprinted
+sources, keys and indexes remain unchanged. The worker executes packages only
+through reviewed parent RPCs.
 
 Runtime getters resolve the adopted descriptor. Embedded mutation setters
 refuse while it is active, and resetting it requires fresh embedded
@@ -58,7 +73,11 @@ them for dpkg. A provider token or a successful worker reply alone cannot
 authorize execution or establish completion. Explicit processing of the complete
 current pending-trigger set includes independently derived waiter transitions.
 New trigger activations and automatic deconfiguration remain unsupported;
-unproved effects are rejected.
+unproved effects are rejected. Replacing a bound executable, dependency or
+configuration during a transaction also invalidates current authority. A
+transaction-scoped successor-authority design is required before this path
+can support upgrades to its own active runtime safely; successful protocol
+fixtures do not establish that compatibility.
 
 Cydia-owned locale conversion and regular expressions prefer validated
 bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
@@ -69,7 +88,7 @@ upstream English messages if no usable libintl is available.
 
 | Area | Current implementation | Required behavior |
 | --- | --- | --- |
-| APT | Automatic startup selects a validated registered external worker when available, otherwise in-process bundled APT | Supply accepted distribution adapters and isolate recovery in its own worker |
+| APT | Automatic startup prefers a validated registered external worker, then an independently verified private worker; transitional in-process fallback remains while its private payload is unavailable | Supply accepted distribution adapters and the private dependency payload, then retire the transitional fallback |
 | Repository policy | Unsaved preference inherits an accepted external provider; recovery retains Warning; saved choices are preserved | Verify each adapter reproduces its distribution's compiled frontend and library policy |
 | Other APT settings | Expiration policy and explicit language/parallel settings are preserved | Preserve the selected provider's configuration and compiled behavior |
 | Source checks | Preflight, resource requests and discovery use the selected database backend and session | Establish source-check parity for each distribution adapter |
@@ -85,8 +104,8 @@ The provider protocol also supports bounded paid-archive grants during an
 approved fetch. Cydia derives each request from its retained source/index proof,
 rechecks that proof around native account authorization, and sends only the
 resulting HTTPS download URL to the worker. Credentials remain in Cydia. This
-does not authorize purchases or prove vendor compatibility, and recovery must
-install its scoped authorization bridge before advertising the capability.
+does not authorize purchases or prove vendor compatibility. The recovery worker
+installs its scoped authorization bridge only during an approved fetch.
 
 ## Remorix distribution contract
 
@@ -162,8 +181,8 @@ Use a versioned Cydia-owned protocol across a worker-process boundary. The
 existing package/source/transaction value types are a starting point; raw APT
 C++ objects and cache handles must remain inside their owning provider.
 The Cydia client and parent broker use this boundary for external providers.
-Tested adapters for supported external libapt ABI families and a separate
-bundled recovery worker remain deliverables. Do not load arbitrary libapt C++ ABIs into
+Tested adapters for supported external libapt ABI families and acceptance of the
+complete private recovery payload remain deliverables. Do not load arbitrary libapt C++ ABIs into
 the UIKit process or require distribution maintainers to install Cydia's APT
 patches. A CLI adapter may cover supported capabilities, but it must prove the
 same preview and transaction guarantees before it is used for mutations.

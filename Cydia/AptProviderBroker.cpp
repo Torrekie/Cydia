@@ -44,9 +44,25 @@ public:
     explicit Implementation(const BrokerOptions &value) : options(value), environment(value.policy.environment) {}
     ~Implementation() { if (lock >= 0) close(lock); }
     bool Fail(const char *code) { error = code; return false; }
+    std::string ProviderID() const { return options.recoveryAuthority ? Recovery::ProviderIdentifier() : options.authority.providerIdentifier; }
+    std::string ConfigurationID() const { return options.recoveryAuthority ? options.recoveryAuthority->identity.configuration : options.authority.configurationIdentity; }
+    std::string PolicyID() const { return options.recoveryAuthority ? options.recoveryAuthority->identity.policy : options.authority.policyIdentity; }
+    bool AuthorityValid() const {
+        const auto &a = options.authority;
+        if (options.recoveryAuthority)
+            return a.registrationPath.empty() && a.providerIdentifier.empty() && a.configurationIdentity.empty() && a.policyIdentity.empty() &&
+                a.methodsIdentity.empty() && a.libraryIdentity.empty() && a.frontendIdentity.empty() &&
+                !Recovery::SerializeRequestAuthority(*options.recoveryAuthority).empty();
+        RegistrationIdentity checked;
+        return ParseRegistrationIdentity(SerializeRegistrationIdentity(a), &checked);
+    }
     CydiaRuntime::Privileged::Request Request(const std::string &payload) const {
         CydiaRuntime::Privileged::Request result; result.expected = environment.paths;
-        BrokerRequestPayload(options.authority, payload, &result.payload); return result;
+        if (AuthorityValid()) {
+            if (options.recoveryAuthority) BrokerRequestPayload(*options.recoveryAuthority, payload, &result.payload);
+            else BrokerRequestPayload(options.authority, payload, &result.payload);
+        }
+        return result;
     }
     bool Capture(DpkgState *state, const RequestControl &control) {
         if (lock < 0 || Cancelled(control)) return Fail("provider_frontend_lock_missing");
@@ -57,8 +73,8 @@ public:
         return true;
     }
     bool Bound(const Binding &binding) const {
-        return !session.empty() && binding.session == session && binding.providerIdentifier == options.authority.providerIdentifier &&
-            binding.configurationIdentity == options.authority.configurationIdentity && binding.policyIdentity == options.authority.policyIdentity;
+        return AuthorityValid() && !session.empty() && binding.session == session && binding.providerIdentifier == ProviderID() &&
+            binding.configurationIdentity == ConfigurationID() && binding.policyIdentity == PolicyID();
     }
     void Invalidate() { authorization.Invalidate(); committed = false; approved = ReviewedTransaction(); changes.clear(); }
     bool Acquire(const Message &request, const RequestControl &control) {
@@ -193,10 +209,11 @@ Broker::Broker(const BrokerOptions &options) : implementation_(new Implementatio
 Broker::~Broker() {}
 bool Broker::BindSession(const Binding &binding) {
     auto &value = *implementation_;
-    if (!value.session.empty() || !ValidChallenge(binding.session) ||
-        binding.providerIdentifier != value.options.authority.providerIdentifier ||
+    if (!value.AuthorityValid() || !value.session.empty() || !ValidChallenge(binding.session) ||
+        binding.providerIdentifier != value.ProviderID() ||
         binding.configurationIdentity != value.environment.configurationIdentity ||
-        binding.policyIdentity != value.environment.policyIdentity) return value.Fail("provider_binding_invalid");
+        binding.policyIdentity != value.environment.policyIdentity ||
+        binding.configurationIdentity != value.ConfigurationID() || binding.policyIdentity != value.PolicyID()) return value.Fail("provider_binding_invalid");
     value.session = binding.session; return true;
 }
 bool Broker::Approve(const ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
@@ -249,16 +266,37 @@ void Broker::HandleParentRequest(const Message &request, Message *reply, const R
             reply->succeeded = true; break;
         case Operation::CaptureStateSnapshot: {
             if (!request.payload.empty()) { value.Fail("provider_invalid_snapshot_request"); break; }
-            RegisteredProviderSnapshot snapshot; CydiaRuntime::Privileged::Error error;
-            if (!Client::ReadProviderSnapshot(value.options.helperPath, value.options.authority.registrationPath,
-                &value.options.authority, &snapshot, &error, Deadline(control), control.cancelled)) {
+            Environment captured; CydiaRuntime::Privileged::Error error; bool read = false;
+            if (value.options.recoveryAuthority) {
+                Recovery::Snapshot snapshot;
+                const auto &authority = *value.options.recoveryAuthority;
+                read = Client::ReadRecoverySnapshot(value.options.helperPath, authority.preferences,
+                    &authority.identity, &snapshot, &error, Deadline(control), control.cancelled);
+                if (read) captured = Recovery::SnapshotEnvironment(snapshot);
+            } else {
+                RegisteredProviderSnapshot snapshot;
+                read = Client::ReadProviderSnapshot(value.options.helperPath, value.options.authority.registrationPath,
+                    &value.options.authority, &snapshot, &error, Deadline(control), control.cancelled);
+                if (read) {
+                    const auto &d = snapshot.runtime;
+                    captured.paths.aptConfigOverride = d.aptConfigOverride; captured.paths.dpkgRoot = d.dpkgRootDirectory;
+                    captured.paths.dpkgAdmin = d.dpkgAdminDirectory; captured.paths.dpkg = d.dpkgExecutablePath;
+                    captured.paths.dpkgQuery = d.dpkgQueryExecutablePath; captured.paths.dpkgDeb = d.dpkgDebExecutablePath;
+                    captured.paths.sourceList = d.sourceListPath; captured.paths.sourceParts = d.sourcePartsDirectory;
+                    captured.configurationIdentity = snapshot.identity.configurationIdentity;
+                    captured.policyIdentity = snapshot.identity.policyIdentity; captured.methodsIdentity = snapshot.identity.methodsIdentity;
+                    captured.nativeArchitecture = d.architecture; captured.registeredArchitectures = d.registeredArchitectures;
+                    captured.acquisitionArchitectures = d.acquisitionArchitectures; captured.packageStateIdentity = snapshot.packageStateIdentity;
+                }
+            }
+            if (!read) {
                 value.error = error.code.empty() ? "provider_dpkg_state_unavailable" : error.code; break;
             }
-            if (snapshot.runtime.architecture != value.environment.nativeArchitecture ||
-                snapshot.runtime.registeredArchitectures != value.environment.registeredArchitectures) {
-                value.Fail("provider_architectures_changed"); break;
+            auto updated = value.environment; updated.packageStateIdentity = captured.packageStateIdentity;
+            std::string expectedBytes, actualBytes;
+            if (!ValidEnvironment(captured) || !Encode(updated, &expectedBytes) || !Encode(captured, &actualBytes) || expectedBytes != actualBytes) {
+                value.Fail("provider_environment_changed"); break;
             }
-            auto updated = value.environment; updated.packageStateIdentity = snapshot.packageStateIdentity;
             reply->succeeded = Encode(updated, &reply->payload);
             if (reply->succeeded) value.environment = updated;
             break;

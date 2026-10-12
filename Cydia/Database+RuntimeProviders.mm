@@ -62,15 +62,15 @@ NSError *Error(NSString *text) {
                 transactionSnapshot_ = nil; [self invalidateConfirmationReview];
                 NSString *diagnostic(nil);
                 const bool selected(runtime_->Select(&apt_, *status_, nextPreference, security ?: oldSecurity,
-                    security == nil || !runtime_->external(), &diagnostic));
+                    security == nil || !runtime_->external(), &diagnostic, true));
                 if (!selected) {
                     error = Error(diagnostic);
-                    if (!runtime_->ready()) runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr);
+                    if (!runtime_->ready()) runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr, true);
                 }
                 else if ((preference && !CydiaSetRuntimeProviderPreference(preference)) ||
                          (security && !CydiaSetRepositorySecurityPreference(security))) {
                     error = Error(nil);
-                    runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr);
+                    runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr, true);
                 }
                 runtimeReloadPending_ = YES; reload = YES;
                 [self publishRuntimeProviderStatus];
@@ -104,7 +104,7 @@ NSError *Error(NSString *text) {
         CydiaExplicitRepositorySecurityPreference(), true, nullptr);
     // Initial selection now happens after the app creates its status pipes.
     // Restore the app-owned fd after maintainer configuration has been read.
-    if (runtime_->ready() && !runtime_->external()) CydiaAPT::AptBackend::KeepFileDescriptor(cydiafd_);
+    if (runtime_->ready() && !runtime_->remote()) CydiaAPT::AptBackend::KeepFileDescriptor(cydiafd_);
     [self publishRuntimeProviderStatus];
 }
 - (void)publishRuntimeProviderStatus {
@@ -153,9 +153,9 @@ NSError *Error(NSString *text) {
 - (bool)confirmedTransactionUnchanged {
     @synchronized(runtimeStatusLock_) {
         if (!confirmationApproved_ || confirmationReview_ == nil || !runtime_->ReviewUnchanged(*apt_)) return false;
-        // An external worker may not renew its review after approval. The
+        // A worker may not renew its review after approval. The
         // embedded engine has no worker binding, so compare its complete value.
-        return runtime_->external() || [confirmationReview_ matchesTransaction:apt_->transactionData()];
+        return runtime_->remote() || [confirmationReview_ matchesTransaction:apt_->transactionData()];
     }
 }
 @end

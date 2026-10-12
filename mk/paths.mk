@@ -28,6 +28,7 @@ APP_BINARY_PROVENANCE := $(BIN_DIR)/MobileCydia.provenance
 BUILD_PROVENANCE_SCRIPT := scripts/verify-build-provenance.sh
 POSTINST_BINARY := $(BIN_DIR)/postinst-$(PACKAGE_LAYOUT)
 CYDO_BINARY := $(BIN_DIR)/cydo
+RECOVERY_WORKER_BINARY := $(BIN_DIR)/cydia-recovery
 SETNSFPN_BINARY := $(BIN_DIR)/setnsfpn
 CFVERSION_BINARY := $(BIN_DIR)/cfversion
 FIRMWARE_DISCOVERY_BINARY := $(BIN_DIR)/firmware-discovery

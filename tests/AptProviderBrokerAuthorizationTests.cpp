@@ -11,6 +11,9 @@ namespace {
 namespace P = CydiaAPT::Provider;
 using Status = CydiaRuntime::RepositoryArchiveAuthorizationStatus;
 P::DpkgState state;
+CydiaAPT::Recovery::Snapshot recoverySnapshot;
+unsigned recoveryReads = 0, registeredReads = 0;
+bool recoveryReadable = false;
 void Require(bool value, const char *why) { if (!value) { std::cerr << why << '\n'; std::abort(); } }
 }
 namespace CydiaRuntime { namespace PrivilegedClient {
@@ -29,7 +32,11 @@ DpkgExecutionResult RunProviderDpkg(const std::string &, const std::string &, co
     Require(false, "authorization must never execute dpkg"); return {};
 }
 bool ReadProviderSnapshot(const std::string &, const std::string &, const P::RegistrationIdentity *,
-    P::RegisteredProviderSnapshot *, Privileged::Error *, unsigned, const std::function<bool()> &) { return false; }
+    P::RegisteredProviderSnapshot *, Privileged::Error *, unsigned, const std::function<bool()> &) { ++registeredReads; return false; }
+bool ReadRecoverySnapshot(const std::string &, const CydiaAPT::Recovery::Preferences &, const CydiaAPT::Recovery::Identity *,
+    CydiaAPT::Recovery::Snapshot *snapshot, Privileged::Error *, unsigned, const std::function<bool()> &) {
+    ++recoveryReads; if (!recoveryReadable) return false; *snapshot = recoverySnapshot; return true;
+}
 }}
 namespace {
 struct Fixture {
@@ -136,5 +143,69 @@ void AcceptedAndDenied() {
         Require(!broker.mutationStarted(), "account authorization does not start a package mutation");
     }
 }
+void RecoveryAuthorityRouting() {
+    namespace R = CydiaAPT::Recovery;
+    Fixture fixture; auto original = fixture.options.authority;
+    fixture.options.authority = P::RegistrationIdentity();
+    auto authority = std::make_shared<R::RequestAuthority>();
+    authority->identity.configuration = std::string(64, 'a'); authority->identity.policy = std::string(64, 'b');
+    authority->identity.methods = std::string(64, 'c'); authority->identity.libraries = std::string(64, 'd');
+    authority->identity.frontend = std::string(64, 'e'); authority->identity.dependencies = std::string(64, 'f');
+    fixture.options.recoveryAuthority = authority;
+    auto &environment = fixture.options.policy.environment;
+    environment.configurationIdentity = authority->identity.configuration; environment.policyIdentity = authority->identity.policy;
+    environment.methodsIdentity = authority->identity.methods;
+    fixture.review.binding.providerIdentifier = R::ProviderIdentifier();
+    fixture.review.binding.configurationIdentity = environment.configurationIdentity; fixture.review.binding.policyIdentity = environment.policyIdentity;
+    recoverySnapshot = R::Snapshot(); recoverySnapshot.identity = authority->identity;
+    auto &d = recoverySnapshot.runtime; d.architecture = environment.nativeArchitecture;
+    d.registeredArchitectures = environment.registeredArchitectures; d.acquisitionArchitectures = environment.acquisitionArchitectures;
+    d.dpkgRootDirectory = environment.paths.dpkgRoot; d.dpkgAdminDirectory = environment.paths.dpkgAdmin;
+    d.dpkgExecutablePath = environment.paths.dpkg; d.dpkgQueryExecutablePath = environment.paths.dpkgQuery; d.dpkgDebExecutablePath = environment.paths.dpkgDeb;
+    recoverySnapshot.packageStateIdentity = std::string(64, '2'); recoveryReadable = true; recoveryReads = registeredReads = 0;
+    P::Broker broker(fixture.options); Require(broker.BindSession(fixture.review.binding), "bind independently identified recovery session");
+    P::Message reply; broker.HandleParentRequest(fixture.Request(P::Operation::CaptureStateSnapshot), &reply, {});
+    P::Environment captured;
+    Require(reply.succeeded && P::Decode(reply.payload, &captured) && captured.packageStateIdentity == recoverySnapshot.packageStateIdentity &&
+        recoveryReads == 1 && registeredReads == 0, "recovery state uses protected recovery snapshot route only");
+    d.dpkgExecutablePath = "/different/dpkg";
+    broker.HandleParentRequest(fixture.Request(P::Operation::CaptureStateSnapshot), &reply, {});
+    Require(!reply.succeeded && reply.errorCode == "provider_environment_changed", "recovery snapshot cannot silently change selected paths");
+    fixture.options.authority = original; P::Broker confused(fixture.options);
+    Require(!confused.BindSession(fixture.review.binding), "mixed external and recovery authority rejected");
+    std::string bytes; std::vector<std::string> fields;
+    Require(P::BrokerRequestPayload(*authority, "fixture payload", &bytes) && P::Decode(bytes, &fields) && fields.size() == 3 &&
+        fields[0] == "CYDIA-RECOVERY-BROKER-1" && fields[2] == "fixture payload", "recovery broker wrapper is distinctly tagged");
+    P::RegistrationIdentity wrong;
+    Require(!P::ParseRegistrationIdentity(fields[1], &wrong), "recovery authority is not an external registration");
+    recoveryReadable = false;
 }
-int main() { AcceptedAndDenied(); std::cout << "[apt-provider-broker-authorization] PASS\n"; }
+void ArchiveDecoderAuthorityRouting() {
+    // Both sources have the same selected bootstrap dpkg. Recovery alone has
+    // an independently captured private acquisition/inspection tool path.
+    P::RegisteredProviderEnvironment external;
+    external.executableSearchPath = "/fixture/bootstrap/bin:/usr/bin:/bin";
+    external.runtime.dpkgExecutablePath = "/fixture/bootstrap/bin/dpkg";
+    external.environment.dpkg = external.runtime.dpkgExecutablePath;
+    CydiaAPT::Recovery::Authority recovery;
+    recovery.runtime = external.runtime; recovery.environment = external.environment;
+    recovery.executableSearchPath = external.executableSearchPath;
+    recovery.acquisitionSearchPath = "/fixture/cydia/recovery-bin:" + recovery.executableSearchPath;
+    const P::BrokerEnvironment externalBroker(external), recoveryBroker(recovery);
+    Require(externalBroker.archiveDecoderSearchPath == external.executableSearchPath &&
+        recoveryBroker.archiveDecoderSearchPath == recovery.acquisitionSearchPath &&
+        externalBroker.executableSearchPath == recoveryBroker.executableSearchPath &&
+        recoveryBroker.environment.dpkg == external.environment.dpkg,
+        "private archive decoders do not replace native dpkg or its PATH");
+    recovery.acquisitionSearchPath.clear();
+    const P::BrokerEnvironment incomplete(recovery);
+    Require(incomplete.archiveDecoderSearchPath.empty() && !incomplete.executableSearchPath.empty(),
+        "missing recovery decoder authority cannot silently borrow the dpkg PATH");
+    Require(recoveryBroker.archiveDecoderSearchPath == "/fixture/cydia/recovery-bin:" + external.executableSearchPath,
+        "broker retains copied decoder authority rather than mutable source preferences");
+    const P::BrokerEnvironment unresolved;
+    Require(unresolved.archiveDecoderSearchPath.empty() && unresolved.executableSearchPath.empty(),
+        "unresolved broker has no ambient executable or decoder search path");
+}
+}
+int main() { AcceptedAndDenied(); RecoveryAuthorityRouting(); ArchiveDecoderAuthorityRouting(); std::cout << "[apt-provider-broker-authorization] PASS\n"; }

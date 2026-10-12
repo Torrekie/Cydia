@@ -26,6 +26,7 @@ struct ServerControl {
     std::function<unsigned()> remainingMilliseconds;
 };
 struct ServerRequestContext {
+    Operation operation = Operation::Hello;
     ServerControl control;
     std::function<bool(const ProgressEvent &)> progress;
     std::function<bool(Operation, const std::string &, Message *)> parentRequest;

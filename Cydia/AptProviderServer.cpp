@@ -442,6 +442,7 @@ public:
         executionStarted = committed = false; executed.clear();
         deadline = Clock::now() + std::chrono::milliseconds(ProgressOperation(request.operation) ?
             limits.operationMilliseconds : limits.requestMilliseconds);
+        context.operation = request.operation;
         context.control.remainingMilliseconds = [this]() { return Remaining(); };
         context.control.cancelled = [this]() { return Cancelled(); };
         context.progress = [this](const ProgressEvent &event) { return Progress(event); };

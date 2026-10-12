@@ -188,7 +188,7 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
         command != "--cydia-key-package-files" && command != "--cydia-key-package-read" &&
         command != "--cydia-extended-state-read" && command != "--cydia-open-lock" &&
         command != "--cydia-provider-lock" && command != "--cydia-provider-state" &&
-        command != "--cydia-provider-snapshot" && command != "--cydia-provider-extended-read" &&
+        command != "--cydia-provider-snapshot" && command != "--cydia-recovery-snapshot" && command != "--cydia-provider-extended-read" &&
         command != "--cydia-provider-route") return false;
     if (command == "--cydia-provider-route") {
         const std::string routed(*argc > 3 ? argv[2] : "");
@@ -451,19 +451,29 @@ int ProviderSnapshotReply(const Privileged::Error &error, const std::string &sna
         code.empty() ? std::string() : error.message, code.empty() ? snapshot : std::string()});
     return !bytes.empty() && fwrite(bytes.data(), 1, bytes.size(), stdout) == bytes.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
 }
+int RecoverySnapshotReply(const Privileged::Error &error, const std::string &snapshot = std::string()) {
+    const std::string code = error.code.empty() && snapshot.empty() ? "recovery_snapshot_invalid" : error.code;
+    const std::string bytes = Privileged::SerializeFields({"CYDIA-RECOVERY-SNAPSHOT-REPLY-1", code,
+        code.empty() ? std::string() : error.message, code.empty() ? snapshot : std::string()});
+    return !bytes.empty() && fwrite(bytes.data(), 1, bytes.size(), stdout) == bytes.size() && fflush(stdout) == 0 ? 0 : EX_IOERR;
+}
 
 int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int argc, char *argv[], uid_t callerUID, gid_t callerGID,
              const CydiaSources::ReaderGroups &callerGroups) {
     Privileged::Error error;
     std::string command = argc > 1 ? argv[1] : "";
     namespace Provider = CydiaAPT::Provider;
+    namespace APTRecovery = CydiaAPT::Recovery;
     Provider::RegisteredProviderEnvironment registered;
+    Provider::BrokerEnvironment brokerEnvironment;
+    APTRecovery::Authority recoveryAuthority;
     Privileged::Request providerRequest;
     const bool providerSnapshot = command == "--cydia-provider-snapshot";
+    const bool recoverySnapshot = command == "--cydia-recovery-snapshot";
     const bool providerDpkg = command == "--cydia-provider-dpkg";
     const bool providerDirect = command == "--cydia-provider-direct";
     const bool providerState = command == "--cydia-provider-state";
-    const bool provider = providerSnapshot || providerDpkg || providerDirect || providerState ||
+    const bool provider = providerSnapshot || recoverySnapshot || providerDpkg || providerDirect || providerState ||
         command == "--cydia-provider-lock" || command == "--cydia-provider-route" ||
         command == "--cydia-provider-extended-read" || command == "--cydia-provider-extended-commit";
     int providerRequestDescriptor = -1;
@@ -493,14 +503,28 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
 #endif
             if (fcntl(input, F_SETFD, FD_CLOEXEC) != 0) return EX_IOERR;
         }
-        if (!Privileged::ReadRequest(input, &providerRequest, &error)) return providerSnapshot ? ProviderSnapshotReply(error) : Denied(error);
+        if (!Privileged::ReadRequest(input, &providerRequest, &error))
+            return recoverySnapshot ? RecoverySnapshotReply(error) : providerSnapshot ? ProviderSnapshotReply(error) : Denied(error);
         if (providerSnapshot) {
             std::vector<std::string> fields; Provider::RegistrationIdentity expected;
             if (argc != 2 || !Privileged::ParseFields(providerRequest.payload, 2, &fields, &error) ||
                 (!fields[1].empty() && !Provider::ParseRegistrationIdentity(fields[1], &expected)) ||
                 !Provider::ResolveRegisteredProviderEnvironment(paths, fields[0], fields[1].empty() ? nullptr : &expected,
                     &registered, &error)) return ProviderSnapshotReply(error);
-        } else if (!Provider::ResolveBrokerRequest(paths, providerRequest, &registered, &providerRequest.payload, &error))
+            brokerEnvironment = Provider::BrokerEnvironment(registered);
+        } else if (recoverySnapshot) {
+            std::vector<std::string> fields; APTRecovery::Preferences preferences; APTRecovery::Identity expected;
+            if (argc != 2 || !Privileged::ParseFields(providerRequest.payload, 2, &fields, &error) ||
+                !APTRecovery::ParsePreferences(fields[0], &preferences) ||
+                (!fields[1].empty() && !APTRecovery::ParseIdentity(fields[1], &expected))) {
+                error.code = "recovery_authority_invalid"; return RecoverySnapshotReply(error);
+            }
+            // The package inventory is not dependency/loadability proof. This
+            // remains unavailable until a Cydia-owned inspector is supplied.
+            if (!APTRecovery::ResolveInstalledAuthority(paths, callerUID, preferences,
+                fields[1].empty() ? nullptr : &expected, &recoveryAuthority, &error)) return RecoverySnapshotReply(error);
+            brokerEnvironment = Provider::BrokerEnvironment(recoveryAuthority);
+        } else if (!Provider::ResolveBrokerRequest(paths, providerRequest, callerUID, &brokerEnvironment, &providerRequest.payload, &error))
             return Denied(error);
         if (command == "--cydia-provider-route") {
             if (argc != 3) return EX_DATAERR;
@@ -549,8 +573,8 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     Privileged::Environment environment;
     Privileged::Request request;
     if (provider) {
-        environment = registered.environment; request = providerRequest;
-        if (!dedicated && !providerSnapshot && !providerDpkg && !providerDirect && !providerState) return EX_NOPERM;
+        environment = brokerEnvironment.environment; request = providerRequest;
+        if (!dedicated && !providerSnapshot && !recoverySnapshot && !providerDpkg && !providerDirect && !providerState) return EX_NOPERM;
     } else if (dedicated) {
         if (!Privileged::ReadRequest(STDIN_FILENO, &request, &error) ||
             !Privileged::ResolveEnvironment(paths, request.expected, &environment, &error)) return Denied(error);
@@ -571,14 +595,23 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     environment.sourceReaderUID = callerUID; environment.sourceReaderGID = callerGID;
     environment.sourceReaderGroups = callerGroups;
     if (provider) {
-        registered.environment = environment;
-        setenv("PATH", registered.executableSearchPath.c_str(), 1);
+        brokerEnvironment.environment = environment;
+        setenv("PATH", brokerEnvironment.executableSearchPath.c_str(), 1);
         if (providerSnapshot) {
+            registered.environment = environment;
             std::string token;
             if (!Privileged::RuntimeSnapshot(environment, &token, &error)) return ProviderSnapshotReply(error);
             const std::string output = Provider::SerializeRegisteredProviderSnapshot(
                 Provider::MakeRegisteredProviderSnapshot(registered, token));
             return ProviderSnapshotReply(Privileged::Error(), output);
+        }
+        if (recoverySnapshot) {
+            std::string token; APTRecovery::Snapshot captured;
+            if (!Privileged::RuntimeSnapshot(environment, &token, &error)) return RecoverySnapshotReply(error);
+            if (!APTRecovery::MakeSnapshot(recoveryAuthority, token, &captured)) {
+                error.code = "recovery_snapshot_invalid"; return RecoverySnapshotReply(error);
+            }
+            return RecoverySnapshotReply(Privileged::Error(), APTRecovery::SerializeSnapshot(captured));
         }
         if (providerState) {
             Provider::DpkgState captured; std::string reason, output;
@@ -591,7 +624,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             Provider::BrokerDpkgRequest execution; int result = EX_NOPERM;
             if (!Provider::DecodeBrokerDpkg(request.payload, &execution)) return EX_DATAERR;
             setenv("DPKG_FRONTEND_LOCKED", "1", 1);
-            if (!Provider::ExecuteBrokerDpkg(paths, registered, parent, execution,
+            if (!Provider::ExecuteBrokerDpkg(paths, brokerEnvironment, parent, execution,
                 [&](const std::string &tool, const std::vector<std::string> &arguments) {
                     return SpawnAndWait(tool, arguments, providerRequestDescriptor);
                 }, &result, &error)) return Denied(error);

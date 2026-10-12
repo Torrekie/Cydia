@@ -9,6 +9,7 @@
 #include <string>
 
 namespace CydiaAPT { namespace Provider { struct RegistrationIdentity; struct RegisteredProviderSnapshot; } }
+namespace CydiaAPT { namespace Recovery { struct Preferences; struct Identity; struct RequestAuthority; struct Snapshot; } }
 
 namespace CydiaRuntime {
 namespace PrivilegedClient {
@@ -60,6 +61,9 @@ void ClearLockBridge();
 void ConfigureProviderAuthority(const std::string &helperPath,
     const CydiaAPT::Provider::RegistrationIdentity &identity,
     const Privileged::ExpectedEnvironment &expected);
+void ConfigureRecoveryAuthority(const std::string &helperPath,
+    const CydiaAPT::Recovery::RequestAuthority &authority,
+    const Privileged::ExpectedEnvironment &expected);
 void ClearProviderAuthority();
 // Machine-readable helper response, including missing registration, without
 // matching translated stderr. Suitable for RegistrationSnapshotReader.
@@ -67,6 +71,10 @@ bool ReadProviderSnapshot(const std::string &helperPath, const std::string &regi
     const CydiaAPT::Provider::RegistrationIdentity *expected,
     CydiaAPT::Provider::RegisteredProviderSnapshot *snapshot, Privileged::Error *error,
     unsigned timeoutMilliseconds = 4000,
+    const std::function<bool()> &cancelled = std::function<bool()>());
+bool ReadRecoverySnapshot(const std::string &helperPath, const CydiaAPT::Recovery::Preferences &preferences,
+    const CydiaAPT::Recovery::Identity *expected, CydiaAPT::Recovery::Snapshot *snapshot,
+    Privileged::Error *error, unsigned timeoutMilliseconds = 4000,
     const std::function<bool()> &cancelled = std::function<bool()>());
 int OpenProviderLock(const std::string &helperPath, const Privileged::Request &wrappedRequest,
     Privileged::Error *error, unsigned timeoutMilliseconds = 0);

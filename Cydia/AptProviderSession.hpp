@@ -40,6 +40,9 @@ struct SessionCallbacks {
 class Session {
     class Implementation;
     std::unique_ptr<Implementation> implementation_;
+    bool StartInternal(const std::string &, const ProbeResult &, Hello,
+        const std::shared_ptr<const RecoveryLaunchCapsule> &, const SessionCallbacks &,
+        unsigned, const std::function<bool()> &);
 public:
     Session();
     ~Session();
@@ -49,6 +52,13 @@ public:
     // Uses a successful, same-environment Probe, checks its executable identity
     // again, and replaces Hello.challenge with 256 bits from the OS RNG.
     bool Start(const std::string &executable, const ProbeResult &probe, Hello hello,
+        const SessionCallbacks &callbacks = SessionCallbacks(), unsigned timeoutMilliseconds = 3000,
+        const std::function<bool()> &cancelled = std::function<bool()>());
+
+    // Explicit recovery path; requires the same readonly capsule object used
+    // by ProbeRecovery. No registration is fabricated from capsule contents.
+    bool StartRecovery(const std::string &executable, const ProbeResult &probe, Hello hello,
+        const std::shared_ptr<const RecoveryLaunchCapsule> &capsule,
         const SessionCallbacks &callbacks = SessionCallbacks(), unsigned timeoutMilliseconds = 3000,
         const std::function<bool()> &cancelled = std::function<bool()>());
 

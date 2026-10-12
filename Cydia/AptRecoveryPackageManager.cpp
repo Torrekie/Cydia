@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptRecoveryPackageManager.hpp"
+#include "Cydia/AptLocalStateVersion.hpp"
 #include "Cydia/SourceDocumentStore.hpp"
 #include <apt-pkg/configuration.h>
 #include <apt-pkg/depcache.h>
@@ -40,7 +41,7 @@ P::ExecutionPackage ExecutionPackageValue(pkgCache::VerIterator version) {
 bool Same(const P::ExecutionPackage &a, const P::ExecutionPackage &b) {
     return a.package == b.package && a.version == b.version && a.architecture == b.architecture;
 }
-bool CoversTransaction(const P::ReviewedTransaction &review) {
+bool CoversTransaction(const P::ReviewedTransaction &review, std::string *error) {
     std::map<std::string, P::ExecutionAction> expected;
     const auto add = [&](const std::vector<std::string> &routes, P::ExecutionAction action) {
         for (const auto &route : routes)
@@ -53,27 +54,29 @@ bool CoversTransaction(const P::ReviewedTransaction &review) {
         !add(review.transaction.downgrades, P::ExecutionAction::Unpack) ||
         !add(review.transaction.removes, P::ExecutionAction::Remove) ||
         !add(review.transaction.purges, P::ExecutionAction::Purge) ||
-        expected.size() != review.transaction.packages.size()) return false;
+        expected.size() != review.transaction.packages.size()) return Fail(error, "recovery_transaction_changed");
     std::set<std::string> covered, configured;
     for (const auto &action : review.execution.actions) {
         std::string route;
         for (const auto &entry : review.transaction.packages) {
             const P::ExecutionPackage package{entry.second.identity.baseName, entry.second.version, entry.second.identity.versionArchitecture};
             if (!Same(action.package, package)) continue;
-            if (!route.empty()) return false;
+            if (!route.empty()) return Fail(error, "recovery_transaction_identity_ambiguous");
             route = entry.first;
         }
-        if (route.empty()) return false;
+        if (route.empty()) return Fail(error, "recovery_action_not_reviewed");
         const auto primary = expected.at(route);
         if (primary == action.action) covered.insert(route);
         else if (primary == P::ExecutionAction::Unpack && action.action == P::ExecutionAction::Configure) {
-            if (!covered.count(route)) return false;
+            if (!covered.count(route)) return Fail(error, "recovery_configure_before_unpack");
             configured.insert(route);
-        } else if (primary != P::ExecutionAction::Purge || action.action != P::ExecutionAction::Remove || covered.count(route)) return false;
+        } else if (primary != P::ExecutionAction::Purge || action.action != P::ExecutionAction::Remove || covered.count(route))
+            return Fail(error, "recovery_action_not_reviewed");
     }
-    if (covered.size() != expected.size()) return false;
+    if (covered.size() != expected.size()) return Fail(error, "recovery_transaction_action_missing");
     for (const auto &entry : expected)
-        if (entry.second == P::ExecutionAction::Unpack && !configured.count(entry.first)) return false;
+        if (entry.second == P::ExecutionAction::Unpack && !configured.count(entry.first))
+            return Fail(error, "recovery_configure_action_missing");
     return true;
 }
 bool Has(const std::vector<std::string> &values, const std::string &value) {
@@ -172,13 +175,30 @@ bool IndexHash(const std::string &path, const std::function<bool()> &cancelled, 
     *identity = "SHA256:" + hash.GetHashString(Hashes::SHA256SUM).HashValue();
     return true;
 }
-// Internal EIPP diagnostics can open a compressor or create log directories.
-// Disable only this diagnostic output while ordering, restoring its exact key.
-struct PlannerLogScope {
-    bool existed = _config->Exists("Dir::Log::Planner");
-    std::string value = _config->Find("Dir::Log::Planner");
-    PlannerLogScope() { _config->Set("Dir::Log::Planner", ""); }
-    ~PlannerLogScope() { if (existed) _config->Set("Dir::Log::Planner", value); else _config->Clear("Dir::Log::Planner"); }
+void CopyConfiguration(const Configuration::Item *item, Configuration &copy, const std::string &prefix = "") {
+    for (; item; item = item->Next) {
+        const std::string name(prefix.empty() ? item->Tag : prefix + "::" + item->Tag);
+        copy.Set(name, item->Value);
+        CopyConfiguration(item->Child, copy, name);
+    }
+}
+// In libapt's default "smart" mode, ConfigureAll only marks most packages
+// configured in its ordering flags. pkgDPkgPM::Go later implements that phase
+// with --configure --pending. A reviewed worker must name every effect before
+// execution, so ask libapt's own final configuration ordering to emit explicit
+// Configure callbacks instead. Immediate/Pre-Depends ordering is unchanged.
+// Do not run Go, expand pending selections, or retain a process-wide override.
+struct OrderingConfigurationScope {
+    Configuration *original = _config;
+    Configuration copy;
+    OrderingConfigurationScope() {
+        CopyConfiguration(original->Tree(nullptr), copy);
+        // EIPP diagnostics can create directories or launch a compressor.
+        copy.Set("Dir::Log::Planner", "");
+        copy.Set("PackageManager::Configure", "all");
+        _config = &copy;
+    }
+    ~OrderingConfigurationScope() { _config = original; }
 };
 bool Hook(const char *name) {
     const auto *tree = _config->Tree(name);
@@ -218,6 +238,11 @@ pkgPackageManager::OrderResult AptRecoveryPackageManager::OrderInstall() {
         _config->FindB("dpkg::install::recursive", false) || _config->FindB("APT::Force-LoopBreak", false)) {
         refusal_ = "recovery_unbounded_effects_unsupported"; return Failed;
     }
+    const std::string configure(_config->Find("PackageManager::Configure", "smart"));
+    if ((configure != "smart" && configure != "all") ||
+        (configure == "smart" && !_config->FindB("DPkg::ConfigurePending", true))) {
+        refusal_ = "recovery_configure_policy_unsupported"; return Failed;
+    }
     // Original Go may expand pending selections and process triggers that the
     // resolver's explicit list omits. Do not silently turn those into a plan.
     for (auto package = Cache.PkgBegin(); !package.end(); ++package) {
@@ -228,7 +253,7 @@ pkgPackageManager::OrderResult AptRecoveryPackageManager::OrderInstall() {
             refusal_ = "recovery_pending_effects_unsupported"; return Failed;
         }
     }
-    PlannerLogScope log;
+    OrderingConfigurationScope configuration;
     return pkgPackageManager::OrderInstall();
 }
 bool AptRecoveryPackageManager::BindArchive(pkgCache::VerIterator version, pkgCache::VerFileIterator record,
@@ -283,7 +308,7 @@ RecoveryCaptureResult AptRecoveryPackageManager::Capture(pkgSourceList &sources,
         if (result.review.execution.actions.size() == P::MaximumCollectionItems) return fail("recovery_plan_too_large");
         if (item.Pkg.end()) return fail("recovery_pending_effects_unsupported");
         const bool removal = item.Op == Item::Remove || item.Op == Item::Purge;
-        auto version = removal ? item.Pkg.CurrentVer() : Cache[item.Pkg].InstVerIter(Cache);
+        auto version = removal ? LocalStateVersion(item.Pkg) : Cache[item.Pkg].InstVerIter(Cache);
         if (version.end()) return fail("recovery_exact_version_unavailable");
         P::ReviewedAction action; action.identifier = result.review.execution.actions.size() + 1; action.package = ExecutionPackageValue(version);
         if (!removal && action.package.architecture != "all" && !Has(runtime.registeredArchitectures, action.package.architecture))
@@ -350,7 +375,8 @@ RecoveryCaptureResult AptRecoveryPackageManager::Capture(pkgSourceList &sources,
     if (usedArchives.size() != archives_.size() || result.review.execution.actions.empty()) return fail("recovery_incomplete_recording");
     // The parent validates transaction coverage and all authority again. Catch
     // a stale caller preview locally instead of returning contradictory values.
-    if (!CoversTransaction(result.review)) return fail("recovery_transaction_changed");
+    std::string coverageError;
+    if (!CoversTransaction(result.review, &coverageError)) return fail(coverageError.c_str());
     result.status = RecoveryCaptureStatus::Recorded; return result;
 }
 } // namespace CydiaAPT

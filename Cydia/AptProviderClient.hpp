@@ -3,13 +3,18 @@
 #define Cydia_AptProviderClient_HPP
 #include "Cydia/AptProviderProtocol.hpp"
 #include <functional>
+#include <memory>
 
 namespace CydiaAPT { namespace Provider {
+class RecoveryLaunchCapsule;
 
 struct ProbeResult {
     Availability availability = Availability::Missing;
     Info info;
     std::string executableIdentity, registrationPath, errorCode;
+    // Populated only by ProbeRecovery. Ordinary external launches must never
+    // inherit this private recovery snapshot accidentally.
+    std::shared_ptr<const RecoveryLaunchCapsule> recoveryCapsule;
     bool compatible() const { return availability == Availability::Ready; }
 };
 
@@ -30,6 +35,10 @@ ProbeResult Probe(const std::string &executable, const Environment &expected,
     unsigned timeoutMilliseconds = 3000,
     const std::function<bool()> &cancelled = std::function<bool()>(),
     const std::string &registrationPath = std::string());
+
+ProbeResult ProbeRecovery(const std::string &executable, const Environment &expected,
+    const std::shared_ptr<const RecoveryLaunchCapsule> &capsule, unsigned timeoutMilliseconds = 3000,
+    const std::function<bool()> &cancelled = std::function<bool()>());
 
 }} // namespace CydiaAPT::Provider
 #endif

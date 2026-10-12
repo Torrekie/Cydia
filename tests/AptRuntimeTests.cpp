@@ -1164,7 +1164,22 @@ void VerifyRuntimeDescriptorValidation() {
     changed.runtimeErrorCode = "https://repo.invalid/secret";
     Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "diagnostic text cannot masquerade as stable error code");
     changed = good; changed.origin = RuntimeDescriptorOrigin::Embedded;
-    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "embedded snapshot cannot be adopted as external");
+    Expect(!ValidateRuntimeDescriptor(changed, good.binding, &error), "embedded snapshot cannot be adopted as a worker");
+    RuntimeDescriptor recovery(good); recovery.origin = RuntimeDescriptorOrigin::RecoveryWorker;
+    recovery.binding.providerIdentifier = RecoveryRuntimeProviderIdentifier;
+    recovery.binding.libraryIdentity = std::string(64, 'a'); recovery.binding.frontendIdentity = std::string(64, 'b');
+    recovery.binding.configurationIdentity = std::string(64, 'c'); recovery.binding.policyIdentity = std::string(64, 'd');
+    recovery.binding.methodsIdentity = std::string(64, 'e'); recovery.binding.packageStateIdentity = std::string(64, 'f');
+    Expect(ValidateRuntimeDescriptor(recovery, recovery.binding, &error), "bound recovery worker preserves distinct origin");
+    changed = recovery; changed.origin = RuntimeDescriptorOrigin::External;
+    Expect(!ValidateRuntimeDescriptor(changed, changed.binding, &error) && error == "runtime_descriptor_origin_mismatch",
+        "recovery cannot masquerade as a distribution runtime");
+    changed = recovery; changed.binding.providerIdentifier = good.binding.providerIdentifier;
+    Expect(!ValidateRuntimeDescriptor(changed, changed.binding, &error), "external registration cannot masquerade as bundled recovery");
+    changed = recovery; changed.binding.configurationIdentity = "version-text";
+    Expect(!ValidateRuntimeDescriptor(changed, changed.binding, &error), "recovery requires strong parent-captured identities");
+    changed = recovery; changed.binding.packageStateIdentity[0] = '0';
+    Expect(!ValidateRuntimeDescriptor(changed, recovery.binding, &error), "recovery cache state must match parent verification");
 }
 
 void ExpectSelectedRuntimeGetters(const CydiaAPT::RuntimeDescriptor &d) {

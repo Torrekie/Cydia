@@ -2,7 +2,9 @@
 
 #define HAVE_TIMEGM
 
-//#cmakedefine HAVE_ZLIB
+// Apple supplies zlib as part of the platform. Keep gzip acquisition and
+// cache/index decoding usable when optional bootstrap commands are broken.
+#define HAVE_ZLIB
 //#cmakedefine HAVE_BZ2
 //#cmakedefine HAVE_LZMA
 //#cmakedefine HAVE_LZ4

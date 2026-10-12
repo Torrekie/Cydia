@@ -10,6 +10,10 @@
  * compatibility header; the small implementation lives in the app-owned
  * Cydia source set rather than in a particular APT checkout. */
 #if defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#ifndef le32toh
+#define le32toh(value) OSSwapLittleToHostInt32(value)
+#endif
 extern "C" void *memrchr(const void *value, int character, size_t length);
 #endif
 

@@ -55,6 +55,9 @@ bool ErrorCode(const std::string &value) {
     for (char c : value) if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return false;
     return true;
 }
+bool Digest(const std::string &value) {
+    return value.size() == 64 && value.find_first_not_of("0123456789abcdef") == std::string::npos;
+}
 }
 
 bool SameRuntimeDescriptorBinding(const RuntimeDescriptorBinding &a, const RuntimeDescriptorBinding &b) {
@@ -64,10 +67,17 @@ bool SameRuntimeDescriptorBinding(const RuntimeDescriptorBinding &a, const Runti
 }
 
 bool ValidateRuntimeDescriptor(const RuntimeDescriptor &d, const RuntimeDescriptorBinding &verified, std::string *error) {
-    if (d.origin != RuntimeDescriptorOrigin::External) return Failure(error, "runtime_descriptor_not_external");
+    if (d.origin != RuntimeDescriptorOrigin::External && d.origin != RuntimeDescriptorOrigin::RecoveryWorker)
+        return Failure(error, "runtime_descriptor_not_remote");
     const auto &b(d.binding);
+    if ((d.origin == RuntimeDescriptorOrigin::RecoveryWorker) != (b.providerIdentifier == RecoveryRuntimeProviderIdentifier))
+        return Failure(error, "runtime_descriptor_origin_mismatch");
     if (!Token(b.providerIdentifier) || !Session(b.session) || !Token(b.libraryIdentity) || !Token(b.frontendIdentity) ||
         !Token(b.configurationIdentity) || !Token(b.policyIdentity) || !Token(b.methodsIdentity) || !Token(b.packageStateIdentity))
+        return Failure(error, "runtime_descriptor_invalid_binding");
+    if (d.origin == RuntimeDescriptorOrigin::RecoveryWorker &&
+        (!Digest(b.libraryIdentity) || !Digest(b.frontendIdentity) || !Digest(b.configurationIdentity) ||
+         !Digest(b.policyIdentity) || !Digest(b.methodsIdentity) || !Digest(b.packageStateIdentity)))
         return Failure(error, "runtime_descriptor_invalid_binding");
     if (!SameRuntimeDescriptorBinding(b, verified)) return Failure(error, "runtime_descriptor_binding_mismatch");
     if (!Architecture(d.architecture) || !Architectures(d.registeredArchitectures, d.architecture, true) ||
