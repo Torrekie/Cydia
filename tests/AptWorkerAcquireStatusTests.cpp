@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptWorkerAcquireStatus.hpp"
 #include <apt-pkg/acquire-item.h>
+#include <apt-pkg/hashes.h>
 #include <apt-pkg/init.h>
 #include <apt-pkg/configuration.h>
 #include <cstdlib>
@@ -16,6 +17,7 @@ struct Item : pkgAcquire::Item {
     std::string uri;
     Item(pkgAcquire *owner, const std::string &uri) : pkgAcquire::Item(owner), uri(uri) {}
     std::string DescURI() const override { return uri; }
+    HashStringList GetExpectedHashes() const override { return {}; }
 };
 }
 int main() {

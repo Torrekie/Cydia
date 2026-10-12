@@ -213,7 +213,8 @@ void RefusalsAndCancellation() {
         auto *original = _config; const auto config = ConfigurationText(); calls = 0;
         bool threw = false;
         try { f.backend->captureRecoveryReview(f.runtime, f.binding, f.layout, [&]() -> bool {
-            if (++calls > 1) throw std::runtime_error("fixture cancellation"); return false;
+            if (++calls > 1) throw std::runtime_error("fixture cancellation");
+            return false;
         }); } catch (const std::runtime_error &) { threw = true; }
         Require(threw && _config == original && ConfigurationText() == config, "exception leaked preview configuration");
         const auto retry = f.Capture(); Require(retry.status == RecoveryCaptureStatus::Recorded, retry.errorCode.c_str());
