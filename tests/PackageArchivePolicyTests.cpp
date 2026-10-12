@@ -106,6 +106,9 @@ int main() {
     const ArchiveLayout custom = {"/opt/distro", {"/var/jb"}};
     Expect(Inspect(Entry("./opt", '5') + Entry("./opt/distro/usr/bin/tool"), custom), accepted);
     Expect(Inspect(prefixed, custom), mismatch, "different_installation_prefix");
+    const ArchiveLayout nested = {"/var/jb/custom", {"/var/jb"}};
+    Expect(Inspect(Entry("./var/jb/custom/usr/bin/tool"), nested), accepted);
+    Expect(Inspect(prefixed, nested), mismatch, "different_installation_prefix");
     Expect(Inspect(Entry("./", '5') + Entry("./var", '5') + Entry("./var/jb", '5') + prefixed), accepted);
     Expect(Inspect(Entry("./var/jb", '5') + Entry("./var/jb", '5') + prefixed), accepted);
     const auto emptyRooted(Inspect(Entry("./usr", '5') + Entry("./usr/bin", '5')));

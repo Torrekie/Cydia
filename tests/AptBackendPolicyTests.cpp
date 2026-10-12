@@ -16,13 +16,13 @@
  * behavior below comes from libapt-pkg, rather than the portable APT stubs. */
 namespace CydiaAPT {
 RepositorySecurityMode fixtureSecurityMode = RepositorySecurityMode::Warning;
+std::string fixtureInstallPrefix = "/";
 RepositorySecurityMode GetRepositorySecurityMode() {
     return fixtureSecurityMode;
 }
 bool CachedRepositoryTrustValid() { return true; }
 const std::string &PackageInstallPrefix() {
-    static const std::string prefix("/");
-    return prefix;
+    return fixtureInstallPrefix;
 }
 
 const std::vector<std::string> &Architectures() {
@@ -56,8 +56,28 @@ CydiaAPT::PackageHandle Version(CydiaAPT::Internal::AptBackend &backend,
     const std::vector<CydiaAPT::PackageHandle> versions(backend.versionHandles(package));
     for (CydiaAPT::PackageHandle handle : versions)
         if (backend.packageSnapshot(handle).version == version) return handle;
+    std::cerr << "[apt-package-actions] wanted " << backend.packageSnapshot(package).identifier << '=' << version
+        << "; available:";
+    for (CydiaAPT::PackageHandle handle : versions) {
+        const CydiaAPT::PackageSnapshot snapshot(backend.packageSnapshot(handle));
+        std::cerr << ' ' << snapshot.version << ':' << snapshot.architecture;
+    }
+    std::cerr << '\n';
     Require(false, "available version was missing from the backend picker");
     return CydiaAPT::PackageHandle();
+}
+
+void RequireTransaction(bool condition, const CydiaAPT::TransactionData &transaction, const char *message) {
+    if (!condition) {
+        for (const auto &entry : transaction.packages)
+            std::cerr << "[apt-package-actions] planned " << entry.first << '=' << entry.second.version
+                << " architecture=" << entry.second.identity.versionArchitecture << '\n';
+        for (const auto &issue : transaction.issues)
+            std::cerr << "[apt-package-actions] issue " << issue.package << ": " << issue.kind << '\n';
+        for (const auto &removed : transaction.removes)
+            std::cerr << "[apt-package-actions] removal " << removed << '\n';
+    }
+    Require(condition, message);
 }
 
 bool HasIssue(const CydiaAPT::TransactionData &transaction, const char *package, const char *kind) {
@@ -197,6 +217,121 @@ void CheckMultiarch(CydiaAPT::Internal::AptBackend &backend) {
     backend.clearSelections();
 }
 
+void CheckExactVersionIdentity(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    const PackageSnapshot before(backend.packageSnapshot(backend.packageHandle("same-version-layout", "amd64")));
+    const PackageHandle portable(backend.packageHandle("same-version-layout:all", "amd64"));
+    const PackageHandle native(backend.packageHandle("same-version-layout:amd64", "amd64"));
+    const PackageSnapshot allVersion(backend.packageSnapshot(portable));
+    const PackageSnapshot nativeVersion(backend.packageSnapshot(native));
+    Require(portable.valid() && native.valid() && portable.value != native.value &&
+        allVersion.version == "1" && nativeVersion.version == "1" &&
+        allVersion.architecture == "all" && nativeVersion.architecture == "amd64" &&
+        allVersion.record.Field("Architecture") == "all" && nativeVersion.record.Field("Architecture") == "amd64",
+        "same-Version native/all records collapsed into one handle or borrowed each other's control metadata");
+    Require(backend.versionHandles(before.handle).size() == 2 &&
+        backend.packageHandle("same-version-layout", "amd64").value == before.handle.value,
+        "same-Version architecture inspection omitted a version or changed the policy candidate");
+    for (PackageHandle selected : {portable, native}) {
+        const PackageSnapshot version(backend.packageSnapshot(selected));
+        Require(backend.installPackage(selected) && backend.resolveDependencies(),
+            "exact same-Version architecture choice could not be queued");
+        const TransactionData transaction(backend.transactionData());
+        const TransactionPackageData *planned(FindTransactionPackage(transaction, "same-version-layout"));
+        RequireTransaction(transaction.issues.empty() && planned != NULL && planned->version == "1" &&
+            planned->identity.versionArchitecture == version.architecture, transaction,
+            "same-Version selected operation substituted the other native/all architecture");
+        backend.clearSelections();
+    }
+
+    const PackageHandle epoch(backend.packageHandle("epoch-target", "amd64"));
+    const PackageHandle oldEpoch(Version(backend, epoch, "1:1.0-1"));
+    Require(backend.packageSnapshot(epoch).version == "2:1.0-1" && epoch.value != oldEpoch.value &&
+        backend.packageState(epoch).upgradable && backend.packageState(epoch).versionComparison > 0,
+        "real APT epoch ordering or same-upstream-version identity was lost");
+    Require(backend.installPackage(epoch) && backend.resolveDependencies(), "epoch upgrade could not be queued");
+    TransactionData transaction(backend.transactionData());
+    const TransactionPackageData *upgrade(FindTransactionPackage(transaction, "epoch-target"));
+    RequireTransaction(upgrade != NULL && upgrade->version == "2:1.0-1" && transaction.upgrades.size() == 1 &&
+        transaction.issues.empty(), transaction, "epoch upgrade lost its full selected Debian version");
+    backend.clearSelections();
+    Require(backend.installPackage(oldEpoch) && backend.resolveDependencies(), "exact old-epoch reinstall failed");
+    transaction = backend.transactionData();
+    const TransactionPackageData *reinstall(FindTransactionPackage(transaction, "epoch-target"));
+    RequireTransaction(reinstall != NULL && reinstall->version == "1:1.0-1" &&
+        transaction.reinstalls.size() == 1 && transaction.issues.empty(), transaction,
+        "same upstream version in another epoch replaced the explicitly selected installed version");
+    backend.clearSelections();
+}
+
+void CheckVersionedProviders(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    for (const char *name : {"versioned-consumer", "alternative-consumer"}) {
+        const PackageHandle consumer(backend.packageHandle(name, "amd64"));
+        const std::vector<RelationData> relations(backend.relations(consumer));
+        const RelationClauseData *provided(Clause(relations, "fixture-api:any"));
+        Require(provided != NULL && provided->comparison == ">=" && provided->version == "2" &&
+            provided->providers.size() == 1,
+            "versioned :any Provides accepted an unversioned/too-old provider or lost the original relation");
+        const PackageSnapshot target(backend.packageSnapshot(provided->providers.front()));
+        Require(target.identity.baseName == "versioned-runtime" && target.architecture == "i386" && target.version == "7",
+            "versioned Provides confused the provided ABI version 2 with provider package version 7");
+        if (std::string(name) == "alternative-consumer") {
+            const RelationClauseData *missing(Clause(relations, "missing-fixture-api:any"));
+            Require(relations.size() == 1 && relations.front().clauses.size() == 2 && missing != NULL &&
+                missing->providers.empty(), "OR alternatives were flattened or a missing :any target gained a fallback");
+        }
+        Require(backend.installPackage(consumer) && backend.resolveDependencies(),
+            "resolver did not select the eligible versioned foreign provider/OR alternative");
+        const TransactionData transaction(backend.transactionData());
+        const TransactionPackageData *provider(FindTransactionPackage(transaction, "versioned-runtime:i386"));
+        RequireTransaction(transaction.issues.empty() && transaction.installs.size() == 2 && provider != NULL &&
+            provider->version == "7" && provider->identity.versionArchitecture == "i386", transaction,
+            "resolver chose a wrong provider or failed to select the second OR alternative");
+        backend.clearSelections();
+    }
+    const std::vector<RelationData> unsatisfied(backend.relations(
+        backend.packageHandle("unsatisfied-versioned-consumer", "amd64")));
+    const RelationClauseData *clause(Clause(unsatisfied, "fixture-api:any"));
+    Require(clause != NULL && clause->version == "3" && clause->providers.empty(),
+        "provider package version 7/99 incorrectly satisfied an unavailable provided ABI version 3");
+}
+
+void CheckCoinstalledSiblings(CydiaAPT::Internal::AptBackend &backend) {
+    using namespace CydiaAPT;
+    const PackageHandle native(backend.packageHandle("lockstep:amd64", "amd64"));
+    const PackageHandle foreign(backend.packageHandle("lockstep:i386", "amd64"));
+    Require(backend.packageSnapshot(native).installedVersion == "1" &&
+        backend.packageSnapshot(foreign).installedVersion == "1", "Multi-Arch: same fixture was not coinstalled");
+    Require(backend.installPackage(native) && backend.resolveDependencies(),
+        "resolver could not upgrade a coinstalled Multi-Arch: same sibling");
+    TransactionData transaction(backend.transactionData());
+    const TransactionPackageData *nativeUpgrade(FindTransactionPackage(transaction, "lockstep:amd64"));
+    const TransactionPackageData *foreignUpgrade(FindTransactionPackage(transaction, "lockstep:i386"));
+    RequireTransaction(transaction.issues.empty() && transaction.upgrades.size() == 2 && transaction.removes.empty() &&
+        nativeUpgrade != NULL && foreignUpgrade != NULL && nativeUpgrade->version == "2" && foreignUpgrade->version == "2",
+        transaction, "resolver left coinstalled Multi-Arch: same versions unequal instead of upgrading both");
+    backend.clearSelections();
+
+    Require(backend.installPackage(native) && backend.installPackage(Version(backend, foreign, "1")),
+        "explicit conflicting sibling versions could not be staged for dependency review");
+    const bool resolved(backend.resolveDependencies());
+    transaction = backend.transactionData();
+    RequireTransaction(!resolved && !transaction.issues.empty(), transaction,
+        "resolver accepted explicitly protected unequal Multi-Arch: same sibling versions");
+    backend.clearSelections();
+
+    Require(backend.removePackage(foreign) && backend.resolveDependencies(),
+        "removing one coinstalled architecture was blocked by the retained sibling");
+    transaction = backend.transactionData();
+    RequireTransaction(transaction.issues.empty() && transaction.removes.size() == 1 &&
+        transaction.removes.front() == "lockstep:i386" && transaction.packages.size() == 1, transaction,
+        "removing the foreign sibling also changed the native instance");
+    backend.clearSelections();
+    // Shared-file equality and unpack/configure ordering remain dpkg/APT's
+    // responsibility; this fixture never simulates their filesystem behavior.
+}
+
 void CheckNegativePins(CydiaAPT::Internal::AptBackend &backend) {
     using namespace CydiaAPT;
     bool installedVisible(false), unsupportedVisible(false);
@@ -279,6 +414,19 @@ void CheckArchivePreflight(CydiaAPT::Internal::AptBackend &backend) {
     backend.unlockForTransaction();
     _config->Set("Dir::Bin::dpkg", previousDpkg);
     fixtureSecurityMode = RepositorySecurityMode::Warning;
+
+    fixtureInstallPrefix = "/opt/distro";
+    Require(backend.installPackage(backend.packageHandle("archive-layout-dependency", "amd64")) &&
+        backend.resolveDependencies() && backend.prepareArchives(), "custom-prefix archive fixture could not be prepared");
+    const FetchResultData customPrefix(backend.runFetcher(1000));
+    bool foreignPrefixBlocked(false);
+    for (const FetchFailureData &failure : customPrefix.failures)
+        if (failure.package == "archive-layout-dependency" && failure.kind == FetchDiagnosticKind::ArchiveLayoutMismatch)
+            foreignPrefixBlocked = true;
+    Require(customPrefix.completed && foreignPrefixBlocked,
+        "custom installation prefix treated the known /var/jb layout as an advisory instead of a mismatch");
+    backend.clearSelections();
+    fixtureInstallPrefix = "/";
 }
 }
 
@@ -369,6 +517,9 @@ int main(int argc, char **) {
     Require(_config->FindB("APT::Ignore-Hold", false), "temporary hold policy changed bootstrap configuration");
     backend.clearSelections();
     CheckMultiarch(backend);
+    CheckExactVersionIdentity(backend);
+    CheckVersionedProviders(backend);
+    CheckCoinstalledSiblings(backend);
     CheckNegativePins(backend);
     CheckArchivePreflight(backend);
     std::cout << "[apt-package-actions] real APT action/resolver fixture passed\n";

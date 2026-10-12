@@ -321,7 +321,7 @@ void AptBackend::validateArchives(FetchResultData &result) {
     ValidateArchiveItems(*fetcher_, result);
     CydiaPackages::ArchiveLayout layout;
     layout.prefix = preparedPrefix_;
-    if (layout.prefix == "/") layout.foreignPrefixes.push_back("/var/jb");
+    if (layout.prefix != "/var/jb") layout.foreignPrefixes.push_back("/var/jb");
     for (pkgAcquire::ItemIterator item(fetcher_->ItemsBegin()); item != fetcher_->ItemsEnd(); ++item) {
         pkgAcqArchive *archive(dynamic_cast<pkgAcqArchive *>(*item));
         if (archive == NULL || archive->Status != pkgAcquire::Item::StatDone || !archive->Complete) continue;
