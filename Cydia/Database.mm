@@ -106,8 +106,15 @@ public:
     explicit PackageTransactionLock(CydiaAPT::AptBackend *apt) : apt_(NULL) {
         if (apt->lockForTransaction()) apt_ = apt;
     }
-    ~PackageTransactionLock() { if (apt_ != NULL) apt_->unlockForTransaction(); }
+    ~PackageTransactionLock() { release(); }
+    void release() { if (apt_ != NULL) { apt_->unlockForTransaction(); apt_ = NULL; } }
     bool held() const { return apt_ != NULL; }
+};
+class ProviderSettlement {
+    std::function<void()> finish_;
+public:
+    explicit ProviderSettlement(const std::function<void()> &finish) : finish_(finish) {}
+    ~ProviderSettlement() { finish_(); }
 };
 
 class ConfigureFrontendLock {
@@ -559,19 +566,21 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 }
 
 - (bool) popErrorWithTitle:(NSString *)title diagnostics:(NSMutableArray<NSString *> *)diagnostics {
-    if (!runtime_->ready()) return true;
+    const bool completed(runtime_->remote() && runtime_->executionComplete());
+    if (!runtime_->ready() && !completed) return true;
     bool fatal(false);
 
     const std::vector<CydiaAPT::ErrorData> errors(apt_->drainErrors());
     for (std::vector<CydiaAPT::ErrorData>::const_iterator item(errors.begin()); item != errors.end(); ++item) {
-        if (!item->warning)
+        const bool warning(item->warning || completed);
+        if (!warning)
             fatal = true;
 
-        lprintf("%c:[%s]\n", item->warning ? 'W' : 'E', item->message.c_str());
+        lprintf("%c:[%s]\n", warning ? 'W' : 'E', item->message.c_str());
 
         NSString *message(CydiaAPTDiagnosticMessage(*item));
         [diagnostics addObject:message];
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:message ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:message ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
     }
 
     return fatal;
@@ -1018,14 +1027,23 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     }
     RestartSubstrate_ = started && substrate;
     transactionResult_.packageManagerStarted = started;
+    const bool remoteExecution(runtime_->remote());
+    ProviderSettlement retirement([&] {
+        if (!remoteExecution) return;
+        transaction.release(); runtime_->RetireExecution(*apt_);
+        ++era_; packages_ = nil; sourceMap_.clear(); [sourceList_ removeAllObjects];
+        transactionSnapshot_ = nil; [self publishRuntimeProviderStatus];
+    });
     if (!finalArchives.failures.empty()) {
         for (const CydiaAPT::FetchFailureData &failure : finalArchives.failures)
             [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:CydiaFetchDiagnosticMessage(failure)
                 ofType:kCydiaProgressEventTypeError] forTask:title];
         return false;
     }
+    const bool completed(runtime_->remote() && runtime_->executionComplete());
     const bool errors([self popErrorWithTitle:title]);
-    const CydiaRuntime::TransactionResult executed(CydiaRuntime::PackageManagerTransactionResult(result, errors));
+    const CydiaRuntime::TransactionResult executed(CydiaRuntime::PackageManagerTransactionResult(
+        completed ? CydiaAPT::PackageManagerResult::Completed : result, errors && !completed));
     if (!executed.succeeded() || !runtime_->executionComplete()) {
         [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:SettingsMessage(@"TRANSACTION_FAILED")
             ofType:kCydiaProgressEventTypeError] forTask:title];
@@ -1045,6 +1063,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         return false;
     }
     transactionSnapshot_ = nil;
+    if (remoteExecution) { transactionResult_ = executed; return true; }
     const CydiaAPT::SourceListData after(apt_->sourceList());
     if ([self popErrorWithTitle:title forOperation:after.success]) return false;
     if (before.uris != after.uris && Finish_ == 0) [self update];

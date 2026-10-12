@@ -2,6 +2,7 @@
 #include "Cydia/AptRecoveryDependencyInspector.hpp"
 #include "Cydia/AptRecoveryMachO.hpp"
 #include "Cydia/ProtectedLibraryPath.hpp"
+#include "Cydia/AptProviderComponentCapture.hpp"
 #include <apt-pkg/hashes.h>
 #include <algorithm>
 #include <cerrno>
@@ -24,6 +25,9 @@
 namespace CydiaAPT { namespace Recovery {
 namespace {
 namespace P = CydiaRuntime::Privileged;
+#if defined(CYDIA_NATIVE_DPKG_AUTHORITY_TESTING)
+MachO::Target transactionTestTarget;
+#endif
 std::string Hash(const std::string &bytes) {
     Hashes hash(Hashes::SHA256SUM);
     if (!hash.Add(bytes.data(), bytes.size())) return {};
@@ -133,6 +137,11 @@ struct Inspector {
     std::map<std::string, std::string> aliases;
     std::set<std::string> unresolved, dependencies, visited;
     std::vector<std::string> loaderFields;
+    bool transaction = false;
+    std::set<std::string> closureNodes;
+    std::map<std::string, std::vector<Provider::ComponentDependencyEvidence>> closureEdges;
+    std::map<std::string, std::string> edgeResolutions;
+    std::size_t closureEdgeCount = 0;
     std::size_t totalBytes = 0;
     Inspector(const Authority &value, const std::function<bool()> &stop) : authority(value), cancelled(stop) {}
 #if defined(CYDIA_RECOVERY_DEPENDENCY_TESTING)
@@ -140,6 +149,47 @@ struct Inspector {
 #endif
     bool Stopped() { if (cancelled && cancelled()) { unresolved.insert("dependencyInspectionCancelled"); return true; } return false; }
     void Missing(const std::string &field) { if (unresolved.size() < 100) unresolved.insert(field); }
+    bool PlatformABI(const std::string &path, uint32_t compatibility) {
+#if defined(__APPLE__)
+        // Only already mapped cache images expose trusted load commands here.
+        // Do not read an arbitrary on-disk /usr/lib image as OS authority or
+        // dlopen an image simply to manufacture a compatibility assertion.
+        for (uint32_t n = 0; n < _dyld_image_count(); ++n) {
+            const auto *h = _dyld_get_image_header(n); const char *name = _dyld_get_image_name(n);
+            if (!h || !name || path != name || !(h->flags & 0x80000000u) || h->sizeofcmds > 1024*1024 || h->ncmds > 4096) continue;
+            const unsigned char *p = reinterpret_cast<const unsigned char *>(h) + (h->magic == 0xfeedfacfu ? 32 : 28);
+            std::size_t remaining = h->sizeofcmds;
+            for (uint32_t c = 0; c < h->ncmds && remaining >= 8; ++c) {
+                load_command command; std::memcpy(&command, p, sizeof(command));
+                if (command.cmdsize < 8 || command.cmdsize > remaining) return false;
+                if (command.cmd == LC_ID_DYLIB && command.cmdsize >= sizeof(dylib_command)) {
+                    dylib_command library; std::memcpy(&library, p, sizeof(library));
+                    return h->filetype == MH_DYLIB && library.dylib.current_version >= compatibility;
+                }
+                p += command.cmdsize; remaining -= command.cmdsize;
+            }
+        }
+#else
+        (void)path; (void)compatibility;
+#endif
+        return false;
+    }
+    bool Edge(const std::string &from, const std::string &load, const std::string &to, Provider::ComponentDependencyKind kind) {
+        if (!transaction) return true;
+        const auto key = P::SerializeFields({from, load});
+        const auto value = P::SerializeFields({to, std::to_string(static_cast<unsigned>(kind))});
+        const auto prior = edgeResolutions.emplace(key, value);
+        if (!prior.second && prior.first->second != value) { Missing("dependencyResolutionAmbiguous"); return false; }
+        auto &edges = closureEdges[from];
+        if (std::find_if(edges.begin(), edges.end(), [&](const Provider::ComponentDependencyEvidence &edge) {
+            return edge.path == to && edge.kind == kind;
+        }) == edges.end()) {
+            if (closureEdgeCount == Provider::MaximumComponentDependencies) { Missing("dependencyGraphTooLarge"); return false; }
+            ++closureEdgeCount;
+            Provider::ComponentDependencyEvidence edge; edge.path = to; edge.kind = kind; edges.push_back(edge);
+        }
+        return true;
+    }
     bool Platform(const std::string &path) {
 #if defined(__APPLE__)
         // Membership in the active cache, not /usr/lib spelling, establishes a
@@ -158,6 +208,14 @@ struct Inspector {
         return false;
     }
     bool CurrentTarget() {
+#if defined(CYDIA_NATIVE_DPKG_AUTHORITY_TESTING)
+        if (transactionTestTarget.cpu) {
+            target = transactionTestTarget;
+            loaderFields = {"CYDIA-TRANSACTION-FIXTURE-1", "fixture-build", std::to_string(target.cpu),
+                std::to_string(target.subtype), std::to_string(target.platform), std::to_string(target.operatingSystem)};
+            return target.platform != 0 && target.operatingSystem != 0;
+        }
+#endif
 #if defined(__APPLE__)
         const auto *header = _dyld_get_image_header(0);
         if (!header) return false;
@@ -255,6 +313,7 @@ struct Inspector {
         for (const auto &path : inherited) if (std::find(search.begin(), search.end(), path) == search.end()) search.push_back(path);
         if (search.size() > 256) { Missing("dependencyGraphTooLarge"); return false; }
         const auto key = P::SerializeFields({input.canonical, executable, P::SerializeFields(search), external ? "external" : "private"});
+        if (transaction) closureNodes.insert(input.component.path);
         if (!visited.insert(key).second) return true;
         for (const auto &dependency : input.image.dependencies) {
             std::vector<std::string> candidates;
@@ -263,7 +322,13 @@ struct Inspector {
             bool resolved = false;
             for (const auto &path : candidates) {
                 if (path.empty()) { Missing("dynamicLoaderSearchUnsupported"); return false; }
-                if (Platform(path)) { loaderFields.push_back(path + ':' + std::to_string(dependency.compatibilityVersion)); resolved = true; break; }
+                if (Platform(path)) {
+                    if (transaction && (!PlatformABI(path, dependency.compatibilityVersion) ||
+                        !Edge(input.component.path, dependency.name, path, Provider::ComponentDependencyKind::Platform))) {
+                        Missing("platformDependencyABIUnavailable"); return false;
+                    }
+                    loaderFields.push_back(path + ':' + std::to_string(dependency.compatibilityVersion)); resolved = true; break;
+                }
                 struct stat st;
 #if defined(CYDIA_RECOVERY_DEPENDENCY_TESTING)
                 if (fixture) { if (!inputs.count(path)) continue; }
@@ -282,6 +347,7 @@ struct Inspector {
                 if (child->discovered && !external) { Missing("privateDependencyInventoryIncomplete"); return false; }
                 if (!child->binary || child->image.type != 6 || child->image.currentVersion < dependency.compatibilityVersion) { Missing("dependencyABIUnsupported"); return false; }
                 dependencies.insert(child->component.path);
+                if (!Edge(input.component.path, dependency.name, child->component.path, Provider::ComponentDependencyKind::Component)) return false;
                 loaderFields.push_back(P::SerializeFields({"dependency", input.component.path, dependency.name, child->component.path}));
                 if (!Closure(*child, executable, search, external, depth+1)) return false;
                 resolved = true; break;
@@ -422,6 +488,77 @@ DependencyProof InspectInstalledDependencies(const Authority &authority, const s
     const std::function<bool()> &cancelled) {
     Inspector inspector{authority, cancelled}; return inspector.Run(inventory);
 }
+bool CaptureTransactionPlatformIdentity(std::string *identity, std::string *error) {
+    if (identity) identity->clear();
+    Authority authority; const std::function<bool()> cancelled; Inspector inspector(authority, cancelled);
+    if (!identity || !inspector.CurrentTarget()) { if (error) *error = "provider_platform_authority_unavailable"; return false; }
+#if defined(CYDIA_NATIVE_DPKG_AUTHORITY_TESTING)
+    if (transactionTestTarget.cpu) {
+        auto fields = inspector.loaderFields; fields.push_back("fixed-test-cache-generation");
+        *identity = Hash(P::SerializeFields(fields)); return identity->size() == 64;
+    }
+#endif
+#if defined(__APPLE__)
+    // Apple dyld/include/mach-o/dyld_priv.h declares bool(uuid_t), iOS 10+:
+    // https://github.com/apple-oss-distributions/dyld/blob/main/include/mach-o/dyld_priv.h
+    // This binds the complete active cache, independently of which images
+    // happen to be mapped in the helper.
+    using CacheUUID = bool (*)(unsigned char *);
+    const auto uuid = reinterpret_cast<CacheUUID>(dlsym(RTLD_DEFAULT, "_dyld_get_shared_cache_uuid"));
+    unsigned char bytes[16]{};
+    if (!uuid || !uuid(bytes)) { if (error) *error = "provider_platform_authority_unavailable"; return false; }
+    // The first six fields contain OS build, CPU, target and product version.
+    std::vector<std::string> fields(inspector.loaderFields.begin(), inspector.loaderFields.begin()+6);
+    fields[0] = "CYDIA-TRANSACTION-PLATFORM-1";
+    fields.emplace_back(reinterpret_cast<const char *>(bytes), sizeof(bytes));
+    *identity = Hash(P::SerializeFields(fields));
+    return identity->size() == 64;
+#else
+    if (error) *error = "provider_platform_authority_unavailable"; return false;
+#endif
+}
+bool InspectTransactionComponentClosure(const std::string &executable,
+    const std::vector<Provider::InstalledComponentEvidence> &components, const std::string &configuration,
+    const std::string &platform, Provider::ComponentClosureEvidence *result, std::string *error,
+    const std::function<bool()> &cancelled) {
+    const auto fail = [&](const char *code) { if (error) *error = code; return false; };
+    if (result) *result = Provider::ComponentClosureEvidence();
+    if (!result || configuration.size() != 64 || configuration.find_first_not_of("0123456789abcdef") != std::string::npos ||
+        Normalize(executable) != executable || components.empty() || components.size() > Provider::MaximumTransactionComponents)
+        return fail("provider_component_closure_unverified");
+    std::string currentPlatform;
+    if (!CaptureTransactionPlatformIdentity(&currentPlatform, error) || currentPlatform != platform)
+        return fail("provider_platform_authority_changed");
+    Authority authority; Inspector inspector(authority, cancelled); inspector.transaction = true;
+    if (!inspector.CurrentTarget()) return fail("provider_platform_authority_unavailable");
+    std::map<std::string, Provider::InstalledComponentEvidence> captured;
+    for (const auto &expected : components) {
+        Provider::InstalledComponentEvidence observed; const auto &path = expected.file.metadata.path;
+        if (!Provider::CaptureTransactionComponent(path, &observed, error, cancelled) ||
+            !Provider::SameInstalledComponent(expected, observed) || !captured.emplace(path, observed).second)
+            return fail("provider_component_closure_changed");
+        Component component; component.path = path; component.sha256 = observed.file.sha256;
+        component.executable = path == executable;
+        if (!inspector.Read(component)) return fail("provider_component_loader_invalid");
+    }
+    if (!inspector.Command(executable, "selectedDpkgUnavailable") || !inspector.unresolved.empty())
+        return fail("provider_component_loader_unsupported");
+    Provider::ComponentClosureEvidence proof; proof.executable = executable;
+    proof.nativeConfigurationIdentity = configuration; proof.platformIdentity = platform;
+    for (const auto &path : inspector.closureNodes) {
+        Provider::InstalledComponentEvidence observed;
+        if (!Provider::CaptureTransactionComponent(path, &observed, error, cancelled) ||
+            !Provider::SameInstalledComponent(captured.at(path), observed)) return fail("provider_component_closure_changed");
+        Provider::ComponentClosureNode node; node.file = std::move(observed); node.dependencies = inspector.closureEdges[path];
+        proof.nodes.push_back(std::move(node));
+    }
+    if (!CaptureTransactionPlatformIdentity(&currentPlatform, error) || currentPlatform != platform)
+        return fail("provider_platform_authority_changed");
+    *result = std::move(proof); if (error) error->clear(); return true;
+}
+#if defined(CYDIA_NATIVE_DPKG_AUTHORITY_TESTING)
+void SetTransactionTargetForTesting(const MachO::Target &target) { transactionTestTarget = target; }
+#endif
 #if defined(CYDIA_RECOVERY_DEPENDENCY_TESTING)
 DependencyProof InspectConfiguredCommandsForTesting(const std::string &configuration) {
     Authority authority; authority.configuration = configuration;

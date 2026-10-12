@@ -96,6 +96,11 @@ public:
                    AuthorizedExecution *authorized, std::string *error);
     bool Settle(std::uint64_t batch, const ParentExecutionReply &result,
                 const std::string &nextStateIdentity, bool stateTransitionVerified, std::string *error);
+    // Parent-only effect settlement, after its separate finite effect ledger
+    // has observed a real child and verified the complete fresh state. No
+    // primary action is completed or replayed by this operation.
+    bool AdvanceEffects(const std::string &expectedStateIdentity, const std::string &nextStateIdentity,
+                        bool stateTransitionVerified, std::string *error);
     void Invalidate();
     bool active() const { return active_; }
     bool complete() const { return active_ && pending_.batch == 0 && completed_.size() == actions_.size(); }

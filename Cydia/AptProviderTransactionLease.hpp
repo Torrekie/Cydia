@@ -17,6 +17,9 @@ struct TransactionLeaseIdentity {
     // options. An unverified/missing graph cannot be filled with a placeholder.
     std::string nativeConfigurationIdentity, platformIdentity, extendedStateIdentity;
     std::string stagingDirectory;
+    // Empty preserves the legacy primary-only route. Otherwise fixed at Begin
+    // to the digest independently recomputed from native-approved recipients.
+    std::string effectIdentity;
 };
 struct StagedArchiveEvidence {
     InstalledComponentEvidence identity;
@@ -47,7 +50,7 @@ struct RetainedTransactionArchive {
     VerifiedArchiveEvidence source;
     StagedArchiveEvidence copy;
 };
-enum class TransactionLeasePhase { Empty, Ready, Executing, Committing, Committed, Failed, Closed };
+enum class TransactionLeasePhase { Empty, Ready, Executing, Committing, Committed, Failed, Closed, ExecutingEffects };
 
 /* Inputs are helper-owned capture results, never provider request authority.
  * The production owner authenticates the app, computes all identities (the
@@ -68,6 +71,7 @@ class TransactionLease {
     AuthorizedExecution pending_;
     TransactionLeasePhase phase_ = TransactionLeasePhase::Empty;
     std::uint64_t nextSequence_ = 1;
+    std::uint64_t nextEffectPass_ = 1, pendingEffectPass_ = 0;
     bool initialized_ = false, cancelled_ = false, uncertain_ = false;
     bool childStarted_ = false, everStarted_ = false, committed_ = false;
     bool Fail(std::string *, const char *);
@@ -87,6 +91,14 @@ public:
     bool Started(std::uint64_t batch, std::string *error);
     bool Settle(std::uint64_t batch, const ParentExecutionReply &, const TransactionLeaseContext &,
         bool transitionVerified, std::string *error);
+    // Internal owner-selected passes: no worker request sequence, argv or
+    // primary action ID is consumed. Target authorization is supplied only by
+    // the owner's retained TriggerEffectLedger, not a worker boolean.
+    bool AuthorizeEffects(const TransactionLeaseContext &, const std::string &effectIdentity,
+        std::uint64_t pass, const ComponentClosureEvidence &, std::string *error);
+    bool StartedEffects(std::uint64_t pass, std::string *error);
+    bool SettleEffects(std::uint64_t pass, const ParentExecutionReply &, const TransactionLeaseContext &,
+        bool transitionVerified, std::string *error);
     bool BeginCommit(const TransactionLeaseEnvelope &, const TransactionLeaseContext &,
         const std::vector<AutoInstalledDelta> &, const std::string &extendedStateIdentity, std::string *error);
     bool SettleCommit(bool committed, std::string *error);
@@ -98,6 +110,7 @@ public:
     bool complete() const { return committed_; }
     bool indeterminate() const { return uncertain_; }
     const std::string &stateIdentity() const { return authorization_.stateIdentity(); }
+    bool Expects(const TransactionLeaseEnvelope &) const;
 };
 }} // namespace CydiaAPT::Provider
 #endif

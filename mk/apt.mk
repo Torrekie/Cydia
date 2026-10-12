@@ -103,6 +103,13 @@ apt_api_sources := \
     Cydia/AptProviderReview.cpp \
     Cydia/AptProviderComponentSuccession.cpp \
     Cydia/AptProviderTransactionLease.cpp \
+    Cydia/AptProviderTransactionRequestDigest.cpp \
+    Cydia/AptProviderComponentCapture.cpp \
+    Cydia/AptProviderTransactionFiles.cpp \
+    Cydia/AptProviderTransactionOwner.cpp \
+    Cydia/AptProviderNativeDpkgAuthority.cpp \
+    Cydia/AptProviderTriggerEffects.cpp \
+    Cydia/AptProviderTriggerMetadata.cpp \
     Cydia/AptProviderTriggerEvidenceCapture.cpp \
     Cydia/AptProviderTriggerEvidence.cpp \
     Cydia/AptProviderTriggerEvidenceProtected.cpp \

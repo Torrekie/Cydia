@@ -1,5 +1,8 @@
 /* Copyright (C) 2026 Torrekie
  * SPDX-License-Identifier: GPL-3.0-or-later */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/DpkgConffile.hpp"
 #include "Cydia/AptRuntime.hpp"
@@ -17,6 +20,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
+#include <thread>
+#include <limits>
+
+#if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#if __GLIBC_PREREQ(2, 34)
+#define CYDIA_TRANSACTION_SPAWN_CLOSEFROM 1
+#endif
+#endif
 
 extern char **environ;
 
@@ -527,6 +538,173 @@ DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::st
     if ((!sent || result.indeterminate) && result.result.succeeded()) result.result = {Dpkg::ResultKind::LaunchFailed, -1, EIO};
     return result;
 }
+
+namespace {
+namespace Transaction = CydiaAPT::Provider::TransactionChannel;
+// No signals are sent: a lost channel may still have a real dpkg child. A
+// settled/nonmutating helper can be reaped asynchronously after EOF without
+// extending the bounded client operation. Active mutation waits synchronously.
+void ReapTransaction(pid_t child, bool wait) {
+    if (child <= 0) return;
+    const auto reap = [child]() {
+        int status; while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+    };
+    if (wait) reap();
+    else {
+        int status; pid_t result;
+        do { result = waitpid(child, &status, WNOHANG); } while (result < 0 && errno == EINTR);
+        if (result != 0) return;
+        try { std::thread(reap).detach(); }
+        catch (...) { reap(); } // Retain child ownership even under resource exhaustion.
+    }
+}
+bool SpawnTransaction(const std::string &helper, int *channel, pid_t *child, std::string *failure) {
+    const auto fail = [&]() { if (failure) *failure = "provider_transaction_launch_failed"; return false; };
+    if (helper.empty() || helper[0] != '/' || helper.find('\0') != std::string::npos) return fail();
+    int pair[2]; if (!MakePair(pair, true)) return fail();
+    // Keep every action source above the fixed inherited channel fd3. This
+    // also handles a caller whose stdio descriptors happen to be closed.
+    const int source = fcntl(pair[1], F_DUPFD_CLOEXEC, 4);
+    Close(pair[1]);
+    if (source < 0) { Close(pair[0]); return fail(); }
+    posix_spawn_file_actions_t actions;
+    int error = posix_spawn_file_actions_init(&actions); const bool initialized = !error;
+    if (!error) error = posix_spawn_file_actions_adddup2(&actions, source, 3);
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+    for (int fd = 0; fd < 3 && !error; ++fd)
+        if (fcntl(fd, F_GETFD) >= 0) error = posix_spawn_file_actions_addinherit_np(&actions, fd);
+#elif defined(CYDIA_TRANSACTION_SPAWN_CLOSEFROM)
+    if (!error) error = posix_spawn_file_actions_addclosefrom_np(&actions, 4);
+#else
+    if (!error) error = ENOTSUP; // Never race a process-wide descriptor enumeration.
+#endif
+    posix_spawnattr_t attributes; bool attributesReady = false;
+    if (!error) { error = posix_spawnattr_init(&attributes); attributesReady = !error; }
+#ifdef POSIX_SPAWN_CLOEXEC_DEFAULT
+    if (!error) error = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_CLOEXEC_DEFAULT);
+#endif
+    std::string command("--cydia-provider-transaction"), descriptor("3");
+    char *argv[] = {const_cast<char *>(helper.c_str()), &command[0], &descriptor[0], nullptr};
+    if (!error) error = posix_spawn(child, helper.c_str(), &actions, &attributes, argv, environ);
+    if (attributesReady) posix_spawnattr_destroy(&attributes);
+    if (initialized) posix_spawn_file_actions_destroy(&actions);
+    close(source);
+    if (error) { Close(pair[0]); return fail(); }
+    *channel = pair[0]; return true;
+}
+}
+
+class ProviderTransaction::Implementation {
+public:
+    Transaction::Channel channel;
+    pid_t child;
+    std::string nonce, digest;
+    std::uint64_t sequence = 0;
+    bool ready = false, everStarted = false, uncertain = false;
+    Implementation(int socket, pid_t pid, const std::string &review) : channel(socket), child(pid), digest(review) {}
+    ~Implementation() { End(false); }
+    void End(bool mutationPending) {
+        ready = false; channel.Close();
+        const pid_t owned = child; child = -1; ReapTransaction(owned, mutationPending);
+    }
+    ProviderTransactionResult Exchange(Transaction::Operation operation, const std::string &payload,
+        Dpkg::ConffileExecution *conffiles, const std::function<void()> &started,
+        unsigned timeout, const std::function<bool()> &cancelled) {
+        ProviderTransactionResult result;
+        const bool mutating = operation == Transaction::Operation::Execute || operation == Transaction::Operation::Commit;
+        Transaction::Frame request; request.operation = operation; request.sequence = sequence;
+        request.nonce = nonce; request.reviewDigest = digest; request.payload = payload;
+        std::vector<int> descriptors;
+        if (conffiles) descriptors = {conffiles->inputDescriptor(), conffiles->statusDescriptor()};
+        bool sent = false, notified = false, observerFailed = false;
+        const auto fail = [&](const std::string &code) {
+            result.errorCode = code; result.started = notified;
+            result.indeterminate = mutating && sent; uncertain |= result.indeterminate;
+            // Finish may close conffile input only after the owned helper has
+            // settled. It never supplies a forced answer to break this wait.
+            End(result.indeterminate);
+            if (conffiles) conffiles->Finish();
+            return result;
+        };
+        if (!channel.Send(request, descriptors, timeout ? timeout : 4000, cancelled, &sent)) return fail(channel.error());
+        // SCM_RIGHTS now owns the child-only ends, even before the actual spawn.
+        if (conffiles) conffiles->ChildStarted();
+        for (;;) {
+            Transaction::Frame reply; std::vector<int> received;
+            if (!channel.Receive(&reply, &received, mutating ? 0 : (timeout ? timeout : 4000),
+                    mutating ? std::function<bool()>() : cancelled)) return fail(channel.error());
+            for (const int fd : received) close(fd);
+            if (!received.empty() || reply.operation != operation || reply.sequence != sequence ||
+                reply.reviewDigest != digest || reply.event == Transaction::Event::Request ||
+                (operation != Transaction::Operation::Begin && reply.nonce != nonce)) return fail("provider_transaction_binding_invalid");
+            if (reply.event == Transaction::Event::Started) {
+                if (!mutating || notified) return fail("provider_transaction_binding_invalid");
+                notified = true; everStarted = true;
+                // An observer is not allowed to unwind a running mutation or
+                // destroy its input/status channels before it settles.
+                if (started) { try { started(); } catch (...) { observerFailed = true; } }
+                continue;
+            }
+            if (reply.mutationStarted != notified ||
+                (operation == Transaction::Operation::Execute && reply.success && !notified))
+                return fail("provider_transaction_binding_invalid");
+            if (operation == Transaction::Operation::Begin && reply.success) { nonce = reply.nonce; ready = true; }
+            result.transportValid = true; result.success = reply.success; result.started = notified;
+            result.indeterminate = reply.indeterminate; result.payload = std::move(reply.payload); result.errorCode = reply.errorCode;
+            uncertain |= result.indeterminate;
+            if (observerFailed) { result.success = false; result.errorCode = "provider_transaction_observer_failed"; }
+            if (conffiles) conffiles->Finish();
+            if (observerFailed || !reply.success || reply.indeterminate || operation == Transaction::Operation::Close) End(false);
+            return result;
+        }
+    }
+};
+ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> implementation) : implementation_(std::move(implementation)) {}
+ProviderTransaction::~ProviderTransaction() { if (valid()) Close(); }
+std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper,
+    const Privileged::Request &request, const std::string &digest, std::string *error,
+    unsigned timeout, const std::function<bool()> &cancelled) {
+    const std::string payload = Privileged::SerializeRequest(request);
+    Transaction::Frame begin; begin.reviewDigest = digest; begin.payload = payload;
+    std::string encoded;
+    if (payload.empty() || !Transaction::Encode(begin, &encoded) || (cancelled && cancelled())) {
+        if (error) *error = cancelled && cancelled() ? "provider_cancelled" : "provider_transaction_frame_invalid";
+        return nullptr;
+    }
+    int channel = -1; pid_t child = -1;
+    if (!SpawnTransaction(helper, &channel, &child, error)) return nullptr;
+    std::unique_ptr<Implementation> implementation(new Implementation(channel, child, digest));
+    const auto result = implementation->Exchange(Transaction::Operation::Begin, payload, nullptr, {}, timeout, cancelled);
+    if (!result.transportValid || !result.success) { if (error) *error = result.errorCode; return nullptr; }
+    if (error) error->clear();
+    return std::unique_ptr<ProviderTransaction>(new ProviderTransaction(std::move(implementation)));
+}
+ProviderTransactionResult ProviderTransaction::Request(Transaction::Operation operation, const std::string &payload,
+    int statusFd, const std::vector<std::string> &options, const std::function<void()> &started,
+    unsigned timeout, const std::function<bool()> &cancelled) {
+    ProviderTransactionResult failure; failure.errorCode = "provider_transaction_unavailable";
+    if (!valid() || operation == Transaction::Operation::Begin ||
+        implementation_->sequence == std::numeric_limits<std::uint64_t>::max()) return failure;
+    if (cancelled && cancelled()) { failure.errorCode = "provider_cancelled"; return failure; }
+    std::unique_ptr<Dpkg::ConffileExecution> conffiles;
+    if (operation == Transaction::Operation::Execute) {
+        if (statusFd < 3 || fcntl(statusFd, F_GETFD) < 0) return failure;
+        conffiles.reset(new Dpkg::ConffileExecution(options));
+        if (!conffiles->enabled() || !conffiles->valid()) return failure;
+    }
+    ++implementation_->sequence;
+    return implementation_->Exchange(operation, payload, conffiles.get(), started, timeout, cancelled);
+}
+bool ProviderTransaction::Close(std::string *error, unsigned timeout) {
+    if (!valid()) { if (error) *error = "provider_transaction_unavailable"; return false; }
+    const auto result = Request(Transaction::Operation::Close, "", -1, {}, {}, timeout);
+    implementation_->End(false);
+    if (error) *error = result.errorCode;
+    return result.transportValid && result.success;
+}
+bool ProviderTransaction::valid() const { return implementation_ && implementation_->ready && implementation_->channel.valid(); }
+bool ProviderTransaction::mutationStarted() const { return implementation_ && implementation_->everStarted; }
+bool ProviderTransaction::indeterminate() const { return implementation_ && implementation_->uncertain; }
 
 Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int statusFd, const std::string *input) {
     if (!providerAuthority.active) {

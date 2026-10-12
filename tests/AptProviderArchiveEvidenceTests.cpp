@@ -29,9 +29,10 @@ void Write(const std::string &path, const std::string &bytes) {
 void Octal(char *field, std::size_t size, unsigned long long value) {
     std::snprintf(field, size, "%0*llo", static_cast<int>(size - 1), value);
 }
-std::string Tar(const std::string &control) {
+std::string Tar(const std::string &control, const std::string &name = "control") {
     char header[512] = {};
-    std::memcpy(header, "control", 7);
+    Require(name.size() <= 100, "fixture tar name");
+    std::memcpy(header, name.data(), name.size());
     Octal(header + 100, 8, 0644); Octal(header + 108, 8, 0); Octal(header + 116, 8, 0);
     Octal(header + 124, 12, control.size()); Octal(header + 136, 12, 0);
     std::memset(header + 148, ' ', 8); header[156] = '0';
@@ -94,6 +95,54 @@ struct Fixture {
         return P::ArchiveEvidenceSnapshot::Capture(runtime, review, "/usr/bin:/bin", cancelled, error);
     }
 };
+void SetControls(Fixture &fixture, const std::string &indexFields, const std::string &archiveFields,
+    bool triggersPresent = true, const std::string &triggers = "interest-noawait /usr/share/icons\n") {
+    auto &archive = fixture.review.execution.archives.front();
+    std::string controlTar = Tar("Package: sample\nVersion: 1\nArchitecture: all\n" + archiveFields);
+    if (triggersPresent) {
+        std::string triggerTar = Tar(triggers, "triggers");
+        controlTar.resize(controlTar.size() - 1024); controlTar += triggerTar;
+    }
+    fixture.deb = "!<arch>\n" + Ar("debian-binary", "2.0\n") + Ar("control.tar", controlTar) + Ar("data.tar", std::string(1024, '\0'));
+    archive.size = fixture.deb.size(); archive.hashes = {{"SHA256", SHA256(fixture.deb)}};
+    fixture.record = "Package: sample\nVersion: 1\nArchitecture: all\nFilename: " + archive.filename +
+        "\nSize: " + std::to_string(archive.size) + "\nSHA256: " + archive.hashes["SHA256"] + "\n" + indexFields + "\n";
+    archive.recordSize = fixture.record.size(); archive.sourceIndexIdentity = "SHA256:" + SHA256(fixture.record);
+    Write(archive.sourceIndexPath, fixture.record); Write(archive.path, fixture.deb);
+}
+void ControlProof() {
+    Fixture fixture; std::string error;
+    SetControls(fixture, "Depends: perl:any (>= 5),\n locales | other\nMulti-Arch: foreign\n",
+        "Depends: perl:any(>=5),locales|other\nMulti-Arch: foreign\nEssential: no\n");
+    auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    std::map<std::string, std::string> controls;
+    auto archive = fixture.review.execution.archives.front();
+    Require(snapshot->ControlFields(archive, &controls, {}, &error) && controls["depends"] == "perl:any (>= 5), locales | other" &&
+        controls["essential"] == "no", "retained index canonical control fields");
+    std::vector<P::VerifiedArchiveControlEvidence> proof;
+    Require(snapshot->VerifyControl({archive}, &proof, {}, &error) && proof.size() == 1 &&
+        proof[0].archive.archive.identifier == archive.identifier && !proof[0].archive.fileIdentity.empty() &&
+        proof[0].control.complete && proof[0].control.identity.architecture == "all" && proof[0].control.triggersPresent &&
+        proof[0].control.triggers == "interest-noawait /usr/share/icons\n", "independent index/archive control match");
+    auto forged = archive; forged.package.version = "2";
+    Require(!snapshot->ControlFields(forged, &controls, {}, &error) && controls.empty(), "worker identity cannot solicit record control proof");
+    Write(archive.sourceIndexPath, fixture.record + "\n");
+    Require(!snapshot->ControlFields(archive, &controls, {}, &error) && controls.empty(), "changed retained index cannot publish control authority");
+    for (const auto &mismatch : std::vector<std::pair<std::string, std::string>>{
+            {"Depends: perl (= 1)\n", "Depends: perl (= 2)\n"},
+            {"Protected: yes\n", ""}, {"Multi-Arch: same\n", "Multi-Arch: foreign\n"}}) {
+        Fixture bad; SetControls(bad, mismatch.first, mismatch.second);
+        auto capture = bad.Capture(&error); Require(capture != nullptr, error.c_str());
+        Require(!capture->VerifyControl(bad.review.execution.archives, &proof, {}, &error) && proof.empty() &&
+            error == "provider_archive_control_index_mismatch", "different archive control cannot inherit index authority");
+    }
+    Fixture absent; SetControls(absent, "", "", false);
+    auto empty = absent.Capture(&error); Require(empty != nullptr, error.c_str());
+    Require(empty->VerifyControl(absent.review.execution.archives, &proof, {}, &error) && !proof[0].control.triggersPresent,
+        "absence of trigger declarations is proved from archive, not Packages metadata");
+    Require(!empty->VerifyControl(absent.review.execution.archives, &proof, [] { return true; }, &error) && proof.empty(),
+        "cancelled control proof has no partial publication");
+}
 void ValidAndChanged(bool compressed) {
     Fixture fixture(compressed); std::string error;
     auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
@@ -171,6 +220,6 @@ void SeparateAllArchitectureIndex() {
 } // namespace
 
 int main() {
-    ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
+    ControlProof(); ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
     std::cout << "[apt-provider-archive-evidence] PASS\n";
 }

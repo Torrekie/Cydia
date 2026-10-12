@@ -213,6 +213,14 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderLaunch.cpp Cydia/AptRecoverySnapshot.cpp \
 		Cydia/AptRecoveryAuthority.cpp Cydia/AptRecoveryInstalledAuthority.cpp \
 		Cydia/AptRecoveryDependencyInspector.cpp Cydia/AptRecoveryMachO.cpp \
+		Cydia/AptProviderComponentCapture.cpp Cydia/AptProviderComponentSuccession.cpp \
+		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionRequest.cpp \
+		Cydia/AptProviderTransactionRequestDigest.cpp \
+		Cydia/AptProviderTransactionFiles.cpp Cydia/AptProviderTransactionLease.cpp \
+		Cydia/AptProviderTransactionOwner.cpp Cydia/AptProviderTransactionService.cpp \
+		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderArchiveEvidence.cpp \
+		Cydia/AptProviderTriggerEffects.cpp Cydia/AptProviderTriggerMetadata.cpp \
+		Cydia/AptProviderTriggerEvidence.cpp Cydia/AptProviderTriggerEvidenceProtected.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 		Cydia/AptProviderDpkgState.cpp Cydia/AptProviderDpkgStateCapture.cpp Cydia/PackageIdentity.cpp \
 		Cydia/PackageArchivePolicy.cpp Cydia/PackageArchiveReader.cpp Cydia/AptProviderArchiveDecoders.cpp \

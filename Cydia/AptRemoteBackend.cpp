@@ -155,6 +155,10 @@ class RemoteBackend final : public BackendImplementation {
     }
 
 public:
+    void retireProvider() override {
+        reviewed_ = false; review_ = P::ReviewedTransaction();
+        if (session_) session_->Close();
+    }
     RemoteBackend(std::unique_ptr<P::Session> session, const RemoteBackendOptions &options) :
         session_(std::move(session)), options_(options) {
         if (!session_ || !session_->active()) fail("provider_session_unavailable");

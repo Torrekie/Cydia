@@ -31,6 +31,7 @@
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/AptMessages.h"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
+#include "Cydia/AptProviderTransactionService.hpp"
 #include <locale.h>
 #include <set>
 
@@ -65,6 +66,11 @@
 #include <Menes/Function.h>
 
 #include "libiosexec/libiosexec.h"
+// Retained native execution admits Mach-O executables only. Use the OS spawn
+// interface for its atomic descriptor policy; script fallback remains solely
+// in the existing one-shot ie_execv path, without expanding libiosexec's
+// curated static subset to account/spawn wrappers.
+#undef posix_spawn
 
 struct timeval _ltv;
 bool _itv;
@@ -408,6 +414,65 @@ int SpawnAndWait(const std::string &tool, std::vector<std::string> arguments, in
     return WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? 128 + WTERMSIG(status) : EX_OSERR;
 }
 
+// Persistent transactions use only their SCM_RIGHTS child channels. Keep the
+// ordinary one-shot executor untouched; this spawn atomically closes all other
+// inherited descriptors, including the authenticated transaction connection.
+CydiaAPT::Provider::ParentExecutionReply SpawnTransactionChild(const std::string &tool,
+    const std::vector<std::string> &authorized, int input, int status, const std::function<void()> &started) {
+    CydiaAPT::Provider::ParentExecutionReply result;
+    std::vector<std::string> arguments(authorized); unsigned statusOptions = 0;
+    for (std::size_t i = 0; i < arguments.size(); ++i) {
+        if (arguments[i] == "--status-fd") {
+            if (++i == arguments.size() || arguments[i] != std::to_string(status)) { result.launchError = EINVAL; return result; }
+            arguments[i] = "3"; ++statusOptions;
+        } else if (arguments[i].compare(0, 12, "--status-fd=") == 0) {
+            if (arguments[i] != "--status-fd=" + std::to_string(status)) { result.launchError = EINVAL; return result; }
+            arguments[i] = "--status-fd=3"; ++statusOptions;
+        }
+    }
+    if (statusOptions != 1 || input < 0 || status < 3) { result.launchError = EINVAL; return result; }
+    const int inputCopy = fcntl(input, F_DUPFD_CLOEXEC, 4);
+    const int statusCopy = fcntl(status, F_DUPFD_CLOEXEC, 4);
+    if (inputCopy < 0 || statusCopy < 0) {
+        result.launchError = errno;
+        if (inputCopy >= 0) close(inputCopy);
+        if (statusCopy >= 0) close(statusCopy);
+        return result;
+    }
+    posix_spawn_file_actions_t actions; int error = posix_spawn_file_actions_init(&actions);
+    const bool actionsReady = !error;
+    if (!error) error = posix_spawn_file_actions_adddup2(&actions, inputCopy, 0);
+    if (!error) error = posix_spawn_file_actions_adddup2(&actions, statusCopy, 3);
+    for (int fd : {STDOUT_FILENO, STDERR_FILENO})
+        if (!error && fcntl(fd, F_GETFD) >= 0) error = posix_spawn_file_actions_addinherit_np(&actions, fd);
+    posix_spawnattr_t attributes; bool attributesReady = false;
+    if (!error) { error = posix_spawnattr_init(&attributes); attributesReady = !error; }
+    sigset_t defaults; sigemptyset(&defaults);
+    for (int signal : {SIGINT, SIGTERM, SIGHUP}) { sigaddset(&defaults, signal); std::signal(signal, ForwardSignal); }
+    if (!error) error = posix_spawnattr_setsigdefault(&attributes, &defaults);
+    if (!error) error = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF);
+    arguments.insert(arguments.begin(), tool);
+    std::vector<char *> argv;
+    for (auto &argument : arguments) argv.push_back(const_cast<char *>(argument.c_str()));
+    argv.push_back(nullptr); pid_t child = -1;
+    if (!error) error = posix_spawn(&child, tool.c_str(), &actions, &attributes, argv.data(), environ);
+    if (attributesReady) posix_spawnattr_destroy(&attributes);
+    if (actionsReady) posix_spawn_file_actions_destroy(&actions);
+    close(inputCopy); close(statusCopy);
+    if (error) { result.launchError = error; return result; }
+    activeChild = child; result.started = true;
+    try { if (started) started(); } catch (...) { /* Settlement still owns this child. */ }
+    if (pendingSignal != 0) kill(child, pendingSignal);
+    int exitStatus = 0; pid_t waited;
+    do { waited = waitpid(child, &exitStatus, 0); } while (waited < 0 && errno == EINTR);
+    activeChild = -1;
+    if (waited != child) result.launchError = errno;
+    else if (WIFEXITED(exitStatus)) result.exitCode = WEXITSTATUS(exitStatus);
+    else if (WIFSIGNALED(exitStatus)) result.signal = WTERMSIG(exitStatus);
+    else result.launchError = ECHILD;
+    return result;
+}
+
 bool ReviewToken(const std::string &token) {
     if (token.size() != 64) return false;
     for (char c : token) if (!(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f')) return false;
@@ -464,6 +529,42 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     std::string command = argc > 1 ? argv[1] : "";
     namespace Provider = CydiaAPT::Provider;
     namespace APTRecovery = CydiaAPT::Recovery;
+    if (command == "--cydia-provider-transaction") {
+        char *end = nullptr; const long descriptor = argc == 3 ? strtol(argv[2], &end, 10) : -1;
+        if (argc != 3 || !end || end == argv[2] || *end || descriptor < 3 || descriptor > INT_MAX) return EX_DATAERR;
+        // This route is exclusively for the already-authenticated app. Root
+        // diagnostic callers have no ApplicationProcess_ and cannot invent one.
+        if (!Privileged::ValidApplicationProcessIdentity(ApplicationProcess_)) return EX_NOPERM;
+        SanitizeEnvironment(paths);
+        Provider::TransactionServiceOptions options;
+        options.application = ApplicationProcess_; options.applicationUID = callerUID;
+        options.authenticate = [parent, callerUID](Privileged::ApplicationProcessIdentity *identity, uid_t *uid, std::string *failure) {
+            std::set<Privileged::ApplicationCodeHash> hashes;
+            struct kinfo_proc info = {}; size_t size = sizeof(info);
+            int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, parent};
+            if (!ReadApplicationProcess(parent, identity, &hashes) || !(*identity == ApplicationProcess_) ||
+                sysctl(mib, 4, &info, &size, nullptr, 0) || size != sizeof(info) || info.kp_proc.p_pid != parent ||
+                info.kp_eproc.e_pcred.p_ruid != callerUID || info.kp_eproc.e_ucred.cr_uid != callerUID) {
+                if (failure) *failure = "provider_lease_authority_changed"; return false;
+            }
+            *uid = callerUID; return true;
+        };
+        options.prepareEnvironment = [&paths, callerUID, callerGID, &callerGroups](Provider::BrokerEnvironment *selected, std::string *) {
+            SanitizeEnvironment(paths);
+            setenv("PATH", selected->executableSearchPath.c_str(), 1);
+            setenv("DPKG_FRONTEND_LOCKED", "1", 1);
+            setlocale(LC_ALL, "C"); setlocale(LC_CTYPE, ""); setlocale(LC_MESSAGES, "");
+            const std::string share(paths.DpkgDataDirectory().substr(0, paths.DpkgDataDirectory().rfind('/')));
+            const std::string usr(share.substr(0, share.rfind('/')));
+            CydiaConfigureAPTMessages((usr + "/lib").c_str(), (share + "/locale").c_str(), paths.CydiaApplicationDirectory().c_str());
+            selected->environment.sourceReaderUID = callerUID; selected->environment.sourceReaderGID = callerGID;
+            selected->environment.sourceReaderGroups = callerGroups;
+            return true;
+        };
+        options.execute = SpawnTransactionChild;
+        std::string failure;
+        return Provider::ServeProviderTransaction(static_cast<int>(descriptor), paths, options, &failure) ? 0 : EX_TEMPFAIL;
+    }
     Provider::RegisteredProviderEnvironment registered;
     Provider::BrokerEnvironment brokerEnvironment;
     APTRecovery::Authority recoveryAuthority;

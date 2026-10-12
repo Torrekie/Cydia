@@ -225,7 +225,7 @@ bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
 static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, const ArchiveIdentity &expected,
     const ArchiveLayout &layout, const ArchiveLimits &limits, const std::map<std::string, std::string> *decoders,
     const std::function<bool()> &cancelled, const std::vector<std::string> *payloadPaths = nullptr,
-    ArchivePayloadEvidence *payloadEvidence = nullptr) {
+    ArchivePayloadEvidence *payloadEvidence = nullptr, ArchiveControlMetadata *controlMetadata = nullptr) {
     ErrorScope errors;
     const int descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (descriptor < 0) return Failure(ArchivePolicyStatus::Invalid, path, "archive_open_failed");
@@ -305,12 +305,14 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
     if (fstat(file.Fd(), &after) != 0 || before.st_size != after.st_size || before.st_mtime != after.st_mtime ||
         before.st_ctime != after.st_ctime || before.st_ino != after.st_ino || before.st_dev != after.st_dev)
         return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
-    if (payloadEvidence != nullptr) {
+    if (payloadEvidence != nullptr || controlMetadata != nullptr) {
         struct stat named;
         if (!SamePayloadArchive(before, after) || lstat(path.c_str(), &named) != 0 || !SamePayloadArchive(after, named))
             return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
     }
     const ArchivePolicyResult finished(policy.Finish());
+    if (controlMetadata != nullptr && finished.complete && finished.identityVerified)
+        *controlMetadata = policy.ControlMetadata();
     if (payloadEvidence != nullptr && finished.complete && finished.identityVerified) {
         payloadEvidence->payload = policy.PayloadInspection();
         if (payloadEvidence->payload.complete) payloadEvidence->files.swap(payloadFiles);
@@ -327,6 +329,17 @@ ArchivePolicyResult InspectPackageArchiveWithDecoders(const std::string &path, c
     const ArchiveLayout &layout, const std::map<std::string, std::string> &decoders,
     const ArchiveLimits &limits, const std::function<bool()> &cancelled) {
     return InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled);
+}
+
+ArchiveControlEvidence InspectPackageArchiveControlWithDecoders(const std::string &path,
+    const ArchiveIdentity &expected, const ArchiveLayout &layout,
+    const std::map<std::string, std::string> &decoders, const ArchiveLimits &limits,
+    const std::function<bool()> &cancelled) {
+    ArchiveControlEvidence result;
+    result.archive = InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled, nullptr, nullptr, &result.control);
+    if (!result.control.complete && result.control.reason.empty())
+        result.control.reason = result.archive.reason.empty() ? "control_metadata_incomplete" : result.archive.reason;
+    return result;
 }
 
 ArchivePayloadEvidence InspectPackageArchivePayloadWithDecoders(const std::string &path,

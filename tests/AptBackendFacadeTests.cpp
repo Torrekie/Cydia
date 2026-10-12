@@ -532,6 +532,13 @@ void FailureBoundaries() {
         A::AptBackend backend{std::unique_ptr<P::Session>()};
         Require(!backend.openCache() && backend.providerFailure().code == "provider_session_unavailable", "null injection has no embedded fallback");
     }
+    {
+        Peer peer(Mode::Complete); A::AptBackend backend(Session(peer)); backend.reset();
+        Require(backend.openCache() && !backend.packageHandles().empty(), "retirement fixture opened current provider");
+        backend.retireProvider();
+        Require(!backend.openCache() && backend.packageHandles().empty() && !backend.providerFailure().indeterminate,
+            "settled provider retirement invalidates handles and cannot reuse or switch engines");
+    }
 }
 } // namespace
 int main() {

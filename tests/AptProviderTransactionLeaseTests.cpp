@@ -346,10 +346,45 @@ void InterruptedChildren() {
         Require(lease.Close(&error), "settled failed lease could not close");
     }
 }
+void SeparateEffectPasses() {
+    Fixture fixture; fixture.identity.effectIdentity = std::string(64, '8');
+    P::TransactionLease lease; std::string error; P::AuthorizedExecution batch;
+    Require(fixture.Begin(lease, &error) && lease.AuthorizeEffects(fixture.before, fixture.identity.effectIdentity, 1,
+        fixture.Closure(fixture.before), &error) && lease.StartedEffects(1, &error), "effect pass owns its actual child");
+    Require(!lease.Close(&error), "live effect child prevents close");
+    auto drained = fixture.before; drained.stateIdentity = "effect-state-1";
+    Require(lease.SettleEffects(1, Success(), drained, true, &error) && lease.Expects(fixture.Envelope(1)) &&
+        lease.stateIdentity() == drained.stateIdentity, "effect pass advances state without consuming external request sequence");
+    Require(lease.Authorize(fixture.Envelope(1), drained, fixture.Request(), fixture.Evidence(drained),
+        fixture.Closure(drained), &batch, &error) && batch.actions == std::vector<std::uint64_t>{1} &&
+        lease.Started(1, &error), "effect pass did not consume primary action ID 1");
+    Require(lease.Settle(1, Success(), fixture.after, true, &error), "primary child after effect preserves exact component succession");
+    Require(lease.AuthorizeEffects(fixture.after, fixture.identity.effectIdentity, 2, fixture.Closure(fixture.after), &error) &&
+        lease.StartedEffects(2, &error), "second internal pass uses post-unpack executable closure");
+    auto final = fixture.after; final.stateIdentity = "effect-state-2";
+    Require(lease.SettleEffects(2, Success(), final, true, &error) && lease.Expects(fixture.Envelope(2)), "internal pass numbering stays separate");
+    Require(!lease.AuthorizeEffects(final, fixture.identity.effectIdentity, 2, fixture.Closure(final), &error), "effect pass cannot replay");
+    for (unsigned variant = 0; variant != 5; ++variant) {
+        P::TransactionLease interrupted; Require(fixture.Begin(interrupted, &error), "effect failure fixture");
+        if (variant == 0) {
+            Require(!interrupted.AuthorizeEffects(fixture.before, std::string(64, '7'), 1, fixture.Closure(fixture.before), &error),
+                "effect approval identity cannot change"); continue;
+        }
+        Require(interrupted.AuthorizeEffects(fixture.before, fixture.identity.effectIdentity, 1, fixture.Closure(fixture.before), &error),
+            "effect execution fixture");
+        if (variant != 4) Require(interrupted.StartedEffects(1, &error), "effect actual start fixture");
+        if (variant == 1) interrupted.Cancel();
+        if (variant == 2) interrupted.TransportLost();
+        auto reply = Success(); if (variant == 3) reply.exitCode = 1;
+        Require(!interrupted.Close(&error) && !interrupted.SettleEffects(1, reply, drained, true, &error) &&
+            interrupted.mutationStarted() && interrupted.indeterminate() == (variant == 2) && interrupted.Close(&error),
+            "effect failure/cancellation/missing start observer retains mutation and releases only after settlement");
+    }
+}
 }
 int main() {
     ComponentGenerations(); CompleteLease("amd64", "amd64"); CompleteLease("i386", "i386");
     CompleteLease("amd64", "all"); CompleteLease("amd64", "amd64", true);
-    AdmissionAndRequestFailures(); StagedHashEvidence(); InterruptedChildren();
+    AdmissionAndRequestFailures(); StagedHashEvidence(); InterruptedChildren(); SeparateEffectPasses();
     std::cout << "[apt-provider-transaction-lease][ ok ] retained review, generations, staged archives, replay and settlement\n";
 }

@@ -419,5 +419,12 @@ bool ReviewAuthorization::Settle(std::uint64_t batch, const ParentExecutionReply
     if (error) error->clear();
     return true;
 }
+bool ReviewAuthorization::AdvanceEffects(const std::string &expected, const std::string &next,
+    bool verified, std::string *error) {
+    if (!active_ || pending_.batch || expected != stateIdentity_ || !verified || !ValidIdentityToken(next)) {
+        Invalidate(); return Fail(error, "provider_execution_requires_new_review");
+    }
+    stateIdentity_ = next; if (error) error->clear(); return true;
+}
 
 }} // namespace CydiaAPT::Provider

@@ -5,6 +5,8 @@
 
 #include "Cydia/PrivilegedRuntime.hpp"
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/AptProviderTransactionChannel.hpp"
+#include <memory>
 #include <cstddef>
 #include <string>
 
@@ -91,6 +93,41 @@ DpkgExecutionResult RunProviderDpkg(const std::string &helperPath, const std::st
     const Privileged::Request &wrappedRequest, int statusFd,
     const std::string *input = nullptr,
     const std::vector<std::string> &argvOptions = std::vector<std::string>());
+// One authenticated direct cydo child retains the transaction lock and review.
+// This client owns only transport/lifetime; cydo independently validates Begin
+// authority and every subsequent operation. No transparent retry is allowed.
+struct ProviderTransactionResult {
+    bool transportValid = false, success = false, started = false, indeterminate = false;
+    std::string payload, errorCode;
+};
+class ProviderTransaction {
+    class Implementation;
+    std::unique_ptr<Implementation> implementation_;
+    explicit ProviderTransaction(std::unique_ptr<Implementation>);
+public:
+    ~ProviderTransaction();
+    ProviderTransaction(const ProviderTransaction &) = delete;
+    ProviderTransaction &operator=(const ProviderTransaction &) = delete;
+    static std::unique_ptr<ProviderTransaction> Start(const std::string &helperPath,
+        const Privileged::Request &wrappedBeginRequest, const std::string &expectedReviewDigest,
+        std::string *errorCode, unsigned timeoutMilliseconds = 4000,
+        const std::function<bool()> &cancelled = {});
+    // Serialized calls only. Execute requires the installed native conffile
+    // bridge, and transfers fresh stdin/status descriptors for this child.
+    // statusFd remains the reviewed target descriptor number, not a channel
+    // inherited by the helper. The helper remaps the SCM_RIGHTS descriptors.
+    // Execute/Commit have no receive timeout/cancellation after dispatch.
+    ProviderTransactionResult Request(CydiaAPT::Provider::TransactionChannel::Operation,
+        const std::string &payload, int statusFd = -1,
+        const std::vector<std::string> &argvOptions = {},
+        const std::function<void()> &started = {}, unsigned timeoutMilliseconds = 4000,
+        const std::function<bool()> &cancelled = {});
+    bool Close(std::string *errorCode = nullptr, unsigned timeoutMilliseconds = 4000);
+    bool valid() const;
+    bool mutationStarted() const;
+    bool indeterminate() const;
+};
+
 // Compatibility bridge for Cydia's own explicit hold/configure actions. This
 // is never exposed as a reverse-RPC operation to an external provider worker.
 Dpkg::Result RunSelectedDpkg(const std::vector<std::string> &arguments, int statusFd = -1,

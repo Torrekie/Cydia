@@ -51,6 +51,7 @@ public:
     bool complete() const;
     bool lockHeld() const;
     bool mutationStarted() const;
+    bool indeterminate() const;
     const std::string &errorCode() const;
     // Transport closure/cancellation does not kill a running dpkg child. All
     // methods share Database serialization, so cleanup follows settled child I/O.

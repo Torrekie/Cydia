@@ -83,7 +83,9 @@ RemoteCandidate StartCandidate(AcquireStatus &progress, const RuntimeDescriptor 
     };
     callbacks.closed = [weak](bool uncertain) {
         if (auto context = weak.lock()) {
-            context->closed = true; context->uncertain |= uncertain; context->broker->Invalidate();
+            context->closed = true;
+            context->uncertain |= (uncertain || context->broker->indeterminate()) && !context->broker->complete();
+            context->broker->Invalidate();
         }
     };
     std::unique_ptr<P::Session> session(new P::Session());
@@ -196,7 +198,8 @@ bool RuntimeProviderCoordinator::healthy() const {
 }
 bool RuntimeProviderCoordinator::ready() const { return healthy(); }
 bool RuntimeProviderCoordinator::indeterminate() const {
-    return implementation_->context && implementation_->context->uncertain;
+    const auto &context = implementation_->context;
+    return context && !context->broker->complete() && (context->uncertain || context->broker->indeterminate());
 }
 
 bool RuntimeProviderCoordinator::AcceptOpenedCache(const AptBackend &backend) {
@@ -376,6 +379,16 @@ bool RuntimeProviderCoordinator::ReviewUnchanged(const AptBackend &backend) cons
 void RuntimeProviderCoordinator::InvalidateReview() { implementation_->ClearReview(); }
 bool RuntimeProviderCoordinator::executionComplete() const {
     return !remote() || (implementation_->approved && implementation_->context->broker->complete());
+}
+void RuntimeProviderCoordinator::RetireExecution(AptBackend &backend) {
+    auto &state(*implementation_);
+    if (!state.context) return;
+    backend.retireProvider();
+    // Retain the closed context's uncertainty until explicit recovery. A new
+    // worker/cache can be selected on the next normal reload only after a
+    // determinate transaction; no old queue, grant or review survives.
+    state.ClearReview(); state.initialized = false;
+    ResetRuntimeDescriptor(); Client::ClearProviderAuthority(); Client::ClearLockBridge();
 }
 const Provider::ReviewedTransaction *RuntimeProviderCoordinator::review() const {
     return remote() && implementation_->captured ? &implementation_->reviewed : nullptr;

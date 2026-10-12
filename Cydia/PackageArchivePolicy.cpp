@@ -74,6 +74,79 @@ std::string Trim(const std::string &value) {
     if (first == std::string::npos) return "";
     return value.substr(first, value.find_last_not_of(" \t\r") - first + 1);
 }
+
+bool Space(char value) { return value == ' ' || value == '\t' || value == '\r' || value == '\n'; }
+bool PackageNameByte(char value) {
+    return (value >= 'a' && value <= 'z') || (value >= '0' && value <= '9') || value == '+' || value == '-' || value == '.';
+}
+// Binary relationship grammar only. Canonicalizing tokens after parsing avoids
+// silently merging malformed "foo bar" into the different package "foobar".
+bool CanonicalRelations(const std::string &input, std::string *output) {
+    if (input.size() > 1024 * 1024) return false;
+    std::size_t offset = 0;
+    const auto space = [&]() { while (offset < input.size() && Space(input[offset])) ++offset; };
+    space(); if (offset == input.size()) { output->clear(); return true; }
+    std::string result;
+    for (;;) {
+        const auto begin = offset;
+        if (offset == input.size() || !((input[offset] >= 'a' && input[offset] <= 'z') ||
+            (input[offset] >= '0' && input[offset] <= '9'))) return false;
+        while (offset < input.size() && PackageNameByte(input[offset])) ++offset;
+        if (offset < input.size() && input[offset] == ':') {
+            ++offset; const auto architecture = offset;
+            while (offset < input.size() && ((input[offset] >= 'a' && input[offset] <= 'z') ||
+                (input[offset] >= '0' && input[offset] <= '9') || input[offset] == '-')) ++offset;
+            if (architecture == offset || input[architecture] == '-') return false;
+        }
+        result += input.substr(begin, offset - begin); space();
+        if (offset < input.size() && input[offset] == '(') {
+            ++offset; space(); const auto operatorBegin = offset;
+            while (offset < input.size() && (input[offset] == '<' || input[offset] == '>' || input[offset] == '=')) ++offset;
+            const auto operation = input.substr(operatorBegin, offset - operatorBegin);
+            if (operation != "<<" && operation != "<=" && operation != "=" && operation != ">=" &&
+                operation != ">>" && operation != "<" && operation != ">") return false;
+            space(); const auto versionBegin = offset;
+            while (offset < input.size() && !Space(input[offset]) && input[offset] != ')') {
+                const auto byte = input[offset];
+                if (!((byte >= 'a' && byte <= 'z') || (byte >= 'A' && byte <= 'Z') ||
+                    (byte >= '0' && byte <= '9') || byte == '.' || byte == '+' || byte == '-' || byte == ':' || byte == '~')) return false;
+                ++offset;
+            }
+            const auto version = input.substr(versionBegin, offset - versionBegin); space();
+            if (version.empty() || offset == input.size() || input[offset++] != ')') return false;
+            result += " (" + operation + ' ' + version + ')'; space();
+        }
+        if (offset == input.size()) break;
+        const char separator = input[offset++];
+        if (separator != ',' && separator != '|') return false;
+        result += separator == ',' ? ", " : " | "; space();
+        if (offset == input.size()) return false;
+    }
+    *output = std::move(result); return true;
+}
+}
+
+bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string> &fields,
+    std::map<std::string, std::string> *controls, std::string *error) {
+    if (error) error->clear();
+    if (!controls) { if (error) *error = "control_metadata_missing"; return false; }
+    controls->clear(); std::map<std::string, std::string> result;
+    for (const char *name : {"depends", "pre-depends", "breaks", "conflicts", "provides", "replaces"}) {
+        const auto found = fields.find(name);
+        if (!CanonicalRelations(found == fields.end() ? "" : found->second, &result[name])) {
+            if (error) *error = "control_relationship_unsupported"; return false;
+        }
+    }
+    for (const char *name : {"multi-arch", "essential", "protected"}) {
+        const auto found = fields.find(name);
+        const std::string value = found == fields.end() ? "no" : Trim(found->second);
+        if ((value != "no" && value != "yes" && std::string(name) != "multi-arch") ||
+            (std::string(name) == "multi-arch" && value != "no" && value != "same" && value != "foreign" && value != "allowed")) {
+            if (error) *error = "control_policy_field_invalid"; return false;
+        }
+        result[name] = value;
+    }
+    *controls = std::move(result); return true;
 }
 
 struct PackageArchivePolicy::Impl {
@@ -87,7 +160,8 @@ struct PackageArchivePolicy::Impl {
     std::set<std::string> controlNames;
     std::map<std::string, char> dataNames;
     std::map<std::string, std::string> hardLinks;
-    std::string control;
+    std::string control, triggers;
+    std::map<std::string, std::string> controlFields;
     bool payloadRequested = false;
     std::set<std::string> payloadPaths, payloadSeen;
     ArchivePayloadConsumer payloadConsumer;
@@ -271,6 +345,7 @@ struct PackageArchivePolicy::Impl {
             if (line[0] == ' ' || line[0] == '\t') {
                 if (previous.empty() || previous == "package" || previous == "version" || previous == "architecture")
                     return Stop(ArchivePolicyStatus::Invalid, "control", "invalid_control_continuation");
+                fields[previous] += '\n' + Trim(line);
                 continue;
             }
             const auto colon(line.find(':'));
@@ -291,6 +366,7 @@ struct PackageArchivePolicy::Impl {
             if (found->second != field.second)
                 return Stop(ArchivePolicyStatus::IdentityMismatch, field.first, "archive_identity_mismatch");
         }
+        controlFields = std::move(fields);
         result.identityVerified = true; return true;
     }
     bool Tar(const ArchiveRead &read, bool isControl) {
@@ -361,6 +437,7 @@ struct PackageArchivePolicy::Impl {
                 if (size > limits.maxMetadataBytes || !Account(path, static_cast<std::size_t>(size)))
                     return stopped ? false : Stop(ArchivePolicyStatus::Unverified, path, "inspection_limit");
                 if (path == "/control") save = &control;
+                else if (path == "/triggers") { save = &triggers; Unverified(path, "maintainer_semantics_unverified"); }
                 else if (path != "/" && path != "/md5sums" && path != "/conffiles")
                     Unverified(path, "maintainer_semantics_unverified");
             } else if (!DataItem(path, type, link)) return false;
@@ -418,6 +495,15 @@ bool PackageArchivePolicy::ReadDataTar(const ArchiveRead &read, const std::vecto
     impl_->RequestPayload(paths, consumer); return impl_->Tar(read, false);
 }
 ArchivePolicyResult PackageArchivePolicy::Finish() { return impl_->Finish(); }
+ArchiveControlMetadata PackageArchivePolicy::ControlMetadata() const {
+    ArchiveControlMetadata result;
+    if (impl_->stopped || !impl_->result.complete || !impl_->result.identityVerified) {
+        result.reason = "control_metadata_incomplete"; return result;
+    }
+    if (!CanonicalPackageEffectControlFields(impl_->controlFields, &result.controls, &result.reason)) return result;
+    result.identity = impl_->expected; result.triggersPresent = impl_->controlNames.count("/triggers") != 0;
+    result.triggers = impl_->triggers; result.complete = true; return result;
+}
 ArchivePayloadInspection PackageArchivePolicy::PayloadInspection() const {
     ArchivePayloadInspection result(impl_->payload);
     if (impl_->stopped || !impl_->result.complete) result.complete = false;

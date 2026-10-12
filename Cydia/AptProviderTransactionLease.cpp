@@ -34,7 +34,7 @@ bool TransactionLease::Fail(std::string *error, const char *code) {
     // A bad concurrent request cannot erase the fact that a child or CAS may
     // already be in flight. Their owner must observe settlement first.
     cancelled_ = true;
-    if (phase_ != TransactionLeasePhase::Executing && phase_ != TransactionLeasePhase::Committing &&
+    if (phase_ != TransactionLeasePhase::Executing && phase_ != TransactionLeasePhase::ExecutingEffects && phase_ != TransactionLeasePhase::Committing &&
         phase_ != TransactionLeasePhase::Committed && phase_ != TransactionLeasePhase::Closed)
         phase_ = TransactionLeasePhase::Failed;
     return Error(error, code);
@@ -64,14 +64,17 @@ bool TransactionLease::Copies(const TransactionLeaseContext &context, std::strin
     return true;
 }
 bool TransactionLease::Request(const TransactionLeaseEnvelope &envelope, const TransactionLeaseContext &context, std::string *error) {
-    if (phase_ != TransactionLeasePhase::Ready || cancelled_ || uncertain_ || envelope.nonce != identity_.nonce ||
-        envelope.reviewDigest != identity_.reviewDigest || envelope.sequence != nextSequence_ ||
-        nextSequence_ == std::numeric_limits<std::uint64_t>::max()) return Fail(error, "provider_lease_request_invalid");
+    if (!Expects(envelope)) return Fail(error, "provider_lease_request_invalid");
     ++nextSequence_;
     if (!Context(context, error) || !Copies(context, error) || context.stateIdentity != authorization_.stateIdentity() ||
         !components_.Observe(completedUnpacks_, context.components, error))
         return Fail(error, "provider_lease_state_changed");
     return true;
+}
+bool TransactionLease::Expects(const TransactionLeaseEnvelope &envelope) const {
+    return phase_ == TransactionLeasePhase::Ready && !cancelled_ && !uncertain_ && envelope.nonce == identity_.nonce &&
+        envelope.reviewDigest == identity_.reviewDigest && envelope.sequence == nextSequence_ &&
+        nextSequence_ != std::numeric_limits<std::uint64_t>::max();
 }
 bool TransactionLease::Begin(const TransactionLeaseIdentity &identity, const ReviewedTransaction &review,
     const ReviewPolicy &policy, const TransactionLeaseContext &context,
@@ -82,7 +85,8 @@ bool TransactionLease::Begin(const TransactionLeaseIdentity &identity, const Rev
     if (!CydiaRuntime::Privileged::ValidApplicationProcessIdentity(identity.application) || !identity.lock.inode ||
         !ValidChallenge(identity.nonce) || !Digest(identity.reviewDigest) || !Digest(identity.originIdentity) ||
         !Digest(identity.operatingIdentity) || !Digest(identity.nativeConfigurationIdentity) || !Digest(identity.platformIdentity) ||
-        !Digest(identity.extendedStateIdentity) || !Path(identity.stagingDirectory) || !Context(context, error) ||
+        !Digest(identity.extendedStateIdentity) || (!identity.effectIdentity.empty() && !Digest(identity.effectIdentity)) ||
+        !Path(identity.stagingDirectory) || !Context(context, error) ||
         context.stateIdentity != review.binding.packageStateIdentity ||
         !authorization_.Accept(review, policy, error) || !Deltas(deltas, &deltas_))
         return Fail(error, "provider_lease_admission_invalid");
@@ -206,6 +210,37 @@ bool TransactionLease::BeginCommit(const TransactionLeaseEnvelope &envelope, con
     phase_ = TransactionLeasePhase::Committing;
     return true;
 }
+bool TransactionLease::AuthorizeEffects(const TransactionLeaseContext &context, const std::string &effect,
+    std::uint64_t pass, const ComponentClosureEvidence &closure, std::string *error) {
+    if (phase_ != TransactionLeasePhase::Ready || cancelled_ || uncertain_ || identity_.effectIdentity.empty() ||
+        effect != identity_.effectIdentity || !pass || pass != nextEffectPass_ ||
+        nextEffectPass_ == std::numeric_limits<std::uint64_t>::max() || !Context(context, error) ||
+        !Copies(context, error) || context.stateIdentity != authorization_.stateIdentity() ||
+        closure.executable != executor_ || !components_.Observe(completedUnpacks_, context.components, error) ||
+        !components_.AuthorizeLaunch(closure, error))
+        return Fail(error, "provider_lease_effect_not_authorized");
+    ++nextEffectPass_; pendingEffectPass_ = pass; childStarted_ = false; phase_ = TransactionLeasePhase::ExecutingEffects;
+    if (error) error->clear(); return true;
+}
+bool TransactionLease::StartedEffects(std::uint64_t pass, std::string *error) {
+    if (phase_ != TransactionLeasePhase::ExecutingEffects || childStarted_ || !pass || pass != pendingEffectPass_)
+        return Fail(error, "provider_lease_child_invalid");
+    childStarted_ = everStarted_ = true; return true;
+}
+bool TransactionLease::SettleEffects(std::uint64_t pass, const ParentExecutionReply &reply,
+    const TransactionLeaseContext &context, bool verified, std::string *error) {
+    if (phase_ != TransactionLeasePhase::ExecutingEffects || !pass || pass != pendingEffectPass_)
+        return Fail(error, "provider_lease_settlement_invalid");
+    everStarted_ = everStarted_ || reply.started;
+    const bool success = childStarted_ && reply.started && !reply.exitCode && !reply.signal && !reply.launchError;
+    const bool captured = success && Context(context, error) && Copies(context, error) &&
+        components_.Observe(completedUnpacks_, context.components, error);
+    const bool settled = authorization_.AdvanceEffects(authorization_.stateIdentity(), context.stateIdentity, captured && verified, error);
+    pendingEffectPass_ = 0; childStarted_ = false;
+    phase_ = settled && !cancelled_ && !uncertain_ ? TransactionLeasePhase::Ready : TransactionLeasePhase::Failed;
+    if (phase_ != TransactionLeasePhase::Ready) return Error(error, "provider_lease_requires_new_review");
+    if (error) error->clear(); return true;
+}
 bool TransactionLease::SettleCommit(bool committed, std::string *error) {
     if (phase_ != TransactionLeasePhase::Committing) return Fail(error, "provider_lease_commit_invalid");
     committed_ = committed;
@@ -219,11 +254,11 @@ void TransactionLease::Cancel() {
     if (phase_ == TransactionLeasePhase::Ready) phase_ = TransactionLeasePhase::Failed;
 }
 void TransactionLease::TransportLost() {
-    if (phase_ == TransactionLeasePhase::Executing || phase_ == TransactionLeasePhase::Committing) uncertain_ = true;
+    if (phase_ == TransactionLeasePhase::Executing || phase_ == TransactionLeasePhase::ExecutingEffects || phase_ == TransactionLeasePhase::Committing) uncertain_ = true;
     Cancel();
 }
 bool TransactionLease::Close(std::string *error) {
-    if (phase_ == TransactionLeasePhase::Executing || phase_ == TransactionLeasePhase::Committing)
+    if (phase_ == TransactionLeasePhase::Executing || phase_ == TransactionLeasePhase::ExecutingEffects || phase_ == TransactionLeasePhase::Committing)
         return Error(error, "provider_lease_child_not_settled");
     initialized_ = true; phase_ = TransactionLeasePhase::Closed; authorization_.Invalidate(); components_.Invalidate();
     return true;

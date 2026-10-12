@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <thread>
 
 namespace {
 LockFileOpener opener = NULL;
@@ -44,9 +45,70 @@ bool WriteAll(int fd, const std::string &bytes) {
     }
     return true;
 }
+int TransactionHelper(int socket) {
+    namespace TC = CydiaAPT::Provider::TransactionChannel;
+    TC::Channel channel(socket); TC::Frame request; std::vector<int> descriptors;
+    if (fcntl(200, F_GETFD) >= 0 || !channel.Receive(&request, &descriptors) || request.operation != TC::Operation::Begin) return 60;
+    CydiaRuntime::Privileged::Request begin; CydiaRuntime::Privileged::Error ignored;
+    if (!CydiaRuntime::Privileged::ParseRequest(request.payload, &begin, &ignored)) return 61;
+    const auto mode = begin.payload;
+    if (mode == "begin-timeout") { std::this_thread::sleep_for(std::chrono::milliseconds(200)); return 0; }
+    TC::Frame reply = request; reply.event = TC::Event::Settled; reply.success = true;
+    reply.payload.clear(); reply.nonce = "fake-helper-generated-nonce";
+    if (mode == "wrong-digest") reply.reviewDigest = "SHA256:wrong";
+    if (!channel.Send(reply)) return 62;
+    std::uint64_t sequence = 0;
+    for (;;) {
+        descriptors.clear();
+        if (!channel.Receive(&request, &descriptors, 4000)) return 0;
+        if (request.sequence != ++sequence || request.nonce != reply.nonce || request.reviewDigest != reply.reviewDigest) return 63;
+        reply = request; reply.event = TC::Event::Settled; reply.success = true; reply.payload.clear();
+        if (request.operation == TC::Operation::Close) return channel.Send(reply) ? 0 : 64;
+        if (request.operation == TC::Operation::Capture) {
+            if (mode == "capture-timeout") { std::this_thread::sleep_for(std::chrono::milliseconds(200)); return 0; }
+            if (mode == "wrong-sequence") ++reply.sequence;
+            reply.payload = "captured-state";
+            if (!channel.Send(reply)) return 65;
+            continue;
+        }
+        if (request.operation == TC::Operation::Commit) {
+            reply.event = TC::Event::Started; reply.mutationStarted = true;
+            if (!channel.Send(reply)) return 66;
+            reply.event = TC::Event::Settled; reply.payload = "committed";
+            if (!channel.Send(reply)) return 67;
+            continue;
+        }
+        if (request.operation != TC::Operation::Execute || descriptors.size() != 2) return 68;
+        if (mode == "lost-before-start" || mode == "success-without-start") {
+            for (const int fd : descriptors) close(fd);
+            if (mode == "success-without-start" && !channel.Send(reply)) return 74;
+            return 0;
+        }
+        const pid_t child = fork(); if (child < 0) return 69;
+        if (!child) {
+            channel.Close();
+            if (mode == "lost-after-start") { std::this_thread::sleep_for(std::chrono::milliseconds(180)); _exit(0); }
+            if (!WriteAll(descriptors[1],
+                "status: /etc/with spaces.conf : conffile-prompt : '/etc/with spaces.conf' '/etc/with spaces.conf.dpkg-new' 1 1 \n")) _exit(70);
+            char answer[2];
+            _exit(read(descriptors[0], answer, sizeof(answer)) == 2 && answer[0] == (request.payload == "new" ? 'Y' : 'N') && answer[1] == '\n' ? 0 : 71);
+        }
+        for (const int fd : descriptors) close(fd);
+        reply.event = TC::Event::Started; reply.mutationStarted = true;
+        if (!channel.Send(reply)) { int status; waitpid(child, &status, 0); return 72; }
+        if (mode == "lost-after-start") channel.Close();
+        int status = 0; while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+        if (mode == "lost-after-start") return 0;
+        reply.event = TC::Event::Settled; reply.success = WIFEXITED(status) && WEXITSTATUS(status) == 0;
+        if (!reply.success) reply.errorCode = "provider_child_failed";
+        reply.payload = "settled";
+        if (!channel.Send(reply)) return 73;
+    }
+}
 int Helper(int argc, char **argv) {
     if (argc > 1 && std::strncmp(argv[argc - 1], "--cydia-deadline-ms=", 20) == 0) --argc;
     const std::string command(argv[1]);
+    if (command == "--cydia-provider-transaction" && argc == 3) return TransactionHelper(std::atoi(argv[2]));
     if (command == "--cydia-provider-direct" && argc == 3) {
         CydiaRuntime::Privileged::Request request; CydiaRuntime::Privileged::Error error;
         const int channel = std::atoi(argv[2]);
@@ -315,6 +377,56 @@ int main(int argc, char **argv) {
     Expect(!Dpkg::AnswerConffilePrompt(previous.execution, previous.question, true), "settled helper question cannot queue input");
     char unused;
     Expect(read(statusPipe[0], &unused, 1) < 0 && errno == EAGAIN, "private status never enters an untagged global pipe");
+    // The persistent authenticated helper receives only fd3; each real child
+    // gets a new descriptor pair and its Started/Settled notifications bind to
+    // the exact monotonically increasing request.
+    namespace TC = Provider::TransactionChannel;
+    int sentinel = open("/dev/null", O_RDONLY);
+    Expect(sentinel >= 0 && dup2(sentinel, 200) == 200, "unrelated inheritable descriptor fixture"); close(sentinel);
+    std::string transactionError; request.payload = "normal";
+    auto transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError);
+    Expect(transaction && transaction->valid(), "persistent Begin authenticates its reply binding and closes unrelated descriptors");
+    auto response = transaction->Request(TC::Operation::Capture, "");
+    Expect(response.transportValid && response.success && response.payload == "captured-state", "persistent capture reply");
+    unsigned starts = 0;
+    for (const bool old : {true, false}) {
+        keepOld = old; bool operationCancelled = false;
+        response = transaction->Request(TC::Operation::Execute, old ? "old" : "new", statusPipe[1], {},
+            [&] { ++starts; operationCancelled = true; }, 4000, [&] { return operationCancelled; });
+        Expect(response.transportValid && response.success && response.started && !response.indeterminate,
+            "actual child start and settlement, isolated per-child conffile input");
+    }
+    Expect(starts == 2 && transaction->mutationStarted() && questionCount == 4, "started callbacks and question generations");
+    response = transaction->Request(TC::Operation::Commit, "", -1, {}, [&] { ++starts; });
+    Expect(response.success && response.started && response.payload == "committed" && starts == 3,
+        "persistent commit reports start and settlement");
+    Expect(transaction->Close(&transactionError) && !transaction->valid(), "persistent close handshake");
+    for (const std::string mode : {"lost-before-start", "lost-after-start", "success-without-start"}) {
+        request.payload = mode;
+        transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError);
+        Expect(static_cast<bool>(transaction), "loss fixture begin");
+        const auto before = std::chrono::steady_clock::now();
+        response = transaction->Request(TC::Operation::Execute, "old", statusPipe[1], {}, {}, 20);
+        Expect(!response.transportValid && response.indeterminate && transaction->indeterminate() && !transaction->valid(),
+            "lost execution transport is indeterminate even before Started");
+        if (mode == "lost-after-start") Expect(response.started && std::chrono::steady_clock::now() - before >= std::chrono::milliseconds(100),
+            "started mutation settles without timeout killing the helper/child");
+    }
+    for (const std::string mode : {"wrong-sequence", "capture-timeout"}) {
+        request.payload = mode;
+        transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError);
+        Expect(static_cast<bool>(transaction), "nonmutation failure fixture begin");
+        const auto before = std::chrono::steady_clock::now();
+        response = transaction->Request(TC::Operation::Capture, "", -1, {}, {}, 40);
+        Expect(!response.transportValid && !response.indeterminate && !transaction->valid() &&
+            std::chrono::steady_clock::now() - before < std::chrono::seconds(1), "mismatched/bounded nonmutating reply fails closed");
+    }
+    for (const std::string mode : {"wrong-digest", "begin-timeout"}) {
+        request.payload = mode;
+        transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError, 40);
+        Expect(!transaction && !transactionError.empty(), "Begin cannot publish mismatched or timed-out authority");
+    }
+    close(200);
     Dpkg::SetConffileCallbacks({}); close(statusPipe[0]); close(statusPipe[1]);
     std::cout << "[verify-privileged-client][ ok ] bounded duplex I/O, descriptor validation and frontend-owned locks\n";
     return 0;

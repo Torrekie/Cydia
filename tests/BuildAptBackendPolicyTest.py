@@ -36,6 +36,12 @@ def main():
         driver_sources = list(driver_sources)
         if "Cydia/RuntimeSnapshotInputs.cpp" in driver_sources and "Cydia/AptProviderTriggerEvidenceCapture.cpp" not in driver_sources:
             driver_sources.append("Cydia/AptProviderTriggerEvidenceCapture.cpp")
+        if "Cydia/AptRecoveryDependencyInspector.cpp" in driver_sources:
+            for source in ["Cydia/AptProviderComponentCapture.cpp", "Cydia/AptProviderComponentSuccession.cpp",
+                           "Cydia/AptProviderReview.cpp", "Cydia/AptProviderProtocol.cpp",
+                           "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp"]:
+                if source not in driver_sources:
+                    driver_sources.append(source)
         command = shlex.split(os.environ.get("CXX", "c++")) + ["-std=c++17", "-g"]
         if sanitize:
             command += ["-fsanitize=address", "-fno-omit-frame-pointer"]
@@ -124,6 +130,52 @@ def main():
                     "Cydia/ExtendedState.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
                     "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp", "Cydia/RepositorySecurityPolicy.cpp"],
                    "cydia-provider-trigger-capture")
+    transaction_files_sources = ["tests/AptProviderTransactionFilesTests.cpp",
+        "Cydia/AptProviderTransactionFiles.cpp", "Cydia/AptProviderComponentCapture.cpp",
+        "Cydia/AptProviderComponentSuccession.cpp", "Cydia/AptProviderReview.cpp",
+        "Cydia/AptProviderArchiveEvidence.cpp", "Cydia/AptProviderArchiveDecoders.cpp",
+        "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/AptRuntimeDescriptor.cpp",
+        "Cydia/PackageIdentity.cpp", "Cydia/PackageArchivePolicy.cpp", "Cydia/PackageArchiveReader.cpp",
+        "Cydia/RepositorySecurityPolicy.cpp", "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp",
+        "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp", "Cydia/ExtendedState.cpp"]
+    transaction_effect_sources = ["Cydia/AptProviderTriggerEffects.cpp", "Cydia/AptProviderTriggerMetadata.cpp",
+        "Cydia/AptProviderTriggerEvidence.cpp", "Cydia/AptProviderTriggerEvidenceProtected.cpp"]
+    compile_driver(transaction_files_sources, "cydia-provider-transaction-files", extra_link_flags=["-lz"])
+    compile_driver(transaction_files_sources + transaction_effect_sources + ["Cydia/AptProviderTransactionOwner.cpp", "Cydia/AptProviderTransactionLease.cpp",
+        "Cydia/AptProviderDpkgState.cpp", "Cydia/DpkgRunner.cpp", "Cydia/RuntimeState.cpp",
+        "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocumentCommit.cpp"], "cydia-provider-transaction-owner",
+        extra_link_flags=["-lz"], extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1"])
+    transaction_owner_sources = transaction_files_sources[1:] + transaction_effect_sources + ["Cydia/AptProviderTransactionOwner.cpp",
+        "Cydia/AptProviderTransactionLease.cpp", "Cydia/AptProviderDpkgState.cpp", "Cydia/DpkgRunner.cpp",
+        "Cydia/RuntimeState.cpp", "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocumentCommit.cpp"]
+    compile_driver(["tests/AptProviderTransactionServiceTests.cpp"] + transaction_owner_sources + [
+        "Cydia/AptProviderTransactionService.cpp", "Cydia/AptProviderTransactionChannel.cpp",
+        "Cydia/AptProviderTransactionRequest.cpp", "Cydia/AptProviderTransactionRequestDigest.cpp",
+        "Cydia/AptProviderBrokerValues.cpp", "Cydia/AptProviderSelectionValues.cpp", "Cydia/AptRecoverySnapshot.cpp"],
+        "cydia-provider-transaction-service", extra_link_flags=["-lz"],
+        extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1", "-DCYDIA_TRANSACTION_SERVICE_TESTING=1"])
+    compile_driver(["tests/AptProviderNativeDpkgAuthorityTests.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
+        "Cydia/AptRecoveryDependencyInspector.cpp", "Cydia/AptRecoveryMachO.cpp", "Cydia/RepositorySecurityPolicy.cpp",
+        "Cydia/ExtendedState.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
+        "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp"],
+        "cydia-provider-native-dpkg-authority", extra_compile_flags=["-DCYDIA_NATIVE_DPKG_AUTHORITY_TESTING=1"])
+    compile_driver(["tests/AptProviderBrokerAuthorizationTests.cpp", "Cydia/AptProviderBroker.cpp",
+        "Cydia/AptProviderBrokerValues.cpp", "Cydia/AptProviderReview.cpp", "Cydia/AptProviderDpkgState.cpp",
+        "Cydia/AptProviderSelectionValues.cpp", "Cydia/AptRuntimeDescriptor.cpp", "Cydia/ExtendedState.cpp",
+        "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PrivilegedRuntime.cpp",
+        "Cydia/PackageDatabasePaths.cpp", "Cydia/RepositorySecurityPolicy.cpp", "Cydia/PackageIdentity.cpp",
+        "Cydia/DpkgRunner.cpp", "Cydia/AptRecoverySnapshot.cpp", "Cydia/AptProviderTransactionRequest.cpp",
+        "Cydia/AptProviderTransactionRequestDigest.cpp"], "cydia-provider-broker-transaction",
+        extra_compile_flags=["-DCYDIA_TRANSACTION_BROKER_TESTING=1"])
+    trigger_effect_sources = ["Cydia/AptProviderTriggerEffects.cpp", "Cydia/AptProviderTriggerMetadata.cpp",
+        "Cydia/AptProviderTriggerEvidence.cpp", "Cydia/AptProviderTriggerEvidenceProtected.cpp",
+        "Cydia/AptProviderTriggerEvidenceCapture.cpp", "Cydia/AptProviderDpkgState.cpp", "Cydia/AptProviderProtocol.cpp",
+        "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp", "Cydia/PackageArchivePolicy.cpp",
+        "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp", "Cydia/RuntimeSnapshotInputs.cpp",
+        "Cydia/RuntimeState.cpp", "Cydia/ExtendedState.cpp", "Cydia/SourceDocument.cpp",
+        "Cydia/SourceDocumentStore.cpp", "Cydia/RepositorySecurityPolicy.cpp"]
+    compile_driver(["tests/AptProviderTriggerEffectsTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-effects", sanitize=True)
+    compile_driver(["tests/AptProviderTriggerMetadataTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-metadata")
     worker_sources = sources[1:] + [
         "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp", "Cydia/AptRecoveryPackageManager.cpp",
         "Cydia/SourcePreflight.cpp", "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",

@@ -39,6 +39,10 @@ public:
     bool ReviewUnchanged(const AptBackend &backend) const;
     void InvalidateReview();
     bool executionComplete() const;
+    // Call only after the manager and actual privileged child have settled,
+    // after releasing the transaction lock and collecting their diagnostics.
+    // Preserve the outcome; new discovery failure cannot retry the operation.
+    void RetireExecution(AptBackend &backend);
     const Provider::ReviewedTransaction *review() const;
 };
 }

@@ -189,6 +189,7 @@ struct Range {
     std::uint64_t begin = 0, end = 0;
     std::string bytes;
     bool commercial = false;
+    std::map<std::string, std::string> controls;
 };
 // The decoder receives only a retained descriptor, and absolute trusted tools
 // with fixed arguments. No APT compressor options or policy are consulted.
@@ -254,7 +255,8 @@ bool Decimal(const std::string &text, std::uint64_t *value) {
     }
     return true;
 }
-bool Record(const std::string &bytes, const ArchiveManifest &archive, std::string *error, bool *commercial) {
+bool Record(const std::string &bytes, const ArchiveManifest &archive, std::string *error, bool *commercial,
+    std::map<std::string, std::string> *controls) {
     std::map<std::string, std::string> fields;
     std::string previous; bool ended = false; std::size_t start = 0;
     while (start < bytes.size()) {
@@ -294,6 +296,9 @@ bool Record(const std::string &bytes, const ArchiveManifest &archive, std::strin
     if ((!hashes.count("SHA256") && !hashes.count("SHA512")) || hashes != archive.hashes)
         return Fail(error, "provider_index_hash_mismatch");
     *commercial = Has(Words(fields["tag"]), "cydia::commercial");
+    std::string reason;
+    if (!CydiaPackages::CanonicalPackageEffectControlFields(fields, controls, &reason))
+        return Fail(error, "provider_index_control_unsupported");
     return true;
 }
 bool ReadRecords(const File &file, const std::string &compression, const std::map<std::string, std::string> &decoders,
@@ -327,7 +332,7 @@ bool ReadRecords(const File &file, const std::string &compression, const std::ma
             !(record.size() >= 4 && record.compare(record.size() - 4, 4, "\r\n\r\n") == 0) &&
             !(record.back() == '\n' && (!after.empty() && (after[0] == '\n' || after.compare(0, 2, "\r\n") == 0))))
             return Fail(error, "provider_index_record_boundary");
-        if (!Record(record, archive, error, &range.commercial)) return false;
+        if (!Record(record, archive, error, &range.commercial, &range.controls)) return false;
     }
     return true;
 }
@@ -342,6 +347,7 @@ public:
     std::map<std::string, Index> indexes;
     std::map<std::string, ArchiveManifest> archives;
     std::set<std::string> commercial;
+    std::map<std::string, std::map<std::string, std::string>> controls;
 };
 ArchiveEvidenceSnapshot::ArchiveEvidenceSnapshot() : implementation_(new Implementation) {}
 ArchiveEvidenceSnapshot::~ArchiveEvidenceSnapshot() {}
@@ -397,10 +403,12 @@ std::shared_ptr<ArchiveEvidenceSnapshot> ArchiveEvidenceSnapshot::Capture(const 
             if (error && error->empty()) *error = "provider_archive_index_changed";
             return nullptr;
         }
-        for (const auto &range : index.ranges)
+        for (const auto &range : index.ranges) {
             if (range.commercial) capture.commercial.insert(range.archive.identifier);
-        // The exact record fields are now represented by the validated
-        // immutable manifest. Do not retain whole decoded indexes in memory.
+            capture.controls.emplace(range.archive.identifier, range.controls);
+        }
+        // Keep only the exact selected canonical fields and manifest. Do not
+        // retain whole decoded indexes or substitute worker relationship data.
         index.ranges.clear();
     }
     if (!SameSources(capture.sources, CydiaSources::ReadEffectiveDocuments(capture.locations))) {
@@ -437,8 +445,29 @@ bool ArchiveEvidenceSnapshot::AuthorizationRequest(const ArchiveManifest &reques
     return true;
 }
 
+bool ArchiveEvidenceSnapshot::ControlFields(const ArchiveManifest &requested,
+    std::map<std::string, std::string> *controls, const std::function<bool()> &cancelled, std::string *error) const {
+    if (!controls) return Fail(error, "provider_archive_evidence_missing");
+    controls->clear();
+    CydiaRuntime::RepositoryArchiveAuthorizationRequest identity; bool commercial = false;
+    if (!AuthorizationRequest(requested, &identity, &commercial, cancelled, error)) return false;
+    const auto found = implementation_->controls.find(requested.identifier);
+    if (found == implementation_->controls.end()) return Fail(error, "provider_archive_control_missing");
+    *controls = found->second; return true;
+}
 bool ArchiveEvidenceSnapshot::Verify(const std::vector<ArchiveManifest> &requested,
     std::vector<VerifiedArchiveEvidence> *evidence, const std::function<bool()> &cancelled, std::string *error) const {
+    return VerifyImpl(requested, evidence, nullptr, cancelled, error);
+}
+bool ArchiveEvidenceSnapshot::VerifyControl(const std::vector<ArchiveManifest> &requested,
+    std::vector<VerifiedArchiveControlEvidence> *evidence, const std::function<bool()> &cancelled, std::string *error) const {
+    if (!evidence) return Fail(error, "provider_archive_evidence_missing");
+    evidence->clear(); std::vector<VerifiedArchiveEvidence> ignored;
+    return VerifyImpl(requested, &ignored, evidence, cancelled, error);
+}
+bool ArchiveEvidenceSnapshot::VerifyImpl(const std::vector<ArchiveManifest> &requested,
+    std::vector<VerifiedArchiveEvidence> *evidence, std::vector<VerifiedArchiveControlEvidence> *controlEvidence,
+    const std::function<bool()> &cancelled, std::string *error) const {
     if (error) error->clear();
     ErrorScope errors;
     if (!evidence) return Fail(error, "provider_archive_evidence_missing");
@@ -452,6 +481,7 @@ bool ArchiveEvidenceSnapshot::Verify(const std::vector<ArchiveManifest> &request
         if ("SHA256:" + hashes["SHA256"] != item.second.hash) return Fail(error, "provider_archive_index_changed");
     }
     std::set<std::string> seen; std::vector<VerifiedArchiveEvidence> result;
+    std::vector<VerifiedArchiveControlEvidence> controlResult;
     for (const auto &archive : requested) {
         if (Cancelled(cancelled, error)) return false;
         const auto approved = capture.archives.find(archive.identifier);
@@ -469,7 +499,17 @@ bool ArchiveEvidenceSnapshot::Verify(const std::vector<ArchiveManifest> &request
                 return Fail(error, "provider_archive_decoder_changed");
         }
         VerifiedArchiveEvidence checked; checked.archive = approved->second;
-        checked.inspection = CydiaPackages::InspectPackageArchiveWithDecoders(archive.path,
+        CydiaPackages::ArchiveControlMetadata control;
+        if (controlEvidence) {
+            const auto inspected = CydiaPackages::InspectPackageArchiveControlWithDecoders(archive.path,
+                {archive.package.package, archive.package.version, archive.package.architecture}, archive.layout,
+                capture.decoders, CydiaPackages::ArchiveLimits(), cancelled);
+            checked.inspection = inspected.archive; control = inspected.control;
+            if (Cancelled(cancelled, error)) return false;
+            const auto expected = capture.controls.find(archive.identifier);
+            if (!control.complete || expected == capture.controls.end() || control.controls != expected->second)
+                return Fail(error, "provider_archive_control_index_mismatch");
+        } else checked.inspection = CydiaPackages::InspectPackageArchiveWithDecoders(archive.path,
             {archive.package.package, archive.package.version, archive.package.architecture}, archive.layout,
             capture.decoders, CydiaPackages::ArchiveLimits(), cancelled);
         if (Cancelled(cancelled, error)) return false;
@@ -484,11 +524,16 @@ bool ArchiveEvidenceSnapshot::Verify(const std::vector<ArchiveManifest> &request
         Hashes identityHash(Hashes::SHA256SUM);
         if (!identityHash.Add(identity.data(), identity.size())) return Fail(error, "provider_archive_identity_failed");
         checked.fileIdentity = "sha256:" + identityHash.GetHashString(Hashes::SHA256SUM).HashValue();
+        if (controlEvidence) {
+            VerifiedArchiveControlEvidence proven; proven.archive = checked; proven.control = std::move(control);
+            controlResult.push_back(std::move(proven));
+        }
         result.push_back(std::move(checked));
     }
     if (!SameSources(capture.sources, CydiaSources::ReadEffectiveDocuments(capture.locations)))
         return Fail(error, "provider_archive_sources_changed");
     *evidence = std::move(result);
+    if (controlEvidence) *controlEvidence = std::move(controlResult);
     if (error) error->clear();
     return true;
 }

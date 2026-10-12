@@ -213,6 +213,7 @@ $(APT_PROVIDER_AUTHORIZATION_TEST): tests/AptProviderArchiveAuthorizationTests.c
 		Cydia/RepositoryArchiveAuthorization.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
 		Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -pthread -o $@
 apt_provider_broker_authorization_sources := tests/AptProviderBrokerAuthorizationTests.cpp \
+	Cydia/AptProviderTransactionRequest.cpp \
 	Cydia/AptProviderBroker.cpp Cydia/AptProviderBrokerValues.cpp Cydia/AptProviderReview.cpp \
 	Cydia/AptProviderDpkgState.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 	Cydia/ExtendedState.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
@@ -541,6 +542,7 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/AptRecoverySnapshot.cpp Cydia/AptRecoverySnapshot.hpp \
 		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp \
 		Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp \
+		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp \
 		tests/apt-stubs/apt-pkg/fileutl.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -Itests/apt-stubs -I. \
@@ -594,7 +596,13 @@ verify: verify-transaction-outcome-policy
 verify-transaction-outcome-policy: $(TRANSACTION_OUTCOME_POLICY_TEST)
 	@$<
 verify-privileged-client: $(PRIVILEGED_CLIENT_TEST)
-	@$<
+APT_TRANSACTION_CHANNEL_TEST := $(BUILD_DIR)/tests/AptProviderTransactionChannelTests
+$(APT_TRANSACTION_CHANNEL_TEST): tests/AptProviderTransactionChannelTests.cpp Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -pthread -o $@
+verify-privileged-client: $(APT_TRANSACTION_CHANNEL_TEST)
+	@$(PRIVILEGED_CLIENT_TEST)
+	@$(APT_TRANSACTION_CHANNEL_TEST)
 verify-capabilities: $(CAPABILITY_PREVIEW_TEST)
 	@$<
 	@bash tests/FirmwareDiscoveryTests.sh

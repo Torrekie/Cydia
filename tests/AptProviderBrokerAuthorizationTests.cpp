@@ -4,6 +4,8 @@
 #include "Cydia/AptProviderBroker.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/AptProviderTransactionRequest.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <unistd.h>
@@ -15,21 +17,129 @@ CydiaAPT::Recovery::Snapshot recoverySnapshot;
 unsigned recoveryReads = 0, registeredReads = 0;
 bool recoveryReadable = false;
 void Require(bool value, const char *why) { if (!value) { std::cerr << why << '\n'; std::abort(); } }
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+// This mock covers only the app broker's lifecycle. Real service/owner tests
+// separately verify privileged registration, archives, locks and execution.
+enum class CommitReply { Accepted, ExtraPayload, MissingStarted, Indeterminate, TransportLost, Rejected };
+struct TransactionMock {
+    bool enabled = false, rejectBegin = false, loseExecute = false;
+    std::string beginError, baseline;
+    unsigned starts = 0, legacyExecutions = 0, legacyCommits = 0, closes = 0;
+    CommitReply commit = CommitReply::Accepted;
+    P::TransactionBeginRequest begin;
+    std::vector<std::pair<P::TransactionChannel::Operation, std::string>> frames;
+} transactionMock;
+void UpdateMockState(P::ExecutionAction action, const std::vector<std::uint64_t> &ids) {
+    for (auto id : ids) {
+        const auto found = std::find_if(transactionMock.begin.review.execution.actions.begin(),
+            transactionMock.begin.review.execution.actions.end(), [id](const P::ReviewedAction &value) { return value.identifier == id; });
+        Require(found != transactionMock.begin.review.execution.actions.end() && found->action == action, "mock receives exact retained action ID");
+        P::DpkgPackageState package; package.package = found->package; package.selection = P::DpkgSelection::Install;
+        package.multiArch = "no";
+        package.status = action == P::ExecutionAction::Unpack ? P::DpkgPackageStatus::Unpacked : P::DpkgPackageStatus::Installed;
+        state.packages[package.package.package + ':' + package.package.architecture] = package;
+    }
+    state.packageStateIdentity = "fixture-state:" + std::to_string(transactionMock.frames.size() + transactionMock.legacyExecutions);
+}
+#endif
 }
 namespace CydiaRuntime { namespace PrivilegedClient {
+class ProviderTransaction::Implementation {};
+ProviderTransaction::~ProviderTransaction() = default;
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> implementation) : implementation_(std::move(implementation)) {}
+std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper, const Privileged::Request &request,
+    const std::string &digest, std::string *error, unsigned, const std::function<bool()> &) {
+    Require(transactionMock.enabled, "archive denial must precede persistent transaction admission");
+    ++transactionMock.starts; std::vector<std::string> fields;
+    Require(helper == "/fixture/cydo" && P::Decode(request.payload, &fields) && fields.size() == 3 && fields[0] == "CYDIA-BROKER-1" &&
+        P::DecodeTransactionBegin(fields[2], &transactionMock.begin) && P::TransactionBeginDigest(transactionMock.begin) == digest,
+        "broker sends canonical exact Begin digest and retained review");
+    Require(transactionMock.begin.extendedState == transactionMock.baseline, "Begin retains original extended-state baseline");
+    if (transactionMock.rejectBegin) { if (error) *error = transactionMock.beginError; return {}; }
+    return std::unique_ptr<ProviderTransaction>(new ProviderTransaction(std::unique_ptr<Implementation>(new Implementation)));
+}
+ProviderTransactionResult ProviderTransaction::Request(P::TransactionChannel::Operation operation, const std::string &payload, int status,
+    const std::vector<std::string> &, const std::function<void()> &started, unsigned, const std::function<bool()> &) {
+    Require(transactionMock.enabled, "archive denial must never send a transaction request");
+    transactionMock.frames.emplace_back(operation, payload);
+    ProviderTransactionResult result; result.transportValid = result.success = true;
+    if (operation == P::TransactionChannel::Operation::Capture) {
+        Require(payload.empty() && P::EncodeBrokerState(state, &result.payload), "mock Capture returns exact structured state");
+    } else if (operation == P::TransactionChannel::Operation::Execute) {
+        P::ParentExecutionRequest execution;
+        Require(status == 8 && P::Decode(payload, &execution) && P::SameBinding(execution.binding, transactionMock.begin.review.binding),
+            "owner receives native review and status descriptor");
+        if (transactionMock.loseExecute) {
+            result.transportValid = result.success = false; result.indeterminate = true;
+            result.errorCode = "provider_transaction_closed"; return result;
+        }
+        result.started = true; if (started) started(); UpdateMockState(execution.action, execution.actions);
+        P::TransactionExecutionReply settled; settled.result.started = true; settled.result.exitCode = 0; settled.state = state;
+        Require(P::EncodeTransactionExecutionReply(settled, &result.payload), "mock owner encodes actual action's resulting state");
+    } else if (operation == P::TransactionChannel::Operation::Commit) {
+        std::vector<std::string> fields; Privileged::Error error; P::ExtendedStateRequest changes;
+        std::string expected, proposed;
+        Require(Privileged::ParseFields(payload, 2, &fields, &error) && fields[0] == transactionMock.baseline &&
+            P::Decode(fields[1], &changes) && P::SameBinding(changes.binding, transactionMock.begin.review.binding) &&
+            P::Encode(changes.changes, &proposed) && P::Encode(transactionMock.begin.changes, &expected) && proposed == expected,
+            "Commit carries exact approved binding, baseline and deltas");
+        result.started = transactionMock.commit != CommitReply::MissingStarted;
+        if (result.started && started) started();
+        if (transactionMock.commit == CommitReply::ExtraPayload) result.payload = "unexpected body";
+        if (transactionMock.commit == CommitReply::Indeterminate) result.indeterminate = true;
+        if (transactionMock.commit == CommitReply::TransportLost) {
+            result.transportValid = result.success = false; result.indeterminate = true;
+        }
+        if (transactionMock.commit == CommitReply::Rejected) result.success = false;
+    } else Require(false, "unexpected transaction request");
+    return result;
+}
+bool ProviderTransaction::Close(std::string *, unsigned) { ++transactionMock.closes; return true; }
+#else
+std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &, const Privileged::Request &,
+    const std::string &, std::string *, unsigned, const std::function<bool()> &) {
+    Require(false, "archive denial must precede persistent transaction admission"); return {};
+}
+ProviderTransactionResult ProviderTransaction::Request(P::TransactionChannel::Operation, const std::string &, int,
+    const std::vector<std::string> &, const std::function<void()> &, unsigned, const std::function<bool()> &) {
+    Require(false, "archive denial must never send a transaction request"); return {};
+}
+bool ProviderTransaction::Close(std::string *, unsigned) { return true; }
+#endif
 bool Result::succeeded() const { return !launchError && !exitCode && !termSignal && !outputLimitExceeded; }
 Result Run(const std::string &, const std::string &command, const Privileged::Request &, std::size_t, unsigned) {
     Result result{};
     if (command == "--cydia-provider-state") Require(P::EncodeBrokerState(state, &result.output), "fixture state encoding");
-    else if (command != "--cydia-provider-extended-read") result.exitCode = 1;
+    else if (command == "--cydia-provider-extended-read") {
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+        if (transactionMock.enabled) result.output = transactionMock.baseline;
+#endif
+    }
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+    else if (command == "--cydia-provider-extended-commit" && transactionMock.enabled) ++transactionMock.legacyCommits;
+#endif
+    else result.exitCode = 1;
     return result;
 }
 int OpenProviderLock(const std::string &, const Privileged::Request &, Privileged::Error *, unsigned) {
     char name[] = "/tmp/cydia-grant-lock-XXXXXX";
     const int fd = mkstemp(name); if (fd >= 0) unlink(name); return fd;
 }
-DpkgExecutionResult RunProviderDpkg(const std::string &, const std::string &, const Privileged::Request &, int, const std::string *, const std::vector<std::string> &) {
+DpkgExecutionResult RunProviderDpkg(const std::string &, const std::string &, const Privileged::Request &request, int, const std::string *, const std::vector<std::string> &) {
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+    Require(transactionMock.enabled && transactionMock.rejectBegin && transactionMock.beginError == "provider_native_configuration_missing",
+        "legacy executor requires the exact pre-mutation missing-declaration refusal");
+    std::vector<std::string> fields; P::BrokerDpkgRequest execution;
+    Require(P::Decode(request.payload, &fields) && fields.size() == 3 && P::DecodeBrokerDpkg(fields[2], &execution), "decode legacy batch");
+    ++transactionMock.legacyExecutions;
+    UpdateMockState(execution.action, {execution.action == P::ExecutionAction::Unpack ? 1u : 2u});
+    DpkgExecutionResult result; result.started = true; result.indeterminate = false;
+    result.result = {Dpkg::ResultKind::Exited, 0, 0}; return result;
+#else
+    (void)request;
     Require(false, "authorization must never execute dpkg"); return {};
+#endif
 }
 bool ReadProviderSnapshot(const std::string &, const std::string &, const P::RegistrationIdentity *,
     P::RegisteredProviderSnapshot *, Privileged::Error *, unsigned, const std::function<bool()> &) { ++registeredReads; return false; }
@@ -38,6 +148,13 @@ bool ReadRecoverySnapshot(const std::string &, const CydiaAPT::Recovery::Prefere
     ++recoveryReads; if (!recoveryReadable) return false; *snapshot = recoverySnapshot; return true;
 }
 }}
+namespace CydiaAPT { namespace Provider {
+#if !defined(CYDIA_TRANSACTION_BROKER_TESTING)
+std::string TransactionBeginDigest(const TransactionBeginRequest &) {
+    Require(false, "archive denial must precede canonical transaction hashing"); return {};
+}
+#endif
+}}
 namespace {
 struct Fixture {
     P::BrokerOptions options;
@@ -45,6 +162,9 @@ struct Fixture {
     unsigned calls = 0;
     bool stopAfterGrant = false, cancelled = false;
     Fixture() {
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+        transactionMock = TransactionMock();
+#endif
         options.capabilities = P::AuthorizedArchiveGrants;
         options.helperPath = "/fixture/cydo"; options.extendedStatesPath = "/fixture/extended_states";
         auto &authority = options.authority;
@@ -264,5 +384,163 @@ void AllArchivesBeforeFirstMutation() {
             checks == 1 && !broker.mutationStarted(), "bad later archive denies the first mutation without launching dpkg");
     }
 }
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+void EnableLifecycle(Fixture &fixture, unsigned *archiveChecks) {
+    transactionMock.enabled = true;
+    fixture.options.archives = [archiveChecks](const P::ReviewedTransaction &review,
+        const std::vector<P::ArchiveManifest> &archives, const P::RequestControl &) {
+        ++*archiveChecks; P::BrokerArchiveEvidence proof;
+        Require(archives.size() == review.execution.archives.size(), "initial parent proof covers every archive before Begin");
+        for (const auto &archive : archives) {
+            P::VerifiedArchiveEvidence item; item.archive = archive; item.fileIdentity = "opened:" + archive.identifier;
+            item.inspection.status = CydiaPackages::ArchivePolicyStatus::Accepted;
+            item.inspection.identityVerified = item.inspection.complete = true;
+            proof.archives.push_back(item);
+        }
+        return proof;
+    };
 }
-int main() { AcceptedAndDenied(); RecoveryAuthorityRouting(); ArchiveDecoderAuthorityRouting(); AllArchivesBeforeFirstMutation(); std::cout << "[apt-provider-broker-authorization] PASS\n"; }
+void ReadyLifecycle(Fixture &fixture, P::Broker &broker) {
+    fixture.Ready(broker, false);
+    Require(broker.Approve(fixture.review, {{"sample", "amd64", true}}), "approve exact lifecycle review and auto delta");
+    broker.SetStatusDescriptor(8);
+}
+P::ParentExecutionReply ExecuteLifecycle(Fixture &fixture, P::Broker &broker, std::uint64_t id, std::uint64_t batch) {
+    const auto found = std::find_if(fixture.review.execution.actions.begin(), fixture.review.execution.actions.end(),
+        [id](const P::ReviewedAction &action) { return action.identifier == id; });
+    Require(found != fixture.review.execution.actions.end(), "fixture action exists");
+    P::ParentExecutionRequest execution; execution.binding = fixture.review.binding; execution.batch = batch;
+    execution.actions = {id}; execution.action = found->action;
+    std::string operand = found->package.package + ':' + found->package.architecture;
+    if (found->action == P::ExecutionAction::Unpack) {
+        const auto archive = std::find_if(fixture.review.execution.archives.begin(), fixture.review.execution.archives.end(),
+            [&](const P::ArchiveManifest &value) { return value.identifier == found->archive; });
+        Require(archive != fixture.review.execution.archives.end(), "fixture archive exists"); operand = archive->path;
+    }
+    execution.arguments = {"--status-fd=99", "--no-triggers", found->action == P::ExecutionAction::Unpack ? "--unpack" : "--configure", operand};
+    auto request = fixture.Request(P::Operation::ExecuteDpkg); P::Message reply;
+    Require(P::Encode(execution, &request.payload), "encode broker lifecycle child");
+    broker.HandleParentRequest(request, &reply, {}); P::ParentExecutionReply result;
+    Require(reply.succeeded && P::Decode(reply.payload, &result), "broker returns typed execution result"); return result;
+}
+bool CommitLifecycle(Fixture &fixture, P::Broker &broker, unsigned malformed = 0) {
+    P::ExtendedStateRequest commit; commit.binding = fixture.review.binding; commit.changes = {{"sample", "amd64", true}};
+    if (malformed == 2) commit.changes[0].automatic = false;
+    if (malformed == 3) ++commit.binding.selectionRevision;
+    auto request = fixture.Request(P::Operation::CommitExtendedState); P::Message reply;
+    Require(P::Encode(commit, &request.payload), "encode broker lifecycle Commit");
+    if (malformed == 1) request.payload += "0:,";
+    broker.HandleParentRequest(request, &reply, {}); return reply.succeeded;
+}
+void SuccessfulChildren(Fixture &fixture, P::Broker &broker) {
+    for (std::uint64_t batch = 1; batch != 3; ++batch) {
+        const auto result = ExecuteLifecycle(fixture, broker, batch, batch);
+        Require(result.started && !result.exitCode && !result.signal && !result.launchError, "exact two-action transaction succeeds");
+    }
+}
+void BeginFailuresNeverDowngrade() {
+    for (unsigned variant = 0; variant != 5; ++variant) {
+        Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
+        transactionMock.rejectBegin = true;
+        transactionMock.beginError = variant == 1 ? "provider_native_configuration_invalid" :
+            variant == 2 ? "provider_transaction_timeout" : variant == 3 ? "provider_authority_changed" : "";
+        // This fits the read transport but not the canonical Begin's bounded
+        // baseline. Failed local encoding must also permanently deny admission.
+        if (!variant) transactionMock.baseline.assign(4 * 1024 * 1024 + 1, 'x');
+        P::Broker broker(fixture.options); ReadyLifecycle(fixture, broker);
+        for (unsigned retry = 0; retry != 2; ++retry) {
+            const auto result = ExecuteLifecycle(fixture, broker, 1, 1);
+            Require(!result.started && result.launchError && !broker.mutationStarted() && !broker.complete(),
+                "invalid or refused Begin cannot become a later legacy child");
+        }
+        Require(transactionMock.starts == (variant ? 1u : 0u) && transactionMock.frames.empty() &&
+            !transactionMock.legacyExecutions && !transactionMock.legacyCommits, "failed admission is attempted at most once without fallback");
+    }
+}
+void MissingDeclarationKeepsLegacy() {
+    Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
+    transactionMock.rejectBegin = true; transactionMock.beginError = "provider_native_configuration_missing";
+    P::Broker broker(fixture.options); ReadyLifecycle(fixture, broker); SuccessfulChildren(fixture, broker);
+    Require(CommitLifecycle(fixture, broker) && broker.complete() && broker.mutationStarted() && !broker.indeterminate(),
+        "only missing native declaration preserves established restricted execution");
+    Require(transactionMock.starts == 1 && transactionMock.legacyExecutions == 2 && transactionMock.legacyCommits == 1 &&
+        transactionMock.frames.empty() && checks == 1, "legacy selected once before mutation, never a retained-owner retry");
+}
+void RetainedOwnerIgnoresOriginalArchives() {
+    Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
+    auto archive = fixture.review.execution.archives.front(); archive.identifier = "later";
+    archive.package.package = "later"; archive.path = "/fixture/archives/later.deb"; archive.filename = "pool/later.deb";
+    fixture.review.execution.archives.push_back(archive);
+    const auto identity = CydiaAPT::BuildPackageIdentity("later", "amd64", "all", "amd64", CydiaAPT::MultiArchMode::None);
+    fixture.review.transaction.installs.push_back(identity.routingName);
+    fixture.review.transaction.packages[identity.routingName] = {identity, "1", "later"};
+    auto unpack = fixture.review.execution.actions.front(); unpack.identifier = 3; unpack.package = archive.package; unpack.archive = archive.identifier;
+    auto configure = fixture.review.execution.actions.back(); configure.identifier = 4; configure.package = archive.package;
+    fixture.review.execution.actions.push_back(unpack); fixture.review.execution.actions.push_back(configure);
+    const auto initialProof = fixture.options.archives;
+    fixture.options.archives = [&](const P::ReviewedTransaction &review, const std::vector<P::ArchiveManifest> &archives, const P::RequestControl &control) {
+        Require(checks == 0, "active owner must not reopen original archive paths after retaining all copies");
+        return initialProof(review, archives, control);
+    };
+    P::Broker broker(fixture.options); ReadyLifecycle(fixture, broker);
+    for (std::uint64_t id = 1; id != 5; ++id) {
+        const auto result = ExecuteLifecycle(fixture, broker, id, id);
+        Require(result.started && !result.exitCode && !result.launchError, "retained owner settles each exact package action");
+    }
+    Require(CommitLifecycle(fixture, broker) && broker.complete() && checks == 1 && transactionMock.starts == 1 &&
+        !transactionMock.legacyExecutions, "retained owner alone executes later unpacks");
+    Require(transactionMock.frames.size() == 8 && transactionMock.frames.back().first == P::TransactionChannel::Operation::Commit,
+        "recorded owner frames contain four executes, three captures and one commit");
+}
+void CompletionAndUncertaintySurviveCleanup() {
+    for (bool lost : {false, true}) {
+        Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks); transactionMock.loseExecute = lost;
+        P::Broker broker(fixture.options); ReadyLifecycle(fixture, broker);
+        if (lost) {
+            const auto result = ExecuteLifecycle(fixture, broker, 1, 1);
+            Require(result.started && result.exitCode && broker.indeterminate() && !broker.complete(),
+                "lost helper transport makes dispatched child indeterminate even without Started reply");
+        } else {
+            SuccessfulChildren(fixture, broker);
+            Require(CommitLifecycle(fixture, broker) && broker.complete() && !broker.indeterminate(), "only acknowledged Commit completes transaction");
+        }
+        broker.Invalidate();
+        Require(broker.complete() == !lost && broker.indeterminate() == lost && broker.mutationStarted() && !broker.lockHeld(),
+            "worker cleanup retains acknowledged completion or unsettled mutation history");
+        const unsigned previousStarts = transactionMock.starts;
+        const bool approved = broker.Approve(fixture.review, {{"sample", "amd64", true}});
+        if (lost) Require(!approved && broker.indeterminate() && broker.mutationStarted() && !broker.complete(),
+            "new review cannot erase unknown execution outcome");
+        else Require(approved && !broker.complete() && !broker.mutationStarted() && !broker.indeterminate(),
+            "explicit new review clears prior determinate completion");
+        Require(transactionMock.starts == previousStarts && !transactionMock.legacyExecutions, "cleanup and new approval cannot silently relaunch");
+    }
+}
+void CommitCannotInventCompletion() {
+    for (unsigned malformed = 1; malformed != 4; ++malformed) {
+        Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
+        P::Broker broker(fixture.options); ReadyLifecycle(fixture, broker); SuccessfulChildren(fixture, broker);
+        const auto count = transactionMock.frames.size();
+        Require(!CommitLifecycle(fixture, broker, malformed) && !broker.complete() && transactionMock.frames.size() == count,
+            "malformed, unapproved delta or stale-binding Commit never reaches helper");
+    }
+    for (auto invalid : {CommitReply::ExtraPayload, CommitReply::MissingStarted, CommitReply::Indeterminate,
+                        CommitReply::TransportLost, CommitReply::Rejected}) {
+        Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks); transactionMock.commit = invalid;
+        P::Broker broker(fixture.options); ReadyLifecycle(fixture, broker); SuccessfulChildren(fixture, broker);
+        Require(!CommitLifecycle(fixture, broker) && !broker.complete(), "malformed or unsettled Commit reply cannot report completion");
+        const bool uncertain = invalid != CommitReply::MissingStarted;
+        Require(broker.indeterminate() == uncertain, "commit history distinguishes verified no-start from started unresolved work");
+        broker.Invalidate(); Require(!broker.complete() && broker.indeterminate() == uncertain, "cleanup preserves Commit uncertainty");
+    }
+}
+#endif
+}
+int main() {
+    AcceptedAndDenied(); RecoveryAuthorityRouting(); ArchiveDecoderAuthorityRouting(); AllArchivesBeforeFirstMutation();
+#if defined(CYDIA_TRANSACTION_BROKER_TESTING)
+    BeginFailuresNeverDowngrade(); MissingDeclarationKeepsLegacy(); RetainedOwnerIgnoresOriginalArchives();
+    CompletionAndUncertaintySurviveCleanup(); CommitCannotInventCompletion();
+#endif
+    std::cout << "[apt-provider-broker-authorization] PASS\n";
+}

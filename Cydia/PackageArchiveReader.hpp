@@ -27,6 +27,19 @@ ArchivePolicyResult InspectPackageArchiveWithDecoders(const std::string &path,
 bool ResolveTrustedArchiveDecoders(const std::string &protectedSearchPath,
     std::map<std::string, std::string> *decoders, std::string *error);
 
+struct ArchiveControlEvidence {
+    ArchivePolicyResult archive;
+    ArchiveControlMetadata control;
+};
+// Relationship fields and DEBIAN/triggers are published only after both tar
+// streams, compressed trailers and the archive descriptor/path identity pass.
+// Caller retains/verifies acquisition hashes; this captures no worker claims.
+ArchiveControlEvidence InspectPackageArchiveControlWithDecoders(const std::string &path,
+    const ArchiveIdentity &expected, const ArchiveLayout &layout,
+    const std::map<std::string, std::string> &decoders,
+    const ArchiveLimits &limits = ArchiveLimits(),
+    const std::function<bool()> &cancelled = std::function<bool()>());
+
 struct ArchivePayloadFileEvidence {
     ArchivePayloadFileMetadata metadata;
     std::string sha256;

@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderBroker.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
+#include "Cydia/AptProviderTransactionRequest.hpp"
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/ExtendedState.hpp"
 #include "Cydia/RedactedURL.hpp"
@@ -39,10 +40,12 @@ public:
     ReviewPolicy approvedPolicy;
     std::vector<AutoInstalledDelta> changes;
     ReviewAuthorization authorization;
+    std::unique_ptr<Client::ProviderTransaction> transaction;
     int lock = -1, status = -1;
-    bool started = false, committed = false;
+    bool started = false, committed = false, transactionAttempted = false, transactionComplete = false, transactionDenied = false;
+    bool observedCommit = false, uncertain = false;
     explicit Implementation(const BrokerOptions &value) : options(value), environment(value.policy.environment) {}
-    ~Implementation() { if (lock >= 0) close(lock); }
+    ~Implementation() { CloseTransaction(); if (lock >= 0) close(lock); }
     bool Fail(const char *code) { error = code; return false; }
     std::string ProviderID() const { return options.recoveryAuthority ? Recovery::ProviderIdentifier() : options.authority.providerIdentifier; }
     std::string ConfigurationID() const { return options.recoveryAuthority ? options.recoveryAuthority->identity.configuration : options.authority.configurationIdentity; }
@@ -66,6 +69,17 @@ public:
     }
     bool Capture(DpkgState *state, const RequestControl &control) {
         if (lock < 0 || Cancelled(control)) return Fail("provider_frontend_lock_missing");
+        if (transaction) {
+            const auto result = transaction->Request(TransactionChannel::Operation::Capture, "", -1, {}, {},
+                Deadline(control), control.cancelled);
+            started |= result.started || result.indeterminate;
+            uncertain |= result.indeterminate;
+            if (!result.transportValid || !result.success || !DecodeBrokerState(result.payload, state))
+                return Fail(result.errorCode.empty() ? "provider_dpkg_state_unavailable" : result.errorCode.c_str());
+            if (state->nativeArchitecture != environment.nativeArchitecture ||
+                state->registeredArchitectures != environment.registeredArchitectures) return Fail("provider_architectures_changed");
+            return true;
+        }
         const auto result = Client::Run(options.helperPath, "--cydia-provider-state", Request(""), MaximumMessageBytes, Deadline(control));
         if (!result.succeeded() || !DecodeBrokerState(result.output, state)) return Fail("provider_dpkg_state_unavailable");
         if (state->nativeArchitecture != environment.nativeArchitecture ||
@@ -76,7 +90,32 @@ public:
         return AuthorityValid() && !session.empty() && binding.session == session && binding.providerIdentifier == ProviderID() &&
             binding.configurationIdentity == ConfigurationID() && binding.policyIdentity == PolicyID();
     }
-    void Invalidate() { authorization.Invalidate(); committed = false; approved = ReviewedTransaction(); changes.clear(); }
+    void CloseTransaction() {
+        if (transaction) { transaction->Close(); transaction.reset(); }
+    }
+    void Invalidate() {
+        CloseTransaction(); authorization.Invalidate(); committed = transactionComplete = transactionAttempted = transactionDenied = false;
+        approved = ReviewedTransaction(); changes.clear();
+    }
+    bool BeginTransaction(const RequestControl &control) {
+        if (transactionAttempted) return !transactionDenied;
+        transactionAttempted = transactionDenied = true;
+        TransactionBeginRequest begin; begin.review = approved; begin.additionalActions = approvedPolicy.additionalActionsReviewed;
+        begin.archiveWarnings = approvedPolicy.unverifiedArchiveWarningsAccepted; begin.changes = changes;
+        begin.extendedState = originalExtendedState;
+        std::string bytes, digest = TransactionBeginDigest(begin);
+        if (!EncodeTransactionBegin(begin, &bytes) || digest.empty()) return Fail("provider_invalid_transaction_request");
+        std::string code;
+        transaction = Client::ProviderTransaction::Start(options.helperPath, Request(bytes), digest, &code,
+            Deadline(control), control.cancelled);
+        if (transaction) { transactionDenied = false; return true; }
+        // Existing distributions need not install a declaration merely to use
+        // the established restricted executor. Selection happens once before
+        // the first mutation; a bad/present graph never falls through, and a
+        // retained transaction can never retry through this legacy path.
+        if (code == "provider_native_configuration_missing") { transactionDenied = false; return true; }
+        transactionDenied = true; return Fail(code.empty() ? "provider_transaction_unavailable" : code.c_str());
+    }
     bool Acquire(const Message &request, const RequestControl &control) {
         if (lock >= 0) return Fail("provider_frontend_lock_already_held");
         CydiaRuntime::Privileged::Error ignored;
@@ -122,7 +161,7 @@ public:
         // APT first schedules a removal or an already-pending configuration.
         // A bad later archive must not leave those earlier changes applied.
         const auto &requestedArchives = started ? needed : approved.execution.archives;
-        if (!requestedArchives.empty()) {
+        if (!transaction && !requestedArchives.empty()) {
             if (!options.archives) { deny("provider_archive_evidence_unavailable"); return; }
             auto proof = options.archives(approved, requestedArchives, control);
             if (!proof.errorCode.empty()) { deny(proof.errorCode.c_str()); return; }
@@ -130,6 +169,30 @@ public:
                 approvedPolicy.unverifiedArchiveWarningsAccepted, &error)) { deny(error.c_str()); return; }
             for (auto &archive : proof.archives)
                 if (ids.count(archive.archive.identifier)) evidence.archives.push_back(std::move(archive));
+        }
+        if (!BeginTransaction(control)) { deny(error.c_str()); return; }
+        if (transaction) {
+            std::string payload;
+            if (!Encode(request, &payload)) { deny("provider_invalid_execution_request"); return; }
+            const auto child = transaction->Request(TransactionChannel::Operation::Execute, payload, status,
+                approvedPolicy.protectedDpkgOptions, [&] { started = true; }, Deadline(control), control.cancelled);
+            result.started = child.started || child.indeterminate; started |= result.started;
+            uncertain |= child.indeterminate;
+            TransactionExecutionReply settled;
+            if (child.transportValid && child.success && DecodeTransactionExecutionReply(child.payload, &settled)) {
+                result = settled.result;
+                if (!result.started || result.exitCode || result.signal || result.launchError ||
+                    settled.state.nativeArchitecture != environment.nativeArchitecture ||
+                    settled.state.registeredArchitectures != environment.registeredArchitectures) {
+                    result.exitCode = EIO; error = "provider_transaction_settlement_invalid";
+                    uncertain = true;
+                }
+            } else {
+                error = child.errorCode.empty() ? "provider_transaction_requires_new_review" : child.errorCode;
+                result.exitCode = result.started ? EIO : -1; result.launchError = result.started ? 0 : EACCES;
+                uncertain |= result.started && child.success;
+            }
+            reply->succeeded = Encode(result, &reply->payload); return;
         }
         AuthorizedExecution batch;
         if (Cancelled(control) || !authorization.Authorize(request, evidence, &batch, &error)) { deny(error.empty() ? "provider_cancelled" : error.c_str()); return; }
@@ -141,6 +204,7 @@ public:
         const auto child = Client::RunProviderDpkg(options.helperPath, "--cydia-provider-dpkg", Request(payload), status,
             nullptr, approvedPolicy.protectedDpkgOptions);
         result.started = child.started || child.indeterminate; started = started || result.started;
+        uncertain |= child.indeterminate;
         result.exitCode = child.result.kind == CydiaRuntime::Dpkg::ResultKind::Exited ? child.result.code : -1;
         result.signal = child.result.kind == CydiaRuntime::Dpkg::ResultKind::Signaled ? child.result.code : 0;
         result.launchError = child.result.kind == CydiaRuntime::Dpkg::ResultKind::LaunchFailed ? child.result.error : 0;
@@ -195,10 +259,24 @@ public:
     }
     bool Commit(const Message &message, const RequestControl &control) {
         ExtendedStateRequest request; std::map<std::string, bool> proposed, expected;
-        if (committed || !authorization.complete() || !Decode(message.payload, &request) ||
+        if (committed || (!transaction && !authorization.complete()) || !Decode(message.payload, &request) ||
             !SameBinding(request.binding, approved.binding) || !Deltas(request.changes, &proposed) ||
             !Deltas(changes, &expected) || proposed != expected || Cancelled(control))
             return Fail("provider_extended_state_not_approved");
+        if (transaction) {
+            std::string encoded;
+            if (!Encode(request, &encoded)) return Fail("provider_invalid_transaction_request");
+            const auto result = transaction->Request(TransactionChannel::Operation::Commit,
+                CydiaRuntime::Privileged::SerializeFields({originalExtendedState, encoded}), -1, {},
+                [&] { started = true; }, Deadline(control), control.cancelled);
+            started |= result.started || result.indeterminate;
+            uncertain |= result.indeterminate;
+            if (!result.transportValid || !result.success || !result.started || result.indeterminate || !result.payload.empty()) {
+                uncertain |= result.started;
+                return Fail(result.errorCode.empty() ? "provider_extended_state_commit_failed" : result.errorCode.c_str());
+            }
+            observedCommit = transactionComplete = committed = true; return true;
+        }
         DpkgState current;
         if (!Capture(&current, control) || current.packageStateIdentity != authorization.stateIdentity())
             return Fail("provider_execution_state_changed");
@@ -209,7 +287,7 @@ public:
         const auto result = Client::Run(options.helperPath, "--cydia-provider-extended-commit",
             Request(CydiaRuntime::Privileged::SerializeFields(fields)), 65536);
         if (!result.succeeded()) { Invalidate(); return Fail("provider_extended_state_commit_failed"); }
-        committed = true; return true;
+        observedCommit = committed = true; return true;
     }
 };
 
@@ -226,7 +304,9 @@ bool Broker::BindSession(const Binding &binding) {
 }
 bool Broker::Approve(const ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
                      const std::set<std::uint64_t> &additionalReviewed, const std::set<std::string> &warnings) {
-    auto &value = *implementation_; value.Invalidate(); value.started = false;
+    auto &value = *implementation_;
+    if (value.uncertain) return value.Fail("provider_execution_outcome_unknown");
+    value.Invalidate(); value.started = value.observedCommit = false;
     auto policy = value.options.policy; policy.environment = value.environment;
     policy.additionalActionsReviewed = additionalReviewed; policy.unverifiedArchiveWarningsAccepted = warnings;
     std::map<std::string, bool> deltas;
@@ -267,7 +347,7 @@ void Broker::HandleParentRequest(const Message &request, Message *reply, const R
             reply->succeeded = request.payload.empty() && !Cancelled(control) && value.Acquire(request, control); break;
         case Operation::ReleaseFrontendLock:
             if (!request.payload.empty() || value.lock < 0) { value.Fail("provider_frontend_lock_missing"); break; }
-            close(value.lock); value.lock = -1; value.originalExtendedState.clear();
+            value.CloseTransaction(); close(value.lock); value.lock = -1; value.originalExtendedState.clear();
             // Preparation may take/release a lock before there is UI approval.
             // A completed transaction remains observable until the next review.
             if (value.authorization.active() && !value.committed) value.Invalidate();
@@ -316,9 +396,12 @@ void Broker::HandleParentRequest(const Message &request, Message *reply, const R
     }
     if (!reply->succeeded && reply->errorCode.empty()) reply->errorCode = value.error.empty() ? "provider_parent_operation_failed" : value.error;
 }
-bool Broker::complete() const { return implementation_->committed && implementation_->authorization.complete(); }
+bool Broker::complete() const {
+    return implementation_->observedCommit;
+}
 bool Broker::lockHeld() const { return implementation_->lock >= 0; }
 bool Broker::mutationStarted() const { return implementation_->started; }
+bool Broker::indeterminate() const { return implementation_->uncertain && !implementation_->observedCommit; }
 const std::string &Broker::errorCode() const { return implementation_->error; }
 void Broker::Invalidate() {
     auto &value = *implementation_; value.Invalidate();

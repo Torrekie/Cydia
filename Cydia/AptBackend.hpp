@@ -72,6 +72,9 @@ class AptBackend {
     // remains current. Embedded backends have no protocol review manifest.
     bool providerReview(Provider::ReviewedTransaction *review) const;
     bool providerBinding(Provider::Binding *binding) const;
+    // End a settled process-provider generation. Queues/handles need fresh
+    // discovery before reuse; this never selects or retries another provider.
+    void retireProvider();
 
     static void KeepFileDescriptor(int descriptor);
 

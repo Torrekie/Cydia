@@ -75,14 +75,31 @@ current pending-trigger set includes independently derived waiter transitions.
 Package-state snapshots also fingerprint native trigger-directory membership,
 registries and deferred-journal bytes. A bounded read holds the existing native
 trigger lock when present; it never creates or rewrites trigger files.
-New trigger activations and automatic deconfiguration remain unsupported;
-unproved effects are rejected. Replacing a bound executable, dependency or
-configuration during a transaction also invalidates current authority. A
-pure transaction lease and component-succession model binds retained archives,
-application generation, lock inode, approved unpack generations and complete
-loader evidence. Persistent cydo ownership and protected evidence producers
-remain required before this path can upgrade its active runtime safely;
-successful model fixtures do not establish that production compatibility.
+The authenticated app can open one persistent transaction in the existing
+`cydo` helper. It independently verifies and retains every reviewed archive
+before the first mutation, binds application generation and frontend-lock
+inode, and owns child execution and final automatic-package-state commit.
+Approved unpack generations may replace declared native executables and
+dependencies only when their installed bytes and metadata match the retained
+payload. Protected native configuration and actual Mach-O dependency closure
+are checked before every native tool launch. Later batches use retained proof;
+they do not renew mutable source/index authority after a maintainer script.
+
+This path requires a complete protected native dpkg declaration, described
+below. Its absence retains the existing restricted executor before any mutation;
+an invalid declaration or failed retained transaction cannot fall through.
+The restricted path still invalidates authority on component/configuration
+replacement. New trigger activations and automatic deconfiguration remain
+unsupported by the advertised provider interface. An opt-in helper-owned
+trigger ledger has protected installed metadata, verified incoming controls,
+separate bounded drain passes and per-child channel requirements. Native review,
+negotiation and service channel integration are required before enabling it.
+Ordinary state capture continues to reject an unresolved deferred journal.
+
+After settlement, Cydia retires the worker, cache handles, grants and review;
+the next normal reload performs fresh discovery. A helper-confirmed final
+commit remains a known outcome if the worker subsequently fails. Unknown
+helper settlement remains indeterminate and cannot become an automatic retry.
 
 Cydia-owned locale conversion and regular expressions prefer validated
 bootstrap ICU, with Apple ICU as the next choice. UIKit collation remains
@@ -208,6 +225,47 @@ and normal user review before execution.
 Do not reuse provider-native binary caches or trust proofs across incompatible
 providers. Rebuild derived data while preserving shared sources, dpkg state,
 holds and automatic-package markings.
+
+### Native dpkg transaction declaration
+
+Retained execution reads `native-dpkg.conf` first in Cydia's protected state
+directory, then in the distribution's `cydia` data directory beside dpkg data.
+A present invalid higher-priority declaration is an error. Cydia neither
+generates this file from guessed defaults nor changes native dpkg configuration.
+A distributor must bind its compiled configuration and command graph to each
+supported executable generation and verify that declaration against its build.
+
+`CYDIA-NATIVE-DPKG-1` uses the existing canonical length-prefixed field format.
+It contains exactly these ten fields, in order:
+
+| Field | Value |
+| --- | --- |
+| Format | `CYDIA-NATIVE-DPKG-1` |
+| Executable generations | Nested pairs of absolute executable path and lowercase SHA256; multiple admitted hashes may share a path |
+| Configuration files | Nested required absolute paths |
+| Configuration directories | Nested required absolute paths, captured recursively |
+| Optional configuration files | Nested paths whose absence is also bound |
+| Optional configuration directories | Nested paths whose absence and later membership are bound |
+| Native commands | Nested paths of configured commands, each present in the executable and component declarations |
+| Initial components | Complete protected regular-file inventory for native executables and nonplatform dependencies |
+| Successor components | Nested pairs of `package:architecture` and a nested list of exact payload paths; matched only to approved archives |
+| Graph contract | `complete-native-graph` |
+
+Configuration, commands and optional inputs include defaults and transitive
+includes. Every declared executable must be in the retained inventory. A new
+binary hash is admitted only with an unchanged configuration graph and exact
+approved archive payload. Changed native configuration requires a new review;
+the same declaration cannot authorize arbitrary newly installed binaries.
+Commands and libraries must pass the installed loader inspector. Platform
+edges bind the active dyld cache, OS build and target; unavailable platform ABI
+evidence refuses this optional path. No provider message can supply these
+filesystem or loader proofs.
+
+Declaration and graph sizes, component/dependency counts, archive reads and
+nonmutating admission are bounded. All archive copies are retained in private
+root-owned files before mutation. Execution has no timeout that kills a live
+dpkg child. App generation, caller identity, lock ownership, copied archives,
+installed components and native configuration are rechecked through settlement.
 
 ### Protected registration and Settings
 
@@ -530,7 +588,7 @@ APT/ICU provider migration or public-source support.
 | Contracts and policy | Versioned worker/account models, protected registration, explicit-choice handling and provider-bound snapshots | Demonstrate that real adapters declare their complete environment and reproduce distribution policy |
 | Remorix packages | A client/registration contract that does not require replacing another distribution | Supply localized APT/dpkg and an optional adapter; verify catalogs, ABI/path metadata and dependency closure |
 | Recovery isolation | Separate unprivileged worker, bound read-only capsule, isolated configuration and native acquisition/review | Supply and accept the private payload, complete transaction parity, then retire the transitional in-process fallback; configured hooks remain refused |
-| External transactions | Startup coordinator, source/cache admission before adoption, native review, parent broker and archive proof | Real adapter end-to-end installation, upgrade and removal; retained transaction authority/component succession and independent trigger/deconfiguration effects |
+| External transactions | Startup admission, native review, retained authenticated helper ownership, archive copies and declared component succession | Real adapter/device acceptance; native review and service integration for finite trigger effects, and independent deconfiguration proof |
 | Recovery dependencies and ICU | Bootstrap/Apple ICU selection, private loader interfaces and upstream gettext bridge/catalogs | Supply private ICU/libintl binaries and full dependency/data closure; prove usable recovery when optional bootstrap components fail |
 | Commercial sources | Native accounts, scoped authorization, private archive acquisition and redacted diagnostics | Vendor-accepted callbacks and authorized paid retrieval; any optional Remorix CLI authorization helper remains separate work |
 | UI and release acceptance | Runtime Settings and immutable confirmation in all existing Cydia locales | Verify runtime transitions, failure handling and safe drop-in upgrade/removal with supported provider packages |
@@ -556,12 +614,15 @@ Current limits are explicit:
   unsupported. This is a bounded adapter contract, not full implicit trigger parity.
   The broker rejects effects it cannot independently establish; the protocol's
   action enum and visible review rows are not a claim of complete dpkg coverage.
-- Upgrading an active component invalidates the original authority. Exact archive
-  payload evidence and pure lease/succession models do not yet install retained
-  execution authority or verify the installed successor's loader closure;
-  those are remaining Cydia integration work. Native dpkg configuration graphs
-  require a binary-bound distribution declaration or supported introspection;
-  APT options do not establish dpkg's compiled configuration search policy.
+- Active native components can succeed only through retained helper authority
+  and explicitly declared binary generations with the same immutable native
+  configuration graph. Missing native declarations retain restricted execution;
+  invalid declarations, config changes, undeclared dependencies or unsupported
+  loader behavior refuse. Mach-O inspection verifies protected bytes, target,
+  rpath resolution and dylib-version compatibility; it does not prove every
+  symbol, dynamic load or device trust-cache decision. Native dpkg configuration
+  declarations and accepted package generations remain distribution packaging
+  work; APT options do not establish dpkg's compiled search policy.
 - No real Remorix adapter, full external-provider end-to-end acceptance or
   vendor-authorized commercial-download acceptance has been completed by these
   interfaces. Remorix APT/dpkg patches, adapter packages and optional CLI helpers

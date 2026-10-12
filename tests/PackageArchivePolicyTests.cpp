@@ -96,6 +96,52 @@ PayloadFixture InspectPayload(const std::string &data, const std::vector<std::st
     result.archive = policy.Finish(); result.payload = policy.PayloadInspection();
     return result;
 }
+ArchiveControlMetadata InspectControl(const std::string &controlEntries,
+    const std::string &data = "", const ArchiveLimits &limits = ArchiveLimits()) {
+    PackageArchivePolicy policy(identity, rootless, limits);
+    const std::string controlTar(Tar(controlEntries)), dataTar(Tar(data));
+    std::size_t controlOffset = 0, dataOffset = 0;
+    assert(!policy.ControlMetadata().complete);
+    if (policy.ReadControlTar(Reader(controlTar, &controlOffset))) {
+        assert(!policy.ControlMetadata().complete);
+        policy.ReadDataTar(Reader(dataTar, &dataOffset));
+    }
+    policy.Finish(); return policy.ControlMetadata();
+}
+void ControlMetadataTests() {
+    std::map<std::string, std::string> canonical, equivalent; std::string error;
+    assert(CanonicalPackageEffectControlFields({{"depends", "perl:any(>=5.0),\n locales | alternative"},
+        {"pre-depends", "dpkg:native"}, {"multi-arch", "foreign"}}, &canonical, &error));
+    assert(CanonicalPackageEffectControlFields({{"depends", "perl:any ( >= 5.0 ) , locales|alternative"},
+        {"pre-depends", "dpkg:native"}, {"multi-arch", "foreign"}, {"essential", "no"}, {"protected", "no"}}, &equivalent, &error));
+    assert(canonical == equivalent && canonical.at("depends") == "perl:any (>= 5.0), locales | alternative");
+    assert(canonical.at("essential") == "no" && canonical.at("protected") == "no" && canonical.at("provides").empty());
+    for (const std::string malformed : {"foo bar", "foo:", "foo (>= 1 2)", "foo,", "foo [amd64]", "foo (>< 1)", "foo | | bar"}) {
+        canonical["stale"] = "value";
+        assert(!CanonicalPackageEffectControlFields({{"depends", malformed}}, &canonical, &error) && canonical.empty());
+    }
+    assert(!CanonicalPackageEffectControlFields({{"essential", "sometimes"}}, &canonical, &error) && canonical.empty());
+    const std::string body = Control() + "Depends: perl:any(>=5.0),\n locales | alternative\nMulti-Arch: foreign\nProtected: yes\n";
+    const std::string triggers = "# package declarations\ninterest-noawait /usr/share/icons\nactivate-noawait icon-cache\n";
+    const auto metadata = InspectControl(Entry("control", '0', body) + Entry("triggers", '0', triggers));
+    assert(metadata.complete && metadata.identity.package == identity.package && metadata.identity.version == identity.version &&
+        metadata.identity.architecture == "all" && metadata.controls.at("protected") == "yes" && metadata.triggersPresent && metadata.triggers == triggers);
+    const auto absent = InspectControl(Entry("control", '0', Control()));
+    const auto empty = InspectControl(Entry("control", '0', Control()) + Entry("triggers"));
+    assert(absent.complete && !absent.triggersPresent && absent.triggers.empty());
+    assert(empty.complete && empty.triggersPresent && empty.triggers.empty());
+    for (const auto &entries : std::vector<std::string>{Entry("control", '0', body) + Entry("triggers") + Entry("./triggers"),
+        Entry("control", '0', body) + Entry("triggers", '2', "", "control"), Entry("control", '0', Control("amd64")),
+        Entry("control", '0', Control() + "Depends: foo bar\n")}) {
+        const auto invalid = InspectControl(entries);
+        assert(!invalid.complete && invalid.controls.empty() && invalid.triggers.empty() && !invalid.triggersPresent);
+    }
+    ArchiveLimits small; small.maxMetadataBytes = 128;
+    const auto bounded = InspectControl(Entry("control", '0', Control()) + Entry("triggers", '0', std::string(129, 'x')), "", small);
+    assert(!bounded.complete && bounded.controls.empty() && bounded.triggers.empty());
+    const auto late = InspectControl(Entry("control", '0', body) + Entry("triggers", '0', triggers), Entry("bad", 'x', "metadata"));
+    assert(!late.complete && late.controls.empty() && late.triggers.empty());
+}
 void Expect(const ArchivePolicyResult &result, ArchivePolicyStatus status, const char *reason = NULL) {
     if (result.status != status || (reason != NULL && result.reason != reason)) {
         std::cerr << "unexpected archive policy: " << static_cast<int>(result.status) << ' ' << result.reason
@@ -127,6 +173,14 @@ ArchivePayloadEvidence InspectPayloadDeb(const std::string &bytes, const std::ve
     const auto result(InspectPackageArchivePayloadWithDecoders(path, expected, rootless, paths, {}, limits, cancelled));
     assert(unlink(path) == 0); return result;
 }
+ArchiveControlEvidence InspectControlDeb(const std::string &bytes) {
+    char path[] = "/tmp/cydia-archive-control-XXXXXX";
+    const int descriptor(mkstemp(path)); assert(descriptor >= 0);
+    assert(write(descriptor, bytes.data(), bytes.size()) == static_cast<ssize_t>(bytes.size()));
+    assert(close(descriptor) == 0);
+    const auto result(InspectPackageArchiveControlWithDecoders(path, identity, rootless, {}));
+    assert(unlink(path) == 0); return result;
+}
 void ExpectNoPayload(const ArchivePayloadEvidence &result, const char *reason = nullptr) {
     assert(!result.payload.complete && result.files.empty());
     if (reason != nullptr && result.payload.reason != reason) {
@@ -149,6 +203,7 @@ std::string Compress(const std::string &bytes, FileFd::CompressMode mode) {
 }
 
 int main() {
+    ControlMetadataTests();
     const auto accepted(ArchivePolicyStatus::Accepted), mismatch(ArchivePolicyStatus::LayoutMismatch);
     const auto invalid(ArchivePolicyStatus::Invalid), unverified(ArchivePolicyStatus::Unverified);
     const std::string rooted(Entry("./usr/bin/sample", '0', "data"));
@@ -291,6 +346,16 @@ int main() {
     const std::string control(ArMember("control.tar", Tar(Entry("control", '0', Control()))));
     const std::string data(ArMember("data.tar", Tar(prefixed)));
     Expect(InspectDeb(container + control + data), accepted);
+    const std::string declarations = "interest-noawait /usr/share/icons\n";
+    const std::string effectTar = Tar(Entry("control", '0', Control() + "Depends: perl:any (>= 5)\n") + Entry("triggers", '0', declarations));
+    const auto controlEvidence = InspectControlDeb(container + ArMember("control.tar.gz", Compress(effectTar, FileFd::Gzip)) + data);
+    assert(controlEvidence.archive.complete && controlEvidence.control.complete && controlEvidence.control.triggers == declarations);
+    for (const auto &broken : std::vector<std::string>{
+            container + ArMember("control.tar.gz", Compress(effectTar, FileFd::Gzip) + "garbage") + data,
+            container + ArMember("control.tar", effectTar) + ArMember("data.tar", Tar(prefixed) + rooted)}) {
+        const auto refused = InspectControlDeb(broken);
+        assert(!refused.control.complete && refused.control.controls.empty() && refused.control.triggers.empty());
+    }
     const std::string evidenceData(Entry("." + component, '0', "abc", "", "", 04755, 12, 34) +
         Entry("." + emptyComponent, '0', "", "", "", 0600, 56, 78));
     const std::string evidenceDeb(container + control + ArMember("data.tar", Tar(evidenceData)));

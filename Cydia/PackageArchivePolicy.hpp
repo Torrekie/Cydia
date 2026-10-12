@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,22 @@ struct ArchivePolicyResult {
     bool identityVerified = false;
     bool complete = false;
 };
+// Canonical binary-package control semantics used by both retained Packages
+// records and archive/installed control records. Input keys must be lowercase;
+// continuation whitespace is permitted in relationship values. This parses no
+// source build restrictions, executes nothing and selects no package version.
+// Unsupported/malformed fields leave the output empty.
+bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string> &fields,
+    std::map<std::string, std::string> *controls, std::string *error);
+struct ArchiveControlMetadata {
+    bool complete = false;
+    ArchiveIdentity identity;
+    std::map<std::string, std::string> controls;
+    // Absence and an explicitly empty triggers file remain distinguishable.
+    bool triggersPresent = false;
+    std::string triggers, reason;
+};
+
 /* Read exactly the requested number of decoded bytes; false means failure
  * or premature EOF. Callbacks must themselves avoid unbounded buffering. */
 typedef std::function<bool(void *, std::size_t)> ArchiveRead;
@@ -71,6 +88,7 @@ class PackageArchivePolicy {
                      const ArchivePayloadConsumer &consumer);
     ArchivePolicyResult Finish();
     ArchivePayloadInspection PayloadInspection() const;
+    ArchiveControlMetadata ControlMetadata() const;
   private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
