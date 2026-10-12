@@ -488,13 +488,14 @@ APT/ICU provider migration or public-source support.
 | Part | Work |
 | --- | --- |
 | `AptRuntime.*`, `RuntimeProviderCoordinator.*`, `AptProviderSelection.*`, `MobileCydia.mm` | Startup selection, protected registration and immutable descriptor adoption are implemented; distribution adapters and deployment acceptance remain |
-| `AptBackendFacade.cpp`, `AptBackend*`, `SourcePreflight*` | Remote value facade, source routing and session ownership are implemented; no external adapter/server or separate bundled worker is supplied |
+| `AptBackendFacade.cpp`, `AptBackend*`, `SourcePreflight*`, `AptProviderServer*`, `AptRecoveryWorker*` | Remote value facade, source routing, bounded server and separate native recovery worker are implemented; no distribution adapter or complete private payload is supplied |
 | `apt-extra/apt-2.7.9-cydia.patch`, `AptCompatibility.cpp` | Keep recovery-specific patches private; replace Cydia-only authentication/state hooks in stock-provider adapters |
-| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated registration snapshots, reviewed parent execution, protected archive staging and state settlement are implemented; trigger/deconfiguration effect coverage remains under development |
+| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated authority snapshots, reviewed parent execution, protected archive staging and state settlement are implemented; transaction component succession and trigger/deconfiguration effect coverage remain under development |
 | `RuntimeSnapshotInputs.*`, `Database*`, `TransactionReview.*`, `AptProviderArchiveEvidence.*` | Provider-bound immutable review and independent source/index/archive proof are implemented; custom index-target/list layouts remain unsupported |
 | `SettingsStore.*`, `RuntimeProviderSettingsController.*`, Settings controllers, locale tables | Explicit-choice preservation, Automatic/recovery selection and truthful asynchronous status UI are implemented in all existing locales |
 | `CyteKit/RegEx.hpp`, `Collation.hpp`, `Package.mm`, `Package+Metadata.mm`, `MessageLocaleConversion.mm` | ICU adapter and handle ownership, coherent collation and locale behavior |
-| `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/package.mk`, `cydia.control` | Separate recovery worker and complete private ICU/libintl dependency packaging remain; preserve package ID and avoid hard dependencies that defeat recovery |
+| `mk/apt.mk`, `mk/toolchain.mk`, `mk/rules.mk`, `mk/recovery.mk`, `mk/package.mk`, `cydia.control` | Separate recovery worker and private methods are packaged; complete signature/compression/ICU/libintl payloads remain separate inputs; package ID and distribution ownership are preserved |
+| `PackageArchivePolicy.*`, `PackageArchiveReader.*` | Bounded exact payload-file bytes and numeric metadata can be captured without extraction; this is a foundation for independently verified component succession, not execution authority |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
 | `DatabaseStatus.mm`, `ProgressEvent.mm`, acquisition protocol | Redacted display URLs, typed account/transport failures and protected short-lived grants |
@@ -506,8 +507,8 @@ APT/ICU provider migration or public-source support.
 | --- | --- | --- |
 | Contracts and policy | Versioned worker/account models, protected registration, explicit-choice handling and provider-bound snapshots | Demonstrate that real adapters declare their complete environment and reproduce distribution policy |
 | Remorix packages | A client/registration contract that does not require replacing another distribution | Supply localized APT/dpkg and an optional adapter; verify catalogs, ABI/path metadata and dependency closure |
-| Recovery isolation | Existing bundled APT can be selected for recovery | Move recovery out of the UIKit process without losing review, multiarch, source checks, hooks or state guarantees |
-| External transactions | Startup coordinator, selected-backend routing, native review, parent broker and archive proof | Real adapter end-to-end installation, upgrade and removal; complete independent trigger/deconfiguration effect support |
+| Recovery isolation | Separate unprivileged worker, bound read-only capsule, isolated configuration and native acquisition/review | Supply and accept the private payload, complete transaction parity, then retire the transitional in-process fallback; configured hooks remain refused |
+| External transactions | Startup coordinator, source/cache admission before adoption, native review, parent broker and archive proof | Real adapter end-to-end installation, upgrade and removal; retained transaction authority/component succession and independent trigger/deconfiguration effects |
 | Recovery dependencies and ICU | Bootstrap/Apple ICU selection, private loader interfaces and upstream gettext bridge/catalogs | Supply private ICU/libintl binaries and full dependency/data closure; prove usable recovery when optional bootstrap components fail |
 | Commercial sources | Native accounts, scoped authorization, private archive acquisition and redacted diagnostics | Vendor-accepted callbacks and authorized paid retrieval; any optional Remorix CLI authorization helper remains separate work |
 | UI and release acceptance | Runtime Settings and immutable confirmation in all existing Cydia locales | Verify runtime transitions, failure handling and safe drop-in upgrade/removal with supported provider packages |
@@ -522,7 +523,8 @@ compatibility gate.
 
 Current limits are explicit:
 
-- Recovery APT is still in-process; there is no separate bundled recovery worker.
+- The bundled recovery worker requires a complete protected payload inventory;
+  missing dependencies retain the transitional in-process fallback at startup.
 - Private ICU/libintl binaries and their complete recovery dependency closure
   are not packaged by the loader interfaces.
 - Independent archive provenance supports ordinary flat and suite/component
@@ -532,6 +534,9 @@ Current limits are explicit:
   unsupported. This is a bounded adapter contract, not full implicit trigger parity.
   The broker rejects effects it cannot independently establish; the protocol's
   action enum and visible review rows are not a claim of complete dpkg coverage.
+- Upgrading an active component invalidates the original authority. Exact archive
+  payload evidence does not yet provide retained execution authority or verify
+  the installed successor's loader closure; those are remaining Cydia work.
 - No real Remorix adapter, full external-provider end-to-end acceptance or
   vendor-authorized commercial-download acceptance has been completed by these
   interfaces. Remorix APT/dpkg patches, adapter packages and optional CLI helpers

@@ -88,6 +88,10 @@ struct PackageArchivePolicy::Impl {
     std::map<std::string, char> dataNames;
     std::map<std::string, std::string> hardLinks;
     std::string control;
+    bool payloadRequested = false;
+    std::set<std::string> payloadPaths, payloadSeen;
+    ArchivePayloadConsumer payloadConsumer;
+    ArchivePayloadInspection payload;
 
     Impl(const ArchiveIdentity &identity, const ArchiveLayout &target, const ArchiveLimits &bounds)
         : expected(identity), layout(target), limits(bounds) {
@@ -107,6 +111,33 @@ struct PackageArchivePolicy::Impl {
     bool Stop(ArchivePolicyStatus status, const std::string &path, const char *reason) {
         result.status = status; result.path = path; result.reason = reason;
         result.complete = false; stopped = true; return false;
+    }
+    void PayloadFailure(const std::string &path, const char *reason) {
+        if (payload.reason.empty()) { payload.path = path; payload.reason = reason; }
+        payload.complete = false;
+    }
+    void RequestPayload(const std::vector<std::string> &paths, const ArchivePayloadConsumer &consumer) {
+        if (payloadRequested || dataDone || stopped) {
+            PayloadFailure("", "invalid_payload_inspection_order"); return;
+        }
+        payloadRequested = true;
+        if (paths.empty() || paths.size() > limits.maxPayloadFiles || paths.size() > limits.maxEntries) {
+            PayloadFailure("", "invalid_payload_request_count"); return;
+        }
+        std::size_t bytes = 0;
+        for (const std::string &path : paths) {
+            std::string normalized;
+            if (path.size() > limits.maxPathBytes || path.empty() || path[0] != '/' || path == "/" ||
+                !Normalize(path, &normalized) || normalized != path || !payloadPaths.insert(path).second) {
+                PayloadFailure(path, "invalid_payload_request_path"); return;
+            }
+            if (path.size() > limits.maxMetadataBytes || bytes > limits.maxMetadataBytes - path.size()) {
+                PayloadFailure(path, "payload_request_limit"); return;
+            }
+            bytes += path.size();
+        }
+        if (!consumer) { PayloadFailure("", "missing_payload_consumer"); return; }
+        payloadConsumer = consumer;
     }
     void Unverified(const std::string &path, const char *reason) {
         if (result.status == ArchivePolicyStatus::Accepted) {
@@ -191,10 +222,42 @@ struct PackageArchivePolicy::Impl {
                 return Stop(ArchivePolicyStatus::Invalid, path, "unsafe_link_target");
             if (!Account(path, target.size())) return false;
             if (type == '1') hardLinks[path] = target;
+            if (payloadRequested) {
+                const auto child(payloadPaths.lower_bound(path + '/'));
+                if (child != payloadPaths.end() && Below(*child, path))
+                    PayloadFailure(*child, "payload_link_ancestor");
+            }
             // Absolute symlinks into /System or /usr/lib can intentionally
             // reference Apple's files. Their targets are not payload writes.
         } else if (!link.empty()) return Stop(ArchivePolicyStatus::Invalid, path, "unexpected_link_target");
         dataNames[path] = type; return true;
+    }
+    bool PayloadBody(const ArchiveRead &read, const unsigned char *header,
+                     const std::string &path, char type, std::uint64_t size) {
+        if (!payloadRequested || !payloadPaths.count(path)) return Body(read, size, NULL);
+        if (type != '0') {
+            PayloadFailure(path, "payload_not_regular"); return Body(read, size, NULL);
+        }
+        std::uint64_t mode, uid, gid;
+        if (!Number(header + 100, 8, &mode) || !Number(header + 108, 8, &uid) ||
+            !Number(header + 116, 8, &gid) || mode > 07777 ||
+            uid > std::numeric_limits<std::uint32_t>::max() || gid > std::numeric_limits<std::uint32_t>::max()) {
+            PayloadFailure(path, "payload_metadata_unverified"); return Body(read, size, NULL);
+        }
+        if (!payload.reason.empty()) return Body(read, size, NULL);
+        ArchivePayloadFileMetadata file;
+        file.path = path; file.size = size; file.mode = static_cast<std::uint32_t>(mode);
+        file.uid = static_cast<std::uint32_t>(uid); file.gid = static_cast<std::uint32_t>(gid);
+        std::uint64_t remaining(size); bool overread = false;
+        const ArchiveRead bounded([&](void *bytes, std::size_t count) {
+            if (count > remaining) { overread = true; return false; }
+            if (!Read(read, bytes, count)) return false;
+            remaining -= count; return true;
+        });
+        const bool consumed(payloadConsumer(file, bounded));
+        if (!consumed || overread || remaining != 0) PayloadFailure(path, "payload_consumer_failed");
+        else payloadSeen.insert(path);
+        return !stopped && Body(read, remaining, NULL);
     }
     bool ControlIdentity() {
         if (control.empty()) return Stop(ArchivePolicyStatus::Invalid, "control", "missing_control");
@@ -301,13 +364,15 @@ struct PackageArchivePolicy::Impl {
                 else if (path != "/" && path != "/md5sums" && path != "/conffiles")
                     Unverified(path, "maintainer_semantics_unverified");
             } else if (!DataItem(path, type, link)) return false;
-            if (!Body(read, size, save) || !Body(read, (512 - size % 512) % 512, NULL)) return false;
+            if (!(isControl ? Body(read, size, save) : PayloadBody(read, header, path, type, size)) ||
+                !Body(read, (512 - size % 512) % 512, NULL)) return false;
         }
     }
     ArchivePolicyResult Finish() {
         if (stopped) return result;
         if (!controlDone || !dataDone) { Stop(ArchivePolicyStatus::Invalid, "", "incomplete_archive"); return result; }
         std::set<std::string> resolved;
+        std::map<std::string, std::string> hardLinkRoots;
         for (const auto &link : hardLinks) {
             if (resolved.count(link.first)) continue;
             std::set<std::string> chain;
@@ -323,10 +388,23 @@ struct PackageArchivePolicy::Impl {
                 }
                 target = hardLinks.find(target)->second;
             }
+            if (payloadRequested) {
+                const auto root(hardLinkRoots.find(target));
+                if (root != hardLinkRoots.end()) target = root->second;
+                for (const std::string &name : chain) hardLinkRoots[name] = target;
+                if (payloadPaths.count(target)) PayloadFailure(target, "payload_hardlink_alias");
+            }
             if (chain.size() > 1) Unverified(link.first, "chained_hardlink_unverified");
             resolved.insert(chain.begin(), chain.end());
         }
-        result.complete = true; return result;
+        result.complete = true;
+        if (payloadRequested && payload.reason.empty()) {
+            for (const std::string &path : payloadPaths) if (!payloadSeen.count(path)) {
+                PayloadFailure(path, "payload_file_missing"); break;
+            }
+            payload.complete = payload.reason.empty();
+        }
+        return result;
     }
 };
 
@@ -335,5 +413,14 @@ PackageArchivePolicy::PackageArchivePolicy(const ArchiveIdentity &expected, cons
 PackageArchivePolicy::~PackageArchivePolicy() {}
 bool PackageArchivePolicy::ReadControlTar(const ArchiveRead &read) { return impl_->Tar(read, true); }
 bool PackageArchivePolicy::ReadDataTar(const ArchiveRead &read) { return impl_->Tar(read, false); }
+bool PackageArchivePolicy::ReadDataTar(const ArchiveRead &read, const std::vector<std::string> &paths,
+                                     const ArchivePayloadConsumer &consumer) {
+    impl_->RequestPayload(paths, consumer); return impl_->Tar(read, false);
+}
 ArchivePolicyResult PackageArchivePolicy::Finish() { return impl_->Finish(); }
+ArchivePayloadInspection PackageArchivePolicy::PayloadInspection() const {
+    ArchivePayloadInspection result(impl_->payload);
+    if (impl_->stopped || !impl_->result.complete) result.complete = false;
+    return result;
+}
 }

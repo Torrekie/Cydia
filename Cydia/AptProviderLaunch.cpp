@@ -269,7 +269,7 @@ ProbeRunResult RunProbe(const std::string &executable, const std::vector<std::st
     ProbeRunResult result;
     if (output) output->clear();
     if (!output || input.size() > 256 * 1024 || !maximumOutputBytes || maximumOutputBytes > 256 * 1024 ||
-        !timeoutMilliseconds || timeoutMilliseconds > 10000) { result.error = EINVAL; return result; }
+        !timeoutMilliseconds || timeoutMilliseconds > MaximumRecoveryStartupMilliseconds) { result.error = EINVAL; return result; }
     if (Cancelled(cancelled)) { result.kind = ProbeExit::Cancelled; return result; }
     const auto deadline = Clock::now() + std::chrono::milliseconds(timeoutMilliseconds);
     Child child; std::string error;

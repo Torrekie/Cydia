@@ -9,6 +9,10 @@
 #include <sys/types.h>
 
 namespace CydiaAPT { namespace Provider {
+// Recovery performs its own bounded ten-second component/configuration check.
+// This ceiling also allows launch and framing overhead; external admission
+// retains its existing shorter ceiling.
+constexpr unsigned MaximumRecoveryStartupMilliseconds = 15000;
 constexpr std::size_t MaximumRecoveryCapsuleBytes = 4 * 1024 * 1024;
 
 // The caller supplies a bounded serialized snapshot from independently

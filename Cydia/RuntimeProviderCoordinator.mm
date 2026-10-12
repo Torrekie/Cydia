@@ -16,6 +16,9 @@ namespace P = Provider;
 namespace Client = CydiaRuntime::PrivilegedClient;
 InitializationOptions startupOptions;
 std::string startupConfigurationOverride;
+// The recovery worker bounds protected component hashing and initialization
+// to ten seconds. Allow framing/launch overhead without shortening that bound.
+constexpr unsigned RecoveryHandshakeMilliseconds = 12000;
 NSString *String(const std::string &s) {
     return [[NSString alloc] initWithBytes:s.data() length:s.size() encoding:NSUTF8StringEncoding] ?: @"";
 }
@@ -84,7 +87,7 @@ RemoteCandidate StartCandidate(AcquireStatus &progress, const RuntimeDescriptor 
         }
     };
     std::unique_ptr<P::Session> session(new P::Session());
-    const bool started = capsule ? session->StartRecovery(executable, probe, hello, capsule, callbacks) :
+    const bool started = capsule ? session->StartRecovery(executable, probe, hello, capsule, callbacks, RecoveryHandshakeMilliseconds) :
         session->Start(executable, probe, hello, callbacks);
     if (started && result.context->broker->BindSession(session->binding())) {
         result.descriptor = runtime;
@@ -263,7 +266,7 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
                 P::Hello hello; hello.options = recoverySnapshot.startup; hello.expected = Recovery::SnapshotEnvironment(recoverySnapshot);
                 if (hello.options.repositorySecurityMode != RepositorySecurityMode::Distribution)
                     hello.requiredCapabilities |= P::ExplicitSecurityOverrides;
-                const auto probe(P::ProbeRecovery(recoverySnapshot.executable, hello.expected, capsule));
+                const auto probe(P::ProbeRecovery(recoverySnapshot.executable, hello.expected, capsule, RecoveryHandshakeMilliseconds));
                 Recovery::Snapshot checked;
                 if (probe.compatible() && probe.info.identifier == Recovery::ProviderIdentifier() &&
                     probe.info.libraryIdentity == recoverySnapshot.identity.libraries &&

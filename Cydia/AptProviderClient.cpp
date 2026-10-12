@@ -54,7 +54,8 @@ ProbeResult ProbeInternal(const std::string &executable, const Environment &expe
     if (!ValidEnvironment(expected) || !Encode(expected, &query.payload) || !EncodeFrame(query, &input) || input.size() > 256 * 1024) {
         result.availability = Availability::Broken; result.errorCode = "provider_environment_incomplete"; return result;
     }
-    const unsigned timeout = timeoutMilliseconds == 0 || timeoutMilliseconds > 10000 ? 3000 : timeoutMilliseconds;
+    const unsigned maximum(capsule ? MaximumRecoveryStartupMilliseconds : 10000);
+    const unsigned timeout = timeoutMilliseconds == 0 || timeoutMilliseconds > maximum ? 3000 : timeoutMilliseconds;
     bool succeeded = false, unsupported = false;
     if (capsule) {
         const auto run = Launch::RunProbe(executable, arguments, capsule, input, &bytes, 256 * 1024, timeout, cancelled);

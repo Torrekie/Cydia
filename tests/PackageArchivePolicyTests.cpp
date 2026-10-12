@@ -1,9 +1,11 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/PackageArchivePolicy.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 #if defined(CYDIA_TEST_PACKAGE_ARCHIVE_READER)
@@ -27,11 +29,12 @@ void Octal(char *field, std::size_t size, unsigned long long value) {
     std::snprintf(field, size, "%0*llo", static_cast<int>(size - 1), value);
 }
 std::string Entry(const std::string &name, char type = '0', const std::string &body = "",
-                  const std::string &link = "", const std::string &prefix = "") {
+                  const std::string &link = "", const std::string &prefix = "",
+                  unsigned mode = 0644, unsigned uid = 0, unsigned gid = 0) {
     assert(name.size() <= 100 && link.size() <= 100 && prefix.size() <= 155);
     char header[512] = {};
     std::memcpy(header, name.data(), name.size());
-    Octal(header + 100, 8, 0644); Octal(header + 108, 8, 0); Octal(header + 116, 8, 0);
+    Octal(header + 100, 8, mode); Octal(header + 108, 8, uid); Octal(header + 116, 8, gid);
     Octal(header + 124, 12, body.size()); Octal(header + 136, 12, 0);
     std::memset(header + 148, ' ', 8); header[156] = type;
     std::memcpy(header + 157, link.data(), link.size());
@@ -42,6 +45,14 @@ std::string Entry(const std::string &name, char type = '0', const std::string &b
     return std::string(header, sizeof(header)) + body + std::string((512 - body.size() % 512) % 512, '\0');
 }
 std::string Tar(const std::string &entries) { return entries + std::string(1024, '\0'); }
+std::string TarNumber(std::string entry, std::size_t offset, const std::string &bytes) {
+    assert(offset + bytes.size() <= 512 && entry.size() >= 512);
+    entry.replace(offset, bytes.size(), bytes);
+    std::memset(&entry[148], ' ', 8);
+    unsigned checksum = 0;
+    for (std::size_t i = 0; i < 512; ++i) checksum += static_cast<unsigned char>(entry[i]);
+    Octal(&entry[148], 7, checksum); entry[155] = ' '; return entry;
+}
 ArchiveRead Reader(const std::string &bytes, std::size_t *offset) {
     return [&bytes, offset](void *output, std::size_t count) {
         if (count > bytes.size() - *offset) return false;
@@ -57,6 +68,33 @@ ArchivePolicyResult Inspect(const std::string &data, const ArchiveLayout &layout
     if (policy.ReadControlTar(Reader(controlTar, &controlOffset)))
         policy.ReadDataTar(Reader(dataTar, &dataOffset));
     return policy.Finish();
+}
+struct PayloadFixture {
+    ArchivePolicyResult archive;
+    ArchivePayloadInspection payload;
+    std::map<std::string, ArchivePayloadFileMetadata> files;
+    std::map<std::string, std::string> bodies;
+};
+PayloadFixture InspectPayload(const std::string &data, const std::vector<std::string> &paths,
+    const ArchiveLimits &limits = ArchiveLimits(), const ArchivePayloadConsumer &custom = ArchivePayloadConsumer()) {
+    PayloadFixture result;
+    PackageArchivePolicy policy(identity, rootless, limits);
+    const std::string controlTar(Tar(Entry("control", '0', Control()))), dataTar(Tar(data));
+    std::size_t controlOffset = 0, dataOffset = 0;
+    const ArchivePayloadConsumer consume([&](const ArchivePayloadFileMetadata &file, const ArchiveRead &read) {
+        result.files[file.path] = file;
+        std::uint64_t remaining(file.size);
+        while (remaining != 0) {
+            char bytes[7]; const std::size_t size = static_cast<std::size_t>(std::min<std::uint64_t>(remaining, sizeof(bytes)));
+            if (!read(bytes, size)) return false;
+            result.bodies[file.path].append(bytes, size); remaining -= size;
+        }
+        return true;
+    });
+    if (policy.ReadControlTar(Reader(controlTar, &controlOffset)))
+        policy.ReadDataTar(Reader(dataTar, &dataOffset), paths, custom ? custom : consume);
+    result.archive = policy.Finish(); result.payload = policy.PayloadInspection();
+    return result;
 }
 void Expect(const ArchivePolicyResult &result, ArchivePolicyStatus status, const char *reason = NULL) {
     if (result.status != status || (reason != NULL && result.reason != reason)) {
@@ -78,6 +116,22 @@ ArchivePolicyResult InspectDeb(const std::string &bytes) {
     assert(close(descriptor) == 0);
     const auto result(InspectPackageArchive(path, identity, rootless));
     assert(unlink(path) == 0); return result;
+}
+ArchivePayloadEvidence InspectPayloadDeb(const std::string &bytes, const std::vector<std::string> &paths,
+    const ArchiveIdentity &expected = identity, const ArchiveLimits &limits = ArchiveLimits(),
+    const std::function<bool()> &cancelled = std::function<bool()>()) {
+    char path[] = "/tmp/cydia-archive-payload-XXXXXX";
+    const int descriptor(mkstemp(path)); assert(descriptor >= 0);
+    assert(write(descriptor, bytes.data(), bytes.size()) == static_cast<ssize_t>(bytes.size()));
+    assert(close(descriptor) == 0);
+    const auto result(InspectPackageArchivePayloadWithDecoders(path, expected, rootless, paths, {}, limits, cancelled));
+    assert(unlink(path) == 0); return result;
+}
+void ExpectNoPayload(const ArchivePayloadEvidence &result, const char *reason = nullptr) {
+    assert(!result.payload.complete && result.files.empty());
+    if (reason != nullptr && result.payload.reason != reason) {
+        std::cerr << "unexpected payload evidence refusal: " << result.payload.reason << '\n'; std::abort();
+    }
 }
 std::string Compress(const std::string &bytes, FileFd::CompressMode mode) {
     FileFd temporary, compressed;
@@ -168,12 +222,107 @@ int main() {
     PackageArchivePolicy truncated(identity, rootless); std::size_t offset(0);
     const std::string shortTar("short"); assert(!truncated.ReadControlTar(Reader(shortTar, &offset)));
     Expect(truncated.Finish(), invalid, "truncated_tar");
+
+    const std::string component("/var/jb/usr/bin/sample"), emptyComponent("/var/jb/usr/lib/empty");
+    const std::string componentData(Entry("." + component, '0', "replacement bytes", "", "", 04755, 12, 34) +
+        Entry("." + emptyComponent, '0', "", "", "", 0600, 56, 78));
+    const auto payload(InspectPayload(componentData, {component, emptyComponent}));
+    Expect(payload.archive, accepted); assert(payload.payload.complete && payload.files.size() == 2);
+    assert(payload.files.at(component).path == component && payload.files.at(component).size == 17);
+    assert(payload.files.at(component).mode == 04755 && payload.files.at(component).uid == 12 && payload.files.at(component).gid == 34);
+    assert(payload.bodies.at(component) == "replacement bytes" && payload.files.at(emptyComponent).size == 0);
+    assert(payload.files.at(emptyComponent).mode == 0600 && payload.files.at(emptyComponent).uid == 56 && payload.files.at(emptyComponent).gid == 78);
+    for (const auto &paths : std::vector<std::vector<std::string>>{
+            {}, {"var/jb/usr/bin/sample"}, {"/var/jb/usr/bin/./sample"}, {"/var/jb/usr/bin/sample/"},
+            {"/var/jb/usr/bin//sample"}, {"/var/jb/usr/bin/../sample"}, {"/"}, {component, component}}) {
+        const auto refused(InspectPayload(componentData, paths));
+        Expect(refused.archive, accepted); assert(!refused.payload.complete && !refused.payload.reason.empty());
+    }
+    ArchiveLimits payloadLimits; payloadLimits.maxPayloadFiles = 1;
+    assert(InspectPayload(componentData, {component, emptyComponent}, payloadLimits).payload.reason == "invalid_payload_request_count");
+    const auto missingPayload(InspectPayload(prefixed, {component, emptyComponent}));
+    Expect(missingPayload.archive, accepted);
+    assert(!missingPayload.payload.complete && missingPayload.payload.reason == "payload_file_missing" && missingPayload.payload.path == emptyComponent);
+    for (char type : {'1', '2'}) {
+        const auto linked(InspectPayload(Entry("." + component, type, "", "." + emptyComponent) +
+            Entry("." + emptyComponent, '0', "data"), {component}));
+        Expect(linked.archive, accepted); assert(!linked.payload.complete && linked.payload.reason == "payload_not_regular");
+    }
+    const auto ancestor(InspectPayload(Entry("./var/jb/usr/bin", '2', "", "/bin"), {component}));
+    Expect(ancestor.archive, accepted); assert(!ancestor.payload.complete && ancestor.payload.reason == "payload_link_ancestor");
+    const std::string alias(Entry("./var/jb/usr/bin/alias", '1', "", "." + component));
+    for (const std::string &items : {prefixed + alias, alias + prefixed}) {
+        const auto linked(InspectPayload(items, {component}));
+        Expect(linked.archive, accepted); assert(!linked.payload.complete && linked.payload.reason == "payload_hardlink_alias");
+    }
+    const auto chained(InspectPayload(Entry("./var/jb/usr/bin/a", '1', "", "./var/jb/usr/bin/alias") + alias + prefixed, {component}));
+    assert(!chained.payload.complete && chained.payload.reason == "payload_hardlink_alias");
+    const auto unrelated(InspectPayload(componentData + Entry("./var/jb/unrelated", '2', "", "/usr/lib/libSystem.B.dylib"), {component}));
+    Expect(unrelated.archive, accepted); assert(unrelated.payload.complete);
+    const auto badMode(InspectPayload(Entry("." + component, '0', "data", "", "", 0100755), {component}));
+    Expect(badMode.archive, accepted); assert(!badMode.payload.complete && badMode.payload.reason == "payload_metadata_unverified");
+    // Reject malformed numeric ownership and values not representable by the
+    // target uid/gid types, while ordinary layout inspection remains unchanged.
+    std::string oversizedOwner(8, '\0'); oversizedOwner[0] = static_cast<char>(0x80); oversizedOwner[3] = 1;
+    for (std::size_t field : {std::size_t(108), std::size_t(116)}) {
+        for (const std::string &value : {std::string("invalid!"), oversizedOwner}) {
+            const auto badOwner(InspectPayload(TarNumber(prefixed, field, value), {component}));
+            Expect(badOwner.archive, accepted);
+            assert(!badOwner.payload.complete && badOwner.payload.reason == "payload_metadata_unverified");
+        }
+    }
+    for (int behavior : {0, 1, 2}) {
+        const auto refused(InspectPayload(prefixed, {component}, ArchiveLimits(),
+            [behavior](const ArchivePayloadFileMetadata &file, const ArchiveRead &read) {
+                char bytes[32];
+                if (behavior == 0) { assert(read(bytes, 1)); return false; }
+                if (behavior == 1) { assert(read(bytes, 1)); return true; }
+                assert(!read(bytes, static_cast<std::size_t>(file.size + 1))); return true;
+            }));
+        Expect(refused.archive, accepted); assert(!refused.payload.complete && refused.payload.reason == "payload_consumer_failed");
+    }
+    const auto lateDuplicate(InspectPayload(prefixed + prefixed, {component}));
+    Expect(lateDuplicate.archive, invalid, "duplicate_archive_path"); assert(!lateDuplicate.payload.complete);
+    const auto lateUnsupported(InspectPayload(prefixed + Entry("./PaxHeaders/sample", 'x', "metadata"), {component}));
+    Expect(lateUnsupported.archive, unverified, "unsupported_tar_semantics"); assert(!lateUnsupported.payload.complete);
 #if defined(CYDIA_TEST_PACKAGE_ARCHIVE_READER)
     assert(pkgInitConfig(*_config));
     const std::string container("!<arch>\n" + ArMember("debian-binary", "2.0\n"));
     const std::string control(ArMember("control.tar", Tar(Entry("control", '0', Control()))));
     const std::string data(ArMember("data.tar", Tar(prefixed)));
     Expect(InspectDeb(container + control + data), accepted);
+    const std::string evidenceData(Entry("." + component, '0', "abc", "", "", 04755, 12, 34) +
+        Entry("." + emptyComponent, '0', "", "", "", 0600, 56, 78));
+    const std::string evidenceDeb(container + control + ArMember("data.tar", Tar(evidenceData)));
+    const auto evidence(InspectPayloadDeb(evidenceDeb, {component, emptyComponent}));
+    Expect(evidence.archive, accepted); assert(evidence.payload.complete && evidence.files.size() == 2);
+    const auto &replacement(evidence.files.at(component));
+    assert(replacement.metadata.path == component && replacement.metadata.size == 3 && replacement.metadata.mode == 04755);
+    assert(replacement.metadata.uid == 12 && replacement.metadata.gid == 34);
+    assert(replacement.sha256 == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    assert(evidence.files.at(emptyComponent).sha256 == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    ExpectNoPayload(InspectPayloadDeb(evidenceDeb, {component, "/var/jb/missing"}), "payload_file_missing");
+    ExpectNoPayload(InspectPayloadDeb(evidenceDeb, {component, component}), "invalid_payload_request_path");
+    ExpectNoPayload(InspectPayloadDeb(evidenceDeb, {component}, concrete), "archive_identity_mismatch");
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar", Tar(rooted)), {component}), "unprefixed_bootstrap_destination");
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar", Tar(prefixed + alias)), {component}), "payload_hardlink_alias");
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar", Tar(Entry("." + component, '2', "", "/usr/bin/false"))), {component}), "payload_not_regular");
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar", Tar(prefixed) + rooted), {component}), "trailing_tar_data");
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar", Tar(prefixed + prefixed)), {component}), "duplicate_archive_path");
+    ExpectNoPayload(InspectPayloadDeb(evidenceDeb, {component}, identity, ArchiveLimits(), [] { return true; }), "inspection_cancelled");
+    ArchiveLimits shortEvidence; shortEvidence.maxStreamBytes = evidenceDeb.size() - 1;
+    ExpectNoPayload(InspectPayloadDeb(evidenceDeb, {component}, identity, shortEvidence), "inspection_limit");
+    const std::string scriptedControl(ArMember("control.tar", Tar(Entry("control", '0', Control()) + Entry("postinst", '0', "#!/bin/sh\nexit 0\n"))));
+    const auto scriptedEvidence(InspectPayloadDeb(container + scriptedControl + ArMember("data.tar", Tar(evidenceData)), {component}));
+    Expect(scriptedEvidence.archive, unverified, "maintainer_semantics_unverified"); assert(scriptedEvidence.payload.complete);
+    // The new API always uses its explicit decoder set. gzip is internal;
+    // neither APT compressor settings nor an arbitrary PATH helper is needed.
+    const std::string gzipEvidence(Compress(Tar(evidenceData), FileFd::Gzip));
+    const auto compressedEvidence(InspectPayloadDeb(container + control + ArMember("data.tar.gz", gzipEvidence), {component, emptyComponent}));
+    assert(compressedEvidence.payload.complete && compressedEvidence.files.at(component).sha256 == replacement.sha256);
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar.gz", gzipEvidence + "trailing"), {component}), "archive_decode_failed");
+    assert(gzipEvidence.size() > 12);
+    ExpectNoPayload(InspectPayloadDeb(container + control + ArMember("data.tar.gz", gzipEvidence.substr(0, gzipEvidence.size() - 12)), {component}));
     Expect(InspectDeb(container + control + ArMember("data.tar", Tar(rooted))), mismatch);
     Expect(InspectDeb(container + control + control + data), invalid, "duplicate_deb_member");
     Expect(InspectDeb(container + data + control), invalid, "duplicate_or_misordered_data");

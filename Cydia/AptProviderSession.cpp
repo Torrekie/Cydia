@@ -408,7 +408,7 @@ bool Session::StartInternal(const std::string &executable, const ProbeResult &pr
     Implementation &state(*implementation_);
     if (state.busy || state.child > 0 || state.ready || state.mutated || state.locked) return state.Fail("provider_session_already_started", false);
     if (cancelled && cancelled()) return state.Fail("provider_cancelled", false);
-    if (timeoutMilliseconds == 0 || timeoutMilliseconds > 10000 || !probe.compatible() ||
+    if (timeoutMilliseconds == 0 || timeoutMilliseconds > (capsule ? MaximumRecoveryStartupMilliseconds : 10000u) || !probe.compatible() ||
         probe.recoveryCapsule != capsule || (capsule && (!capsule->unchanged() || !hello.registrationPath.empty())) ||
         probe.registrationPath != hello.registrationPath ||
         !Compatible(probe.info, hello.expected, nullptr) || !Challenge(&hello.challenge) || !ValidHello(hello))

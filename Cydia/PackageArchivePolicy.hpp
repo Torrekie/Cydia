@@ -25,6 +25,7 @@ struct ArchiveLimits {
     std::size_t maxPathBytes = 4096;
     std::size_t maxMetadataBytes = 8 * 1024 * 1024;
     std::uint64_t maxStreamBytes = std::uint64_t(4) * 1024 * 1024 * 1024;
+    std::size_t maxPayloadFiles = 4096;
 };
 struct ArchivePolicyResult {
     ArchivePolicyStatus status = ArchivePolicyStatus::Accepted;
@@ -38,6 +39,24 @@ struct ArchivePolicyResult {
  * or premature EOF. Callbacks must themselves avoid unbounded buffering. */
 typedef std::function<bool(void *, std::size_t)> ArchiveRead;
 
+/* Numeric metadata from a regular data.tar member, not a prediction of its
+ * installed metadata (dpkg stat overrides and maintainer scripts can change
+ * that). Paths are exact normalized absolute installation paths. */
+struct ArchivePayloadFileMetadata {
+    std::string path;
+    std::uint64_t size = 0;
+    std::uint32_t mode = 0, uid = 0, gid = 0;
+};
+struct ArchivePayloadInspection {
+    bool complete = false;
+    std::string path, reason;
+};
+/* Consume exactly file.size bytes through the bounded read callback. It is
+ * valid only during this call. A callback result is provisional until both
+ * Finish() and PayloadInspection() complete; later archive members can
+ * invalidate it. The inspector never extracts files or follows host links. */
+typedef std::function<bool(const ArchivePayloadFileMetadata &, const ArchiveRead &)> ArchivePayloadConsumer;
+
 /* Read-only, bounded inspection of control/data tar streams. Accepted means
  * no observed layout conflict; it is not a security or script-safety claim.
  * Unsupported tar semantics stop inspection as Unverified, never Accepted. */
@@ -48,7 +67,10 @@ class PackageArchivePolicy {
     ~PackageArchivePolicy();
     bool ReadControlTar(const ArchiveRead &read);
     bool ReadDataTar(const ArchiveRead &read);
+    bool ReadDataTar(const ArchiveRead &read, const std::vector<std::string> &paths,
+                     const ArchivePayloadConsumer &consumer);
     ArchivePolicyResult Finish();
+    ArchivePayloadInspection PayloadInspection() const;
   private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

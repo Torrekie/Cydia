@@ -4,6 +4,7 @@
 #include <apt-pkg/debfile.h>
 #include <apt-pkg/error.h>
 #include <apt-pkg/fileutl.h>
+#include <apt-pkg/hashes.h>
 #include <algorithm>
 #include <cstring>
 #include <fcntl.h>
@@ -91,6 +92,17 @@ bool Decimal(const char *value, std::size_t length, std::uint64_t *number) {
     return index == length;
 }
 struct Members { std::string control, data; };
+bool SamePayloadArchive(const struct stat &a, const struct stat &b) {
+    return a.st_dev == b.st_dev && a.st_ino == b.st_ino && a.st_mode == b.st_mode &&
+        a.st_uid == b.st_uid && a.st_gid == b.st_gid && a.st_nlink == b.st_nlink && a.st_size == b.st_size &&
+#ifdef __APPLE__
+        a.st_mtimespec.tv_sec == b.st_mtimespec.tv_sec && a.st_mtimespec.tv_nsec == b.st_mtimespec.tv_nsec &&
+        a.st_ctimespec.tv_sec == b.st_ctimespec.tv_sec && a.st_ctimespec.tv_nsec == b.st_ctimespec.tv_nsec;
+#else
+        a.st_mtim.tv_sec == b.st_mtim.tv_sec && a.st_mtim.tv_nsec == b.st_mtim.tv_nsec &&
+        a.st_ctim.tv_sec == b.st_ctim.tv_sec && a.st_ctim.tv_nsec == b.st_ctim.tv_nsec;
+#endif
+}
 /* Preflight before debDebFile/ARArchive allocates its member list: a .deb
  * needs three ordinary ar members, not an unbounded general-purpose ar. */
 bool Container(FileFd &file, const ArchiveLimits &limits, Members *members, ArchivePolicyResult *result) {
@@ -212,7 +224,8 @@ bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
 
 static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, const ArchiveIdentity &expected,
     const ArchiveLayout &layout, const ArchiveLimits &limits, const std::map<std::string, std::string> *decoders,
-    const std::function<bool()> &cancelled) {
+    const std::function<bool()> &cancelled, const std::vector<std::string> *payloadPaths = nullptr,
+    ArchivePayloadEvidence *payloadEvidence = nullptr) {
     ErrorScope errors;
     const int descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (descriptor < 0) return Failure(ArchivePolicyStatus::Invalid, path, "archive_open_failed");
@@ -225,6 +238,20 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
     debDebFile deb(file);
     if (_error->PendingError()) return Failure(ArchivePolicyStatus::Invalid, path, "invalid_deb_container");
     PackageArchivePolicy policy(expected, layout, limits);
+    std::map<std::string, ArchivePayloadFileEvidence> payloadFiles;
+    const ArchivePayloadConsumer consume([&](const ArchivePayloadFileMetadata &metadata, const ArchiveRead &read) {
+        Hashes hashes(Hashes::SHA256SUM); std::uint64_t remaining(metadata.size);
+        unsigned char bytes[32768];
+        while (remaining != 0) {
+            const std::size_t amount(static_cast<std::size_t>(std::min<std::uint64_t>(remaining, sizeof(bytes))));
+            if (!read(bytes, amount) || !hashes.Add(bytes, amount)) return false;
+            remaining -= amount;
+        }
+        ArchivePayloadFileEvidence file; file.metadata = metadata;
+        file.sha256 = hashes.GetHashString(Hashes::SHA256SUM).HashValue();
+        if (file.sha256.size() != 64) return false;
+        return payloadFiles.emplace(metadata.path, file).second;
+    });
     std::uint64_t decoded(0);
     for (bool control : {true, false}) {
         const std::string &name(control ? members.control : members.data);
@@ -242,7 +269,8 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
             unsigned long long actual(0);
             return ReadDecoded(stream, gzip, bytes, size, &actual) && actual == size;
         });
-        const bool inspected(control ? policy.ReadControlTar(read) : policy.ReadDataTar(read));
+        const bool inspected(control ? policy.ReadControlTar(read) : payloadPaths != nullptr ?
+            policy.ReadDataTar(read, *payloadPaths, consume) : policy.ReadDataTar(read));
         if (!inspected) {
             stream.Close();
             gzip.Close();
@@ -277,7 +305,17 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
     if (fstat(file.Fd(), &after) != 0 || before.st_size != after.st_size || before.st_mtime != after.st_mtime ||
         before.st_ctime != after.st_ctime || before.st_ino != after.st_ino || before.st_dev != after.st_dev)
         return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
-    return policy.Finish();
+    if (payloadEvidence != nullptr) {
+        struct stat named;
+        if (!SamePayloadArchive(before, after) || lstat(path.c_str(), &named) != 0 || !SamePayloadArchive(after, named))
+            return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
+    }
+    const ArchivePolicyResult finished(policy.Finish());
+    if (payloadEvidence != nullptr && finished.complete && finished.identityVerified) {
+        payloadEvidence->payload = policy.PayloadInspection();
+        if (payloadEvidence->payload.complete) payloadEvidence->files.swap(payloadFiles);
+    }
+    return finished;
 }
 
 ArchivePolicyResult InspectPackageArchive(const std::string &path, const ArchiveIdentity &expected,
@@ -291,5 +329,17 @@ ArchivePolicyResult InspectPackageArchiveWithDecoders(const std::string &path, c
     return InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled);
 }
 
+ArchivePayloadEvidence InspectPackageArchivePayloadWithDecoders(const std::string &path,
+    const ArchiveIdentity &expected, const ArchiveLayout &layout,
+    const std::vector<std::string> &paths, const std::map<std::string, std::string> &decoders,
+    const ArchiveLimits &limits, const std::function<bool()> &cancelled) {
+    ArchivePayloadEvidence result;
+    result.archive = InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled, &paths, &result);
+    if (!result.payload.complete && result.payload.reason.empty()) {
+        result.payload.path = result.archive.path;
+        result.payload.reason = result.archive.reason.empty() ? "payload_inspection_incomplete" : result.archive.reason;
+    }
+    return result;
+}
 
 }

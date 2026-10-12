@@ -106,11 +106,13 @@ def main():
                     "Cydia/RepositorySecurityPolicy.cpp"], "cydia-recovery-authority",
                    extra_compile_flags=["-DCYDIA_RECOVERY_AUTHORITY_TESTING"])
     compile_driver(["tests/AptRecoveryDependencyInspectorTests.cpp", "Cydia/AptRecoveryDependencyInspector.cpp",
-                    "Cydia/AptRecoveryMachO.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                    "Cydia/AptRecoveryMachO.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
+                    "Cydia/RepositorySecurityPolicy.cpp"],
                    "cydia-recovery-dependencies", extra_compile_flags=["-DCYDIA_RECOVERY_DEPENDENCY_TESTING"])
     compile_driver(["tests/AptRecoveryTrustTests.cpp", "Cydia/AptRecoveryTrust.cpp",
                     "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/PrivilegedRuntime.cpp",
-                    "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp", "Cydia/PackageDatabasePaths.cpp"],
+                    "Cydia/SourceDocument.cpp", "Cydia/SourceDocumentStore.cpp", "Cydia/PackageDatabasePaths.cpp",
+                    "Cydia/RepositorySecurityPolicy.cpp"],
                    "cydia-recovery-trust")
     worker_sources = sources[1:] + [
         "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp", "Cydia/AptRecoveryPackageManager.cpp",

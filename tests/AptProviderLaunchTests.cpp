@@ -74,7 +74,6 @@ int Child(int argc, char **argv) {
         close(3);
     }
     if (mode == "--hang") { for (;;) pause(); }
-    if (mode == "--overflow") return WriteAll(1, std::string(128 * 1024, 'x')) ? 0 : 27;
     if (mode == "--duplex" && !WriteAll(1, std::string(128 * 1024, 'r'))) return 28;
     std::size_t count = 0;
     for (;;) {
@@ -83,6 +82,9 @@ int Child(int argc, char **argv) {
         else if (!readCount) break;
         else if (errno != EINTR) return 29;
     }
+    // Consume the query before exiting: closing an AF_UNIX socket with unread
+    // input can reset the peer on Linux before it observes the queued output.
+    if (mode == "--overflow") return WriteAll(1, std::string(128 * 1024, 'x')) ? 0 : 27;
     if (mode == "--duplex" && count != 128 * 1024) return 30;
     return WriteAll(1, external ? "external-ok" : "capsule-ok") ? 0 : 31;
 }
@@ -154,6 +156,11 @@ void BoundsCancellationAndCleanup() {
     Require(f.Run("--hang", &output, false, 3000, [&] { return std::chrono::steady_clock::now() >= cancelAt; }).kind == Launch::ProbeExit::Cancelled,
         "probe cancellation not reported");
     Require(f.Run("--overflow", &output, false, 3000, {}, 1024).kind == Launch::ProbeExit::OutputLimit && output.empty(), "probe output limit failed");
+    Require(f.Run("--cydia-provider-info", &output, true, 12000).kind == Launch::ProbeExit::Exited && output == "capsule-ok",
+        "recovery startup bound was shortened before launch");
+    const auto oversizedTimeout(f.Run("--hang", &output, true, MaximumRecoveryStartupMilliseconds + 1));
+    Require(oversizedTimeout.kind == Launch::ProbeExit::Failed && oversizedTimeout.error == EINVAL && output.empty(),
+        "unbounded recovery startup timeout accepted");
     Launch::Child bad;
     Require(!Launch::Start("/not-present/cydia-provider", {}, f.capsule, &bad, &error) && bad.pid == -1 && bad.channel == -1,
         "failed spawn transferred invalid child ownership");
