@@ -252,6 +252,14 @@ pkgPackageManager::OrderResult AptRecoveryPackageManager::OrderInstall() {
                 !Cache[package].Delete() && !package.CurrentVer().end())) {
             refusal_ = "recovery_pending_effects_unsupported"; return Failed;
         }
+        if (Cache[package].Install()) {
+            const auto version(Cache[package].InstVerIter(Cache));
+            const auto selected(archives_.find(package->ID));
+            if (version.end() || selected == archives_.end() || selected->second.version != version ||
+                pkgPackageManager::FileNames[package->ID] != selected->second.path) {
+                refusal_ = "recovery_selected_archive_unavailable"; return Failed;
+            }
+        }
     }
     OrderingConfigurationScope configuration;
     return pkgPackageManager::OrderInstall();

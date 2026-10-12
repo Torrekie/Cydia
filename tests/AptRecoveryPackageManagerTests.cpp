@@ -297,7 +297,8 @@ void Refusals() {
         if (variant == 9) { _config->Set("PackageManager::Configure", "none"); expected = "recovery_configure_policy_unsupported"; }
         if (variant == 10) { _config->Set("DPkg::ConfigurePending", false); expected = "recovery_configure_policy_unsupported"; }
         const auto result = fixture.Capture(manager, variant == 7 ? std::function<bool()>([] { return true; }) : std::function<bool()>());
-        Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == expected && result.review.execution.actions.empty(), expected);
+        const std::string reason("refusal case " + std::to_string(variant) + ": expected " + expected + ", got " + result.errorCode);
+        Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == expected && result.review.execution.actions.empty(), reason.c_str());
         Require(!std::filesystem::exists(fixture.root + "/forbidden"), "hook was executed before refusal"); fixture.Unchanged();
     }
 }
