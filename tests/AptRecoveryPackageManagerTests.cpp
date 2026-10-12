@@ -108,7 +108,7 @@ struct Fixture {
     TransactionData Transaction() {
         TransactionData transaction; transaction.registeredArchitectures = runtime.registeredArchitectures;
         for (auto package = cache->PkgBegin(); !package.end(); ++package) {
-            const auto &state = (*cache.GetDepCache())[package];
+            auto &state = (*cache.GetDepCache())[package];
             if (!state.Install() && !state.Delete()) continue;
             const auto version = state.Delete() ? package.CurrentVer() : state.InstVerIter(*cache.GetDepCache());
             Require(!version.end(), "selected exact version");
@@ -124,7 +124,7 @@ struct Fixture {
     }
     void Bind(AptRecoveryPackageManager &manager) {
         for (auto package = cache->PkgBegin(); !package.end(); ++package) {
-            const auto &state = (*cache.GetDepCache())[package]; if (!state.Install()) continue;
+            auto &state = (*cache.GetDepCache())[package]; if (!state.Install()) continue;
             const auto version = state.InstVerIter(*cache.GetDepCache());
             auto record = version.FileList(); while (!record.end() && record.File().Flagged(pkgCache::Flag::NotSource)) ++record;
             std::string error;
