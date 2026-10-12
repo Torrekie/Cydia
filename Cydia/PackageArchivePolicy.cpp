@@ -142,11 +142,12 @@ struct PackageArchivePolicy::Impl {
             if (type == '5') return true;
             return Stop(ArchivePolicyStatus::Invalid, path, "non_directory_installation_ancestor");
         }
-        // An explicit non-root destination can itself live below a known
-        // foreign prefix. Its own payload remains valid; siblings do not.
-        if (layout.prefix != "/" && Below(path, layout.prefix)) return true;
         for (const auto &foreign : layout.foreignPrefixes)
             if (foreign != layout.prefix && Below(path, foreign)) {
+                // The selected prefix may itself live below a known foreign
+                // prefix. Allow its own payload, not siblings or an embedded
+                // foreign prefix beneath a broader selected destination.
+                if (Below(layout.prefix, foreign) && Below(path, layout.prefix)) continue;
                 if (type == '5') { Unverified(path, "directory_destination_unverified"); return true; }
                 return Stop(ArchivePolicyStatus::LayoutMismatch, path, "different_installation_prefix");
             }
