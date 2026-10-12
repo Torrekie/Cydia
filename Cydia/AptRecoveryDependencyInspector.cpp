@@ -41,7 +41,10 @@ bool SameFile(const struct stat &a, const struct stat &b) {
 }
 std::string Lower(std::string s) { for (char &c : s) if (c >= 'A' && c <= 'Z') c += 'a' - 'A'; return s; }
 bool Prefix(const std::string &s, const std::string &prefix) { return s.compare(0, prefix.size(), prefix) == 0; }
-std::string Parent(const std::string &s) { return s.substr(0, s.rfind('/')); }
+std::string Parent(const std::string &s) {
+    const auto slash(s.rfind('/'));
+    return slash == 0 ? "/" : s.substr(0, slash);
+}
 std::string Normalize(const std::string &s) {
     if (s.empty() || s[0] != '/' || s.size() > 4096 || std::any_of(s.begin(), s.end(), [](unsigned char c) { return c < 32 || c == 127; })) return {};
     std::vector<std::string> parts; std::istringstream input(s); std::string part;
@@ -233,6 +236,8 @@ struct Inspector {
         const auto alias = aliases.find(canonical); return alias == aliases.end() ? nullptr : &inputs.at(alias->second);
     }
     std::string Expand(const std::string &path, const std::string &loader, const std::string &executable) {
+        if (path == "@loader_path") return Normalize(Parent(loader));
+        if (path == "@executable_path") return Normalize(Parent(executable));
         if (Prefix(path, "@loader_path/")) return Normalize(Parent(loader) + path.substr(12));
         if (Prefix(path, "@executable_path/")) return Normalize(Parent(executable) + path.substr(16));
         return Normalize(path);

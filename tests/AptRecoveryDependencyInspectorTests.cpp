@@ -41,6 +41,13 @@ int main() {
     auto proof = R::InspectDependencyGraphForTesting(images, {root});
     Require(proof.unresolvedFields.empty() && proof.nonPlatformDependencies == std::vector<std::string>{a, b}, "cyclic closure terminates with exact declared dependencies");
     Require(proof.discoveredComponents.empty(), "private graph cannot fabricate external discoveries");
+    auto exact = images; exact[root].rpaths = {"@executable_path", "@executable_path/../lib"};
+    Require(R::InspectDependencyGraphForTesting(exact, {root}).unresolvedFields.empty(),
+        "standalone executable directory token is a valid rpath");
+    exact.clear(); exact["/worker"] = Image({"@rpath/a.dylib"}, {"@executable_path"});
+    exact["/worker"].type = 2; exact["/a.dylib"] = Image({});
+    Require(R::InspectDependencyGraphForTesting(exact, {"/worker"}).unresolvedFields.empty(),
+        "root directory is preserved when expanding a loader token");
     auto changed = images; changed.erase(b);
     Require(Missing(R::InspectDependencyGraphForTesting(changed, {root}), "dependencyUnavailable"), "missing transitive dependency is not Ready");
     changed = images; changed[b].currentVersion = 0;
