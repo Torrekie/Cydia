@@ -12,6 +12,7 @@ DependencyProof InspectInstalledDependencies(const Authority &, const std::strin
 // Only the isolated host fixture can substitute already-parsed images. The
 // production inspector always opens and hashes protected installed files.
 namespace MachO { struct Image; }
+DependencyProof InspectConfiguredCommandsForTesting(const std::string &configuration);
 DependencyProof InspectDependencyGraphForTesting(const std::map<std::string, MachO::Image> &,
     const std::vector<std::string> &roots, const std::function<bool()> &cancelled = {});
 #endif

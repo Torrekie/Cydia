@@ -330,7 +330,11 @@ struct Inspector {
             if (value.empty()) continue;
             if (key.find("pre-invoke") != std::string::npos || key.find("post-invoke") != std::string::npos || key.find("pre-install-pkgs") != std::string::npos ||
                 key.find("auth-failure") != std::string::npos || key.find("proxy-auto-detect") != std::string::npos || key.find("proxyautodetect") != std::string::npos ||
-                Prefix(key, "acquire::cdrom::") || Prefix(key, "acquire::rsh::") || Prefix(key, "acquire::ssh::") || key == "methods::mirror::problemreporting") Missing("configuredCommandInterfaceUnsupported");
+                (Prefix(key, "acquire::cdrom::") && key != "acquire::cdrom::mount") ||
+                Prefix(key, "acquire::rsh::") || Prefix(key, "acquire::ssh::") || key == "methods::mirror::problemreporting") Missing("configuredCommandInterfaceUnsupported");
+            // pkgInitConfig supplies this passive mount-point path even when
+            // no cdrom source is enabled. Per-mount Mount/UMount entries are
+            // shell commands and remain unsupported above.
             // Binary-specific configuration is reapplied by subprocesses. Its
             // effects are not represented by this single clean authority dump.
             if (Prefix(key, "binary::")) Missing("binaryConfigurationUnsupported");
@@ -414,6 +418,13 @@ DependencyProof InspectInstalledDependencies(const Authority &authority, const s
     Inspector inspector{authority, cancelled}; return inspector.Run(inventory);
 }
 #if defined(CYDIA_RECOVERY_DEPENDENCY_TESTING)
+DependencyProof InspectConfiguredCommandsForTesting(const std::string &configuration) {
+    Authority authority; authority.configuration = configuration;
+    const std::function<bool()> cancelled;
+    Inspector inspector(authority, cancelled); inspector.Commands();
+    inspector.proof.unresolvedFields.assign(inspector.unresolved.begin(), inspector.unresolved.end());
+    return inspector.proof;
+}
 DependencyProof InspectDependencyGraphForTesting(const std::map<std::string, MachO::Image> &images,
     const std::vector<std::string> &roots, const std::function<bool()> &cancelled) {
     Authority authority; Inspector inspector(authority, cancelled); inspector.fixture = true;

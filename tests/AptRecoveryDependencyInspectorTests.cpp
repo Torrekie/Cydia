@@ -23,6 +23,12 @@ bool Missing(const R::DependencyProof &proof, const std::string &field) {
 }
 }
 int main() {
+    Require(!Missing(R::InspectConfiguredCommandsForTesting("Acquire::cdrom::mount \"/media/cdrom/\";\n"),
+        "configuredCommandInterfaceUnsupported"), "default passive cdrom mount point is not a command");
+    for (const char *command : {"Mount", "UMount"})
+        Require(Missing(R::InspectConfiguredCommandsForTesting(std::string("Acquire::cdrom::/media/cdrom/::") +
+            command + " \"untrusted command\";\n"), "configuredCommandInterfaceUnsupported"),
+            "per-mount shell overrides remain unresolved");
     const std::string root = "/cydia-fixture/bin/worker", a = "/cydia-fixture/lib/a.dylib", b = "/cydia-fixture/lib/b.dylib";
     std::map<std::string, R::MachO::Image> images{
         {root, Image({"@rpath/a.dylib"}, {"@executable_path/../lib"})},
