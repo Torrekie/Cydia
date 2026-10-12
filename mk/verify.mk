@@ -74,6 +74,7 @@ DPKG_STATUS_TEST := $(BUILD_DIR)/tests/DpkgStatusParserTests
 EXEC_COMPAT_PARSER_TEST := $(BUILD_DIR)/tests/ExecCompatParserTests
 REGEX_ARC_TEST := $(BUILD_DIR)/tests/RegExArcTests
 MESSAGE_LOCALE_TEST := $(BUILD_DIR)/tests/MessageLocaleTests
+MESSAGE_LOCALE_DECLARATIONS_TEST := $(BUILD_DIR)/tests/MessageLocaleDeclarationsTests
 PACKAGE_IDENTITY_TEST := $(BUILD_DIR)/tests/PackageIdentityTests
 PACKAGE_ARCHIVE_POLICY_TEST := $(BUILD_DIR)/tests/PackageArchivePolicyTests
 MULTIARCH_FIXTURE_TEST := $(BUILD_DIR)/tests/MultiArchFixtureTests
@@ -570,15 +571,17 @@ verify-home-localization: $(HOME_LOCALIZATION_VERIFY_SCRIPT)
 	@$(HOME_LOCALIZATION_VERIFY_SCRIPT)
 
 ifeq ($(HOST_OS),Darwin)
-$(MESSAGE_LOCALE_TEST): tests/MessageLocaleTests.mm Cydia/MessageLocale.h Cydia/MessageLocale.mm \
-		Cydia/MessageLocaleConversion.h Cydia/MessageLocaleConversion.mm
+$(MESSAGE_LOCALE_DECLARATIONS_TEST): host_cxx_flags += -DCYDIA_USE_ICU_LOCALE_DECLARATIONS=1
+$(MESSAGE_LOCALE_TEST) $(MESSAGE_LOCALE_DECLARATIONS_TEST): tests/MessageLocaleTests.mm Cydia/MessageLocale.h Cydia/MessageLocale.mm \
+		Cydia/MessageLocaleConversion.h Cydia/MessageLocaleConversion.mm Cydia/ICULocale.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
 		-idirafter $(ICU_INCLUDE_DIR) tests/MessageLocaleTests.mm Cydia/MessageLocale.mm \
 		Cydia/MessageLocaleConversion.mm -framework Foundation -licucore -o $@
 
-verify-message-locale: $(MESSAGE_LOCALE_TEST)
-	@$<
+verify-message-locale: $(MESSAGE_LOCALE_TEST) $(MESSAGE_LOCALE_DECLARATIONS_TEST)
+	@$(MESSAGE_LOCALE_TEST)
+	@$(MESSAGE_LOCALE_DECLARATIONS_TEST)
 
 $(REGEX_ARC_TEST): tests/RegExArcTests.mm CyteKit/RegEx.hpp CyteKit/stringWith.h CyteKit/stringWith.mm
 	@mkdir -p $(dir $@)

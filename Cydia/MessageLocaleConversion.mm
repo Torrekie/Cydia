@@ -1,6 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/MessageLocaleConversion.h"
-#include <unicode/uloc.h>
+#include "Cydia/ICULocale.h"
 #include <cstring>
 
 namespace {
