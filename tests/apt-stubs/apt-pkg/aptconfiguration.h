@@ -12,6 +12,9 @@ namespace APT {
 namespace Configuration {
 
 std::vector<std::string> getArchitectures(bool cached = true);
+struct Compressor {};
+std::vector<Compressor> const getCompressors(bool cached = true);
+std::vector<std::string> const getCompressionTypes(bool const &cached = true);
 
 } // namespace Configuration
 } // namespace APT

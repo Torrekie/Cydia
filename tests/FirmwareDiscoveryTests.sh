@@ -261,6 +261,43 @@ printf 'identity\tgsc.invalid_name\t1\n' >>"${discovery_fixture}"
 if run_preview >/dev/null 2>&1; then fail "generation accepted a legacy-only package name"; fi
 assert_no_changes
 
+# Old underscore spellings satisfy the current collector's corresponding
+# capability without generating a second package. Provides aliases participate
+# too, and duplicate spellings on one record never duplicate that provider.
+reset_fixture
+printf 'gestalt\tLegacyFeature_Capability\t1\ngestalt\tLegacyAlias_Capability\t1\n' >>"${discovery_fixture}"
+cat >"${query_fixture}" <<'EOF'
+gsc.legacy-feature_-capability|iphoneos-arm64|install ok installed|0||cydia-refurbished.torrekie.dev/v1
+legacy-provider|all|hold ok installed|1|gsc.legacy-alias_-capability, gsc.legacy-alias--capability|external
+EOF
+cp "${query_fixture}" "${test_root}/legacy-alias-providers-before"
+run_preview
+assert_no_changes
+assert_row $'candidate\tgsc.legacy-feature--capability\t1\tpreserve\tvirtual-provider\tiphoneos-arm64\tinstall ok installed\t0\tcydia-refurbished.torrekie.dev/v1\tgsc.legacy-feature_-capability'
+assert_row $'candidate\tgsc.legacy-alias--capability\t1\tpreserve\tvirtual-provider\tall\thold ok installed\t1\texternal\tlegacy-provider'
+[[ $(grep -c $'^candidate\tgsc.legacy-alias--capability\t' "${preview}") == 1 ]] || fail "legacy Provides aliases duplicated a provider"
+run_apply
+for package in gsc.legacy-feature_-capability gsc.legacy-feature--capability \
+    legacy-provider gsc.legacy-alias_-capability gsc.legacy-alias--capability; do
+    assert_not_built "${package}"
+done
+cmp -s "${query_fixture}" "${test_root}/legacy-alias-providers-before" || fail "legacy alias provider database was rewritten"
+
+# If both spellings already exist, preserve both records even when the strict
+# spelling would otherwise qualify for a Cydia-owned update.
+reset_fixture
+printf 'gestalt\tLegacyFeature_Capability\t1\n' >>"${discovery_fixture}"
+cat >"${query_fixture}" <<'EOF'
+gsc.legacy-feature_-capability|iphoneos-arm64|install ok installed|0||cydia-refurbished.torrekie.dev/v1
+gsc.legacy-feature--capability|iphoneos-arm64|install ok installed|0||cydia-refurbished.torrekie.dev/v1
+EOF
+cp "${query_fixture}" "${test_root}/legacy-alias-collision-before"
+run_apply
+[[ $(grep -c $'^candidate\tgsc.legacy-feature--capability\t1\tpreserve\t' "${preview}") == 2 ]] || fail "legacy alias collision lost a provider"
+assert_not_built gsc.legacy-feature_-capability
+assert_not_built gsc.legacy-feature--capability
+cmp -s "${query_fixture}" "${test_root}/legacy-alias-collision-before" || fail "legacy alias collision database was rewritten"
+
 # Cydia may update only its single, unheld, healthy native record.
 reset_fixture
 printf 'firmware|iphoneos-arm64|install ok installed|16.0||cydia-refurbished.torrekie.dev/v1\n' >"${query_fixture}"

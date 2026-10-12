@@ -294,6 +294,9 @@ protected APT configuration and Advanced Settings overrides take precedence.
 The embedded APT processes use the existing static script-execution fallback
 and the loaded `DPkg::Path`, so rootless interpreters and command dependencies
 remain discoverable. No compatibility dylib or shell wrapper is installed.
+External compression tools are discovered through the same native search path
+before APT selects its codecs and arguments. Explicit compressor paths and
+options in APT configuration retain precedence.
 
 The iOS HTTPS backend uses SecureTransport’s automatic system trust. Custom
 `CaInfo`, client-certificate and CRL files are currently unsupported and fail
@@ -311,6 +314,10 @@ generators, including legacy names containing underscores. These identities
 are read-only: new or updated generated packages still require standard
 lowercase package names. Previewing capabilities never renames or removes
 another generator's providers.
+Capability previews recognize legacy `gsc.*` underscore spellings as existing
+providers through read-only lookup aliases, preventing duplicate generation.
+APT continues to resolve dependencies from the unchanged dpkg names and
+`Provides` fields. If multiple providers already exist, all remain preserved.
 
 The maintscript also initializes an absent source-protection policy with an
 empty selection. No official distribution source is inferred. Existing

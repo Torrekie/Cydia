@@ -6,12 +6,15 @@
 #include "Cydia/PackageDatabasePaths.hpp"
 
 #include <apt-pkg/configuration.h>
+#include <apt-pkg/aptconfiguration.h>
 #include <apt-pkg/pkgsystem.h>
 
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 #if defined(__APPLE__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -90,6 +93,9 @@ RuntimeFixture gRuntimeFixture(RuntimeFixture::Default);
 std::string gFakeDpkgExecutable;
 enum class VerifierFixture { Defaults, NativeSearchPath, ConfiguredPaths, ConfiguredCommands };
 VerifierFixture gVerifierFixture(VerifierFixture::Defaults);
+std::string gCompressionToolsDirectory;
+bool gExplicitCompressionTools(false);
+int gCompressorRefreshes(0), gCompressionTypeRefreshes(0);
 
 void Fail(const std::string &message) {
     std::cerr << "[verify-apt-runtime][FAIL] " << message << std::endl;
@@ -139,7 +145,8 @@ void ExpectBootstrapConfiguration(const Configuration &configuration, const char
     ExpectValue(configuration, "Dir::dpkg::triplettable",
                 beforeConfig ? JoinPath(options.dpkgDataDirectory, "triplettable") : "/apt-conf-override/triplettable", stage);
     ExpectValue(configuration, "DPkg::Path",
-                beforeConfig || gVerifierFixture == VerifierFixture::NativeSearchPath ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin", stage);
+                beforeConfig || gVerifierFixture == VerifierFixture::NativeSearchPath ? options.dpkgExecutableSearchPath :
+                    gCompressionToolsDirectory.empty() ? "/apt-conf-override/bin" : gCompressionToolsDirectory + "/invalid:" + gCompressionToolsDirectory, stage);
 }
 
 void ExpectRootDirectory(const Configuration &configuration, const char *stage) {
@@ -221,7 +228,15 @@ void OverrideBootstrapConfiguration(Configuration &configuration) {
     configuration.Set("Dir::dpkg::tupletable", "/apt-conf-override/tupletable");
     configuration.Set("Dir::dpkg::triplettable", "/apt-conf-override/triplettable");
     if (gVerifierFixture != VerifierFixture::NativeSearchPath)
-        configuration.Set("DPkg::Path", "/apt-conf-override/bin");
+        configuration.Set("DPkg::Path", gCompressionToolsDirectory.empty() ? "/apt-conf-override/bin" :
+            gCompressionToolsDirectory + "/invalid:" + gCompressionToolsDirectory);
+    if (gExplicitCompressionTools) {
+        configuration.Set("Dir::Bin::xz", "/configured-but-missing/xz");
+        configuration.Set("Dir::Bin::gzip", "/dev/null");
+        configuration.Set("APT::Compressor::gzip::UncompressArg::0", "--configured-decompress");
+        configuration.Set("APT::Compressor::xz::Binary", "configured-xz-decoder");
+        configuration.Set("Acquire::CompressionTypes::Order::0", "gz");
+    }
     configuration.Set("APT::Architectures::configured", "iphoneos-foreign-test");
     configuration.Set("Dir::Bin::Methods", "/bootstrap/methods");
     configuration.Set("Dir::State::extended_states", "/bootstrap/extended_states");
@@ -467,6 +482,55 @@ void VerifyVerifierConfiguration(CydiaRuntime::PackageDatabaseLayout layout, Ver
         (fixture == VerifierFixture::NativeSearchPath ? options.dpkgExecutableSearchPath : "/apt-conf-override/bin"),
         "acquisition child PATH follows selected native or explicitly configured tool policy");
     gVerifierFixture = VerifierFixture::Defaults;
+}
+
+void VerifyCompressionToolDiscovery(bool configured, bool rooted) {
+    char directoryTemplate[] = "/tmp/cydia-compression-tools-XXXXXX";
+    char *directory(mkdtemp(directoryTemplate));
+    Expect(directory != NULL, "disposable compressor directory created");
+    char *executable(realpath(gFakeDpkgExecutable.c_str(), NULL));
+    Expect(executable != NULL, "test executable identified without saved host paths");
+    const std::string root(directory);
+    Expect(mkdir((root + "/invalid").c_str(), 0700) == 0 &&
+           mkdir((root + "/invalid/xz").c_str(), 0700) == 0,
+           "executable directory is not a compressor file");
+    for (const char *tool : {"gzip", "bzip2", "xz", "lzma", "lz4", "zstd"})
+        Expect(symlink(executable, (root + "/" + tool).c_str()) == 0, "compressor discovery fixture created");
+    free(executable);
+    const auto options(RootedOptions());
+    Configuration configuration;
+    configuration.Set("APT::Compressor::gzip::UncompressArg::stale", "--stale-layout");
+    configuration.Set("APT::Compressor::xz::Binary", "stale-xz-decoder");
+    configuration.Set("Acquire::CompressionTypes::Order::stale", "stale-format");
+    _config = &configuration; _system = NULL;
+    gExpectedOptions = &options; gExpectedLayout = "compression-tools";
+    gExpectedRootDir = rooted ? "/cydia-test-root" : "";
+    gSourceFixture = rooted ? SourceFixture::RootedRelative : SourceFixture::Relative;
+    gCompressionToolsDirectory = root; gExplicitCompressionTools = configured;
+    gCompressorRefreshes = 0; gCompressionTypeRefreshes = 0;
+    std::string architecture;
+    Expect(CydiaAPT::Initialize(options, &architecture), "compressor configuration initialized");
+    for (const char *tool : {"gzip", "bzip2", "xz", "lzma", "lz4", "zstd"}) {
+        const std::string expected(configured && std::strcmp(tool, "xz") == 0 ? "/configured-but-missing/xz" :
+            configured && std::strcmp(tool, "gzip") == 0 ? "/dev/null" : root + "/" + tool);
+        ExpectValue(configuration, (std::string("Dir::Bin::") + tool).c_str(), expected, "native compressor discovery and configured disablement");
+    }
+    Expect(configuration.FindVector("APT::Compressor::gzip::UncompressArg") ==
+        (configured ? std::vector<std::string>{"--configured-decompress"} : std::vector<std::string>{}),
+        "compressor options follow current configuration without stale defaults");
+    Expect(configuration.FindVector("Acquire::CompressionTypes::Order") ==
+        (configured ? std::vector<std::string>{"gz"} : std::vector<std::string>{}),
+        "compression preference preserves configured order without stale formats");
+    Expect(configuration.Find("APT::Compressor::xz::Binary") == (configured ? "configured-xz-decoder" : ""),
+           "explicit compressor command survives while stale commands are removed");
+    Expect(std::getenv("PATH") != NULL && std::string(std::getenv("PATH")) == root + "/invalid:" + root,
+           "compressor execution PATH remains physical even when RootDir relocates APT data");
+    Expect(gCompressorRefreshes == 1 && gCompressionTypeRefreshes == 1,
+           "compressor caches refresh for the selected environment");
+    for (const char *tool : {"gzip", "bzip2", "xz", "lzma", "lz4", "zstd"}) unlink((root + "/" + tool).c_str());
+    rmdir((root + "/invalid/xz").c_str()); rmdir((root + "/invalid").c_str()); rmdir(root.c_str());
+    gCompressionToolsDirectory.clear(); gExplicitCompressionTools = false;
+    gSourceFixture = SourceFixture::Relative; gExpectedRootDir = "";
 }
 
 #if defined(__APPLE__)
@@ -807,6 +871,15 @@ bool pkgInitSystem(Configuration &configuration, pkgSystem *&system) {
 namespace APT {
 namespace Configuration {
 
+std::vector<Compressor> const getCompressors(bool cached) {
+    Expect(!cached, "compressor list must refresh after environment selection");
+    ++gCompressorRefreshes; return {};
+}
+std::vector<std::string> const getCompressionTypes(bool const &cached) {
+    Expect(!cached, "compression types must refresh after environment selection");
+    ++gCompressionTypeRefreshes; return {};
+}
+
 std::vector<std::string> getArchitectures(bool cached) {
     (void) cached;
     Expect(_system == &gTestSystem,
@@ -840,6 +913,9 @@ int main(int argc, char **argv) {
     const char *originalPath(std::getenv("PATH"));
     const bool hadPath(originalPath != NULL);
     const std::string savedPath(hadPath ? originalPath : "");
+    VerifyCompressionToolDiscovery(false, false);
+    VerifyCompressionToolDiscovery(true, false);
+    VerifyCompressionToolDiscovery(false, true);
 #if defined(__APPLE__)
     VerifyNativeTLSTrust();
     VerifyNativeTLSStreaming();

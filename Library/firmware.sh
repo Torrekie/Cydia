@@ -45,6 +45,27 @@ function valid_provider_name() {
     [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9+._-]*$ ]]
 }
 
+# Legacy collectors kept underscores where current capability names use
+# hyphens. Record both spellings as read-only aliases of the same provider;
+# never rename the installed package or claim an alias for generation.
+function add_provider_alias() {
+    local name=$1 normalized
+    if [[ ${aliases} != *$'\n'"${name}"$'\n'* ]]; then
+        aliases+=${name}$'\n'
+        record_name_index+=${name}$'\n'
+    fi
+    case ${name} in
+        gsc.*_*)
+            normalized=${name//_/-}
+            if valid_package_name "${normalized}" && [[ ${aliases} != *$'\n'"${normalized}"$'\n'* ]]; then
+                aliases+=${normalized}$'\n'
+                record_name_index+=${normalized}$'\n'
+            fi
+            ;;
+    esac
+    return 0
+}
+
 function hyphenate() {
     local value=$1 result= character index
     for ((index = 0; index < ${#value}; ++index)); do
@@ -135,16 +156,15 @@ function index_package_records() {
         record_statuses+=("${status}")
         record_versions+=("${version}")
         record_owners+=("${owner}")
-        record_name_index+=${package}$'\n'
-        aliases=$'\n'${package}$'\n'
+        aliases=$'\n'
+        add_provider_alias "${package}"
         local -a provided_names
         IFS=, read -r -a provided_names <<<"${provides}"
         for provide in "${provided_names[@]}"; do
             provide=${provide##+([[:space:]])}
             alias=${provide%%[[:space:](]*}
-            valid_package_name "${alias}" || continue
-            aliases+=${alias}$'\n'
-            record_name_index+=${alias}$'\n'
+            valid_provider_name "${alias}" || continue
+            add_provider_alias "${alias}"
         done
         record_aliases+=("${aliases}")
     done <"${installed_snapshot}"

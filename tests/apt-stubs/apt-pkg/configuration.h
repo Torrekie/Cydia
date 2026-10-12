@@ -40,6 +40,14 @@ class Configuration {
         return defaultValue == NULL ? std::string() : std::string(defaultValue);
     }
 
+    bool Exists(const char *name) const {
+        const std::string prefix(std::string(name) + "::");
+        for (const auto &value : values_)
+            if (value.first == name || value.first.compare(0, prefix.size(), prefix) == 0)
+                return true;
+        return false;
+    }
+
     std::string FindFile(const char *name, const char *defaultValue = NULL) const {
         return ResolvePath(name, Find(name, defaultValue), false);
     }

@@ -19,6 +19,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 namespace CydiaAPT {
@@ -83,6 +85,34 @@ void ApplyBootstrapConfiguration(const InitializationOptions &options) {
     _config->Set("Dir::dpkg::tupletable", JoinPath(options.dpkgDataDirectory, "tupletable"));
     _config->Set("Dir::dpkg::triplettable", JoinPath(options.dpkgDataDirectory, "triplettable"));
     _config->Set("DPkg::Path", options.dpkgExecutableSearchPath);
+}
+
+void ResolveCompressionTools(const InitializationOptions &options) {
+    // Unlike source/data paths, APT probes these keys with raw Find() and
+    // executes Compressor::Binary through PATH. RootDir does not relocate
+    // that execution namespace; DPkg::Path contains physical tool paths.
+    const std::string searchPath(_config->Find("DPkg::Path", options.dpkgExecutableSearchPath.c_str()));
+    for (const char *tool : {"gzip", "bzip2", "xz", "lzma", "lz4", "zstd"}) {
+        const std::string key("Dir::Bin::" + std::string(tool));
+        // A configured missing path can intentionally disable a format.
+        // Discovery supplies only an absent default, never a replacement.
+        if (_config->Exists(key.c_str())) continue;
+        std::istringstream directories(searchPath);
+        std::string directory;
+        while (std::getline(directories, directory, ':')) {
+            if (directory.empty() || directory.front() != '/') continue;
+            const std::string path(directory + (directory.back() == '/' ? "" : "/") + tool);
+            struct stat identity;
+            if (stat(path.c_str(), &identity) == 0 && S_ISREG(identity.st_mode) && access(path.c_str(), X_OK) == 0) {
+                _config->Set(key.c_str(), path);
+                break;
+            }
+        }
+    }
+    // APT's compressor and extension lists are process caches. Refresh them
+    // after this distribution's paths/configuration have been selected.
+    APT::Configuration::getCompressors(false);
+    APT::Configuration::getCompressionTypes(false);
 }
 
 void ResetRuntimeState() {
@@ -490,6 +520,8 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     _config->Clear("APT::Architectures");
     _config->Clear("DPkg::Options");
     _config->Clear("DPkg::Chroot-Directory");
+    _config->Clear("APT::Compressor");
+    _config->Clear("Acquire::CompressionTypes");
     _config->Clear("Apt::Key::gpgvcommand");
     _config->Clear("Apt::Key::gpgcommand");
     ApplyBootstrapConfiguration(options);
@@ -578,6 +610,8 @@ bool Initialize(const InitializationOptions &options, std::string *architecture)
     gTrustedKeyringDirectory = _config->FindFile("Dir::Etc::trusted", "trusted.gpg");
     gTrustedKeyringPartsDirectory = NormalizeRootDirectory(
         _config->FindDir("Dir::Etc::trustedparts", "trusted.gpg.d"));
+
+    ResolveCompressionTools(options);
 
     SetCachedRepositoryTrustValid(false);
     SetRepositorySecurityMode(options.repositorySecurityMode);
