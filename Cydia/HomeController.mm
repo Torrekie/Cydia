@@ -27,6 +27,7 @@
 
 @interface HomeController () <UITableViewDataSource, UITableViewDelegate>
 - (UITraitCollection *) homeAppearanceTraits;
+- (void) updateBannerTypography;
 @end
 
 @interface CydiaHomeSplitLinkCell : UITableViewCell
@@ -567,10 +568,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     title_ = [[UILabel alloc] init];
     title_.text = HomeLocalized("WELCOME_TO_CYDIA", "Welcome to Cydia™");
     title_.accessibilityIdentifier = @"cydia.home.header.title";
-    /* The legacy banner uses a compact headline beside the logo.  Title2
-     * makes the native replacement visually heavier than the source page on
-     * iPad while offering no additional hierarchy. */
-    title_.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     title_.adjustsFontForContentSizeCategory = YES;
     title_.numberOfLines = 0;
     title_.textAlignment = NSTextAlignmentCenter;
@@ -580,7 +577,6 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     [author_ setTitle:[NSString stringWithFormat:HomeLocalized("BY", "by %@"),
         @"Jay Freeman (saurik)"] forState:UIControlStateNormal];
     author_.accessibilityIdentifier = @"cydia.home.header.author";
-    author_.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
     author_.titleLabel.adjustsFontForContentSizeCategory = YES;
     author_.titleLabel.numberOfLines = 0;
     author_.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -613,6 +609,33 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     table_.tableFooterView = footer_;
 
     [self applyColorAppearance];
+}
+
+- (void) updateBannerTypography {
+    UITraitCollection *traits(self.traitCollection);
+    // The original Home HTML uses an 18px regular title and a 14px byline;
+    // only the author's link is bold. Scale those proportions with Dynamic Type.
+    title_.font = [[UIFontMetrics metricsForTextStyle:UIFontTextStyleBody]
+        scaledFontForFont:[UIFont systemFontOfSize:18] compatibleWithTraitCollection:traits];
+    UIFontMetrics *metrics([UIFontMetrics metricsForTextStyle:UIFontTextStyleSubheadline]);
+    UIFont *font([metrics scaledFontForFont:[UIFont systemFontOfSize:14]
+        compatibleWithTraitCollection:traits]);
+    author_.titleLabel.font = font;
+    NSString *text([author_ titleForState:UIControlStateNormal]);
+    if (text == nil)
+        return;
+    UITraitCollection *appearance([self homeAppearanceTraits]);
+    NSMutableAttributedString *byline([[NSMutableAttributedString alloc]
+        initWithString:text attributes:@{NSFontAttributeName:font,
+            NSForegroundColorAttributeName:[UIColor cydiaColorForRole:CydiaColorRoleLabel
+                traitCollection:appearance]}]);
+    NSRange authorRange([text rangeOfString:@"Jay Freeman (saurik)"]);
+    if (authorRange.location != NSNotFound)
+        [byline addAttributes:@{NSFontAttributeName:[metrics scaledFontForFont:
+            [UIFont boldSystemFontOfSize:14] compatibleWithTraitCollection:traits],
+            NSForegroundColorAttributeName:[UIColor cydiaColorForRole:CydiaColorRoleAccent
+                traitCollection:appearance]} range:authorRange];
+    [author_ setAttributedTitle:byline forState:UIControlStateNormal];
 }
 
 - (void) viewWillAppear:(BOOL)animated {
@@ -648,24 +671,32 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     }
 
     CGFloat width(table_.bounds.size.width);
-    CGFloat contentWidth(MIN(320, MAX(1, width - 32)));
+    // Home's web banner has 9px margins, 16px horizontal padding, a 60px
+    // logo and a 70px text offset. Its iPad panel is 320px wide.
+    CGFloat bannerWidth(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad ?
+        MIN(320, width) : width);
+    CGFloat contentWidth(MAX(1, bannerWidth - 50));
     CGFloat contentLeft(floor((width - contentWidth) / 2));
-    CGFloat textLeft(contentLeft + 70);
     CGFloat textWidth(MAX(1, contentWidth - 70));
-    CGFloat y(6);
+    BOOL rtl(self.view.effectiveUserInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft);
+    CGFloat textLeft(rtl ? contentLeft : contentLeft + 70);
     CGSize logoSize(CGSizeMake(60, 60));
-    logo_.frame = CGRectMake(contentLeft, y, logoSize.width, logoSize.height);
+    logo_.frame = CGRectMake(rtl ? contentLeft + contentWidth - logoSize.width : contentLeft,
+        9, logoSize.width, logoSize.height);
 
     CGSize titleSize([title_ sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)]);
-    title_.frame = CGRectMake(textLeft, y, textWidth, titleSize.height);
-    y += titleSize.height + 2;
-    CGSize authorSize([author_ sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)]);
-    CGFloat authorHeight(MAX(44, authorSize.height));
-    author_.frame = CGRectMake(textLeft, y, textWidth, authorHeight);
-    y += authorHeight;
+    title_.frame = CGRectMake(textLeft, 9 + 8, textWidth, ceil(titleSize.height));
+    CGSize authorSize([author_.titleLabel sizeThatFits:CGSizeMake(textWidth, CGFLOAT_MAX)]);
+    CGFloat authorTextHeight(ceil(authorSize.height));
+    CGFloat authorHeight(MAX(44, authorTextHeight));
+    // Keep the byline directly below the title while extending its tappable
+    // area around the text instead of inserting a 44pt visual line gap.
+    author_.frame = CGRectMake(textLeft,
+        CGRectGetMaxY(title_.frame) - (authorHeight - authorTextHeight) / 2,
+        textWidth, authorHeight);
 
-    CGFloat topperBottom(MAX(y, 9 + logoSize.height));
-    CGFloat height(topperBottom + 5);
+    CGFloat topperBottom(MAX(CGRectGetMaxY(author_.frame), CGRectGetMaxY(logo_.frame)));
+    CGFloat height(topperBottom + 9);
     if (!status_.hidden) {
         CGFloat statusTop(topperBottom + 4);
         CGSize statusSize([status_ sizeThatFits:CGSizeMake(width - 32, CGFLOAT_MAX)]);
@@ -719,6 +750,7 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
     footer_.backgroundColor = grouped;
     title_.textColor = label;
     [author_ setTitleColor:accent forState:UIControlStateNormal];
+    [self updateBannerTypography];
     status_.textColor = viewModel_.status == CydiaHomeStatusOffline ?
         [UIColor cydiaColorForRole:CydiaColorRoleErrorLabel
                    traitCollection:traits] : secondary;
@@ -746,6 +778,8 @@ static void HomeControllerReachabilityCallback(SCNetworkReachabilityRef reachabi
             previousTraitCollection.preferredContentSizeCategory]);
     if (colorChanged)
         [self applyColorAppearance];
+    else if (contentSizeChanged)
+        [self updateBannerTypography];
     if (colorChanged || contentSizeChanged) {
         [table_ reloadData];
         [recommendationsTable_ reloadData];

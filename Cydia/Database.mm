@@ -632,7 +632,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
         NSString *message([NSString stringWithUTF8String:item->message.c_str()] ?: @"");
         [diagnostics addObject:message];
-        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:message ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:CydiaAPTDiagnosticMessage(message) ofType:(item->warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
     }
 
     return fatal;
@@ -731,7 +731,7 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
 
             lprintf("cache.Open():[%s]\n", error.c_str());
 
-            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:[NSString stringWithUTF8String:error.c_str()] ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
+            [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:CydiaAPTDiagnosticMessage([NSString stringWithUTF8String:error.c_str()]) ofType:(warning ? kCydiaProgressEventTypeWarning : kCydiaProgressEventTypeError)] forTask:title];
 
             SEL repair(NULL);
             if (!attemptedDpkgRepair && ErrorSuggestsDpkgRepair(error)) {

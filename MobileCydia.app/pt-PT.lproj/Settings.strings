@@ -112,3 +112,10 @@
 "ARCHIVE_INVALID" = "O arquivo do pacote %@ é inválido ou está incompleto e não pôde ser inspecionado em segurança.";
 "ARCHIVE_IDENTITY_MISMATCH" = "O arquivo do pacote %@ não corresponde ao nome, à versão ou à arquitetura do pacote selecionado. A instalação foi bloqueada.";
 "ARCHIVE_UNVERIFIED" = "O Cydia não conseguiu verificar totalmente a estrutura de ficheiros de %@. Verifique a compatibilidade do pacote antes de continuar.";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "Campo «%@» inválido no ficheiro Release %@";
+"APT_FETCH_FAILED" = "Não foi possível obter %@\n%@";
+"APT_CONNECT_TIMEOUT" = "Não foi possível ligar a %@:%@ (%@): o tempo limite da ligação foi excedido";
+"APT_CONNECTION_TIMEOUT" = "O tempo limite da ligação foi excedido";
+"APT_INDEX_DOWNLOAD_FAILED" = "Não foi possível descarregar alguns ficheiros de índice. Foram ignorados ou foram utilizados os ficheiros antigos.";

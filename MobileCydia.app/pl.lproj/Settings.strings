@@ -111,3 +111,10 @@
 "ARCHIVE_INVALID" = "Archiwum %@ jest nieprawidłowe lub niekompletne i nie można go było bezpiecznie sprawdzić.";
 "ARCHIVE_IDENTITY_MISMATCH" = "Archiwum %@ nie odpowiada wybranej nazwie, wersji lub architekturze pakietu. Instalacja została zablokowana.";
 "ARCHIVE_UNVERIFIED" = "Cydia nie mogła w pełni zweryfikować układu plików %@. Sprawdź zgodność pakietu przed kontynuowaniem.";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "Nieprawidłowe pole „%@” w pliku Release %@";
+"APT_FETCH_FAILED" = "Nie udało się pobrać %@\n%@";
+"APT_CONNECT_TIMEOUT" = "Nie można połączyć się z %@:%@ (%@): przekroczono limit czasu połączenia";
+"APT_CONNECTION_TIMEOUT" = "Przekroczono limit czasu połączenia";
+"APT_INDEX_DOWNLOAD_FAILED" = "Nie udało się pobrać niektórych plików indeksu. Zostały zignorowane lub użyto starszych plików.";

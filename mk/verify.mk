@@ -1187,12 +1187,13 @@ ifeq ($(HOST_OS),Darwin)
 $(PROGRESS_VIEW_MODEL_TEST): tests/ProgressViewModelTests.mm \
 		Cydia/ProgressViewModel.h Cydia/ProgressViewModel.mm \
 		Cydia/ProgressData.h Cydia/ProgressData.mm Cydia/ProgressEvent.h \
-		Cydia/PackageArchitecturePresentation.h
+		Cydia/PackageArchitecturePresentation.h Cydia/FetchDiagnostics.h \
+		Cydia/FetchDiagnostics.mm MobileCydia.app/zh-Hans.lproj/Settings.strings
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra \
 		-Wno-unused-parameter -I. \
 		tests/ProgressViewModelTests.mm Cydia/ProgressViewModel.mm \
-		Cydia/ProgressData.mm -framework Foundation -o $@
+		Cydia/ProgressData.mm Cydia/FetchDiagnostics.mm -framework Foundation -o $@
 
 verify-progress-view-model: $(PROGRESS_VIEW_MODEL_TEST)
 	@$<

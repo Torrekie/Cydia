@@ -111,3 +111,10 @@
 "ARCHIVE_INVALID" = "أرشيف %@ غير صالح أو غير مكتمل، وتعذر فحصه بأمان.";
 "ARCHIVE_IDENTITY_MISMATCH" = "أرشيف %@ لا يطابق اسم الحزمة المحددة أو إصدارها أو بنيتها. تم منع التثبيت.";
 "ARCHIVE_UNVERIFIED" = "لم يتمكن Cydia من التحقق بالكامل من تخطيط ملفات %@. راجع توافق الحزمة قبل المتابعة.";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "حقل «%@» غير صالح في ملف Release ‏%@";
+"APT_FETCH_FAILED" = "تعذّر جلب %@\n%@";
+"APT_CONNECT_TIMEOUT" = "تعذّر الاتصال بـ %@:%@ ‏(%@)، انتهت مهلة الاتصال";
+"APT_CONNECTION_TIMEOUT" = "انتهت مهلة الاتصال";
+"APT_INDEX_DOWNLOAD_FAILED" = "تعذّر تنزيل بعض ملفات الفهرسة. تم تجاهلها أو استخدام النسخ القديمة بدلًا منها.";

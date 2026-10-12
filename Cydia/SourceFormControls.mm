@@ -214,12 +214,13 @@ void CydiaStyleSourceFormCell(UITableViewCell *cell, UITraitCollection *traits) 
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return choices_.count; }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section { return explanation_; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
+    UITableViewCell *cell([table dequeueReusableCellWithIdentifier:@"SourceChoice"]);
+    if (cell == nil) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"SourceChoice"];
     CydiaStyleSourceFormCell(cell, self.traitCollection); NSDictionary *choice(choices_[path.row]);
     cell.textLabel.text = choice[@"title"]; cell.detailTextLabel.text = choice[@"detail"];
     BOOL selected([selected_ containsObject:choice[@"value"]]);
     cell.accessoryType = selected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-    cell.accessibilityTraits |= UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
+    cell.accessibilityTraits = (cell.accessibilityTraits & ~UIAccessibilityTraitSelected) | UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
     return cell;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {

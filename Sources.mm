@@ -89,6 +89,34 @@ bool CydiaSourceDefinitionCanEdit(CydiaSourceDefinition *row, CydiaSources::Acce
     return CydiaSources::PlanStoredMutation(CydiaEffectiveSourceLocations(), [row snapshot], mutation,
         CydiaReadSourceProtection().selectors, access).ready();
 }
+NSIndexSet *CydiaReadSourceDisplayEditability(NSArray<CydiaSourceDefinition *> *rows, CydiaSources::Access access) {
+    NSMutableIndexSet *editable([NSMutableIndexSet indexSet]);
+    if (rows.count == 0 || !CydiaAPT::MutationEnvironmentValid()) return editable;
+    const auto policy(CydiaReadSourceProtection());
+    const auto snapshot(CydiaReadSourceDocuments());
+    if (!policy.valid || !snapshot.ready()) return editable;
+    const auto documents(SourceDocuments(snapshot));
+    if (access == CydiaSources::Access::Ordinary &&
+        CydiaSources::EvaluateProtection(documents, policy.selectors, "", 0).state ==
+            CydiaSources::ProtectionState::ReviewRequired) return editable;
+    for (NSUInteger index = 0; index != rows.count; ++index) {
+        CydiaSourceDefinition *row(rows[index]);
+        const auto &expected([row snapshot]);
+        for (const auto &current : snapshot.documents) {
+            if (current.document.path != expected.document.path) continue;
+            if (current.readOnly || current.identity.links != 1 ||
+                !expected.identity.sameVersion(current.identity) ||
+                expected.canonicalPath != current.canonicalPath ||
+                expected.document.bytes != current.document.bytes) break;
+            CydiaSources::Mutation mutation(CydiaSources::EditKind::SetEnabled);
+            mutation.ordinal = row.ordinal; mutation.enabled = row.enabled;
+            if (CydiaSources::PlanMutation(expected.document, current.document.bytes, mutation,
+                documents, policy.selectors, access).accepted()) [editable addIndex:index];
+            break;
+        }
+    }
+    return editable;
+}
 NSArray<CydiaSourceDefinition *> *CydiaSourceDefinitionsForKey(NSString *key) {
     NSMutableArray *matches([NSMutableArray array]);
     for (CydiaSourceDefinition *row in CydiaReadSourceDefinitions())

@@ -2,6 +2,7 @@
 #import "Cydia/SourceAddController_Internal.h"
 #import "Cydia/Database.h"
 #import "Cydia/CydiaDelegate.h"
+#import "Cydia/Appearance.h"
 #import "Sources.h"
 #import "CyteKit/Localize.h"
 #include "Cydia/AptRuntime.hpp"
@@ -64,7 +65,8 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
 
 @implementation CydiaSourceAddController {
     Src::SourceDraft fieldBase_, pendingFields_;
-    BOOL hasPendingFields_;
+    BOOL hasPendingFields_, textConvertible_;
+    NSMutableDictionary<NSString *, UITableViewCell *> *formCells_;
 }
 + (instancetype)controllerWithDraft:(const Src::SourceDraft &)draft database:(Database *)database
                          presenter:(CyteViewController *)presenter row:(CydiaSourceDefinition *)row access:(Src::Access)access {
@@ -118,6 +120,7 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
     [self.presenter presentViewController:navigation animated:YES completion:nil];
 }
 - (void)loadView {
+    formCells_ = [NSMutableDictionary dictionary];
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
     self.table.dataSource = self; self.table.delegate = self; self.table.rowHeight = UITableViewAutomaticDimension;
     self.table.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
@@ -149,7 +152,14 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
     return bar;
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
-    [super traitCollectionDidChange:previous]; CydiaStyleSourceForm(self.table, self.traitCollection); [self.table reloadData];
+    [super traitCollectionDidChange:previous];
+    if (!self.isViewLoaded) return;
+    if (!CydiaColorAppearanceDidChange(self.traitCollection, previous) &&
+        [self.traitCollection.preferredContentSizeCategory isEqual:previous.preferredContentSizeCategory]) return;
+    CydiaStyleSourceForm(self.table, self.traitCollection);
+    // Custom inputs have appearance-specific subviews. Recreate them only for
+    // an appearance/content-size change, not as each row scrolls into view.
+    [self.view endEditing:YES]; [formCells_ removeAllObjects]; [self.table reloadData];
 }
 - (void)refreshForm {
     if (!self.isViewLoaded) return;
@@ -266,7 +276,8 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
     if (self.session.existingSource || self.session.destinationPath.length)
         [text addObject:Row(@"fixedformatnotice", CydiaSourceText(@"SOURCE_ADD_EXISTING_DESTINATION"))];
     Src::SourceDraft converted;
-    if (draft.raw && !TextInFormat(draft, draft.format == Src::Format::OneLine ? Src::Format::Deb822 : Src::Format::OneLine, &converted))
+    textConvertible_ = TextInFormat(draft, draft.format == Src::Format::OneLine ? Src::Format::Deb822 : Src::Format::OneLine, &converted);
+    if (draft.raw && !textConvertible_)
         [text addObject:Row(@"conversionnotice", CydiaSourceText(@"SOURCE_ADD_TEXT_CONVERSION_UNAVAILABLE"))];
     return @[basic, options, text, destination];
 }
@@ -293,12 +304,7 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
         if (path.section >= self.displayedRows.count || path.row >= self.displayedRows[path.section].count) continue;
         NSDictionary *row(self.displayedRows[path.section][path.row]);
         UITableViewCell *cell([self.table cellForRowAtIndexPath:path]);
-        if ([cell isKindOfClass:[CydiaSourceFieldCell class]]) {
-            UITextField *field([(CydiaSourceFieldCell *)cell field]); if (!field.isFirstResponder) field.text = row[@"value"];
-        } else if ([cell isKindOfClass:[CydiaSourceTextCell class]]) {
-            UITextView *editor([(CydiaSourceTextCell *)cell editor]); if (!editor.isFirstResponder) editor.text = row[@"value"];
-        } else if ([cell isKindOfClass:[CydiaSourceFormatCell class]]) [self configureTextFormat:[(CydiaSourceFormatCell *)cell control]];
-        else { cell.textLabel.text = row[@"title"]; cell.detailTextLabel.text = row[@"value"]; }
+        [self configureCell:cell row:row];
     }
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.displayedRows.count; }
@@ -318,20 +324,29 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
 - (CGFloat)tableView:(UITableView *)table heightForFooterInSection:(NSInteger)section {
     return self.displayedRows[section].count ? UITableViewAutomaticDimension : 0.01;
 }
+- (void)configureCell:(UITableViewCell *)cell row:(NSDictionary *)row {
+    if ([cell isKindOfClass:[CydiaSourceFieldCell class]]) {
+        UITextField *field([(CydiaSourceFieldCell *)cell field]);
+        if (!field.isFirstResponder && ![field.text isEqual:row[@"value"]]) field.text = row[@"value"];
+    } else if ([cell isKindOfClass:[CydiaSourceTextCell class]]) {
+        UITextView *editor([(CydiaSourceTextCell *)cell editor]);
+        if (!editor.isFirstResponder && ![editor.text isEqual:row[@"value"]]) editor.text = row[@"value"];
+    } else if ([cell isKindOfClass:[CydiaSourceFormatCell class]]) [self configureTextFormat:[(CydiaSourceFormatCell *)cell control]];
+    else { cell.textLabel.text = row[@"title"]; cell.detailTextLabel.text = row[@"value"]; }
+}
 - (void)configureTextFormat:(UISegmentedControl *)control {
-    const auto &draft([self.session draft]); Src::SourceDraft converted;
-    control.selectedSegmentIndex = draft.format == Src::Format::OneLine ? 0 : 1;
-    BOOL convertible(TextInFormat(draft,
-        draft.format == Src::Format::OneLine ? Src::Format::Deb822 : Src::Format::OneLine, &converted));
-    // Existing files keep their actual format. Choosing New Source File unlocks
-    // the format selection for additions that were targeting an existing file.
+    control.selectedSegmentIndex = [self.session draft].format == Src::Format::OneLine ? 0 : 1;
     BOOL fixed(self.session.existingSource != nil || self.session.destinationPath.length != 0);
     [control setEnabled:YES forSegmentAtIndex:control.selectedSegmentIndex];
-    [control setEnabled:convertible && !fixed forSegmentAtIndex:1 - control.selectedSegmentIndex];
+    [control setEnabled:textConvertible_ && !fixed forSegmentAtIndex:1 - control.selectedSegmentIndex];
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     NSDictionary *row(self.displayedRows[path.section][path.row]); NSString *key(row[@"key"]);
     NSString *identifier([@"cydia.source-draft." stringByAppendingString:key]);
+    // This bounded form has one cell per logical field. Keeping its input
+    // controls also preserves cursor/selection state when scrolled offscreen.
+    UITableViewCell *cached(formCells_[key]);
+    if (cached != nil) { [self configureCell:cached row:row]; return cached; }
     if ([@[@"uri", @"distribution", @"components", @"filename"] containsObject:key]) {
         NSString *placeholder([key isEqual:@"uri"] ? @"https://" : [key isEqual:@"distribution"] ? @"./" :
             [key isEqual:@"components"] ? @"" : CydiaSourceText(@"SOURCE_FILENAME"));
@@ -339,19 +354,19 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
             placeholder:placeholder URL:[key isEqual:@"uri"] traits:self.traitCollection]);
         cell.field.accessibilityIdentifier = identifier; cell.field.delegate = self; cell.field.inputAccessoryView = [self editingToolbar];
         [cell.field addTarget:self action:@selector(fieldChanged:) forControlEvents:UIControlEventEditingChanged];
-        return cell;
+        formCells_[key] = cell; return cell;
     }
     if ([key isEqual:@"oneline"] || [key isEqual:@"deb822"]) {
         CydiaSourceTextCell *cell([[CydiaSourceTextCell alloc] initWithText:row[@"value"] title:row[@"title"] traits:self.traitCollection]);
         cell.editor.accessibilityIdentifier = identifier; cell.editor.delegate = self; cell.editor.inputAccessoryView = [self editingToolbar];
-        return cell;
+        formCells_[key] = cell; return cell;
     }
     if ([key isEqual:@"textformat"]) {
         CydiaSourceFormatCell *cell([[CydiaSourceFormatCell alloc] initWithTitle:row[@"title"] traits:self.traitCollection]);
         cell.control.accessibilityIdentifier = identifier;
         [self configureTextFormat:cell.control];
         [cell.control addTarget:self action:@selector(textFormatChanged:) forControlEvents:UIControlEventValueChanged];
-        return cell;
+        formCells_[key] = cell; return cell;
     }
     UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
     CydiaStyleSourceFormCell(cell, self.traitCollection); cell.textLabel.text = row[@"title"]; cell.detailTextLabel.text = row[@"value"];
@@ -359,7 +374,7 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
     if ([@[@"policy", @"status", @"definition", @"trust", @"signature", @"savedpath", @"textnotice", @"conversionnotice", @"filenameerror", @"fixedformatnotice"] containsObject:key])
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
     else { cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.accessibilityTraits |= UIAccessibilityTraitButton; }
-    return cell;
+    formCells_[key] = cell; return cell;
 }
 - (void)fieldChanged:(UITextField *)field {
     NSString *key(field.accessibilityIdentifier.pathExtension);
@@ -444,10 +459,13 @@ static NSString *WarningMessage(CydiaSourceAddSession *session) {
     if (self.session.existingSource) return;
     NSMutableArray *choices([NSMutableArray arrayWithObject:@{@"title":CydiaSourceText(@"SOURCE_NEW_FILE"), @"value":@""}]);
     const auto &draft([self.session draft]); const auto built(Src::BuildSourceDraft(draft, "draft"));
-    for (const auto &file : CydiaReadSourceDocuments().documents) {
+    const auto store(CydiaReadSourceDocuments());
+    const auto locations(CydiaEffectiveSourceLocations());
+    const auto protection(CydiaReadSourceProtection());
+    for (const auto &file : store.documents) {
         if (file.readOnly || file.document.format != draft.format) continue;
         Src::Mutation append(Src::EditKind::AppendDefinition); append.contents = built.document.bytes;
-        if (!Src::PlanStoredMutation(CydiaEffectiveSourceLocations(), file, append, CydiaReadSourceProtection().selectors).ready()) continue;
+        if (!Src::PlanStoredMutation(locations, file, append, protection.selectors).ready()) continue;
         [choices addObject:@{@"title":S(file.document.path), @"value":S(file.document.path)}];
     }
     __weak CydiaSourceAddController *weakSelf(self);

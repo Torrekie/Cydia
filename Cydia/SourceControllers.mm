@@ -36,6 +36,13 @@ static void SourceMessage(UIViewController *presenter, NSString *message) {
     });
 }
 static void SourceSettings(CyteViewController *presenter, Database *database) {
+    // A protected-source review can originate below Advanced Settings. Return
+    // to its existing ancestor instead of constructing a second settings tree.
+    for (UIViewController *controller in presenter.navigationController.viewControllers)
+        if ([controller isKindOfClass:[CydiaAdvancedSettingsController class]]) {
+            [presenter.navigationController popToViewController:controller animated:YES];
+            return;
+        }
     CydiaAdvancedSettingsController *settings([[CydiaAdvancedSettingsController alloc] initWithDatabase:database]);
     [settings setDelegate:[presenter delegate]];
     [presenter.navigationController pushViewController:settings animated:YES];
@@ -60,6 +67,17 @@ static void StyleSourceCell(UITableViewCell *cell) {
     cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:cell.traitCollection];
     cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:cell.traitCollection];
     cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:cell.traitCollection];
+}
+static UITableViewCell *SourceSettingsCell(UITableView *table) {
+    UITableViewCell *cell([table dequeueReusableCellWithIdentifier:@"SourceSettingsCell"]);
+    if (cell == nil) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"SourceSettingsCell"];
+    StyleSourceCell(cell);
+    cell.textLabel.text = nil; cell.detailTextLabel.text = nil;
+    cell.textLabel.enabled = YES; cell.detailTextLabel.enabled = YES;
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.accessibilityIdentifier = nil; cell.accessibilityTraits = UIAccessibilityTraitNone;
+    return cell;
 }
 static void StyleSourceTable(UITableView *table, UITraitCollection *traits) {
     table.backgroundColor = [UIColor cydiaColorForRole:table.style == UITableViewStylePlain ? CydiaColorRoleBackground : CydiaColorRoleGroupedBackground traitCollection:traits];
@@ -337,7 +355,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 - (void)traitCollectionDidChange:(UITraitCollection *)previous { [super traitCollectionDidChange:previous]; if (SourceTraitsChanged(self.traitCollection, previous)) StyleSourceTable(table_, self.traitCollection); }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return diagnostic_ != nil ? 1 : 2; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]); StyleSourceCell(cell);
+    UITableViewCell *cell(SourceSettingsCell(table));
     cell.textLabel.text = SourceUI(diagnostic_ != nil ? @"SOURCE_FILE_UNAVAILABLE" : path.row == 0 ? @"SOURCE_LOCATION" : @"SOURCE_DEFINITION");
     cell.detailTextLabel.text = diagnostic_ != nil ? diagnostic_ : path.row == 0 ? [NSString stringWithFormat:@"%@:%lu", row_.filePath, (unsigned long)row_.lineNumber] : row_.original;
     cell.selectionStyle = UITableViewCellSelectionStyleNone; return cell;
@@ -352,6 +370,8 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     CydiaSourceDefinition *row_;
     CydiaSources::Access access_;
     UITableView *table_;
+    BOOL editable_;
+    NSArray<NSString *> *detailTitles_, *detailValues_, *actionTitles_;
 }
 - (instancetype)initWithDatabase:(Database *)database row:(CydiaSourceDefinition *)row access:(CydiaSources::Access)access {
     if ((self = [super init]) != nil) { database_ = database; row_ = row; access_ = access; }
@@ -359,6 +379,13 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 }
 - (void)reloadData {
     [super reloadData];
+    // Row rendering must not reread every APT source file/protection selector.
+    // Actions below and the privileged commit still revalidate current state.
+    editable_ = [CydiaReadSourceDisplayEditability(@[row_], access_) containsIndex:0];
+    detailTitles_ = @[SourceUI(@"SOURCE_STATUS"), SourceUI(@"SOURCE_REPOSITORIES"), SourceUI(@"SOURCE_COMPONENTS"), SourceUI(@"SOURCE_DEFINITION_DETAILS")];
+    detailValues_ = @[SourceUI(row_.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED"),
+        [[row_.uris arrayByAddingObjectsFromArray:row_.suites] componentsJoinedByString:@"\n"], [row_.components componentsJoinedByString:@" "], @""];
+    actionTitles_ = @[UCLocalize("EDIT"), SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE"), SourceUI(@"SOURCE_REMOVE"), SourceUI(@"SOURCE_ADVANCED_SETTINGS")];
     [table_ reloadData];
 }
 - (void)loadView {
@@ -367,35 +394,33 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     table_.rowHeight = UITableViewAutomaticDimension; table_.estimatedRowHeight = 60; self.view = table_;
     StyleSourceTable(table_, self.traitCollection);
 }
-- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = DefinitionName(database_, row_); [self reloadData]; }
-- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self reloadData]; }
+- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = DefinitionName(database_, row_); }
+- (void)viewWillAppear:(BOOL)animated {
+    const BOOL loaded([self hasLoaded]); [super viewWillAppear:animated];
+    if (loaded) [self reloadData];
+}
 - (void)traitCollectionDidChange:(UITraitCollection *)previous { [super traitCollectionDidChange:previous]; if (SourceTraitsChanged(self.traitCollection, previous)) StyleSourceTable(table_, self.traitCollection); }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    return 4;
+    return section == 1 && access_ == CydiaSources::Access::AdvancedSettings ? 3 : 4;
 }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
     return nil;
 }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
     if (section == 1 && [row_ snapshot].readOnly) return SourceUI(@"SOURCE_READ_ONLY_ALIAS");
-    if (section == 1 && !CydiaSourceDefinitionCanEdit(row_, access_)) return SourceUI(@"SOURCE_PROTECTED_OR_REVIEW");
+    if (section == 1 && !editable_) return SourceUI(@"SOURCE_PROTECTED_OR_REVIEW");
     return nil;
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
-    StyleSourceCell(cell);
+    UITableViewCell *cell(SourceSettingsCell(table));
     if (path.section == 0) {
-        NSArray *titles(@[SourceUI(@"SOURCE_STATUS"), SourceUI(@"SOURCE_REPOSITORIES"), SourceUI(@"SOURCE_COMPONENTS"), SourceUI(@"SOURCE_DEFINITION_DETAILS")]);
-        NSArray *values(@[SourceUI(row_.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED"),
-            [[row_.uris arrayByAddingObjectsFromArray:row_.suites] componentsJoinedByString:@"\n"], [row_.components componentsJoinedByString:@" "], @""]);
-        cell.textLabel.text = titles[path.row]; cell.detailTextLabel.text = values[path.row];
+        cell.textLabel.text = detailTitles_[path.row]; cell.detailTextLabel.text = detailValues_[path.row];
         if (path.row == 3) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         else cell.selectionStyle = UITableViewCellSelectionStyleNone;
     } else {
-        NSArray *titles(@[UCLocalize("EDIT"), SourceUI(row_.enabled ? @"SOURCE_DISABLE" : @"SOURCE_ENABLE"), SourceUI(@"SOURCE_REMOVE"), SourceUI(@"SOURCE_ADVANCED_SETTINGS")]);
-        cell.textLabel.text = titles[path.row]; cell.accessibilityTraits |= UIAccessibilityTraitButton;
-        if (path.row < 3 && !CydiaSourceDefinitionCanEdit(row_, access_)) {
+        cell.textLabel.text = actionTitles_[path.row]; cell.accessibilityTraits |= UIAccessibilityTraitButton;
+        if (path.row < 3 && !editable_) {
             cell.textLabel.enabled = NO; cell.selectionStyle = UITableViewCellSelectionStyleNone;
         }
         if (path.row == 3) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -433,6 +458,8 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     NSArray<CydiaSourceDefinition *> *definitions_;
     NSArray<NSString *> *diagnostics_;
     CydiaSources::Access access_;
+    NSArray<NSString *> *names_, *summaries_;
+    BOOL editable_;
 }
 - (id)initWithDatabase:(Database *)database advancedAccess:(BOOL)advancedAccess {
     if ((self = [super init]) != nil) {
@@ -451,13 +478,27 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 - (void)viewDidLoad {
     [super viewDidLoad]; self.navigationItem.title = SourceUI(access_ == CydiaSources::Access::AdvancedSettings ? @"SOURCE_REPOSITORY_SETTINGS_ADVANCED" : @"SOURCE_REPOSITORY_SETTINGS");
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:UCLocalize("ADD") style:UIBarButtonItemStylePlain target:self action:@selector(showAddSourcePrompt)];
-    [self reloadData];
 }
-- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self reloadData]; }
+- (void)viewWillAppear:(BOOL)animated {
+    const BOOL loaded([self hasLoaded]); [super viewWillAppear:animated];
+    if (loaded) [self reloadData];
+}
 - (void)traitCollectionDidChange:(UITraitCollection *)previous { [super traitCollectionDidChange:previous]; if (SourceTraitsChanged(self.traitCollection, previous)) StyleSourceTable(list_, self.traitCollection); }
 - (void)reloadData {
     [super reloadData]; NSArray<NSString *> *diagnostics(nil);
     definitions_ = CydiaReadSourceDefinitions(&diagnostics); diagnostics_ = diagnostics;
+    editable_ = CydiaCanEditSources(access_);
+    NSMutableArray *names([NSMutableArray arrayWithCapacity:definitions_.count]);
+    NSMutableArray *summaries([NSMutableArray arrayWithCapacity:definitions_.count]);
+    for (CydiaSourceDefinition *row in definitions_) {
+        NSString *name(DefinitionName(database_, row)); [names addObject:name];
+        NSString *uris([row.uris componentsJoinedByString:@", "]);
+        NSMutableArray *summary([NSMutableArray arrayWithObject:SourceUI(row.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED")]);
+        if (uris.length && ![name isEqual:uris]) [summary addObject:uris];
+        if (row.suites.count) [summary addObject:[row.suites componentsJoinedByString:@", "]];
+        [summaries addObject:[summary componentsJoinedByString:@" · "]];
+    }
+    names_ = names; summaries_ = summaries;
     [list_ reloadData];
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
@@ -466,18 +507,13 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     return section == 1 && diagnostics_.count != 0 ? SourceUI(@"SOURCE_FILE_ERRORS") : nil;
 }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section {
-    return section == 0 && !CydiaCanEditSources(access_) ? SourceUI(@"SOURCE_PROTECTED_OR_REVIEW") : nil;
+    return section == 0 && !editable_ ? SourceUI(@"SOURCE_PROTECTED_OR_REVIEW") : nil;
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]); StyleSourceCell(cell);
+    UITableViewCell *cell(SourceSettingsCell(table));
     if (path.section == 0) {
-        CydiaSourceDefinition *row(definitions_[path.row]);
-        cell.textLabel.text = DefinitionName(database_, row);
-        NSString *uris([row.uris componentsJoinedByString:@", "]);
-        NSMutableArray *summary([NSMutableArray arrayWithObject:SourceUI(row.enabled ? @"SOURCE_ENABLED" : @"SOURCE_DISABLED")]);
-        if (uris.length && ![cell.textLabel.text isEqual:uris]) [summary addObject:uris];
-        if (row.suites.count) [summary addObject:[row.suites componentsJoinedByString:@", "]];
-        cell.detailTextLabel.text = [summary componentsJoinedByString:@" · "];
+        cell.textLabel.text = names_[path.row];
+        cell.detailTextLabel.text = summaries_[path.row];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.settings.repository.%lu", (unsigned long)path.row];
     } else {
@@ -517,6 +553,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     _H<NSMutableArray> sources_;
     NSArray<CydiaSourceDefinition *> *definitions_;
     NSArray<NSString *> *sourceDiagnostics_;
+    NSIndexSet *editableSourceIndexes_;
     BOOL appeared_, pendingAddPrompt_;
     NSString *pendingAddDefinition_;
     __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilitySession_;
@@ -699,8 +736,11 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     if ([list_ respondsToSelector:@selector(setCellLayoutMarginsFollowReadableWidth:)]) [list_ setCellLayoutMarginsFollowReadableWidth:NO];
     self.view = list_;
 }
-- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = UCLocalize("SOURCES"); [self reloadData]; }
-- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [list_ setEditing:NO]; [self reloadData]; }
+- (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = UCLocalize("SOURCES"); }
+- (void)viewWillAppear:(BOOL)animated {
+    const BOOL loaded([self hasLoaded]); [super viewWillAppear:animated]; [list_ setEditing:NO];
+    if (loaded) [self reloadData];
+}
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated]; appeared_ = YES;
     [list_ deselectRowAtIndexPath:[list_ indexPathForSelectedRow] animated:animated];
@@ -711,7 +751,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 }
 - (void)viewWillDisappear:(BOOL)animated { appeared_ = NO; [super viewWillDisappear:animated]; }
 - (void)viewDidDisappear:(BOOL)animated { [super viewDidDisappear:animated]; [self invalidateLegacyCompatibilitySession]; }
-- (void)releaseSubviews { list_ = nil; sources_ = nil; definitions_ = nil; sourceDiagnostics_ = nil; [super releaseSubviews]; }
+- (void)releaseSubviews { list_ = nil; sources_ = nil; definitions_ = nil; sourceDiagnostics_ = nil; editableSourceIndexes_ = nil; [super releaseSubviews]; }
 - (NSInteger)sourceSection { return sourceDiagnostics_.count == 0 ? 1 : 2; }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return [self sourceSection] + 1; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
@@ -768,11 +808,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     controller.delegate = self.delegate; [self.navigationController pushViewController:controller animated:YES];
 }
 - (BOOL)tableView:(UITableView *)table canEditRowAtIndexPath:(NSIndexPath *)path {
-    Source *source([self sourceAtIndexPath:path]);
-    if (source == nil) return NO;
-    for (CydiaSourceDefinition *row in DefinitionsForSource(definitions_, source))
-        if (CydiaSourceDefinitionCanEdit(row, CydiaSources::Access::Ordinary)) return YES;
-    return NO;
+    return [self sourceAtIndexPath:path] != nil && [editableSourceIndexes_ containsIndex:path.row];
 }
 - (void)removeDefinition:(CydiaSourceDefinition *)row {
     if (!CydiaSourceDefinitionCanEdit(row, CydiaSources::Access::Ordinary)) { SourceReviewRequired(self, database_); return; }
@@ -824,6 +860,18 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     }
     NSArray<NSString *> *documentDiagnostics(nil);
     definitions_ = CydiaReadSourceDefinitions(&documentDiagnostics);
+    NSIndexSet *editableDefinitions(CydiaReadSourceDisplayEditability(definitions_));
+    NSMutableIndexSet *editableSources([NSMutableIndexSet indexSet]);
+    @synchronized (database_) {
+        if ([database_ era] == era_) {
+            for (NSUInteger sourceIndex = 0; sourceIndex != [sources_ count]; ++sourceIndex)
+                for (NSUInteger index = editableDefinitions.firstIndex; index != NSNotFound; index = [editableDefinitions indexGreaterThanIndex:index])
+                    if (DefinitionMatchesSource(definitions_[index], [sources_ objectAtIndex:sourceIndex])) {
+                        [editableSources addIndex:sourceIndex]; break;
+                    }
+        }
+    }
+    editableSourceIndexes_ = editableSources;
     NSMutableArray<NSString *> *diagnostics([documentDiagnostics mutableCopy]);
     if (sourceLoadFailed)
         [diagnostics addObject:sourceLoadDiagnostic.length != 0 ? sourceLoadDiagnostic : SourceUI(@"SOURCE_FILE_UNAVAILABLE")];

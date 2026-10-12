@@ -9,6 +9,7 @@
 @implementation CydiaSourceRepositoryOptionsController {
     NSArray<NSDictionary *> *options_;
     NSString *suite_;
+    NSDictionary *selectedOption_;
     NSMutableSet<NSString *> *components_;
     UITableView *table_;
     void (^saved_)(NSString *, NSSet<NSString *> *);
@@ -19,7 +20,7 @@
         options_ = [options copy]; saved_ = [saved copy]; components_ = [NSMutableSet set];
         self.title = CydiaSourceText(@"SOURCE_ADD_PUBLISHED_OPTIONS");
         for (NSDictionary *option in options_) if ([option[@"suite"] isEqual:suite]) {
-            suite_ = [suite copy];
+            suite_ = [suite copy]; selectedOption_ = option;
             for (NSString *component in option[@"components"])
                 if ([components containsObject:component]) [components_ addObject:component];
             break;
@@ -28,8 +29,7 @@
     return self;
 }
 - (NSDictionary *)selectedOption {
-    for (NSDictionary *option in options_) if ([option[@"suite"] isEqual:suite_]) return option;
-    return nil;
+    return selectedOption_;
 }
 - (void)loadView {
     table_ = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
@@ -65,7 +65,9 @@
     return CydiaSourceText([option[@"components"] count] == 0 ? @"SOURCE_ADD_COMPONENTS_NOT_PUBLISHED" : @"SOURCE_ADD_COMPONENT_SELECTION");
 }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]);
+    UITableViewCell *cell([table dequeueReusableCellWithIdentifier:@"RepositoryOption"]);
+    if (cell == nil) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"RepositoryOption"];
+    cell.detailTextLabel.text = nil;
     CydiaStyleSourceFormCell(cell, self.traitCollection); BOOL selected(NO);
     if (path.section == 0) {
         NSDictionary *option(options_[path.row]); NSString *suite(option[@"suite"]);
@@ -81,7 +83,7 @@
         cell.accessibilityIdentifier = [@"cydia.source-draft.component." stringByAppendingString:component];
     }
     cell.accessoryType = selected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-    cell.accessibilityTraits |= UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
+    cell.accessibilityTraits = (cell.accessibilityTraits & ~UIAccessibilityTraitSelected) | UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
     return cell;
 }
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
@@ -90,7 +92,7 @@
     if (path.section == 0) {
         NSDictionary *option(options_[path.row]); NSString *suite(option[@"suite"]);
         if (![suite_ isEqual:suite]) {
-            suite_ = [suite copy]; [components_ removeAllObjects];
+            suite_ = [suite copy]; selectedOption_ = option; [components_ removeAllObjects];
             if ([option[@"components"] containsObject:@"main"]) [components_ addObject:@"main"];
         }
     } else {

@@ -111,3 +111,10 @@
 "ARCHIVE_INVALID" = "%@ 的归档文件无效或不完整，无法安全检查。";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@ 的归档文件与所选软件包的名称、版本或架构不匹配。已阻止安装。";
 "ARCHIVE_UNVERIFIED" = "Cydia 无法完全验证 %@ 的文件布局。请在继续前确认软件包的兼容性。";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "Release 文件的“%@”字段无效：%@";
+"APT_FETCH_FAILED" = "无法获取 %@\n%@";
+"APT_CONNECT_TIMEOUT" = "无法连接到 %@:%@（%@），连接超时";
+"APT_CONNECTION_TIMEOUT" = "连接超时";
+"APT_INDEX_DOWNLOAD_FAILED" = "部分索引文件下载失败。已忽略这些文件，或改用旧文件。";

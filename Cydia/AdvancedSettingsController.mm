@@ -42,6 +42,10 @@ UITableViewCell *Cell(UITableView *table) {
     cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:table.traitCollection];
     cell.tintColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent traitCollection:table.traitCollection];
     cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.accessoryView = nil;
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+    cell.textLabel.enabled = YES; cell.detailTextLabel.enabled = YES;
+    cell.accessibilityIdentifier = nil;
     cell.accessibilityTraits = UIAccessibilityTraitButton;
     return cell;
 }
@@ -82,6 +86,7 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     std::vector<CydiaSources::ProtectionSelector> orphans_;
     std::vector<bool> selected_, retained_;
     std::vector<bool> initialSelected_, initialRetained_;
+    NSArray<NSString *> *definitionNames_, *definitionSuites_, *orphanNames_;
     BOOL saving_;
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
@@ -120,6 +125,23 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
         if (!found) { orphans_.push_back(selector); retained_.push_back(true); }
     }
     initialSelected_ = selected_; initialRetained_ = retained_;
+    NSMutableArray *names([NSMutableArray arrayWithCapacity:definitions_.size()]);
+    NSMutableArray *suites([NSMutableArray arrayWithCapacity:definitions_.size()]);
+    NSMutableArray *orphans([NSMutableArray arrayWithCapacity:orphans_.size()]);
+    for (const auto &definition : definitions_) {
+        NSMutableArray *uris([NSMutableArray array]);
+        for (const auto &uri : definition.uris) [uris addObject:DisplayURI(uri)];
+        [names addObject:[uris componentsJoinedByString:@"\n"]];
+        NSMutableArray *values([NSMutableArray array]);
+        for (const auto &suite : definition.suites) [values addObject:String(suite)];
+        [suites addObject:[values componentsJoinedByString:@" · "]];
+    }
+    for (const auto &selector : orphans_) {
+        NSMutableArray *uris([NSMutableArray array]);
+        for (const auto &uri : selector.uris) [uris addObject:DisplayURI(uri)];
+        [orphans addObject:[uris componentsJoinedByString:@"\n"]];
+    }
+    definitionNames_ = names; definitionSuites_ = suites; orphanNames_ = orphans;
     [self updateSave];
     [table_ reloadData];
 }
@@ -140,19 +162,11 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     UITableViewCell *cell(Cell(table));
     bool selected;
     if (path.section == 0) {
-        const auto &definition(definitions_[path.row]);
-        NSMutableArray *uris([NSMutableArray array]);
-        for (const std::string &uri : definition.uris) [uris addObject:DisplayURI(uri)];
-        cell.textLabel.text = [uris componentsJoinedByString:@"\n"];
-        NSMutableArray *suites([NSMutableArray array]);
-        for (const auto &suite : definition.suites) [suites addObject:String(suite)];
-        cell.detailTextLabel.text = [suites componentsJoinedByString:@" · "];
+        cell.textLabel.text = definitionNames_[path.row];
+        cell.detailTextLabel.text = definitionSuites_[path.row];
         selected = selected_[path.row];
     } else {
-        const auto &selector(orphans_[path.row]);
-        NSMutableArray *uris([NSMutableArray array]);
-        for (const std::string &uri : selector.uris) [uris addObject:DisplayURI(uri)];
-        cell.textLabel.text = [uris componentsJoinedByString:@"\n"];
+        cell.textLabel.text = orphanNames_[path.row];
         cell.detailTextLabel.text = Text(@"SOURCE_REVIEW_REQUIRED");
         selected = retained_[path.row];
     }
@@ -247,6 +261,7 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     UITableView *table_;
     UITextField *field_;
     UISwitch *useDefault_;
+    UITableViewCell *defaultCell_, *pathCell_;
     BOOL saving_;
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
@@ -267,6 +282,18 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     field_.clearButtonMode = UITextFieldViewModeWhileEditing;
     field_.accessibilityLabel = Text(@"TOOL_CUSTOM_PATH"); field_.accessibilityIdentifier = @"cydia.settings.executable.path";
     [field_ addTarget:self action:@selector(updateSave) forControlEvents:UIControlEventEditingChanged];
+    defaultCell_ = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+    defaultCell_.textLabel.text = Text(@"TOOL_USE_DEFAULT"); defaultCell_.textLabel.numberOfLines = 0;
+    defaultCell_.textLabel.adjustsFontForContentSizeCategory = YES;
+    defaultCell_.accessoryView = useDefault_;
+    pathCell_ = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+    field_.translatesAutoresizingMaskIntoConstraints = NO; [pathCell_.contentView addSubview:field_];
+    [NSLayoutConstraint activateConstraints:@[
+        [field_.leadingAnchor constraintEqualToAnchor:pathCell_.contentView.layoutMarginsGuide.leadingAnchor],
+        [field_.trailingAnchor constraintEqualToAnchor:pathCell_.contentView.layoutMarginsGuide.trailingAnchor],
+        [field_.topAnchor constraintEqualToAnchor:pathCell_.contentView.topAnchor constant:10],
+        [field_.bottomAnchor constraintEqualToAnchor:pathCell_.contentView.bottomAnchor constant:-10],
+        [field_.heightAnchor constraintGreaterThanOrEqualToConstant:34]]];
 }
 - (void)viewDidLoad {
     [super viewDidLoad]; self.navigationItem.title = tool_;
@@ -287,23 +314,14 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return section == 1 && !useDefault_.on ? Text(@"TOOL_CUSTOM_PATH") : nil; }
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section { return section == 1 ? Text(@"TOOL_PATH_HELP") : nil; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
-    UITableViewCell *cell([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil]);
+    UITableViewCell *cell(path.section == 0 ? defaultCell_ : pathCell_);
     cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     if (path.section == 0) {
-        cell.textLabel.text = Text(@"TOOL_USE_DEFAULT"); cell.textLabel.numberOfLines = 0;
-        cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; cell.textLabel.adjustsFontForContentSizeCategory = YES;
+        cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
         cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
-        cell.accessoryView = useDefault_;
     } else {
         field_.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
-        field_.translatesAutoresizingMaskIntoConstraints = NO; [cell.contentView addSubview:field_];
-        [NSLayoutConstraint activateConstraints:@[
-            [field_.leadingAnchor constraintEqualToAnchor:cell.contentView.layoutMarginsGuide.leadingAnchor],
-            [field_.trailingAnchor constraintEqualToAnchor:cell.contentView.layoutMarginsGuide.trailingAnchor],
-            [field_.topAnchor constraintEqualToAnchor:cell.contentView.topAnchor constant:10],
-            [field_.bottomAnchor constraintEqualToAnchor:cell.contentView.bottomAnchor constant:-10],
-            [field_.heightAnchor constraintGreaterThanOrEqualToConstant:34]]];
     }
     return cell;
 }

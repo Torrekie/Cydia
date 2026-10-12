@@ -30,6 +30,10 @@ NSArray<CydiaSourceDefinition *> *CydiaSourceDefinitionsForKey(NSString *key);
 bool CydiaCanEditSources(CydiaSources::Access access = CydiaSources::Access::Ordinary);
 bool CydiaSourceDefinitionCanEdit(CydiaSourceDefinition *definition,
     CydiaSources::Access access = CydiaSources::Access::Ordinary);
+/* Display-only batch evaluation: read effective files/policy once per reload.
+ * Never use these cached indexes to authorize an action or a source write. */
+NSIndexSet *CydiaReadSourceDisplayEditability(NSArray<CydiaSourceDefinition *> *definitions,
+    CydiaSources::Access access = CydiaSources::Access::Ordinary);
 bool CydiaCommitSourceMutation(const CydiaSources::StoredDocument &expected,
     const CydiaSources::Mutation &mutation, NSError **error = nullptr,
     CydiaSources::Access access = CydiaSources::Access::Ordinary);

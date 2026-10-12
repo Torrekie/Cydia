@@ -79,6 +79,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 @property(nonatomic, strong) NSURL *initialURL;
 @property(nonatomic, copy) NSString *fileName;
 @property(nonatomic, copy) NSArray<CydiaSourceDefinition *> *sources;
+@property(nonatomic, copy) NSIndexSet *editableSources;
 @property(nonatomic, strong) CydiaSourceDefinition *selectedSource;
 @property(nonatomic) BOOL busy;
 @property(nonatomic) BOOL reviewed;
@@ -101,7 +102,11 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     [super viewDidLoad]; self.navigationItem.title = KeyText(@"KEY_IMPORT");
     self.reviewButton = [[UIBarButtonItem alloc] initWithTitle:KeyText(@"KEY_IMPORT_REVIEW") style:UIBarButtonItemStyleDone target:self action:@selector(reviewOrApply)];
     self.reviewButton.accessibilityIdentifier = @"cydia.settings.key-import.review"; self.navigationItem.rightBarButtonItem = self.reviewButton;
-    self.sources = CydiaReadSourceDefinitions(); [self applyAppearance]; [self updateControls];
+    [self applyAppearance]; [self updateControls];
+}
+- (void)reloadSources {
+    self.sources = CydiaReadSourceDefinitions();
+    self.editableSources = CydiaReadSourceDisplayEditability(self.sources, CydiaSources::Access::AdvancedSettings);
 }
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
@@ -110,7 +115,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     if (self.busy) return;
-    CydiaSourceDefinition *selected(self.selectedSource); self.sources = CydiaReadSourceDefinitions(); self.selectedSource = nil;
+    CydiaSourceDefinition *selected(self.selectedSource); [self reloadSources]; self.selectedSource = nil;
     for (CydiaSourceDefinition *source in self.sources)
         if ([source.filePath isEqual:selected.filePath] && source.ordinal == selected.ordinal &&
             [source.original isEqual:selected.original] && CydiaSourceDefinitionCanEdit(source, CydiaSources::Access::AdvancedSettings)) {
@@ -247,7 +252,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
                 if (valid) {
                     _review = review; _input.source = review.source; _input.token = review.token;
                     _reviewedRequest = request; _reviewedRequest.payload = Keys::SerializeInput(_input);
-                } else { self.sources = CydiaReadSourceDefinitions(); self.selectedSource = nil; [self showFailure:result]; }
+                } else { [self reloadSources]; self.selectedSource = nil; [self showFailure:result]; }
                 [self updateControls];
             });
         }
@@ -271,7 +276,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
                 @finally { [self.database endSettingsChange]; }
             }
             dispatch_async(dispatch_get_main_queue(), ^{
-                self.busy = NO; [self clearReview]; self.sources = CydiaReadSourceDefinitions(); self.selectedSource = nil;
+                self.busy = NO; [self clearReview]; [self reloadSources]; self.selectedSource = nil;
                 id<CydiaDelegate, NSObject> delegate([self delegate]);
                 if ([delegate respondsToSelector:@selector(reloadDataWithInvocation:)]) [delegate reloadDataWithInvocation:nil];
                 if (!acquired || !result.succeeded()) [self showFailure:result]; else [self showMessage:KeyText(@"KEY_IMPORT_DONE")];
@@ -315,7 +320,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
         cell.accessoryView = nil;
         if (self.sources.count == 0) { cell.textLabel.text = KeyText(@"KEY_IMPORT_NO_SOURCES"); return cell; }
         CydiaSourceDefinition *source(self.sources[path.row]); cell.textLabel.text = KeySourceSummary(source);
-        const BOOL editable(CydiaSourceDefinitionCanEdit(source, CydiaSources::Access::AdvancedSettings));
+        const BOOL editable([self.editableSources containsIndex:path.row]);
         cell.textLabel.enabled = editable;
         if (!editable) cell.detailTextLabel.text = [[NSBundle mainBundle] localizedStringForKey:
             [source snapshot].readOnly ? @"SOURCE_READ_ONLY_ALIAS" : @"SOURCE_PROTECTED_OR_REVIEW" value:nil table:@"Sources"];

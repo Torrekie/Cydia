@@ -5,6 +5,7 @@
 
 #include "Cydia/ProgressViewModel.h"
 #include "Cydia/PackageArchitecturePresentation.h"
+#include "Cydia/FetchDiagnostics.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -423,6 +424,59 @@ void TestArchitectureDisplayNames(void) {
         @"presentation changed the underlying progress identifier");
 }
 
+void TestAPTDiagnosticPresentation(void) {
+    NSString *resources([[[NSFileManager defaultManager] currentDirectoryPath]
+        stringByAppendingPathComponent:@"MobileCydia.app/zh-Hans.lproj"]);
+    NSBundle *bundle([NSBundle bundleWithPath:resources]);
+    Expect(bundle != nil, @"diagnostic fixture loads the shipped Chinese locale");
+
+    NSString *path(@"/var/lib/apt/lists/partial/example.invalid_Release with spaces");
+    ExpectEqual(CydiaAPTDiagnosticMessage([@"Invalid 'Date' entry in Release file " stringByAppendingString:path], bundle),
+        [@"Release 文件的“Date”字段无效：" stringByAppendingString:path],
+        @"Release warning translates without changing its field or filename");
+    NSString *URI(@"https://example.invalid/./InRelease?test=100%25");
+    NSString *timeout(@"Could not connect to example.invalid:443 (192.0.2.1), connection timed out");
+    NSString *other(@"Could not connect to example.invalid:443 (2001:db8::1), connection timed out");
+    NSString *fetch([NSString stringWithFormat:@"Failed to fetch %@  %@ %@", URI, timeout, other]);
+    NSString *localized(CydiaAPTDiagnosticMessage(fetch, bundle));
+    ExpectEqual(localized, [NSString stringWithFormat:@"无法获取 %@\n无法连接到 example.invalid:443（192.0.2.1），连接超时\n无法连接到 example.invalid:443（2001:db8::1），连接超时", URI],
+        @"every repeated timeout translates and preserves the URI and attempted addresses");
+    ExpectEqual(CydiaAPTDiagnosticMessage([NSString stringWithFormat:@"%@\n%@\n", timeout, other], bundle),
+        @"无法连接到 example.invalid:443（192.0.2.1），连接超时\n无法连接到 example.invalid:443（2001:db8::1），连接超时",
+        @"acquire methods may join attempts with newlines");
+    ExpectEqual(CydiaAPTDiagnosticMessage(@"Connection timed out", bundle), @"连接超时",
+        @"standalone method timeouts translate");
+    ExpectEqual(CydiaAPTDiagnosticMessage(@"Some index files failed to download. They have been ignored, or old ones used instead.", bundle),
+        @"部分索引文件下载失败。已忽略这些文件，或改用旧文件。",
+        @"partial refresh summary retains its old-index fallback meaning");
+
+    NSString *unknown(@"TLS peer verification failed: error 123 [IP: 192.0.2.2 443]");
+    ExpectEqual(CydiaAPTDiagnosticMessage(unknown, bundle), unknown,
+        @"unrecognized method output remains verbatim");
+    ExpectEqual(CydiaAPTDiagnosticMessage([NSString stringWithFormat:@"Failed to fetch %@  %@", URI, unknown], bundle),
+        [NSString stringWithFormat:@"无法获取 %@\n%@", URI, unknown],
+        @"known wrapper preserves unknown technical details");
+    NSString *mixed([timeout stringByAppendingFormat:@" %@", unknown]);
+    ExpectEqual(CydiaAPTDiagnosticMessage(mixed, bundle), mixed,
+        @"partially recognized reason never loses an unexpected trailing failure");
+    NSString *embedded([@"Proxy replied: " stringByAppendingString:timeout]);
+    ExpectEqual(CydiaAPTDiagnosticMessage(embedded, bundle), embedded,
+        @"matching text inside an unrelated diagnostic is not rewritten");
+    NSString *malformed(@"Failed to fetch https://example.invalid/Release");
+    ExpectEqual(CydiaAPTDiagnosticMessage(malformed, bundle), malformed,
+        @"changed APT templates retain their original message");
+    NSString *local(@"Failed to fetch file:/srv/repo  old/Release  File not found");
+    ExpectEqual(CydiaAPTDiagnosticMessage(local, bundle), local,
+        @"unquoted local paths containing the separator remain verbatim");
+    ExpectEqual(CydiaAPTDiagnosticMessage(@"", bundle), @"", @"empty diagnostic remains empty");
+
+    CydiaProgressViewModel *model(NewModel(nil));
+    [model addProgressEvent:(CydiaProgressEvent *)Event(@"Warning", localized)];
+    ExpectEqual(model.state.events[0].displayMessage, localized, @"progress retains localized fetch details");
+    Expect(model.state.events[0].kind == CydiaProgressEventKindWarning,
+        @"presentation does not promote a warning to an error");
+}
+
 int main() {
     @autoreleasepool {
         TestStateAndLegacyOrdering();
@@ -432,6 +486,7 @@ int main() {
         TestHistoricalTerminalPercent();
         TestFinishActions();
         TestArchitectureDisplayNames();
+        TestAPTDiagnosticPresentation();
         std::cout << "[verify-progress-view-model][ ok ] immutable legacy/native progress state"
                   << std::endl;
     }

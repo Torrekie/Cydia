@@ -111,3 +111,10 @@
 "ARCHIVE_INVALID" = "%@의 아카이브가 잘못되었거나 불완전하여 안전하게 검사할 수 없습니다.";
 "ARCHIVE_IDENTITY_MISMATCH" = "%@의 아카이브가 선택한 패키지의 이름, 버전 또는 아키텍처와 일치하지 않습니다. 설치가 차단되었습니다.";
 "ARCHIVE_UNVERIFIED" = "Cydia가 %@의 파일 배치를 완전히 확인하지 못했습니다. 계속하기 전에 패키지 호환성을 확인하십시오.";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "Release 파일의 ‘%@’ 항목이 올바르지 않습니다: %@";
+"APT_FETCH_FAILED" = "%@ 다운로드 실패\n%@";
+"APT_CONNECT_TIMEOUT" = "%@:%@ (%@)에 연결할 수 없습니다. 연결 시간이 초과되었습니다";
+"APT_CONNECTION_TIMEOUT" = "연결 시간이 초과되었습니다";
+"APT_INDEX_DOWNLOAD_FAILED" = "일부 인덱스 파일을 다운로드하지 못했습니다. 해당 파일을 무시하거나 대신 이전 파일을 사용했습니다.";

@@ -113,3 +113,10 @@
 "ARCHIVE_INVALID" = "L’archive de %@ est invalide ou incomplète et n’a pas pu être inspectée de manière sûre.";
 "ARCHIVE_IDENTITY_MISMATCH" = "L’archive de %@ ne correspond pas au nom, à la version ou à l’architecture du paquet sélectionné. L’installation a été bloquée.";
 "ARCHIVE_UNVERIFIED" = "Cydia n’a pas pu vérifier entièrement la disposition des fichiers de %@. Vérifiez la compatibilité du paquet avant de continuer.";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "Champ « %@ » non valide dans le fichier Release %@";
+"APT_FETCH_FAILED" = "Impossible de récupérer %@\n%@";
+"APT_CONNECT_TIMEOUT" = "Impossible de se connecter à %@:%@ (%@) : délai de connexion dépassé";
+"APT_CONNECTION_TIMEOUT" = "Délai de connexion dépassé";
+"APT_INDEX_DOWNLOAD_FAILED" = "Le téléchargement de certains fichiers d’index a échoué. Ils ont été ignorés ou les anciens fichiers ont été utilisés à la place.";

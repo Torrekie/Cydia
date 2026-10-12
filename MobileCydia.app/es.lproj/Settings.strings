@@ -113,3 +113,10 @@
 "ARCHIVE_INVALID" = "El archivo del paquete %@ no es válido o está incompleto y no se ha podido inspeccionar de forma segura.";
 "ARCHIVE_IDENTITY_MISMATCH" = "El archivo del paquete %@ no coincide con el nombre, la versión o la arquitectura del paquete seleccionado. Se ha bloqueado la instalación.";
 "ARCHIVE_UNVERIFIED" = "Cydia no ha podido verificar por completo la estructura de archivos de %@. Revisa la compatibilidad del paquete antes de continuar.";
+
+/* APT acquisition diagnostics; technical arguments remain unchanged. */
+"APT_INVALID_RELEASE_FIELD" = "Entrada «%@» no válida en el archivo Release %@";
+"APT_FETCH_FAILED" = "No se pudo obtener %@\n%@";
+"APT_CONNECT_TIMEOUT" = "No se pudo conectar a %@:%@ (%@): se agotó el tiempo de espera de la conexión";
+"APT_CONNECTION_TIMEOUT" = "Se agotó el tiempo de espera de la conexión";
+"APT_INDEX_DOWNLOAD_FAILED" = "No se pudieron descargar algunos archivos de índice. Se han ignorado o se han utilizado los anteriores.";
