@@ -142,6 +142,27 @@ void BoundOldVictimAndIdentity() {
     Require(!A::BuildDeconfigurationAllowances(f.review, f.point, std::string(64, '9'), f.incoming, scripts, Compare, &pool, &error),
         "supplementary-group metadata is bounded before serialization");
 }
+void RepeatedCauseOutputLimit() {
+    Fixture f; f.Installed({"beta", "1", "amd64"});
+    std::string breaks;
+    for (std::size_t i = 0; i < B::MaximumGroups; ++i) {
+        if (i) breaks += ", ";
+        breaks += "beta";
+    }
+    // One small index field with thousands of native matches used to be
+    // replicated into every cause without charging the output byte budget.
+    f.Archive("alpha", {"alpha", "2", "amd64"}, {{"breaks", breaks}});
+    f.review.execution.actions = {Action(1, A::ExecutionAction::Unpack, {"alpha", "2", "amd64"}, "alpha"),
+        Action(2, A::ExecutionAction::Remove, {"beta", "1", "amd64"}),
+        Action(3, A::ExecutionAction::Configure, {"alpha", "2", "amd64"})};
+    std::vector<A::ExecutionPackage> targets{{"sentinel", "1", "all"}}; std::string error;
+    Require(!f.Targets(&targets, &error) && targets.empty() && error == "provider_deconfiguration_limit",
+        "repeated canonical causes are bounded before copying and publish no partial capture subset");
+    A::DeconfigurationAllowanceSet pool; pool.identity = "sentinel";
+    Require(!A::BuildDeconfigurationAllowances(f.review, f.point, std::string(64, '9'), f.incoming,
+        {}, Compare, &pool, &error) && pool.identity.empty() && pool.allowances.empty() && error == "provider_deconfiguration_limit",
+        "amplified cause output cannot publish a partial approval");
+}
 void EndpointsAndAtomicRefusal() {
     auto f = BreaksUpgrade(); std::vector<A::ExecutionPackage> targets{{"sentinel", "1", "all"}}; std::string error;
     f.review.execution.actions.pop_back(); Require(!f.Targets(&targets, &error) && targets.empty(), "missing endpoint grants no target");
@@ -240,6 +261,6 @@ void ReplacementsAndFutureCutoff() {
 }
 }
 int main() {
-    BoundOldVictimAndIdentity(); EndpointsAndAtomicRefusal(); MultiArchAndProviderOccurrences(); ReplacementsAndFutureCutoff();
+    BoundOldVictimAndIdentity(); RepeatedCauseOutputLimit(); EndpointsAndAtomicRefusal(); MultiArchAndProviderOccurrences(); ReplacementsAndFutureCutoff();
     std::cout << "[deconfiguration-effects] PASS: immutable old-generation causes, exact endpoints, evidence and conservative cutoffs\n";
 }

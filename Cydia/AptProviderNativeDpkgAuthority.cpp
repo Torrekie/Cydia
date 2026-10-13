@@ -83,6 +83,26 @@ bool Parse(const std::string &bytes, Declaration *result) {
         std::find(value.components.begin(), value.components.end(), command) == value.components.end()) return false;
     *result = std::move(value); return true;
 }
+// A narrow refusal for an already unsupported effect, not an effective native
+// policy parser. dpkg reads configuration before argv, so omitting its command
+// line switch does not disable a configured automatic deconfiguration.
+bool ConfiguredAutoDeconfigure(const std::string &bytes) {
+    std::size_t at = 0;
+    while (at < bytes.size()) {
+        const auto newline = bytes.find('\n', at);
+        const auto end = newline == std::string::npos ? bytes.size() : newline;
+        std::size_t begin = at;
+        while (begin < end && (bytes[begin] == ' ' || bytes[begin] == '\t' || bytes[begin] == '\r' ||
+            bytes[begin] == '\v' || bytes[begin] == '\f')) ++begin;
+        std::size_t token = begin;
+        while (token < end && ((bytes[token] >= 'a' && bytes[token] <= 'z') ||
+            (bytes[token] >= 'A' && bytes[token] <= 'Z') || (bytes[token] >= '0' && bytes[token] <= '9') || bytes[token] == '-')) ++token;
+        if (token - begin >= 2 && bytes.compare(begin, 2, "--") == 0) begin += 2;
+        if (token - begin == 16 && bytes.compare(begin, 16, "auto-deconfigure") == 0) return true;
+        at = newline == std::string::npos ? bytes.size() : newline + 1;
+    }
+    return false;
+}
 struct Graph {
     std::vector<P::Evidence> inputs; std::set<std::string> expanded;
     std::size_t bytes = 0; std::function<bool()> cancelled;
@@ -137,6 +157,11 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
     for (const auto &path : parsed.directories) if (!graph.Add(path, true, false, error)) return false;
     for (const auto &path : parsed.optionalFiles) if (!graph.Add(path, false, true, error)) return false;
     for (const auto &path : parsed.optionalDirectories) if (!graph.Add(path, true, true, error)) return false;
+    if (std::any_of(review.execution.actions.begin(), review.execution.actions.end(),
+        [](const ReviewedAction &action) { return action.action == ExecutionAction::Unpack; }))
+        for (std::size_t i = 1; i < graph.inputs.size(); ++i)
+            if (!graph.inputs[i].absent && !graph.inputs[i].directory && ConfiguredAutoDeconfigure(graph.inputs[i].bytes))
+                return Fail(error, "provider_native_auto_deconfigure_unsupported");
     for (const auto &archive : review.execution.archives) {
         const auto match = parsed.successors.find(archive.package.package+':'+archive.package.architecture);
         if (match != parsed.successors.end()) value.successorPaths.emplace(archive.identifier, match->second);

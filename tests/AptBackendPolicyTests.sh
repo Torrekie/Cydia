@@ -37,6 +37,7 @@ ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-tri
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-metadata"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-installed-scripts"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-installed-ownership"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-unpack-ownership"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-predepends-evidence"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-deconfiguration-allowances"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-review-capture"

@@ -40,6 +40,20 @@ ArchiveControlEvidence InspectPackageArchiveControlWithDecoders(const std::strin
     const ArchiveLimits &limits = ArchiveLimits(),
     const std::function<bool()> &cancelled = std::function<bool()>());
 
+struct ArchiveDataInventoryEvidence {
+    ArchivePolicyResult archive;
+    ArchiveDataInventory inventory;
+};
+// Complete native-name inventory, published only after both tar streams,
+// compressed trailers and the archive descriptor/path identity pass. The
+// caller independently retains and verifies the acquisition hash; neither
+// extraction nor native dpkg filesystem policy is inferred from these bytes.
+ArchiveDataInventoryEvidence InspectPackageArchiveDataInventoryWithDecoders(const std::string &path,
+    const ArchiveIdentity &expected, const ArchiveLayout &layout,
+    const std::map<std::string, std::string> &decoders,
+    const ArchiveLimits &limits = ArchiveLimits(),
+    const std::function<bool()> &cancelled = std::function<bool()>());
+
 struct ArchivePayloadFileEvidence {
     ArchivePayloadFileMetadata metadata;
     std::string sha256;

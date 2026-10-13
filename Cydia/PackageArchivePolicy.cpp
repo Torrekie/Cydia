@@ -40,6 +40,28 @@ bool Normalize(const std::string &value, std::string *path, bool allowParent = f
     }
     return true;
 }
+bool NativeName(const std::string &value, std::string *name) {
+    if (!CleanBytes(value)) return false;
+    // dpkg path_skip_slash_dotslash(), as used by fsys_hash_find_node().
+    // Unlike layout normalization, a final solitary dot remains a name.
+    std::size_t start = 0;
+    while (start < value.size() && (value[start] == '/' ||
+        (value[start] == '.' && start + 1 < value.size() && value[start + 1] == '/'))) ++start;
+    const std::string tail(value.substr(start));
+    if (!tail.empty() && tail != ".") {
+        std::size_t begin = 0;
+        for (;;) {
+            const auto end(tail.find('/', begin));
+            const auto component(tail.substr(begin, end == std::string::npos ? end : end - begin));
+            // Native dpkg does not perform our layout normalization here.
+            // Refuse ambiguous spellings rather than claim a different name.
+            if (component.empty() || component == "." || component == "..") return false;
+            if (end == std::string::npos) break;
+            begin = end + 1;
+        }
+    }
+    *name = '/' + tail; return true;
+}
 bool Field(const unsigned char *bytes, std::size_t length, std::string *value) {
     std::size_t end(0);
     while (end < length && bytes[end] != 0) ++end;
@@ -170,6 +192,8 @@ struct PackageArchivePolicy::Impl {
     std::set<std::string> payloadPaths, payloadSeen;
     ArchivePayloadConsumer payloadConsumer;
     ArchivePayloadInspection payload;
+    bool inventoryRequested = false;
+    ArchiveDataInventory inventory;
 
     Impl(const ArchiveIdentity &identity, const ArchiveLayout &target, const ArchiveLimits &bounds)
         : expected(identity), layout(target), limits(bounds) {
@@ -193,6 +217,41 @@ struct PackageArchivePolicy::Impl {
     void PayloadFailure(const std::string &path, const char *reason) {
         if (payload.reason.empty()) { payload.path = path; payload.reason = reason; }
         payload.complete = false;
+    }
+    void InventoryFailure(const std::string &path, const char *reason) {
+        if (inventory.reason.empty()) { inventory.path = path; inventory.reason = reason; }
+        inventory.entries.clear(); inventory.complete = false;
+    }
+    void RequestInventory() {
+        if (inventoryRequested || dataDone || stopped) {
+            InventoryFailure("", "invalid_data_inventory_order"); return;
+        }
+        inventoryRequested = true;
+    }
+    bool InventoryItem(const std::string &name, char type, char headerType, const std::string &link) {
+        if (!inventoryRequested || !inventory.reason.empty()) return true;
+        if (type != '1' && type != '2' && !link.empty()) {
+            InventoryFailure(name, "unexpected_link_target"); return true;
+        }
+        ArchiveDataInventoryEntry entry;
+        // tar_extractor strips exactly one trailing slash for directory
+        // members, including the legacy regular-with-trailing-slash case.
+        std::string nativeInput(name);
+        if (type == '5' && !nativeInput.empty() && nativeInput.back() == '/') nativeInput.pop_back();
+        if (!NativeName(nativeInput, &entry.name)) {
+            InventoryFailure(name, "data_inventory_ambiguous_name"); return true;
+        }
+        entry.type = type; entry.headerType = headerType; entry.link = link;
+        if (type == '1' && !NativeName(link, &entry.hardlinkTarget)) {
+            InventoryFailure(name, "data_inventory_ambiguous_hardlink"); return true;
+        }
+        if (entry.name.size() > limits.maxPathBytes || entry.link.size() > limits.maxPathBytes ||
+            entry.hardlinkTarget.size() > limits.maxPathBytes)
+            return Stop(ArchivePolicyStatus::Unverified, name, "inspection_limit");
+        if (!Account(name, entry.name.size()) || !Account(name, entry.link.size()) ||
+            !Account(name, entry.hardlinkTarget.size())) return false;
+        entry.ordinal = inventory.entries.size() + 1;
+        inventory.entries.push_back(std::move(entry)); return true;
     }
     void RequestPayload(const std::vector<std::string> &paths, const ArchivePayloadConsumer &consumer) {
         if (payloadRequested || dataDone || stopped) {
@@ -406,7 +465,7 @@ struct PackageArchivePolicy::Impl {
             } else if (std::memcmp(header + 257, "ustar ", 6) != 0 &&
                        !std::all_of(header + 257, header + 512, [](unsigned char c) { return c == 0; }))
                 return Stop(ArchivePolicyStatus::Unverified, name, "unsupported_tar_format");
-            const char type(header[156] == 0 ? '0' : header[156]);
+            char type(header[156] == 0 ? '0' : header[156]);
             if (type == 'L' || type == 'K') {
                 if (size == 0 || size > limits.maxPathBytes + 1 || !Account(name, static_cast<std::size_t>(size)))
                     return stopped ? false : Stop(ArchivePolicyStatus::Unverified, name, "inspection_limit");
@@ -422,6 +481,10 @@ struct PackageArchivePolicy::Impl {
             if (!longName.empty()) name.swap(longName);
             if (!longLink.empty()) link.swap(longLink);
             longName.clear(); longLink.clear();
+            const char headerType(type);
+            // Keep ordinary layout inspection unchanged. The opt-in native
+            // inventory follows dpkg's pre-ANSI directory interpretation.
+            if (!isControl && inventoryRequested && type == '0' && !name.empty() && name.back() == '/') type = '5';
             std::string path;
             if (name.size() > limits.maxPathBytes)
                 return Stop(ArchivePolicyStatus::Unverified, name, "inspection_limit");
@@ -458,7 +521,7 @@ struct PackageArchivePolicy::Impl {
                 }
                 else if (path != "/" && path != "/md5sums" && path != "/conffiles")
                     Unverified(path, "maintainer_semantics_unverified");
-            } else if (!DataItem(path, type, link)) return false;
+            } else if (!DataItem(path, type, link) || !InventoryItem(name, type, headerType, link)) return false;
             if (!(isControl ? Body(read, size, save) : PayloadBody(read, header, path, type, size)) ||
                 !Body(read, (512 - size % 512) % 512, NULL)) return false;
         }
@@ -493,6 +556,7 @@ struct PackageArchivePolicy::Impl {
             resolved.insert(chain.begin(), chain.end());
         }
         result.complete = true;
+        if (inventoryRequested && inventory.reason.empty()) inventory.complete = true;
         if (payloadRequested && payload.reason.empty()) {
             for (const std::string &path : payloadPaths) if (!payloadSeen.count(path)) {
                 PayloadFailure(path, "payload_file_missing"); break;
@@ -508,6 +572,9 @@ PackageArchivePolicy::PackageArchivePolicy(const ArchiveIdentity &expected, cons
 PackageArchivePolicy::~PackageArchivePolicy() {}
 bool PackageArchivePolicy::ReadControlTar(const ArchiveRead &read) { return impl_->Tar(read, true); }
 bool PackageArchivePolicy::ReadDataTar(const ArchiveRead &read) { return impl_->Tar(read, false); }
+bool PackageArchivePolicy::ReadDataTarWithInventory(const ArchiveRead &read) {
+    impl_->RequestInventory(); return impl_->Tar(read, false);
+}
 bool PackageArchivePolicy::ReadDataTar(const ArchiveRead &read, const std::vector<std::string> &paths,
                                      const ArchivePayloadConsumer &consumer) {
     impl_->RequestPayload(paths, consumer); return impl_->Tar(read, false);
@@ -530,5 +597,16 @@ ArchivePayloadInspection PackageArchivePolicy::PayloadInspection() const {
     ArchivePayloadInspection result(impl_->payload);
     if (impl_->stopped || !impl_->result.complete) result.complete = false;
     return result;
+}
+ArchiveDataInventory PackageArchivePolicy::DataInventory() const {
+    ArchiveDataInventory result;
+    if (!impl_->inventoryRequested || impl_->stopped || !impl_->result.complete ||
+        !impl_->result.identityVerified || !impl_->inventory.complete) {
+        result.path = impl_->inventory.reason.empty() ? impl_->result.path : impl_->inventory.path;
+        result.reason = !impl_->inventory.reason.empty() ? impl_->inventory.reason :
+            !impl_->result.reason.empty() ? impl_->result.reason : "data_inventory_incomplete";
+        return result;
+    }
+    result = impl_->inventory; result.identity = impl_->expected; return result;
 }
 }

@@ -164,6 +164,18 @@ verify: verify-apt-predepends-evidence
 verify-apt-predepends-evidence: $(APT_PREDEPENDS_EVIDENCE_TEST)
 	@$<
 
+APT_UNPACK_OWNERSHIP_TEST := $(BUILD_DIR)/tests/AptProviderUnpackOwnershipTests
+$(APT_UNPACK_OWNERSHIP_TEST): tests/AptProviderUnpackOwnershipTests.cpp \
+		Cydia/AptProviderUnpackOwnership.cpp Cydia/AptProviderUnpackOwnership.hpp \
+		Cydia/AptProviderInstalledOwnership.hpp Cydia/AptProviderBinaryRelationships.cpp \
+		Cydia/AptProviderBinaryRelationships.hpp Cydia/PackageArchivePolicy.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
+.PHONY: verify-apt-unpack-ownership
+verify: verify-apt-unpack-ownership
+verify-apt-unpack-ownership: $(APT_UNPACK_OWNERSHIP_TEST)
+	@$<
+
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 

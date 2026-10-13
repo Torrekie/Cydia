@@ -136,6 +136,19 @@ deconfiguration still requires immutable native approval, locked reconstruction,
 complete per-batch effect admission and restoration-aware settlement. The current
 pre-unpack guard remains active until that integration is complete.
 
+Opt-in archive inspection retains a bounded, ordered inventory of native dpkg
+member names, link targets and header/dispatch types. It preserves `/.` rather
+than substituting a normalized root path, and publishes only after complete
+archive, trailer and descriptor/path checks. The pure ownership evaluator uses
+these names with protected installed lists to find a sufficient saving-name
+witness for each potentially disappearing package. Configuration-only owners
+still count as sharers. Intermediate archive failures and newly introduced
+package generations require independently bound native list-continuity evidence;
+a payload inventory alone cannot supply it. Missing evidence requests a fresh
+child boundary; it never starts or retries dpkg. This evaluator is not yet an
+execution route. Replicated deconfiguration causes and their canonical identity
+framing have separate output bounds, with incremental hashing and atomic refusal.
+
 After settlement, Cydia retires the worker, cache handles, grants and review;
 the next normal reload performs fresh discovery. A helper-confirmed final
 commit remains a known outcome if the worker subsequently fails. Unknown
@@ -310,6 +323,17 @@ Commands and libraries must pass the installed loader inspector. Platform
 edges bind the active dyld cache, OS build and target; unavailable platform ABI
 evidence refuses this optional path. No provider message can supply these
 filesystem or loader proofs.
+
+The version-one declaration establishes a protected read/loader graph, not
+resolved dpkg effect policy. Graph-backed Unpack admission separately refuses
+the exact native configuration option `auto-deconfigure`, including conservative
+whitespace/long-option spellings; comments and values of other options do not
+become that option. This closes the known configuration-before-argv case without
+changing bootstrap files. Compiled defaults, environment force settings, ordered
+hooks/filters and complete native policy still need independently supported,
+input-bound evidence before automatic deconfiguration can be enabled. Absence of
+a command-line switch cannot establish that policy, and the existing restricted
+legacy path does not acquire complete native-policy parity from this check.
 
 Declaration and graph sizes, component/dependency counts, archive reads and
 nonmutating admission are bounded. All archive copies are retained in private

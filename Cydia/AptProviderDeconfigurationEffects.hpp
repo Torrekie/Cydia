@@ -10,6 +10,7 @@ constexpr std::size_t MaximumDeconfigurationActions = 4096;
 constexpr std::size_t MaximumDeconfigurationCauses = 16384;
 constexpr std::size_t MaximumDeconfigurationSteps = 65536;
 constexpr std::size_t MaximumDeconfigurationInputBytes = 32 * 1024 * 1024;
+constexpr std::size_t MaximumDeconfigurationOutputBytes = 32 * 1024 * 1024;
 constexpr std::size_t MaximumDeconfigurationEvidenceGroups = 128;
 
 // Parent-retained exact Packages record. Neither a worker map nor these public

@@ -225,7 +225,8 @@ bool OpenTar(debDebFile &deb, const std::string &name, FileFd *spool,
 static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, const ArchiveIdentity &expected,
     const ArchiveLayout &layout, const ArchiveLimits &limits, const std::map<std::string, std::string> *decoders,
     const std::function<bool()> &cancelled, const std::vector<std::string> *payloadPaths = nullptr,
-    ArchivePayloadEvidence *payloadEvidence = nullptr, ArchiveControlMetadata *controlMetadata = nullptr) {
+    ArchivePayloadEvidence *payloadEvidence = nullptr, ArchiveControlMetadata *controlMetadata = nullptr,
+    ArchiveDataInventory *dataInventory = nullptr) {
     ErrorScope errors;
     const int descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (descriptor < 0) return Failure(ArchivePolicyStatus::Invalid, path, "archive_open_failed");
@@ -270,7 +271,8 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
             return ReadDecoded(stream, gzip, bytes, size, &actual) && actual == size;
         });
         const bool inspected(control ? policy.ReadControlTar(read) : payloadPaths != nullptr ?
-            policy.ReadDataTar(read, *payloadPaths, consume) : policy.ReadDataTar(read));
+            policy.ReadDataTar(read, *payloadPaths, consume) : dataInventory != nullptr ?
+            policy.ReadDataTarWithInventory(read) : policy.ReadDataTar(read));
         if (!inspected) {
             stream.Close();
             gzip.Close();
@@ -305,7 +307,7 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
     if (fstat(file.Fd(), &after) != 0 || before.st_size != after.st_size || before.st_mtime != after.st_mtime ||
         before.st_ctime != after.st_ctime || before.st_ino != after.st_ino || before.st_dev != after.st_dev)
         return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
-    if (payloadEvidence != nullptr || controlMetadata != nullptr) {
+    if (payloadEvidence != nullptr || controlMetadata != nullptr || dataInventory != nullptr) {
         struct stat named;
         if (!SamePayloadArchive(before, after) || lstat(path.c_str(), &named) != 0 || !SamePayloadArchive(after, named))
             return Failure(ArchivePolicyStatus::Invalid, path, "archive_changed");
@@ -313,6 +315,8 @@ static ArchivePolicyResult InspectPackageArchiveImpl(const std::string &path, co
     const ArchivePolicyResult finished(policy.Finish());
     if (controlMetadata != nullptr && finished.complete && finished.identityVerified)
         *controlMetadata = policy.ControlMetadata();
+    if (dataInventory != nullptr && finished.complete && finished.identityVerified)
+        *dataInventory = policy.DataInventory();
     if (payloadEvidence != nullptr && finished.complete && finished.identityVerified) {
         payloadEvidence->payload = policy.PayloadInspection();
         if (payloadEvidence->payload.complete) payloadEvidence->files.swap(payloadFiles);
@@ -339,6 +343,20 @@ ArchiveControlEvidence InspectPackageArchiveControlWithDecoders(const std::strin
     result.archive = InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled, nullptr, nullptr, &result.control);
     if (!result.control.complete && result.control.reason.empty())
         result.control.reason = result.archive.reason.empty() ? "control_metadata_incomplete" : result.archive.reason;
+    return result;
+}
+
+ArchiveDataInventoryEvidence InspectPackageArchiveDataInventoryWithDecoders(const std::string &path,
+    const ArchiveIdentity &expected, const ArchiveLayout &layout,
+    const std::map<std::string, std::string> &decoders, const ArchiveLimits &limits,
+    const std::function<bool()> &cancelled) {
+    ArchiveDataInventoryEvidence result;
+    result.archive = InspectPackageArchiveImpl(path, expected, layout, limits, &decoders, cancelled,
+        nullptr, nullptr, nullptr, &result.inventory);
+    if (!result.inventory.complete && result.inventory.reason.empty()) {
+        result.inventory.path = result.archive.path;
+        result.inventory.reason = result.archive.reason.empty() ? "data_inventory_incomplete" : result.archive.reason;
+    }
     return result;
 }
 

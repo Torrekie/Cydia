@@ -160,6 +160,28 @@ void Declarations() {
         f.Save(); Require(!f.Resolve(&authority, &error, [] { return true; }), "cancel before protected declaration admission");
     }
 }
+void ConfiguredAutomaticDeconfiguration() {
+    const std::vector<std::string> configured{"auto-deconfigure\n", "auto-deconfigure  \n", "auto-deconfigure=# value\n",
+        "\t--auto-deconfigure\n", "# harmless comment\nauto-deconfigure\n"};
+    for (const auto &bytes : configured) {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        A::ReviewedAction unpack; unpack.identifier = 1; unpack.action = A::ExecutionAction::Unpack;
+        unpack.package = f.review.execution.archives.front().package; unpack.archive = "dpkg-archive";
+        f.review.execution.actions = {unpack}; Write(f.root + "/conf.d/a", bytes);
+        Require(!f.Resolve(&authority, &error) && error == "provider_native_auto_deconfigure_unsupported" &&
+            authority.configurationIdentity.empty() && authority.configurationEvidence.empty(),
+            "configured automatic deconfiguration cannot bypass absent argv switch or publish authority");
+        f.review.execution.actions.front().action = A::ExecutionAction::Configure;
+        Require(f.Resolve(&authority, &error), "known Unpack effect does not forbid an unrelated Configure review");
+    }
+    for (const char *bytes : {"# auto-deconfigure\n", "  # --auto-deconfigure\n", "pre-invoke echo auto-deconfigure\n",
+        "log /auto-deconfigure\n", "auto-deconfigure-extra\n", "\n"}) {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        A::ReviewedAction unpack; unpack.identifier = 1; unpack.action = A::ExecutionAction::Unpack;
+        f.review.execution.actions = {unpack}; Write(f.root + "/conf/dpkg", bytes);
+        Require(f.Resolve(&authority, &error), "comments and other option values do not become automatic deconfiguration");
+    }
+}
 void Closures() {
     for (unsigned variant = 0; variant != 9; ++variant) {
         Fixture f; A::NativeDpkgAuthority authority; A::ComponentClosureEvidence proof; std::string error;
@@ -213,6 +235,6 @@ void Closures() {
 }
 }
 int main() {
-    Declarations(); Closures();
+    Declarations(); ConfiguredAutomaticDeconfiguration(); Closures();
     std::puts("Native dpkg protected declaration and Mach-O closure tests passed");
 }

@@ -189,6 +189,8 @@ def main():
         trigger_effect_sources, "cydia-provider-installed-scripts")
     compile_driver(["tests/AptProviderInstalledOwnershipTests.cpp", "Cydia/AptProviderInstalledOwnership.cpp"] +
         trigger_effect_sources, "cydia-provider-installed-ownership")
+    compile_driver(["tests/AptProviderUnpackOwnershipTests.cpp", "Cydia/AptProviderUnpackOwnership.cpp",
+        "Cydia/AptProviderBinaryRelationships.cpp"], "cydia-provider-unpack-ownership", sanitize=True)
     compile_driver(["tests/AptProviderPreDependsEvidenceTests.cpp", "Cydia/AptProviderPreDependsEvidence.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources,
         "cydia-provider-predepends-evidence", sanitize=True,

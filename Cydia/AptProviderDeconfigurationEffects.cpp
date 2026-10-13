@@ -17,17 +17,32 @@ bool Same(const ExecutionPackage &a, const ExecutionPackage &b) {
     return a.package == b.package && a.architecture == b.architecture && a.version == b.version;
 }
 bool Digest(const std::string &s) { return s.size() == 64 && s.find_first_not_of("0123456789abcdef") == std::string::npos; }
-void Field(std::string *out, const std::string &s) { *out += std::to_string(s.size()) + ':' + s + ','; }
-void PackageBytes(std::string *out, const ExecutionPackage &p) { Field(out, p.package); Field(out, p.version); Field(out, p.architecture); }
-std::string Hash(const std::string &bytes) {
-    Hashes h(Hashes::SHA256SUM);
-    return h.Add(bytes.data(), bytes.size()) ? h.GetHashString(Hashes::SHA256SUM).HashValue() : "";
-}
+// Hash the existing canonical framing incrementally. Repeated cause/control
+// fields must never create an unbounded temporary approval string.
+class DigestWriter {
+    Hashes hash_{Hashes::SHA256SUM};
+    std::size_t bytes_ = 0;
+    bool valid_ = true;
+public:
+    explicit DigestWriter(const std::string &prefix) { Add(prefix); }
+    void Add(const std::string &value) {
+        if (!valid_ || value.size() > MaximumDeconfigurationOutputBytes - bytes_) { valid_ = false; return; }
+        bytes_ += value.size(); valid_ = hash_.Add(value.data(), value.size());
+    }
+    bool Valid() const { return valid_; }
+    std::string Digest() { return valid_ ? hash_.GetHashString(Hashes::SHA256SUM).HashValue() : ""; }
+};
+void Field(DigestWriter *out, const std::string &s) { out->Add(std::to_string(s.size()) + ':'); out->Add(s); out->Add(","); }
+void PackageBytes(DigestWriter *out, const ExecutionPackage &p) { Field(out, p.package); Field(out, p.version); Field(out, p.architecture); }
 struct Budget {
-    std::size_t bytes = 0, steps = 0, causes = 0;
+    std::size_t bytes = 0, outputBytes = 0, steps = 0, causes = 0;
     bool Bytes(std::size_t n) {
         if (n > MaximumDeconfigurationInputBytes - bytes) return false;
         bytes += n; return true;
+    }
+    bool Output(std::size_t n) {
+        if (n > MaximumDeconfigurationOutputBytes - outputBytes) return false;
+        outputBytes += n; return true;
     }
     bool Steps(std::size_t n) {
         if (n > MaximumDeconfigurationSteps - steps) return false;
@@ -118,6 +133,9 @@ bool Endpoint(const ReviewedTransaction &review, std::size_t causePosition,
             }
             return Fail(error, "provider_deconfiguration_endpoint_ambiguous");
         }
+        if (!budget->Output(sizeof(DeconfigurationEndpoint)) || !budget->Output(action.package.package.size()) ||
+            !budget->Output(action.package.version.size()) || !budget->Output(action.package.architecture.size()))
+            return Fail(error, "provider_deconfiguration_limit");
         allowance->endpoint.action = action.identifier; allowance->endpoint.kind = action.action;
         allowance->endpoint.package = action.package; allowance->endpoint.precedingUnpack = lastUnpack ? lastUnpack->identifier : 0;
         found = true;
@@ -218,7 +236,9 @@ bool Derive(const ReviewedTransaction &review, const TriggerEffectCheckpoint &ch
         installedPackages.emplace(record.first, parsed);
         if (record.second.status > DpkgPackageStatus::HalfConfigured) candidates.push_back(std::move(parsed));
     }
-    const auto add = [&](const ExecutionPackage &target, const DeconfigurationCause &cause, std::size_t position) {
+    const auto add = [&](const ExecutionPackage &target, DeconfigurationCauseKind kind, const ReviewedAction &action,
+        const std::string &relation, const std::string &comparedVersion, std::size_t group,
+        std::size_t alternative, std::size_t provide, std::size_t position) {
         if (!result.budget.Steps(1) || ++result.budget.causes > MaximumDeconfigurationCauses)
             return Fail(error, "provider_deconfiguration_limit");
         const auto current = checkpoint.packages.packages.find(Key(target));
@@ -232,11 +252,28 @@ bool Derive(const ReviewedTransaction &review, const TriggerEffectCheckpoint &ch
             if (review.execution.actions[p].action == ExecutionAction::Unpack && Key(review.execution.actions[p].package) == Key(target))
                 return Fail(error, "provider_deconfiguration_initial_generation_unavailable");
         }
-        auto &allowance = result.allowances[Generation(target)];
-        allowance.installed = target; allowance.selection = current->second.selection;
-        allowance.initialStatus = current->second.status; allowance.diskStatus = metadata->second.diskStatus;
-        allowance.configVersion = metadata->second.configVersion; allowance.installedControlIdentity = metadata->second.evidenceIdentity;
-        allowance.causes.push_back(cause); lastCause[Generation(target)] = position; return true;
+        // Charge replicated relationship fields before constructing each cause.
+        // The input field is bounded, but thousands of witnesses can repeat it.
+        if (!result.budget.Output(sizeof(DeconfigurationCause)) || !result.budget.Output(action.archive.size()) ||
+            !result.budget.Output(relation.size()) || !result.budget.Output(comparedVersion.size()))
+            return Fail(error, "provider_deconfiguration_limit");
+        const auto generation = Generation(target);
+        auto existing = result.allowances.find(generation);
+        if (existing == result.allowances.end()) {
+            if (!result.budget.Output(sizeof(DeconfigurationAllowance)) || !result.budget.Output(2 * generation.size()) ||
+                !result.budget.Output(target.package.size()) || !result.budget.Output(target.version.size()) ||
+                !result.budget.Output(target.architecture.size()) || !result.budget.Output(metadata->second.configVersion.size()) ||
+                !result.budget.Output(metadata->second.evidenceIdentity.size()) || !result.budget.Output(64))
+                return Fail(error, "provider_deconfiguration_limit");
+            DeconfigurationAllowance allowance; allowance.installed = target; allowance.selection = current->second.selection;
+            allowance.initialStatus = current->second.status; allowance.diskStatus = metadata->second.diskStatus;
+            allowance.configVersion = metadata->second.configVersion; allowance.installedControlIdentity = metadata->second.evidenceIdentity;
+            existing = result.allowances.emplace(generation, std::move(allowance)).first;
+        }
+        DeconfigurationCause cause; cause.kind = kind; cause.unpackAction = action.identifier; cause.archive = action.archive;
+        cause.canonicalRelation = relation; cause.comparedVersion = comparedVersion;
+        cause.group = group; cause.alternative = alternative; cause.provide = provide;
+        existing->second.causes.push_back(std::move(cause)); lastCause[generation] = position; return true;
     };
     std::set<std::string> usedArchives;
     for (std::size_t p = 0; p < review.execution.actions.size(); ++p) {
@@ -264,10 +301,9 @@ bool Derive(const ReviewedTransaction &review, const TriggerEffectCheckpoint &ch
                 [](const B::Witness &w) { return w.provide != B::DirectPackage; });
             if (provider && group.witnesses.size() != 1) return Fail(error, "provider_deconfiguration_provider_ambiguous");
             for (const auto &witness : group.witnesses) {
-                DeconfigurationCause cause; cause.unpackAction = action.identifier; cause.archive = action.archive;
-                cause.canonicalRelation = incoming.breaks->canonical; cause.comparedVersion = witness.comparedVersion;
-                cause.group = witness.group; cause.alternative = witness.alternative; cause.provide = witness.provide;
-                if (!add({witness.package, witness.version, witness.architecture}, cause, p)) return false;
+                if (!add({witness.package, witness.version, witness.architecture}, DeconfigurationCauseKind::Breaks,
+                    action, incoming.breaks->canonical, witness.comparedVersion,
+                    witness.group, witness.alternative, witness.provide, p)) return false;
             }
         }
         for (const auto &candidate : live) {
@@ -281,9 +317,8 @@ bool Derive(const ReviewedTransaction &review, const TriggerEffectCheckpoint &ch
             catch (...) { compared.status = B::ComparisonStatus::Failed; }
             if (compared.status != B::ComparisonStatus::Compared) return Fail(error, "provider_deconfiguration_comparison_unavailable");
             if (!compared.ordering) continue;
-            DeconfigurationCause cause; cause.kind = DeconfigurationCauseKind::SiblingVersionMismatch;
-            cause.unpackAction = action.identifier; cause.archive = action.archive; cause.comparedVersion = candidate->version;
-            if (!add({candidate->name, candidate->version, candidate->architecture}, cause, p)) return false;
+            if (!add({candidate->name, candidate->version, candidate->architecture}, DeconfigurationCauseKind::SiblingVersionMismatch,
+                action, "", candidate->version, 0, 0, B::DirectPackage, p)) return false;
         }
     }
     if (usedArchives.size() != archives.size()) return Fail(error, "provider_deconfiguration_archive_invalid");
@@ -395,7 +430,7 @@ bool BuildDeconfigurationAllowances(const ReviewedTransaction &review, const Tri
     *output = DeconfigurationAllowanceSet(); Derived derived;
     if (!Digest(nativeAuthority)) return Fail(error, "provider_deconfiguration_input_invalid");
     if (!Derive(review, checkpoint, incoming, compare, &derived, error)) return false;
-    std::string bytes("CYDIA-DECONFIGURATION-ALLOWANCES-1");
+    DigestWriter bytes("CYDIA-DECONFIGURATION-ALLOWANCES-1");
     Field(&bytes, derived.reviewBytes); Field(&bytes, checkpoint.identity); Field(&bytes, nativeAuthority);
     for (const auto &record : derived.incoming) {
         Field(&bytes, record.first); Field(&bytes, record.second.record->evidenceIdentity);
@@ -431,8 +466,9 @@ bool BuildDeconfigurationAllowances(const ReviewedTransaction &review, const Tri
                 !files.count(found->second.prerm.path) || files.at(found->second.prerm.path) != prerm ||
                 !files.count(found->second.postinst.path) || files.at(found->second.postinst.path) != postinst)
                 return Fail(error, "provider_deconfiguration_scripts_invalid");
-            std::string scriptBytes; Field(&scriptBytes, found->second.evidenceIdentity); Field(&scriptBytes, prerm); Field(&scriptBytes, postinst);
-            allowance.installedScriptsIdentity = Hash(scriptBytes);
+            DigestWriter scriptBytes(""); Field(&scriptBytes, found->second.evidenceIdentity); Field(&scriptBytes, prerm); Field(&scriptBytes, postinst);
+            if (!scriptBytes.Valid()) return Fail(error, "provider_deconfiguration_limit");
+            allowance.installedScriptsIdentity = scriptBytes.Digest();
             Field(&bytes, entry.first); PackageBytes(&bytes, allowance.installed);
             for (const auto &value : {std::to_string(static_cast<unsigned>(allowance.selection)),
                 std::to_string(static_cast<unsigned>(allowance.initialStatus)), std::to_string(static_cast<unsigned>(allowance.diskStatus)),
@@ -451,7 +487,8 @@ bool BuildDeconfigurationAllowances(const ReviewedTransaction &review, const Tri
         }
     } else if (!scripts.packages.empty() || !scripts.files.empty() || !scripts.packageStateIdentity.empty() || !scripts.evidenceIdentity.empty())
         return Fail(error, "provider_deconfiguration_scripts_invalid");
-    DeconfigurationAllowanceSet result; result.identity = Hash(bytes);
+    if (!bytes.Valid()) return Fail(error, "provider_deconfiguration_limit");
+    DeconfigurationAllowanceSet result; result.identity = bytes.Digest();
     if (!Digest(result.identity)) return Fail(error, "provider_deconfiguration_hash_failed");
     result.initialCheckpoint = checkpoint.identity; result.nativeAuthorityIdentity = nativeAuthority;
     result.primaryReview = review; result.allowances = std::move(derived.allowances);

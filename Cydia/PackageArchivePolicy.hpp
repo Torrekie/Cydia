@@ -60,6 +60,34 @@ struct ArchiveControlMetadata {
     ArchiveMaintainerScript prerm, postinst;
 };
 
+struct ArchiveDataInventoryEntry {
+    // dpkg fsys name, not a layout-normalized path. In particular, /. and /
+    // remain distinct. The inspector refuses ambiguous interior dot/slash
+    // spellings instead of silently normalizing them for ownership proofs.
+    std::string name;
+    // Tar extractor dispatch: regular '0', hardlink '1', symlink '2', directory
+    // '5'. A legacy regular member ending in '/' dispatches as a directory.
+    char type = '0';
+    // Original header type (NUL regular normalized to '0'). Native dpkg passes
+    // this unchanged to tarobject even for legacy directory dispatch. A
+    // type/headerType mismatch does not prove installed-directory semantics
+    // and must be refused by ownership admission until separately supported.
+    char headerType = '0';
+    // Original link text; hardlinkTarget is its native fsys name for type '1'
+    // only. Symlink text is never resolved into an installed ownership name.
+    std::string link, hardlinkTarget;
+    // One-based data-member order; GNU long-name/link headers are not members.
+    std::uint64_t ordinal = 0;
+};
+struct ArchiveDataInventory {
+    // A complete empty data tar is distinct from an unrequested/incomplete
+    // inventory. No partial entries or identity are published on failure.
+    bool complete = false;
+    ArchiveIdentity identity;
+    std::vector<ArchiveDataInventoryEntry> entries;
+    std::string path, reason;
+};
+
 /* Read exactly the requested number of decoded bytes; false means failure
  * or premature EOF. Callbacks must themselves avoid unbounded buffering. */
 typedef std::function<bool(void *, std::size_t)> ArchiveRead;
@@ -92,11 +120,16 @@ class PackageArchivePolicy {
     ~PackageArchivePolicy();
     bool ReadControlTar(const ArchiveRead &read);
     bool ReadDataTar(const ArchiveRead &read);
+    bool ReadDataTarWithInventory(const ArchiveRead &read);
     bool ReadDataTar(const ArchiveRead &read, const std::vector<std::string> &paths,
                      const ArchivePayloadConsumer &consumer);
     ArchivePolicyResult Finish();
     ArchivePayloadInspection PayloadInspection() const;
     ArchiveControlMetadata ControlMetadata() const;
+    // Provisional until Finish succeeds. This is an ordered archive inventory,
+    // not proof that dpkg will list/install every member: native filters,
+    // diversions and other filesystem policy require separate parent evidence.
+    ArchiveDataInventory DataInventory() const;
   private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

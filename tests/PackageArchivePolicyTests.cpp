@@ -108,6 +108,106 @@ ArchiveControlMetadata InspectControl(const std::string &controlEntries,
     }
     policy.Finish(); return policy.ControlMetadata();
 }
+struct InventoryFixture {
+    ArchivePolicyResult archive;
+    ArchiveDataInventory inventory;
+};
+InventoryFixture InspectInventory(const std::string &data, const ArchiveLimits &limits = ArchiveLimits(),
+    const std::string &controlEntries = Entry("control", '0', Control())) {
+    InventoryFixture result;
+    PackageArchivePolicy policy(identity, rootless, limits);
+    const std::string controlTar(Tar(controlEntries)), dataTar(Tar(data));
+    std::size_t controlOffset = 0, dataOffset = 0;
+    assert(!policy.DataInventory().complete && policy.DataInventory().entries.empty());
+    if (policy.ReadControlTar(Reader(controlTar, &controlOffset)))
+        policy.ReadDataTarWithInventory(Reader(dataTar, &dataOffset));
+    assert(!policy.DataInventory().complete && policy.DataInventory().entries.empty());
+    result.archive = policy.Finish(); result.inventory = policy.DataInventory();
+    return result;
+}
+void ExpectNoInventory(const ArchiveDataInventory &inventory, const char *reason = nullptr) {
+    assert(!inventory.complete && inventory.entries.empty() && inventory.identity.package.empty() &&
+        inventory.identity.version.empty() && inventory.identity.architecture.empty());
+    if (reason != nullptr) assert(inventory.reason == reason);
+}
+void DataInventoryTests() {
+    const std::string file = "var/jb/usr/share/sample";
+    const std::string members = Entry("./", '5') + Entry("/", '5') + Entry("///././var/jb/usr/", '0') +
+        Entry("share", '5', "", "", "var/jb/usr") + Entry("sample", '\0', "payload", "", "var/jb/usr/share") +
+        Entry("//./var/jb/usr/share/alias", '1', "", "///././" + file) +
+        Entry("./var/jb/usr/share/link", '2', "", "../share/sample") + Entry("var/jb/usr/share/", '5');
+    const auto result = InspectInventory(members);
+    assert(result.archive.complete && result.archive.identityVerified && result.inventory.complete);
+    assert(result.inventory.identity.package == identity.package && result.inventory.identity.version == identity.version &&
+        result.inventory.identity.architecture == identity.architecture);
+    const auto &entries = result.inventory.entries;
+    assert(entries.size() == 8 && entries[0].name == "/." && entries[1].name == "/");
+    assert(entries[2].name == "/var/jb/usr" && entries[2].type == '5' && entries[2].headerType == '0');
+    assert(entries[3].name == "/var/jb/usr/share" && entries[3].type == '5' && entries[3].headerType == '5');
+    assert(entries[4].name == '/' + file && entries[4].type == '0' && entries[4].headerType == '0' && entries[4].link.empty());
+    assert(entries[5].type == '1' && entries[5].link == "///././" + file && entries[5].hardlinkTarget == '/' + file);
+    assert(entries[6].type == '2' && entries[6].link == "../share/sample" && entries[6].hardlinkTarget.empty());
+    assert(entries[7].name == entries[3].name && entries[7].type == '5'); // Ordered duplicate directory, not a set.
+    for (std::size_t i = 0; i < entries.size(); ++i) assert(entries[i].ordinal == i + 1);
+    // Native interpretation is opt-in; existing generic layout behavior stays
+    // unchanged for a legacy regular member ending in a directory slash.
+    const auto ordinary = Inspect(Entry("var/jb/usr/", '0') + Entry(file));
+    assert(!ordinary.complete && ordinary.reason == "non_directory_ancestor");
+    const auto empty = InspectInventory("");
+    assert(empty.inventory.complete && empty.inventory.entries.empty() && empty.inventory.reason.empty());
+    PackageArchivePolicy unrequested(identity, rootless);
+    const std::string control = Tar(Entry("control", '0', Control())), data = Tar("");
+    std::size_t controlOffset = 0, dataOffset = 0;
+    assert(unrequested.ReadControlTar(Reader(control, &controlOffset)) && unrequested.ReadDataTar(Reader(data, &dataOffset)));
+    assert(unrequested.Finish().complete);
+    ExpectNoInventory(unrequested.DataInventory(), "data_inventory_incomplete");
+
+    for (const auto &name : {"var/jb/usr//share/file", "var/jb/usr/./share/file", "var/jb/usr/share/.", "var/jb/usr/share//"}) {
+        const std::string member = Entry(name, '5');
+        assert(Inspect(member).complete);
+        const auto refused = InspectInventory(Entry(file) + member);
+        assert(refused.archive.complete);
+        ExpectNoInventory(refused.inventory, "data_inventory_ambiguous_name");
+    }
+    for (const auto &target : {"var/jb/usr//share/sample", "var/jb/usr/./share/sample", "var/jb/usr/share/sample/"}) {
+        const auto refused = InspectInventory(Entry(file) + Entry("var/jb/alias", '1', "", target));
+        assert(refused.archive.complete);
+        ExpectNoInventory(refused.inventory, "data_inventory_ambiguous_hardlink");
+    }
+    // GNU extensions affect the next member but consume no member ordinal.
+    const std::string longName = "var/jb/usr/share/" + std::string(140, 'a');
+    const auto gnu = InspectInventory(Entry("././@LongLink", 'L', longName + std::string(1, '\0')) + Entry("placeholder") +
+        Entry("././@LongLink", 'K', "./" + longName + std::string(1, '\0')) + Entry("var/jb/alias", '1'));
+    assert(gnu.inventory.complete && gnu.inventory.entries.size() == 2);
+    assert(gnu.inventory.entries[0].name == '/' + longName && gnu.inventory.entries[0].ordinal == 1);
+    assert(gnu.inventory.entries[1].link == "./" + longName && gnu.inventory.entries[1].hardlinkTarget == '/' + longName &&
+        gnu.inventory.entries[1].ordinal == 2);
+    const auto scripted = InspectInventory(Entry(file), ArchiveLimits(), Entry("control", '0', Control()) + Entry("postinst"));
+    assert(scripted.archive.status == ArchivePolicyStatus::Unverified && scripted.inventory.complete);
+    for (const auto &bad : {Entry(file) + Entry(file), Entry(file) + Entry("PaxHeaders/file", 'x', "metadata"),
+            Entry(file) + Entry("var/jb/device", '3'), Entry(file) + Entry("var/jb/alias", '1', "", "missing"),
+            Entry(file) + Entry("var/jb/dir/", '0', "unexpected data"),
+            Entry("var/jb/dir", '5') + Entry("var/jb/dir", '5', "", "unexpected")}) {
+        ExpectNoInventory(InspectInventory(bad).inventory);
+    }
+    std::string corrupted = Entry("var/jb/late"); corrupted[0] ^= 1;
+    ExpectNoInventory(InspectInventory(Entry(file) + corrupted).inventory, "invalid_tar_checksum");
+    ExpectNoInventory(InspectInventory(Entry(file), ArchiveLimits(), Entry("control", '0', Control("amd64"))).inventory,
+        "archive_identity_mismatch");
+    ArchiveLimits limits; limits.maxEntries = 2;
+    ExpectNoInventory(InspectInventory(Entry(file) + Entry("var/jb/late"), limits).inventory, "inspection_limit");
+    limits = ArchiveLimits(); limits.maxMetadataBytes = 128;
+    ExpectNoInventory(InspectInventory(Entry(file) + Entry("var/jb/late"), limits).inventory, "inspection_limit");
+    limits = ArchiveLimits(); limits.maxPathBytes = file.size();
+    ExpectNoInventory(InspectInventory(Entry(file), limits).inventory, "inspection_limit"); // Added native leading slash.
+    limits = ArchiveLimits(); limits.maxStreamBytes = 2048;
+    ExpectNoInventory(InspectInventory(Entry(file), limits).inventory, "inspection_limit");
+    PackageArchivePolicy truncated(identity, rootless);
+    controlOffset = dataOffset = 0; const std::string shortData = Entry(file) + std::string(512, '\0');
+    assert(truncated.ReadControlTar(Reader(control, &controlOffset)));
+    assert(!truncated.ReadDataTarWithInventory(Reader(shortData, &dataOffset)));
+    truncated.Finish(); ExpectNoInventory(truncated.DataInventory(), "truncated_tar");
+}
 void ControlMetadataTests() {
     std::map<std::string, std::string> canonical, equivalent; std::string error;
     assert(CanonicalPackageEffectControlFields({{"depends", "perl:any(>=5.0),\n locales | alternative"},
@@ -209,6 +309,29 @@ ArchiveControlEvidence InspectControlDeb(const std::string &bytes) {
     const auto result(InspectPackageArchiveControlWithDecoders(path, identity, rootless, {}));
     assert(unlink(path) == 0); return result;
 }
+ArchiveDataInventoryEvidence InspectInventoryDeb(const std::string &bytes,
+    const ArchiveLimits &limits = ArchiveLimits(), const std::function<bool()> &cancelled = std::function<bool()>(),
+    bool replacePath = false) {
+    char path[] = "/tmp/cydia-archive-inventory-XXXXXX";
+    const int descriptor(mkstemp(path)); assert(descriptor >= 0);
+    assert(write(descriptor, bytes.data(), bytes.size()) == static_cast<ssize_t>(bytes.size()));
+    assert(close(descriptor) == 0);
+    bool replaced = false;
+    const auto check = [&]() {
+        // The first cancellation check is after opening the archive. Replace
+        // the named file while its original descriptor remains readable.
+        if (replacePath && !replaced) {
+            assert(unlink(path) == 0);
+            FILE *file = std::fopen(path, "wb"); assert(file != nullptr);
+            assert(std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size());
+            assert(std::fclose(file) == 0); replaced = true;
+        }
+        return cancelled && cancelled();
+    };
+    const auto result(InspectPackageArchiveDataInventoryWithDecoders(path, identity, rootless, {}, limits, check));
+    assert(!replacePath || replaced);
+    assert(unlink(path) == 0); return result;
+}
 void ExpectNoPayload(const ArchivePayloadEvidence &result, const char *reason = nullptr) {
     assert(!result.payload.complete && result.files.empty());
     if (reason != nullptr && result.payload.reason != reason) {
@@ -232,6 +355,7 @@ std::string Compress(const std::string &bytes, FileFd::CompressMode mode) {
 
 int main() {
     ControlMetadataTests();
+    DataInventoryTests();
     const auto accepted(ArchivePolicyStatus::Accepted), mismatch(ArchivePolicyStatus::LayoutMismatch);
     const auto invalid(ArchivePolicyStatus::Invalid), unverified(ArchivePolicyStatus::Unverified);
     const std::string rooted(Entry("./usr/bin/sample", '0', "data"));
@@ -374,6 +498,36 @@ int main() {
     const std::string control(ArMember("control.tar", Tar(Entry("control", '0', Control()))));
     const std::string data(ArMember("data.tar", Tar(prefixed)));
     Expect(InspectDeb(container + control + data), accepted);
+    const std::string inventoryMembers = Entry("./", '5') + Entry("/", '5') + Entry("./var/jb/usr/", '0') +
+        prefixed + Entry("./var/jb/usr/bin/alias", '1', "", "./var/jb/usr/bin/sample") +
+        Entry("./var/jb/usr/bin/link", '2', "", "sample");
+    const std::string inventoryDeb = container + control + ArMember("data.tar", Tar(inventoryMembers));
+    const auto nativeInventory = InspectInventoryDeb(inventoryDeb);
+    assert(nativeInventory.archive.complete && nativeInventory.inventory.complete && nativeInventory.inventory.entries.size() == 6);
+    assert(nativeInventory.inventory.entries[0].name == "/." && nativeInventory.inventory.entries[1].name == "/" &&
+        nativeInventory.inventory.entries[2].type == '5' && nativeInventory.inventory.entries[2].headerType == '0' &&
+        nativeInventory.inventory.entries[4].hardlinkTarget == "/var/jb/usr/bin/sample");
+    const auto emptyInventory = InspectInventoryDeb(container + control + ArMember("data.tar", Tar("")));
+    assert(emptyInventory.inventory.complete && emptyInventory.inventory.entries.empty());
+    const std::string inventoryGzip = Compress(Tar(inventoryMembers), FileFd::Gzip);
+    const auto compressedInventory = InspectInventoryDeb(container + control + ArMember("data.tar.gz", inventoryGzip));
+    assert(compressedInventory.inventory.complete && compressedInventory.inventory.entries.size() == nativeInventory.inventory.entries.size());
+    for (const auto &broken : std::vector<std::string>{
+            container + control + ArMember("data.tar.gz", inventoryGzip + "garbage"),
+            container + control + ArMember("data.tar.gz", inventoryGzip.substr(0, inventoryGzip.size() - 12)),
+            container + control + ArMember("data.tar.gz", inventoryGzip + Compress(Tar(prefixed), FileFd::Gzip)),
+            container + control + ArMember("data.tar", Tar(inventoryMembers) + prefixed),
+            container + control + ArMember("data.tar", Tar(inventoryMembers + prefixed)),
+            container + control + ArMember("data.tar", Tar(inventoryMembers + Entry("var/jb/PaxHeaders", 'x', "metadata"))),
+            container + ArMember("control.tar", Tar(Entry("control", '0', Control("amd64")))) + data})
+        ExpectNoInventory(InspectInventoryDeb(broken).inventory);
+    ExpectNoInventory(InspectInventoryDeb(inventoryDeb, ArchiveLimits(), [] { return true; }).inventory, "inspection_cancelled");
+    ExpectNoInventory(InspectInventoryDeb(inventoryDeb, ArchiveLimits(), {}, true).inventory, "archive_changed");
+    ArchiveLimits inventoryLimit; inventoryLimit.maxEntries = 3;
+    ExpectNoInventory(InspectInventoryDeb(inventoryDeb, inventoryLimit).inventory, "inspection_limit");
+    const auto ambiguousInventory = InspectInventoryDeb(container + control + ArMember("data.tar", Tar(Entry("var/jb/usr//bin/sample"))));
+    assert(ambiguousInventory.archive.complete);
+    ExpectNoInventory(ambiguousInventory.inventory, "data_inventory_ambiguous_name");
     const std::string declarations = "interest-noawait /usr/share/icons\n";
     const std::string effectScript = "#!/bin/sh\nexit 0\n";
     const std::string effectTar = Tar(Entry("control", '0', Control() + "Depends: perl:any (>= 5)\n") + Entry("triggers", '0', declarations) +
