@@ -84,6 +84,9 @@ def main():
     compile_driver(["tests/PackageArchivePolicyTests.cpp", "Cydia/PackageArchivePolicy.cpp",
                     "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-reader", sanitize=True,
                    extra_compile_flags=["-DCYDIA_TEST_PACKAGE_ARCHIVE_READER"])
+    compile_driver(["tests/PackageArchiveDecoderTests.cpp", "Cydia/PackageArchivePolicy.cpp",
+                    "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-decoder", sanitize=True,
+                   extra_link_flags=["-lz"])
     compile_driver(["tests/AptProviderBinaryRelationshipsTests.cpp", "Cydia/AptProviderBinaryRelationships.cpp"],
                    "cydia-provider-binary-relationships", sanitize=True,
                    extra_compile_flags=["-DCYDIA_BINARY_RELATIONSHIPS_NATIVE_APT"])
@@ -223,8 +226,12 @@ def main():
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-deconfiguration-allowances", sanitize=True)
     compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [
         "Cydia/AptProviderTriggerCapture.cpp", "Cydia/AptProviderTriggerApproval.cpp",
-        "Cydia/AptProviderComponentCapture.cpp", "Cydia/AptProviderComponentSuccession.cpp", "Cydia/AptProviderReview.cpp"],
-        "cydia-provider-trigger-review-capture")
+        "Cydia/AptProviderComponentCapture.cpp", "Cydia/AptProviderComponentSuccession.cpp", "Cydia/AptProviderReview.cpp",
+        "Cydia/AptProviderNativeVersionComparison.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
+        "Cydia/AptProviderDeconfigurationEffects.cpp", "Cydia/AptProviderInstalledScripts.cpp",
+        "Cydia/AptProviderArchiveEvidence.cpp", "Cydia/AptProviderArchiveDecoders.cpp",
+        "Cydia/PackageArchiveReader.cpp", "Cydia/AptProviderDpkgStateCapture.cpp"],
+        "cydia-provider-trigger-review-capture", extra_link_flags=["-lz"])
     worker_sources = sources[1:] + [
         "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp", "Cydia/AptRecoveryPackageManager.cpp",
         "Cydia/SourcePreflight.cpp", "Cydia/KeyringImport.cpp", "Cydia/SourceDocument.cpp",

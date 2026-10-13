@@ -5,6 +5,19 @@
 #include <map>
 
 namespace CydiaPackages {
+// Streaming primitive shared by protected archive and index inspection. The
+// caller verifies an absolute decoder, retains a regular readable descriptor
+// at the selected offset, and rechecks its provenance after this returns.
+// Fixed argv, minimal C locale envp, output/time bounds, cancellation and child
+// group settlement are enforced here; no shell, PATH lookup or file extraction.
+// Consumer chunks are provisional until true: invalid trailers, nonzero exit,
+// cancellation/timeout or consumer refusal terminate and reap the decoder.
+using ArchiveDecodedConsumer = std::function<bool(const unsigned char *, std::size_t)>;
+bool StreamArchiveDecoder(int descriptor, const std::string &absoluteExecutable,
+    const std::vector<std::string> &arguments, std::uint64_t maximumDecodedBytes,
+    unsigned timeoutMilliseconds, const ArchiveDecodedConsumer &,
+    const std::function<bool()> &cancelled = {});
+
 /* Uses the active APT compressor configuration. The caller serializes APT
  * access and supplies the exact queued archive identity and selected layout.
  * No files are extracted and no package scripts are executed. Archive hash

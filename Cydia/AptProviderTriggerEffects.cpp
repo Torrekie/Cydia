@@ -222,6 +222,7 @@ std::string EnvelopeIdentity(const TriggerEffectEnvelope &envelope) {
 std::string GraphIdentity(const TriggerEffectCheckpoint &checkpoint) {
     std::string bytes("CYDIA-TRIGGER-EFFECT-GRAPH-1");
     for (const auto &record : checkpoint.packages.packages) {
+        if (DpkgStateReferenceOnly(record.second)) continue;
         Frame(&bytes, Generation(record.second.package)); Frame(&bytes, std::to_string(static_cast<unsigned>(record.second.status)));
         for (const auto *list : {&record.second.triggersPending, &record.second.triggersAwaited}) {
             for (const auto &value : *list) Frame(&bytes, value);
@@ -245,9 +246,17 @@ DpkgState WithoutTriggers(const DpkgState &state) {
     return result;
 }
 bool SameBase(const DpkgState &a, const DpkgState &b) {
+    auto before = WithoutTriggers(a), after = WithoutTriggers(b);
+    // Native queries also enumerate metadata-empty dependency references.
+    // Their lifetime is not a package effect or trigger progress; retained
+    // selections and every actual generation remain compared exactly.
+    for (const auto &record : a.packages)
+        if (DpkgStateReferenceOnly(record.second)) before.packages.erase(record.first);
+    for (const auto &record : b.packages)
+        if (DpkgStateReferenceOnly(record.second)) after.packages.erase(record.first);
     std::string left, right;
     return a.nativeArchitecture == b.nativeArchitecture && a.registeredArchitectures == b.registeredArchitectures &&
-        StateBytes(WithoutTriggers(a), &left) && StateBytes(WithoutTriggers(b), &right) && left == right;
+        StateBytes(before, &left) && StateBytes(after, &right) && left == right;
 }
 bool Successful(const ParentExecutionReply &reply) {
     return reply.started && reply.exitCode == 0 && reply.signal == 0 && reply.launchError == 0;

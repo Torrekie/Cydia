@@ -76,6 +76,43 @@ void ParsingAndPending() {
     Require(!P::ParseDpkgState(rows, "amd64\n", "i386\n", "", &parsed, &error), "missing state identity");
     Require(!P::ParseDpkgState(rows, "amd64\r\n", "i386\n", "state", &parsed, &error), "noncanonical native architecture");
 }
+void ReferenceOnlyTransitions() {
+    const auto before = State(Row("keep", "1", "all") + Row("old-reference", "", "", "unknown ok not-installed", "no"));
+    auto after = State(Row("keep", "1", "all") + Row("new", "2", "all", "install ok unpacked") +
+        Row("new-reference", "", "", "unknown ok not-installed", "no"), "state-2");
+    P::ReviewedTransaction review; review.execution.actions = {Action(1, P::ExecutionAction::Unpack, "new", "2", "all")};
+    const auto batch = Batch(P::ExecutionAction::Unpack, {1}); std::string error;
+    Require(P::DpkgStateReferenceOnly(before.packages.at("old-reference:")) &&
+        P::VerifyDpkgStateTransition(before, after, review, batch, &error), "native default Multi-Arch:no references may appear/disappear around reviewed work");
+    for (const auto &row : {Row("extra", "", "", "install ok not-installed", "no"),
+        Row("extra", "", "", "hold ok not-installed", "no"), Row("extra", "1", "all", "unknown ok not-installed", "no"),
+        Row("extra", "1", "all", "install ok not-installed", "no"), Row("extra", "1", "all", "hold ok not-installed", "no")}) {
+        auto changed = after; const auto extra = State(row);
+        changed.packages.insert(extra.packages.begin(), extra.packages.end());
+        Require(!P::DpkgStateReferenceOnly(extra.packages.begin()->second) &&
+            !P::VerifyDpkgStateTransition(before, changed, review, batch, &error), "retained selections and versions are never normalized as references");
+        auto original = before; original.packages.insert(extra.packages.begin(), extra.packages.end());
+        Require(!P::VerifyDpkgStateTransition(original, after, review, batch, &error), "retained selection or generation disappearance remains an effect");
+    }
+    auto pending = State(Row("cache", "1", "all", "install ok triggers-pending", "no", "cache-update") +
+        Row("old-reference", "", "", "unknown ok not-installed", "no"));
+    auto settled = State(Row("cache", "1", "all", "install ok installed", "no") +
+        Row("new-reference", "", "", "unknown ok not-installed", "no"), "state-2");
+    review.execution.actions = {Action(2, P::ExecutionAction::Triggers, "cache", "1", "all")};
+    Require(P::VerifyDpkgStateTransition(pending, settled, review, Batch(P::ExecutionAction::Triggers, {2}), &error),
+        "legacy complete trigger transition preserves native reference-only semantics");
+    settled.packages.at("new-reference:").selection = P::DpkgSelection::Hold;
+    Require(!P::VerifyDpkgStateTransition(pending, settled, review, Batch(P::ExecutionAction::Triggers, {2}), &error),
+        "legacy trigger transition still rejects a new retained selection");
+    auto reference = before.packages.at("old-reference:");
+    reference.reinstallRequired = true; Require(!P::DpkgStateReferenceOnly(reference), "reinstall-required is not an empty reference");
+    reference.reinstallRequired = false; reference.triggersPending = {"pending"};
+    Require(!P::DpkgStateReferenceOnly(reference), "trigger-bearing records are never normalized");
+    reference.triggersPending.clear(); reference.triggersAwaited = {"keep:all"};
+    Require(!P::DpkgStateReferenceOnly(reference), "awaiters are never normalized");
+    reference.triggersAwaited.clear(); reference.package.architecture = "all";
+    Require(!P::DpkgStateReferenceOnly(reference), "partial native generation is not a metadata-empty reference");
+}
 void Evidence() {
     auto state = State(Row("shared", "1", "amd64", "install ok unpacked", "same") +
         Row("shared", "1", "i386", "install ok unpacked", "same") + Row("portable", "1", "all"));
@@ -286,6 +323,6 @@ void Transitions() {
 }
 }
 int main() {
-    ParsingAndPending(); Evidence(); ImplicitMultiarchDeconfiguration(); BoundedTriggers(); Transitions();
+    ParsingAndPending(); ReferenceOnlyTransitions(); Evidence(); ImplicitMultiarchDeconfiguration(); BoundedTriggers(); Transitions();
     std::cout << "[apt-provider-dpkg-state] OK\n";
 }

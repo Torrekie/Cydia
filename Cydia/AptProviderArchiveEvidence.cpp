@@ -279,10 +279,13 @@ bool Decode(const File &file, const std::string &compression,
         CydiaRuntime::Privileged::Error ignored;
         if (binary == decoders.end() || !CydiaRuntime::Privileged::ValidateRootOwnedPath(binary->second, false, true, &ignored))
             return Fail(error, "provider_index_decoder_unavailable");
-        APT::Configuration::Compressor codec;
-        codec.Name = "cydia-provider-" + compression; codec.Binary = binary->second; codec.UncompressArgs = {"-d", "-c"};
-        if (compression == "lzma") codec.UncompressArgs.push_back("--format=lzma");
-        if (!stream.OpenDescriptor(file.fd, FileFd::ReadOnly, codec, false)) return Fail(error, "provider_index_decoder_unavailable");
+        std::vector<std::string> arguments{"-d", "-c"};
+        if (compression == "lzma") arguments.push_back("--format=lzma");
+        if (CydiaPackages::StreamArchiveDecoder(file.fd, binary->second, arguments, MaximumIndexBytes, 30000, consume, cancelled))
+            return true;
+        if (Cancelled(cancelled, error)) return false;
+        if (error && !error->empty()) return false;
+        return Fail(error, "provider_index_decode_failed");
     }
     while (true) {
         if (Cancelled(cancelled, error)) return false;

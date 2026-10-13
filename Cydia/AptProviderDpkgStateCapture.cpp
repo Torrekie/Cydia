@@ -9,6 +9,13 @@
 
 namespace CydiaAPT { namespace Provider {
 namespace {
+namespace P = CydiaRuntime::Privileged;
+bool EmptyQueryStatus(const P::Environment &environment) {
+    P::Evidence status; P::Error ignored;
+    return P::CaptureSharedStateEvidence(environment.dpkgAdmin + "/status", false, false, &status, &ignored) &&
+        !status.absent && status.bytes.find_first_not_of(" \t\r\n\v\f") == std::string::npos &&
+        P::RecheckEvidence({status}, &ignored);
+}
 bool Fail(std::string *error, const char *code) {
     if (error) *error = code;
     return false;
@@ -66,7 +73,7 @@ bool Capture(const CydiaRuntime::Privileged::Environment &environment,
     std::string before, after, native, foreign, records;
     std::vector<P::Evidence> triggerEvidence;
     if (!JournalSettled(environment) || !CaptureDeferredTriggers(environment, &triggerEvidence) ||
-        !P::RuntimeSnapshot(environment, &before, &ignored))
+        !P::RuntimeSnapshot(environment, &before, &ignored, cancelled))
         return Fail(error, "provider_dpkg_state_unavailable");
     CydiaRuntime::Dpkg::Runner manager(environment.dpkg), reader(environment.dpkgQuery);
     std::vector<std::string> arguments{"--root=" + environment.dpkgRoot,
@@ -80,13 +87,16 @@ bool Capture(const CydiaRuntime::Privileged::Environment &environment,
     // dpkg-query versions that predate its --root option. No --load-avail:
     // repository metadata must never masquerade as installed package state.
     arguments = {"--admindir=" + environment.dpkgAdmin,
-        "--showformat=" + std::string(DpkgStateQueryFormat()), "--show"};
-    if (!reader.RunAndCaptureBounded(arguments, &records, 32 * 1024 * 1024, 3000, cancelled).succeeded())
+        "--showformat=" + std::string(DpkgStateQueryFormat()), "--show", "*"};
+    const auto queried = reader.RunAndCaptureBounded(arguments, &records, 32 * 1024 * 1024, 3000, cancelled);
+    // A literal wildcard has no match only for an actually empty status DB.
+    if (!queried.succeeded() && !(queried.kind == CydiaRuntime::Dpkg::ResultKind::Exited && queried.error == 0 &&
+        queried.code == 1 && records.empty() && EmptyQueryStatus(environment)))
         return Fail(error, "provider_dpkg_state_query_failed");
     if ((cancelled && cancelled()) || !locked() ||
         !P::RecheckEvidence({dpkg, query}, &ignored) || !P::RecheckEvidence(environment.evidence, &ignored) ||
         !P::RecheckEvidence(triggerEvidence, &ignored) ||
-        !JournalSettled(environment) || !P::RuntimeSnapshot(environment, &after, &ignored) || before != after)
+        !JournalSettled(environment) || !P::RuntimeSnapshot(environment, &after, &ignored, cancelled) || before != after)
         return Fail(error, "provider_dpkg_state_changed");
     return ParseDpkgState(records, native, foreign, after, state, error);
 }

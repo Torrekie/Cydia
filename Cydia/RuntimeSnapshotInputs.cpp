@@ -41,11 +41,15 @@ void SignedByFiles(const CydiaSources::Definition &definition, CydiaSources::For
     }
 }
 bool TriggerInputs(const Environment &environment, SnapshotCapture capture,
-                   std::vector<Evidence> *inputs, Error *error) {
+                   std::vector<Evidence> *inputs, Error *error, const std::function<bool()> &cancelled) {
     namespace T = CydiaAPT::Provider;
+    const auto active = [&]() {
+        return !cancelled || !cancelled() || Fail(error, "snapshot_cancelled", "The package-manager snapshot was cancelled.");
+    };
+    if (!active()) return false;
     if (capture == CaptureEvidence) {
         std::string reason; bool synchronized = false;
-        if (T::CaptureProtectedTriggerFiles(environment, inputs, &synchronized, &reason)) return true;
+        if (T::CaptureProtectedTriggerFiles(environment, inputs, &synchronized, &reason, cancelled)) return true;
         if (error) { error->code = reason; error->message = "Cannot capture the native dpkg trigger state."; }
         return false;
     }
@@ -61,6 +65,7 @@ bool TriggerInputs(const Environment &environment, SnapshotCapture capture,
     std::size_t remaining = T::MaximumTriggerEvidenceBytes;
     std::set<std::string> names;
     for (const auto &name : directory.entries) {
+        if (!active()) return false;
         if (name.empty() || name.size() > 256 || name == "." || name == ".." ||
             name.find('/') != std::string::npos || !names.insert(name).second)
             return Fail(error, "provider_trigger_input_invalid", "Invalid native trigger registry membership.");
@@ -71,6 +76,7 @@ bool TriggerInputs(const Environment &environment, SnapshotCapture capture,
         remaining -= file.bytes.size(); file.adminAccess = true; inputs->push_back(file);
     }
     for (const char *name : {"File", "Unincorp", "Lock"}) {
+        if (!active()) return false;
         if (names.count(name)) continue;
         Evidence file;
         if (!capture(path + '/' + name, false, true, &file, error)) return false;
@@ -81,12 +87,18 @@ bool TriggerInputs(const Environment &environment, SnapshotCapture capture,
 }
 }
 bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
-                          std::vector<Evidence> *inputs, Error *error, SnapshotCapture capture, SnapshotCapture sharedCapture, SnapshotCapture sourceCapture) {
+                          std::vector<Evidence> *inputs, Error *error, SnapshotCapture capture, SnapshotCapture sharedCapture, SnapshotCapture sourceCapture,
+                          const std::function<bool()> &cancelled) {
     if (inputs == NULL || capture == NULL || sharedCapture == NULL || sourceCapture == NULL) return false;
+    const auto active = [&]() {
+        return !cancelled || !cancelled() || Fail(error, "snapshot_cancelled", "The package-manager snapshot was cancelled.");
+    };
+    if (!active()) { inputs->clear(); return false; }
     *inputs = environment.evidence;
     std::set<std::pair<std::string, bool> > seen;
     for (const auto &input : *inputs) if (!input.identityOnly) seen.insert({input.path, input.directory});
     const auto add = [&](const std::string &path, bool directory, bool absent, bool sharedState = false, bool sourceInput = false, bool adminAccess = false) {
+        if (!active()) return false;
         if (path.empty() || path == "/dev/null") return true;
         if (!seen.insert({path, directory}).second) {
             // Overlapping configured roles retain the stricter policy. A pin
@@ -115,7 +127,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
          !add(environment.preferencesParts, true, true))) return false;
     if (scope == SnapshotScope::PackageState) {
         std::vector<Evidence> triggers;
-        if (!TriggerInputs(environment, capture, &triggers, error)) return false;
+        if (!TriggerInputs(environment, capture, &triggers, error, cancelled)) return false;
         for (const auto &input : triggers) {
             // Lock is synchronization, not registry data. Generic evidence
             // rechecks reopen files; closing that inode could drop another
@@ -130,6 +142,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
     // Directory evidence includes membership, so additions, deletions and
     // renames invalidate review even when existing documents stay unchanged.
     for (const auto &input : std::vector<Evidence>(*inputs)) {
+        if (!active()) return false;
         if (!input.directory || input.absent || input.identityOnly) continue;
         const bool journal = scope == SnapshotScope::PackageState && input.path == environment.dpkgAdmin + "/updates";
         const bool pins = scope == SnapshotScope::PackageState && input.path == environment.preferencesParts;
@@ -146,6 +159,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
     std::set<std::string> scopedKeys;
     std::size_t count = 0;
     for (const auto &input : *inputs) {
+        if (!active()) return false;
         if (input.directory || input.absent || !CydiaSources::IsEffectiveDestination({environment.sourceList, environment.sourceParts}, input.path)) continue;
         if (++count > 4096 || input.bytes.size() > 4 * 1024 * 1024)
             return Fail(error, "source_snapshot_failed", "The source configuration exceeds the reader limits.");
@@ -155,7 +169,7 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
         for (const auto &definition : document.definitions) SignedByFiles(definition, format, &scopedKeys);
     }
     for (const auto &path : scopedKeys) if (!add(path, false, true)) return false;
-    return true;
+    return active();
 }
 std::string SerializeSnapshotEvidence(const Evidence &evidence) {
     const auto &st(evidence.identity);

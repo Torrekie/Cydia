@@ -88,6 +88,32 @@ void RepeatedDrains() {
     Require(!ledger.NextDrain(after.identity, &pass, &error) && ledger.active() && error == "provider_trigger_no_pending_effects",
         "quiescent graph does not invent a dpkg invocation");
 }
+void ReferenceOnlyDrains() {
+    auto before = Initial(); P::DpkgState references; std::string error;
+    Require(P::ParseDpkgState("old-reference\t\t\tunknown ok not-installed\tno\t\t\n", "amd64\n", "i386\n", "state-1", &references, &error),
+        "native reference row fixture");
+    before.packages.packages.insert(references.packages.begin(), references.packages.end()); Seal(&before, "state-1");
+    auto after = Point(Row("cache", "1", "amd64", "installed", "same") + Row("cache", "1", "i386", "installed", "same") +
+        Row("waiting", "1", "all") + Row("unrelated", "2", "all") +
+        "new-reference\t\t\tunknown ok not-installed\tno\t\t\n", SharedDeclarations, SharedRegistry, "state-2");
+    for (unsigned variant = 0; variant != 3; ++variant) {
+        auto next = after;
+        if (variant == 1) next.packages.packages.at("new-reference:").selection = P::DpkgSelection::Hold;
+        if (variant == 2) next.packages.packages.at("new-reference:").selection = P::DpkgSelection::Install;
+        Seal(&next, "state-2"); P::TriggerEffectLedger ledger; P::TriggerDrainPlan pass;
+        Require(ledger.Begin(Envelope(before, Review(before)), before, &error) && ledger.NextDrain(before.identity, &pass, &error),
+            "reviewed drain with retained raw reference rows");
+        const bool accepted = ledger.SettleDrain(pass.pass, Success(), next, &error);
+        Require(accepted == (variant == 0), "only unselected metadata-empty reference lifecycle is ignored during a real trigger transition");
+    }
+    // Dropping only a reference is not trigger progress and cannot justify
+    // another repeated drain when the actual pending graph remains unchanged.
+    auto unchanged = before; unchanged.packages.packages.erase("old-reference:"); Seal(&unchanged, "state-2");
+    P::TriggerEffectLedger noProgress; P::TriggerDrainPlan pass;
+    Require(noProgress.Begin(Envelope(before, Review(before)), before, &error) && noProgress.NextDrain(before.identity, &pass, &error) &&
+        !noProgress.SettleDrain(pass.pass, Success(), unchanged, &error) && error == "provider_trigger_drain_no_progress",
+        "reference-only churn does not conceal a stalled native trigger graph");
+}
 void DeferredQueues() {
     auto declarations = SharedDeclarations, registry = SharedRegistry;
     registry["Unincorp"] = "cache-native waiting:all -\n";
@@ -366,6 +392,6 @@ void Parsers() {
 }
 }
 int main() {
-    Parsers(); RepeatedDrains(); DeferredQueues(); Rejections(); IncomingAndPrimary(); PreDependsChildBoundaries(); AuthorizedUnpackOperandOrder(); ConfiguredVersions();
+    Parsers(); RepeatedDrains(); ReferenceOnlyDrains(); DeferredQueues(); Rejections(); IncomingAndPrimary(); PreDependsChildBoundaries(); AuthorizedUnpackOperandOrder(); ConfiguredVersions();
     std::cout << "apt-provider-trigger-effects tests passed\n";
 }

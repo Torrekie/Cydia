@@ -2,6 +2,7 @@
 #ifndef Cydia_RuntimeSnapshotInputs_HPP
 #define Cydia_RuntimeSnapshotInputs_HPP
 #include "Cydia/PrivilegedRuntime.hpp"
+#include <functional>
 namespace CydiaRuntime { namespace Privileged {
 enum class SnapshotScope { PackageState, RepositoryTrust };
 /* This internal seam lets host fixtures supply evidence from isolated files.
@@ -11,7 +12,8 @@ bool CaptureSnapshotInputs(const Environment &environment, SnapshotScope scope,
                           std::vector<Evidence> *inputs, Error *error,
                           SnapshotCapture capture = CaptureEvidence,
                           SnapshotCapture sharedCapture = CaptureSharedStateEvidence,
-                          SnapshotCapture sourceCapture = CaptureSourceEvidence);
+                          SnapshotCapture sourceCapture = CaptureSourceEvidence,
+                          const std::function<bool()> &cancelled = {});
 std::string SerializeSnapshotEvidence(const Evidence &evidence);
 } }
 #endif

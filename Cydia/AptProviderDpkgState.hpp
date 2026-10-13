@@ -30,6 +30,12 @@ struct DpkgState {
     std::map<std::string, DpkgPackageState> packages;
 };
 
+// A dependency-reference row, not an installed generation or retained wanted
+// selection. Keep it in the captured query for raw-status consistency; only
+// transition/effect comparisons may ignore its appearance/disappearance.
+// Native dpkg rejects Config-Version on NotInstalled before query succeeds.
+bool DpkgStateReferenceOnly(const DpkgPackageState &);
+
 // Stable dpkg-query fields, not -l output or localized diagnostic messages.
 const char *DpkgStateQueryFormat();
 bool ParseDpkgState(const std::string &queryOutput, const std::string &nativeOutput,

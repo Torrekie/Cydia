@@ -10,6 +10,7 @@ ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-native-launc
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-native-effect-policy"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-source-preflight" "$APT_INTEGRATION_TESTS_BUILD_DIR/methods"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-archive-reader"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-archive-decoder"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-binary-relationships"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-native-version-comparison"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-mmap-backing"

@@ -4,6 +4,7 @@
 #define Cydia_AptProviderTriggerCapture_HPP
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
+#include "Cydia/AptProviderDeconfigurationEffects.hpp"
 
 namespace CydiaAPT { namespace Provider {
 struct NativeDpkgAuthority;
@@ -29,6 +30,31 @@ bool CaptureEffectAwareDpkgState(const CydiaRuntime::PackageDatabasePaths &, con
     DpkgState *, std::string *error, const std::function<bool()> &cancelled = {});
 bool CaptureReviewedTriggerEffects(const CydiaRuntime::PackageDatabasePaths &, const BrokerEnvironment &,
     const ReviewedTransaction &, TriggerEffectEnvelope *, std::string *error,
+    const std::function<bool()> &cancelled = {});
+constexpr unsigned MaximumDeconfigurationCaptureMilliseconds = 30000;
+// Retained parent proof for native confirmation; no archive download or child
+// mutation. The immutable result is neither worker authority nor permission
+// to enable automatic deconfiguration. A future cydo confirmation route may
+// encode allowances; Begin must independently recapture and compare them.
+struct ProtectedDeconfigurationReview {
+    DeconfigurationAllowanceSet allowances;
+    TriggerEffectCheckpoint checkpoint;
+    std::vector<VerifiedIndexControlEvidence> indexControls;
+    InstalledScriptMetadata installedScripts;
+    // Retains protected source/index descriptors for later archive refinement.
+    // Every use must recheck them; the shared pointer is not perpetual proof.
+    std::shared_ptr<const ArchiveEvidenceSnapshot> sourceSnapshot;
+};
+// Existing authenticated cydo only: selected is independently resolved, the
+// actual direct parent retains lock-frontend and its exact review is stable.
+// Uses one native authority/state generation for native comparisons (including
+// cache hits), target derivation, selected prerm/postinst capture and rebuilding.
+// All queries use owned frozen envp and bounded stdout/time; the whole capture
+// has a shared deadline. Failure clears output and never falls back to a missing
+// or invalid native declaration, embedded comparisons, or worker control data.
+// No UI, Begin route, execution capability, policy readiness or helper is added.
+bool CaptureReviewedDeconfiguration(const CydiaRuntime::PackageDatabasePaths &, const BrokerEnvironment &,
+    const ReviewedTransaction &, std::shared_ptr<const ProtectedDeconfigurationReview> *, std::string *error,
     const std::function<bool()> &cancelled = {});
 }}
 #endif

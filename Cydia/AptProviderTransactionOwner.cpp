@@ -19,6 +19,13 @@
 namespace CydiaAPT { namespace Provider {
 namespace {
 namespace P = CydiaRuntime::Privileged;
+bool EmptyQueryStatus(const P::Environment &environment) {
+    P::Evidence status; P::Error ignored;
+    return P::CaptureSharedStateEvidence(environment.dpkgAdmin + "/status", false, false, &status, &ignored) &&
+        !status.absent && status.bytes.find_first_not_of(" \t\r\n\v\f") == std::string::npos &&
+        P::RecheckEvidence({status}, &ignored);
+}
+
 bool Fail(std::string *error, const char *code) { if (error) *error = code; return false; }
 std::string Hash(const std::string &bytes) {
     Hashes hash(Hashes::SHA256SUM);
@@ -131,7 +138,12 @@ public:
         ComponentClosureEvidence proof;
         if (!Parent(nullptr, error) || !Closure(path, files, &proof, error, cancel)) return false;
         CydiaRuntime::Dpkg::Runner reader(path);
-        if (!reader.RunAndCaptureBounded(arguments, native.launchEnvironment, output, limit, 3000, cancel).succeeded())
+        const auto queried = reader.RunAndCaptureBounded(arguments, native.launchEnvironment, output, limit, 3000, cancel);
+        const auto &environment = options.selected.environment;
+        const bool completeQuery = path == environment.dpkgQuery && arguments == std::vector<std::string>{
+            "--admindir=" + environment.dpkgAdmin, "--showformat=" + std::string(DpkgStateQueryFormat()), "--show", "*"};
+        if (!queried.succeeded() && !(completeQuery && queried.kind == CydiaRuntime::Dpkg::ResultKind::Exited &&
+            queried.error == 0 && queried.code == 1 && output->empty() && EmptyQueryStatus(environment)))
             return Fail(error, "provider_dpkg_state_query_failed");
         return true;
     }
@@ -148,7 +160,7 @@ public:
         if (!Query(environment.dpkg, arguments, 32768, context->components, &nativeArchitecture, error, cancel)) return false;
         arguments.back() = "--print-foreign-architectures";
         if (!Query(environment.dpkg, arguments, 32768, context->components, &foreignArchitectures, error, cancel)) return false;
-        arguments = {"--admindir=" + environment.dpkgAdmin, "--showformat=" + std::string(DpkgStateQueryFormat()), "--show"};
+        arguments = {"--admindir=" + environment.dpkgAdmin, "--showformat=" + std::string(DpkgStateQueryFormat()), "--show", "*"};
         if (!Query(environment.dpkgQuery, arguments, 32 * 1024 * 1024, context->components, &records, error, cancel) ||
             !FrozenSnapshot(&after, error) || before != after || !Parent(context, error)) return false;
         std::vector<InstalledComponentEvidence> finalFiles;

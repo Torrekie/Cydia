@@ -86,6 +86,18 @@ int main() {
     Write(root + "/apt.conf", "Dir::Etc::trustedparts \"keys\";\n");
     Evidence config; assert(FixtureCapture(root + "/apt.conf", false, false, &config, NULL));
     environment.evidence.push_back(config);
+    std::vector<Evidence> cancelledInputs{config}; Error cancelledError;
+    assert(!CaptureSnapshotInputs(environment, SnapshotScope::PackageState, &cancelledInputs, &cancelledError,
+        FixtureCapture, FixtureCapture, FixtureCapture, [] { return true; }) && cancelledInputs.empty() &&
+        cancelledError.code == "snapshot_cancelled");
+    unsigned checks = 0;
+    assert(!CaptureSnapshotInputs(environment, SnapshotScope::PackageState, &cancelledInputs, &cancelledError,
+        FixtureCapture, FixtureCapture, FixtureCapture, [&] { return ++checks == 4; }) &&
+        cancelledError.code == "snapshot_cancelled" && checks == 4);
+    std::vector<Evidence> boundedInputs;
+    assert(CaptureSnapshotInputs(environment, SnapshotScope::PackageState, &boundedInputs, &cancelledError,
+        FixtureCapture, FixtureCapture, FixtureCapture, [] { return false; }));
+    assert(Frame(boundedInputs) == Frame(Capture(environment, SnapshotScope::PackageState)));
     auto state = Capture(environment, SnapshotScope::PackageState);
     auto trust = Capture(environment, SnapshotScope::RepositoryTrust);
     const std::string architecturePath(environment.dpkgAdmin + "/arch");

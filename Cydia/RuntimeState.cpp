@@ -15,17 +15,27 @@ bool Fail(Error *error, const char *code, const char *message) {
     if (error != NULL) { error->code = code; error->message = message; }
     return false;
 }
-bool HashSnapshot(const Environment &environment, SnapshotScope scope, std::string *token, Error *error) {
+bool HashSnapshot(const Environment &environment, SnapshotScope scope, std::string *token, Error *error, const std::function<bool()> &cancelled) {
     if (token == NULL) return false;
+    token->clear();
+    const auto active = [&]() {
+        return !cancelled || !cancelled() || Fail(error, "snapshot_cancelled", "The package-manager snapshot was cancelled.");
+    };
+    if (!active()) return false;
     std::vector<Evidence> inputs;
-    if (!CaptureSnapshotInputs(environment, scope, &inputs, error) || !RecheckEvidence(inputs, error)) return false;
+    if (!CaptureSnapshotInputs(environment, scope, &inputs, error, CaptureEvidence,
+        CaptureSharedStateEvidence, CaptureSourceEvidence, cancelled)) return false;
+    for (const auto &input : inputs)
+        if (!active() || !RecheckEvidence({input}, error) || !active()) return false;
     Hashes hash(Hashes::SHA256SUM);
     const std::string domain(scope == SnapshotScope::PackageState ? "CYDIA-PACKAGE-SNAPSHOT-7" : "CYDIA-TRUST-SNAPSHOT-4");
     if (!hash.Add(domain.data(), domain.size())) return Fail(error, "snapshot_failed", "Cannot hash the package-manager snapshot.");
     for (const auto &input : inputs) {
+        if (!active()) return false;
         const std::string frame(SerializeSnapshotEvidence(input));
         if (!hash.Add(frame.data(), frame.size())) return Fail(error, "snapshot_failed", "Cannot hash the package-manager snapshot.");
     }
+    if (!active()) return false;
     *token = hash.GetHashString(Hashes::SHA256SUM).HashValue();
     return token->size() == 64;
 }
@@ -64,11 +74,11 @@ bool QueryArchitectures(const Environment &environment, std::string *native, std
     return RecheckEvidence(environment.evidence, error);
 }
 }
-bool RuntimeSnapshot(const Environment &environment, std::string *token, Error *error) {
-    return HashSnapshot(environment, SnapshotScope::PackageState, token, error);
+bool RuntimeSnapshot(const Environment &environment, std::string *token, Error *error, const std::function<bool()> &cancelled) {
+    return HashSnapshot(environment, SnapshotScope::PackageState, token, error, cancelled);
 }
-bool TrustSnapshot(const Environment &environment, std::string *token, Error *error) {
-    return HashSnapshot(environment, SnapshotScope::RepositoryTrust, token, error);
+bool TrustSnapshot(const Environment &environment, std::string *token, Error *error, const std::function<bool()> &cancelled) {
+    return HashSnapshot(environment, SnapshotScope::RepositoryTrust, token, error, cancelled);
 }
 bool ReadExtendedState(const Environment &environment, std::string *bytes, Error *error) {
     CydiaSources::ProtectedFileSnapshot snapshot;

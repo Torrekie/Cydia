@@ -133,8 +133,10 @@ separately from the read-only query view, and can capture protected `prerm` and
 control inspection preserves exact script presence, bytes and tar metadata.
 Bounded binary relationship parsing distinguishes dpkg's unpack and configure
 checks, including actual architectures and versioned virtual providers. Native
-version-comparison adapter accepts a frozen parent-owned dpkg callback and exit
-codes; its production capture/query connection is still pending. Localized
+version-comparison adapter uses a frozen parent-owned dpkg callback and exact
+exit codes. Protected deconfiguration review capture connects it to the selected
+native dpkg, checking the complete configuration, loader, environment and package
+state around queries and cached comparisons. Localized
 diagnostics never determine execution policy. The initial-generation
 allowance builder binds prospective Breaks/sibling causes to exact reviewed
 restoration endpoints. Batch index-control capture binds each exact reviewed
@@ -171,6 +173,20 @@ results are refused. This codec does not change transaction protocol versions,
 advertise capability or enable execution. Begin integration must independently
 recapture and rebuild the parent proof before comparing canonical approvals.
 
+Protected review capture derives prospective recipients from exact retained
+index controls and captures their native installed scripts under the actual
+frontend lock. It rechecks source/index, native component/configuration and
+package/trigger evidence before returning an immutable review, without downloading
+archives. A shared capture deadline reaches native queries, trigger locks and
+compressed-index readers. External decoder output remains provisional until
+the stream and successful child exit are verified; cancellation also settles
+the owned decoder process group. Complete-state queries use a literal wildcard
+to retain native Install/Hold selections on packages which are not installed.
+Only genuinely metadata-empty, unselected dependency references are excluded
+from package-effect/progress comparisons; protected raw state remains bound.
+The cydo confirmation route, native presentation and independent Begin rebuilding
+remain prerequisites to activation.
+
 A bounded restoration ledger records only observed, approved old-generation
 deconfiguration after a successful child. It transfers debt only through the
 exact reviewed successor Unpack and independently proven installed controls and
@@ -193,7 +209,7 @@ rechecks authority and launches. For the supported semantic profile, effective
 `confold`, `confnew` and `confdef` suppress answers: native dpkg can emit the
 notification before choosing automatically. Missing or unsupported policy never
 becomes a guessed interactive decision; a notification then closes input
-without an answer. The broker does not yet negotiate this mode. Legacy one-shot
+without an answer. The broker negotiates this mode for retained transactions. Legacy one-shot
 and transitional in-process paths retain their argument-only behavior.
 This handshake binds a child policy, not proof that a particular native question
 is still waiting on stdin. A stronger per-question status interface would be a
@@ -742,7 +758,7 @@ APT/ICU provider migration or public-source support.
 | `PackageArchivePolicy.*`, `PackageArchiveReader.*` | Bounded exact payload-file bytes and numeric metadata can be captured without extraction; this is a foundation for independently verified component succession, not execution authority |
 | `AptProviderTransactionOwner.*`, `AptProviderTransactionLease.*`, `AptProviderComponentSuccession.*`, `AptProviderNativeDpkgAuthority.*` | Persistent helper ownership, retained archive copies, native declaration/loader evidence, approved component generations and exact settlement; declaration delivery and real distribution acceptance remain |
 | `AptProviderTrigger*`, `RuntimeSnapshotInputs.*`, transaction channel/service | Protected registry/control capture, immutable native approval, bounded finite drain ledger and separate child scopes; legacy mode remains restricted |
-| `DpkgConffile.*`, `AptProviderConffilePolicy*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Child/question-scoped replies, exact final launch binding, protected force-state suppression and stale-alert invalidation; v3 activation and native per-question readiness remain separate gates |
+| `DpkgConffile.*`, `AptProviderConffilePolicy*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Retained transactions use exact final launch binding, protected force-state suppression and stale-alert invalidation; legacy argument-only behavior and stronger native per-question readiness remain separate limitations |
 | `AptProviderDeconfigurationApproval.*`, `AptProviderRestorationDebt.*` | Bounded immutable approval codec and observed restoration bookkeeping; protected capture, locked reconstruction and owner integration remain prerequisites to activation |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |

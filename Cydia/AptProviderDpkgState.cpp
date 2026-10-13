@@ -112,7 +112,7 @@ bool RecordValid(const DpkgPackageState &record) {
         static_cast<unsigned>(record.status) > static_cast<unsigned>(DpkgPackageStatus::Installed)) return false;
     const bool noMetadata = record.package.architecture.empty() && record.package.version.empty();
     if (noMetadata) {
-        if (record.status != DpkgPackageStatus::NotInstalled || record.reinstallRequired || !record.multiArch.empty()) return false;
+        if (record.status != DpkgPackageStatus::NotInstalled || record.reinstallRequired || (!record.multiArch.empty() && record.multiArch != "no")) return false;
     } else if (!Architecture(record.package.architecture) || !Version(record.package.version)) return false;
     if (record.multiArch != "" && record.multiArch != "no" && record.multiArch != "same" &&
         record.multiArch != "foreign" && record.multiArch != "allowed") return false;
@@ -169,10 +169,6 @@ bool ParseRecord(const std::string &line, DpkgPackageState *record) {
     record->status = static_cast<DpkgPackageStatus>(i);
     return TriggerList(fields[5], false, &record->triggersPending) &&
         TriggerList(fields[6], true, &record->triggersAwaited) && RecordValid(*record);
-}
-bool Forgotten(const DpkgPackageState &record) {
-    return record.status == DpkgPackageStatus::NotInstalled && record.selection == DpkgSelection::Unknown &&
-        !record.reinstallRequired && record.triggersPending.empty() && record.triggersAwaited.empty();
 }
 bool EmptyTriggers(const DpkgPackageState &record) {
     return record.triggersPending.empty() && record.triggersAwaited.empty();
@@ -241,6 +237,13 @@ bool TriggerResult(const DpkgState &before, const std::vector<ExecutionPackage> 
 }
 }
 
+bool DpkgStateReferenceOnly(const DpkgPackageState &record) {
+    return CydiaRuntime::ValidPackageName(record.package.package) && record.package.version.empty() &&
+        record.package.architecture.empty() && record.status == DpkgPackageStatus::NotInstalled &&
+        record.selection == DpkgSelection::Unknown && !record.reinstallRequired &&
+        (record.multiArch.empty() || record.multiArch == "no") &&
+        record.triggersPending.empty() && record.triggersAwaited.empty();
+}
 const char *DpkgStateQueryFormat() {
     // These control fields are not translated, unlike dpkg-query --list.
     return "${Package}\t${Version}\t${Architecture}\t${Status}\t${Multi-Arch}\t${Triggers-Pending}\t${Triggers-Awaited}\n";
@@ -406,12 +409,16 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
         }
         DpkgState expected;
         if (!TriggerResult(before, targets, &expected, error)) return false;
-        if (after.packages.size() != expected.packages.size()) return Fail(error, "provider_unexpected_dpkg_transition");
         for (const auto &item : expected.packages) {
             const auto observed = after.packages.find(item.first);
+            if (DpkgStateReferenceOnly(item.second) &&
+                (observed == after.packages.end() || DpkgStateReferenceOnly(observed->second))) continue;
             if (observed == after.packages.end() || !SameRecord(item.second, observed->second))
                 return Fail(error, "provider_unexpected_dpkg_transition");
         }
+        for (const auto &item : after.packages)
+            if (!expected.packages.count(item.first) && !DpkgStateReferenceOnly(item.second))
+                return Fail(error, "provider_unexpected_dpkg_transition");
         if (error) error->clear();
         return true;
     }
@@ -478,11 +485,14 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
     }
     for (const auto &item : before.packages) if (!affectedBefore.count(item.first)) {
         const auto now = after.packages.find(item.first);
-        if (now == after.packages.end() ? !Forgotten(item.second) : !SameRecord(item.second, now->second))
+        if (DpkgStateReferenceOnly(item.second) &&
+            (now == after.packages.end() || DpkgStateReferenceOnly(now->second))) continue;
+        if (now == after.packages.end() || !SameRecord(item.second, now->second))
             return Fail(error, "provider_unexpected_dpkg_transition");
     }
     for (const auto &item : after.packages) if (!affectedAfter.count(item.first)) {
         const auto old = before.packages.find(item.first);
+        if (DpkgStateReferenceOnly(item.second) && (old == before.packages.end() || DpkgStateReferenceOnly(old->second))) continue;
         if (old == before.packages.end() || affectedBefore.count(item.first) || !SameRecord(old->second, item.second))
             return Fail(error, "provider_unexpected_dpkg_transition");
     }

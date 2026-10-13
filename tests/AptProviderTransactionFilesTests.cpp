@@ -364,7 +364,7 @@ void OwnerTransactions() {
         std::filesystem::create_directory(admin + "/updates");
         Write(admin + "/status", ""); Write(fixture.root + "/extended_states", "");
         Write(fixture.root + "/dpkg", "#!/bin/sh\nfor arg do\ncase \"$arg\" in\n--print-architecture) printf 'amd64\\n'; exit 0;;\n--print-foreign-architectures) exit 0;;\nesac\ndone\nexit 1\n", 0755);
-        Write(fixture.root + "/dpkg-query", "#!/bin/sh\nexec /bin/cat \"$0.rows\"\n", 0755);
+        Write(fixture.root + "/dpkg-query", "#!/bin/sh\n[ \"$#\" = 4 ] && [ \"$3\" = --show ] && [ \"$4\" = '*' ] || exit 9\nexec /bin/cat \"$0.rows\"\n", 0755);
         Write(fixture.root + "/dpkg-query.rows", ""); Write(fixture.root + "/native.conf", "fixture native graph\n");
         if (mode >= 6) {
             std::filesystem::create_directory(admin + "/info"); std::filesystem::create_directory(admin + "/triggers");

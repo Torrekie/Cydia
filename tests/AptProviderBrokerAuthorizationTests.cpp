@@ -50,13 +50,13 @@ ProviderTransaction::~ProviderTransaction() = default;
 ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> implementation) : implementation_(std::move(implementation)) {}
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper, const Privileged::Request &request,
     const std::string &digest, std::string *error, unsigned, const std::function<bool()> &, bool scopedChildren, bool conffilePolicy) {
-    Require(!conffilePolicy, "draft conffile policy is not activated by this broker fixture");
+    Require(conffilePolicy, "retained broker requests freshly bound native conffile policy");
     Require(transactionMock.enabled, "archive denial must precede persistent transaction admission");
     ++transactionMock.starts; std::vector<std::string> fields;
     Require(helper == "/fixture/cydo" && P::Decode(request.payload, &fields) && fields.size() == 3 && fields[0] == "CYDIA-BROKER-1" &&
         P::DecodeTransactionBegin(fields[2], &transactionMock.begin) && P::TransactionBeginDigest(transactionMock.begin) == digest,
         "broker sends canonical exact Begin digest and retained review");
-    Require(scopedChildren == bool(transactionMock.begin.reviewedEffects), "Begin explicitly negotiates its approved child mode");
+    Require(scopedChildren, "Begin explicitly negotiates policy-scoped children with or without finite triggers");
     Require(transactionMock.begin.extendedState == transactionMock.baseline, "Begin retains original extended-state baseline");
     if (transactionMock.rejectBegin) { if (error) *error = transactionMock.beginError; return {}; }
     return std::unique_ptr<ProviderTransaction>(new ProviderTransaction(std::unique_ptr<Implementation>(new Implementation)));

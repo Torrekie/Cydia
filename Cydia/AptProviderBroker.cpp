@@ -110,7 +110,7 @@ public:
         if (!EncodeTransactionBegin(begin, &bytes) || digest.empty()) return Fail("provider_invalid_transaction_request");
         std::string code;
         transaction = Client::ProviderTransaction::Start(options.helperPath, Request(bytes), digest, &code,
-            Deadline(control), control.cancelled, bool(reviewedEffects));
+            Deadline(control), control.cancelled, true, true);
         if (transaction) { transactionDenied = false; return true; }
         // Existing distributions need not install a declaration merely to use
         // the established restricted executor. Selection happens once before
