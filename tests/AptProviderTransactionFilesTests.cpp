@@ -198,6 +198,16 @@ bool BuildNativeEffectPolicyInputs(const NativeDpkgAuthority &authority, const s
         !CaptureNativeDpkgClosure(authority, executable, files, &closure, error, cancelled)) return false;
     return fixturePolicyProducer(authority, executable, files, profile, role, prefix, output, error, cancelled);
 }
+NativeEffectPolicy::Match MatchNativeEffectPolicy(const NativeDpkgAuthority &authority, const std::string &executable,
+    const std::vector<InstalledComponentEvidence> &files, const std::string &profile, NativeEffectPolicy::Role role,
+    const std::vector<std::string> &prefix, std::string *error, const std::function<bool()> &cancelled) {
+    NativeEffectPolicy::Inputs inputs; NativeEffectPolicy::Match result;
+    if (!BuildNativeEffectPolicyInputs(authority, executable, files, profile, role, prefix, &inputs, error, cancelled) ||
+        authority.effectRecordState != NativeEffectRecordState::Parsed) return result;
+    // Use the real pure matcher. Only the input producer above is a labelled
+    // fixture double; absent or different records never become a match.
+    return NativeEffectPolicy::MatchRecord(authority.effectRecords, inputs, [](const std::string &bytes) { return Hash(bytes); });
+}
 bool ResolveNativeDpkgAuthority(const BrokerEnvironment &, const ReviewedTransaction &, NativeDpkgAuthority *out,
     std::string *error, const std::function<bool()> &) {
     if (!fixtureAuthorityAvailable) { if (error) *error = "provider_native_configuration_missing"; return false; }
