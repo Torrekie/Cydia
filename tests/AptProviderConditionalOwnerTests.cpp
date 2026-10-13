@@ -584,9 +584,12 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
     Require(execute(3, 4, false, &after) && after.packages.at("victim:amd64").status == P::DpkgPackageStatus::Installed &&
         after.packages.at("cache:amd64").status == P::DpkgPackageStatus::Installed && drains == 1 && !actual.complete(),
         "exact reviewed restore endpoint then native trigger drain settle debt before remaining primary");
+    // deb-triggers(5) also activates activate-await during configuration.
+    // This fresh post-primary graph requires its own second drain.
     Require(execute(4, 2, false, &after) && after.packages.at("sample:all").status == P::DpkgPackageStatus::Installed &&
-        after.packages.at("victim:amd64").package.version == "2" && drains == 1 && !actual.complete(),
-        "every remaining reviewed primary must complete before extended-state commit");
+        after.packages.at("victim:amd64").package.version == "2" &&
+        after.packages.at("cache:amd64").status == P::DpkgPackageStatus::Installed && drains == 2 && !actual.complete(),
+        "remaining primary and its configure activation settle before extended-state commit");
     unsigned commits = 0;
     const bool committed = actual.Commit(Envelope(5), options.changes, options.expectedExtendedState, &error, [&] {
         ++commits;
@@ -599,8 +602,8 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
     else Require(committed && actual.complete() && commits == 1 &&
         ConditionalRead(options.selected.environment.extendedStates).find("Package: sample") != std::string::npos,
         "only full actual primary completion, zero debt and quiescence admit real CAS");
-    Require(policies == executions && starts == executions && settlements == channelScopes && executions == 5 && firstUnpackInputs > 0,
-        "four primaries plus one drain have exactly one policy acknowledgment/start/settlement each");
+    Require(policies == executions && starts == executions && settlements == channelScopes && executions == 6 && firstUnpackInputs > 0,
+        "four primaries plus two drains have exactly one policy acknowledgment/start/settlement each");
     Require(actual.Close(&error), "complete conditional owner closes after all real children were reaped");
 }
 }
