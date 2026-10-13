@@ -237,10 +237,9 @@ struct ConditionalFixture : Fixture {
         Write(environment.dpkgRoot + "/usr/lib/victim-fixture", "old victim payload");
         Write(environment.dpkgRoot + "/usr/lib/cache-fixture", "unchanged cache payload");
         if (scenario == ConditionalCase::FailedChild) {
-            // A real native unpack error after admission. Its unowned nonempty
-            // directory exists only beneath this fixture's explicit --root.
-            std::filesystem::create_directory(environment.dpkgRoot + "/usr/lib/fixture");
-            Write(environment.dpkgRoot + "/usr/lib/fixture/keep", "native directory replacement must fail");
+            // The reviewed payload needs this regular file to be a directory.
+            // Parent traversal fails after deconfiguration, inside --root.
+            Write(environment.dpkgRoot + "/usr/lib/fixture", "native parent traversal obstruction");
         }
         options.selected.executableSearchPath = "/usr/bin:/bin:/sbin:/usr/sbin";
         options.selected.archiveDecoderSearchPath = "/usr/bin:/bin";
@@ -263,8 +262,10 @@ struct ConditionalFixture : Fixture {
         // The known trigger file still carries the ordinary maintainer warning.
         // Record its fixture review approval; retained archive checks remain required.
         policy.unverifiedArchiveWarningsAccepted.insert(first.identifier);
+        const std::string payloadPath = scenario == ConditionalCase::FailedChild ?
+            "usr/lib/fixture/payload" : "usr/lib/fixture";
         deb = "!<arch>\n" + Ar("debian-binary", "2.0\n") + Ar("control.tar", tar) +
-            Ar("data.tar", Tar("usr/lib/fixture", "approved library bytes"));
+            Ar("data.tar", Tar(payloadPath, "approved library bytes"));
         first.size = deb.size(); first.hashes = {{"SHA512", Hash(deb, Hashes::SHA512SUM)}};
         const auto sampleRecord = sampleControl + "Filename: pool/sample.deb\nSize: " + std::to_string(first.size) +
             "\nSHA512: " + first.hashes.at("SHA512") + "\n\n";
