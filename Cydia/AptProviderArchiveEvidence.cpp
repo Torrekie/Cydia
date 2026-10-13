@@ -184,6 +184,52 @@ bool SameSources(const CydiaSources::StoreSnapshot &left, const CydiaSources::St
     }
     return true;
 }
+// Length-prefixed streaming fields avoid ambiguous concatenation and do not
+// allocate another copy of the retained source documents.
+class EvidenceHash {
+    Hashes hash_{Hashes::SHA256SUM};
+    bool valid_ = true;
+public:
+    bool field(const std::string &value) {
+        const std::string length = std::to_string(value.size()) + ':';
+        return valid_ = valid_ && hash_.Add(length.data(), length.size()) &&
+            hash_.Add(value.data(), value.size()) && hash_.Add(",", 1);
+    }
+    template<class T> bool number(T value) { return field(std::to_string(value)); }
+    std::string finish() { return valid_ ? hash_.GetHashString(Hashes::SHA256SUM).HashValue() : ""; }
+};
+bool SourceIdentity(const CydiaSources::EffectiveLocations &locations, const CydiaSources::StoreSnapshot &sources,
+    std::string *identity, const std::function<bool()> &cancelled, std::string *error) {
+    EvidenceHash hash;
+    hash.field("CYDIA-INDEX-CONTROL-SOURCES-1"); hash.field(locations.mainFile); hash.field(locations.partsDirectory);
+    hash.number(sources.documents.size());
+    for (const auto &stored : sources.documents) {
+        if (Cancelled(cancelled, error)) return false;
+        hash.field(stored.document.path); hash.field(stored.canonicalPath); hash.field(stored.document.bytes);
+        const auto &file = stored.identity;
+        hash.number(file.exists); hash.number(file.device); hash.number(file.inode); hash.number(file.size);
+        hash.number(file.links); hash.number(file.mode); hash.number(file.owner); hash.number(file.group);
+        hash.number(file.modifiedSeconds); hash.number(file.modifiedNanoseconds);
+        hash.number(file.changedSeconds); hash.number(file.changedNanoseconds);
+    }
+    *identity = hash.finish();
+    return !identity->empty() || Fail(error, "provider_archive_identity_failed");
+}
+std::string IndexIdentity(const File &file, const std::string &content, const std::string &compression) {
+    EvidenceHash hash;
+    hash.field("CYDIA-INDEX-CONTROL-INDEX-1"); hash.field(file.path); hash.field(content); hash.field(compression);
+    const auto &stat = file.identity;
+    hash.number(stat.st_dev); hash.number(stat.st_ino); hash.number(stat.st_mode); hash.number(stat.st_uid);
+    hash.number(stat.st_gid); hash.number(stat.st_nlink); hash.number(stat.st_size);
+#ifdef __APPLE__
+    hash.number(stat.st_mtimespec.tv_sec); hash.number(stat.st_mtimespec.tv_nsec);
+    hash.number(stat.st_ctimespec.tv_sec); hash.number(stat.st_ctimespec.tv_nsec);
+#else
+    hash.number(stat.st_mtim.tv_sec); hash.number(stat.st_mtim.tv_nsec);
+    hash.number(stat.st_ctim.tv_sec); hash.number(stat.st_ctim.tv_nsec);
+#endif
+    return hash.finish();
+}
 struct Range {
     ArchiveManifest archive;
     std::uint64_t begin = 0, end = 0;
@@ -454,6 +500,80 @@ bool ArchiveEvidenceSnapshot::ControlFields(const ArchiveManifest &requested,
     const auto found = implementation_->controls.find(requested.identifier);
     if (found == implementation_->controls.end()) return Fail(error, "provider_archive_control_missing");
     *controls = found->second; return true;
+}
+bool ArchiveEvidenceSnapshot::ControlEvidence(const std::vector<ArchiveManifest> &requested,
+    std::vector<VerifiedIndexControlEvidence> *evidence, const std::function<bool()> &cancelled, std::string *error) const {
+    if (error) error->clear();
+    if (!evidence) return Fail(error, "provider_archive_evidence_missing");
+    evidence->clear();
+    if (requested.size() > MaximumIndexControlRecords) return Fail(error, "provider_index_control_limit");
+    ErrorScope errors;
+    const auto &capture = *implementation_;
+    struct Record { const ArchiveManifest *archive; const std::map<std::string, std::string> *controls;
+        std::string manifest, fields; };
+    std::vector<Record> records;
+    std::set<std::string> seen, indexes;
+    std::size_t bytes = 0;
+    for (const auto &archive : requested) {
+        if (Cancelled(cancelled, error)) return false;
+        const auto approved = capture.archives.find(archive.identifier);
+        if (approved == capture.archives.end() || !seen.insert(archive.identifier).second)
+            return Fail(error, "provider_archive_not_reviewed");
+        Record record; record.archive = &approved->second;
+        std::string claimed;
+        if (!Encode(archive, &claimed) || !Encode(approved->second, &record.manifest))
+            return Fail(error, "provider_index_control_limit");
+        if (claimed != record.manifest) return Fail(error, "provider_archive_not_reviewed");
+        const auto controls = capture.controls.find(archive.identifier);
+        if (controls == capture.controls.end()) return Fail(error, "provider_archive_control_missing");
+        record.controls = &controls->second;
+        if (!Encode(controls->second, &record.fields)) return Fail(error, "provider_index_control_limit");
+        // Include the encoded 64-character SHA256 identity string in the
+        // aggregate limit, before retaining/copying any complete output.
+        for (const auto size : {record.manifest.size(), record.fields.size(), std::size_t(68)}) {
+            if (size > MaximumIndexControlBytes - bytes) return Fail(error, "provider_index_control_limit");
+            bytes += size;
+        }
+        indexes.insert(archive.sourceIndexPath); records.push_back(std::move(record));
+    }
+    if (Cancelled(cancelled, error)) return false;
+    if (!SameSources(capture.sources, CydiaSources::ReadEffectiveDocuments(capture.locations)))
+        return Fail(error, "provider_archive_sources_changed");
+    std::string sources;
+    if (!SourceIdentity(capture.locations, capture.sources, &sources, cancelled, error)) return false;
+    std::map<std::string, std::string> identities;
+    for (const auto &path : indexes) {
+        const auto index = capture.indexes.find(path);
+        if (index == capture.indexes.end()) return Fail(error, "provider_archive_index_changed");
+        std::map<std::string, std::string> hashes;
+        if (!Hash(*index->second.file, &hashes, cancelled, error)) return false;
+        if ("SHA256:" + hashes["SHA256"] != index->second.hash) return Fail(error, "provider_archive_index_changed");
+        const auto identity = IndexIdentity(*index->second.file, index->second.hash, index->second.compression);
+        if (identity.empty()) return Fail(error, "provider_archive_identity_failed");
+        identities.emplace(path, identity);
+    }
+    std::vector<VerifiedIndexControlEvidence> result;
+    result.reserve(records.size());
+    for (const auto &record : records) {
+        if (Cancelled(cancelled, error)) return false;
+        EvidenceHash hash;
+        hash.field("CYDIA-INDEX-CONTROL-EVIDENCE-1"); hash.field(record.manifest); hash.field(record.fields);
+        hash.field(sources); hash.field(identities.at(record.archive->sourceIndexPath));
+        VerifiedIndexControlEvidence checked;
+        checked.evidenceIdentity = hash.finish();
+        if (checked.evidenceIdentity.empty()) return Fail(error, "provider_archive_identity_failed");
+        checked.archive = *record.archive; checked.controls = *record.controls;
+        result.push_back(std::move(checked));
+    }
+    if (Cancelled(cancelled, error)) return false;
+    if (!SameSources(capture.sources, CydiaSources::ReadEffectiveDocuments(capture.locations)))
+        return Fail(error, "provider_archive_sources_changed");
+    // A previously hashed index may have changed while another index was
+    // being checked. Retained descriptor and named inode must both still match.
+    for (const auto &path : indexes) if (!Recheck(*capture.indexes.at(path).file))
+        return Fail(error, "provider_evidence_changed");
+    *evidence = std::move(result);
+    return true;
 }
 bool ArchiveEvidenceSnapshot::Verify(const std::vector<ArchiveManifest> &requested,
     std::vector<VerifiedArchiveEvidence> *evidence, const std::function<bool()> &cancelled, std::string *error) const {

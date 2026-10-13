@@ -15,11 +15,7 @@ constexpr std::size_t MaximumDeconfigurationEvidenceGroups = 128;
 // Parent-retained exact Packages record. Neither a worker map nor these public
 // pure values prove index provenance. Archive controls must separately match
 // before execution; scripts for future incoming generations are not admitted.
-struct DeconfigurationIndexControl {
-    ArchiveManifest archive;
-    std::map<std::string, std::string> controls;
-    std::string evidenceIdentity;
-};
+using DeconfigurationIndexControl = VerifiedIndexControlEvidence;
 enum class DeconfigurationCauseKind { Breaks, SiblingVersionMismatch };
 struct DeconfigurationCause {
     DeconfigurationCauseKind kind = DeconfigurationCauseKind::Breaks;

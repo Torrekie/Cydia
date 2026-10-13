@@ -3,12 +3,14 @@
 #include "Cydia/AptProviderArchiveEvidence.hpp"
 #include <apt-pkg/hashes.h>
 #include <apt-pkg/strutl.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
 
@@ -205,6 +207,145 @@ void AuthorizationBeforeDownload() {
     Require(publicSource->AuthorizationRequest(ordinary.review.execution.archives.front(), &request, &commercial, {}, &error) && !commercial,
         "ordinary package does not become commercial from a worker claim");
 }
+void AddIndexRecord(Fixture &fixture, bool separateIndex = false) {
+    auto second = fixture.review.execution.archives.front();
+    second.identifier = "another"; second.package.package = "another";
+    second.filename = "pool/another.deb"; second.path = fixture.directory + "/not-downloaded.deb";
+    std::string record = "Package: another\nVersion: 1\nArchitecture: all\nFilename: " + second.filename +
+        "\nSize: " + std::to_string(second.size) + "\nSHA256: " + second.hashes["SHA256"] + "\nDepends: sample\n\n";
+    if (separateIndex) {
+        Write(fixture.runtime.sourceListPath, "deb https://example.invalid/ ./\ndeb https://second.invalid/ ./\n");
+        second.sourceDefinitionOrdinal = 1; second.sourceURI = "https://second.invalid/";
+        second.sourceIndexURI = "https://second.invalid/./Packages";
+        second.sourceIndexPath = fixture.runtime.listsDirectory + '/' + URItoFileName(second.sourceIndexURI);
+        second.recordOffset = 0; second.sourceIndexIdentity = "SHA256:" + SHA256(record);
+        Write(second.sourceIndexPath, record);
+    } else {
+        second.recordOffset = fixture.record.size(); fixture.indexBytes = fixture.record + record;
+        second.sourceIndexIdentity = "SHA256:" + SHA256(fixture.indexBytes);
+        fixture.review.execution.archives.front().sourceIndexIdentity = second.sourceIndexIdentity;
+        Write(second.sourceIndexPath, fixture.indexBytes);
+    }
+    second.recordSize = record.size(); fixture.review.execution.archives.push_back(std::move(second));
+}
+void BatchControlBeforeDownload(bool separateIndex) {
+    Fixture fixture; AddIndexRecord(fixture, separateIndex);
+    Require(unlink(fixture.review.execution.archives.front().path.c_str()) == 0, "remove archive before capturing index controls");
+    std::string error; auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    std::vector<P::VerifiedIndexControlEvidence> evidence;
+    Require(snapshot->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) && evidence.size() == 2 &&
+        evidence[0].archive.identifier == "sample" && evidence[1].archive.identifier == "another" &&
+        evidence[0].controls.at("multi-arch") == "no" && evidence[1].controls.at("depends") == "sample" &&
+        evidence[0].evidenceIdentity.size() == 64 && evidence[1].evidenceIdentity.size() == 64 &&
+        evidence[0].evidenceIdentity != evidence[1].evidenceIdentity,
+        "complete ordered batch proof needs no downloaded archives");
+    const auto original = evidence;
+    auto reversed = fixture.review.execution.archives; std::reverse(reversed.begin(), reversed.end());
+    Require(snapshot->ControlEvidence(reversed, &evidence, {}, &error) &&
+        evidence[0].evidenceIdentity == original[1].evidenceIdentity && evidence[1].evidenceIdentity == original[0].evidenceIdentity,
+        "per-record provenance must not depend on request order");
+    Require(snapshot->ControlEvidence({reversed.front()}, &evidence, {}, &error) && evidence.size() == 1 &&
+        evidence.front().evidenceIdentity == original[1].evidenceIdentity, "subset preserves complete record identity");
+    auto fresh = fixture.Capture(&error); Require(fresh != nullptr, error.c_str());
+    Require(fresh->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) &&
+        evidence[0].evidenceIdentity == original[0].evidenceIdentity, "unchanged recapture has deterministic identity");
+    for (int kind = 0; kind < 4; ++kind) {
+        auto invalid = fixture.review.execution.archives;
+        if (kind == 0) invalid.push_back(invalid.front());
+        if (kind == 1) invalid.back().identifier = "unreviewed";
+        if (kind == 2) invalid.back().path += ".other";
+        if (kind == 3) ++invalid.back().recordOffset;
+        evidence = original;
+        Require(!snapshot->ControlEvidence(invalid, &evidence, {}, &error) && evidence.empty() &&
+            error == "provider_archive_not_reviewed", "invalid batch publishes no partial proof");
+    }
+    evidence = original;
+    Require(!snapshot->ControlEvidence(fixture.review.execution.archives, &evidence, [] { return true; }, &error) &&
+        evidence.empty() && error == "provider_cancelled", "cancelled batch clears previous evidence");
+    unsigned callbacks = 0;
+    Require(!snapshot->ControlEvidence(fixture.review.execution.archives, &evidence, [&] { return ++callbacks == 5; }, &error) &&
+        evidence.empty() && error == "provider_cancelled", "cancellation after admission remains atomic");
+    Require(snapshot->ControlEvidence({}, &evidence, {}, &error) && evidence.empty(), "empty exact set is a valid empty proof");
+    Require(!snapshot->ControlEvidence({}, nullptr, {}, &error), "null output rejected");
+}
+void BatchControlProvenance() {
+    for (int changed = 0; changed < 3; ++changed) {
+        Fixture fixture; AddIndexRecord(fixture, true); std::string error;
+        auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+        std::vector<P::VerifiedIndexControlEvidence> evidence;
+        Require(snapshot->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error), error.c_str());
+        if (changed == 0) Write(fixture.runtime.sourceListPath, "# changed\ndeb https://example.invalid/ ./\ndeb https://second.invalid/ ./\n");
+        if (changed == 1) Write(fixture.review.execution.archives.back().sourceIndexPath, "changed");
+        if (changed == 2) {
+            struct stat metadata;
+            const auto &path = fixture.review.execution.archives.front().sourceIndexPath;
+            Require(stat(path.c_str(), &metadata) == 0 && chmod(path.c_str(), (metadata.st_mode & 07777) ^ 0100) == 0,
+                "change index metadata");
+        }
+        Require(!snapshot->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) && evidence.empty(),
+            "source/index content or file metadata mutation invalidates entire batch");
+    }
+    Fixture fixture; std::string error; auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    std::vector<P::VerifiedIndexControlEvidence> evidence;
+    Require(snapshot->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error), error.c_str());
+    const auto original = evidence.front().evidenceIdentity;
+    // Changing a manifest field that does not affect index association still
+    // changes the identity; the old snapshot may not accept the new claim.
+    fixture.review.execution.archives.front().path += ".reviewed-destination";
+    auto different = fixture.Capture(&error); Require(different != nullptr, error.c_str());
+    Require(different->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) &&
+        evidence.front().evidenceIdentity != original, "full manifest, including destination, is identity-bound");
+    const auto changedManifest = evidence.front().evidenceIdentity;
+    Write(fixture.runtime.sourceListPath, "# same configured repository\ndeb https://example.invalid/ ./\n");
+    different = fixture.Capture(&error); Require(different != nullptr, error.c_str());
+    Require(different->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) &&
+        evidence.front().evidenceIdentity != changedManifest, "retained source bytes/metadata are identity-bound");
+    const auto changedSources = evidence.front().evidenceIdentity;
+    SetControls(fixture, "Depends: sample-helper\n", "Depends: sample-helper\n");
+    different = fixture.Capture(&error); Require(different != nullptr, error.c_str());
+    Require(different->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) &&
+        evidence.front().controls.at("depends") == "sample-helper" && evidence.front().evidenceIdentity != changedSources,
+        "canonical controls and retained index contents are identity-bound");
+    const auto changedControls = evidence.front().evidenceIdentity;
+    const auto &indexPath = fixture.review.execution.archives.front().sourceIndexPath;
+    Require(unlink(indexPath.c_str()) == 0, "replace index inode retaining identical contents");
+    Write(indexPath, fixture.record);
+    auto replaced = fixture.Capture(&error); Require(replaced != nullptr, error.c_str());
+    Require(replaced->ControlEvidence(fixture.review.execution.archives, &evidence, {}, &error) &&
+        evidence.front().evidenceIdentity != changedControls, "retained index inode identity is bound even with identical contents");
+    bool modified = false;
+    Require(!replaced->ControlEvidence(fixture.review.execution.archives, &evidence, [&] {
+        if (!modified) { modified = true; Write(fixture.runtime.sourceListPath, "# changed during capture\n"); }
+        return false;
+    }, &error) && evidence.empty(), "source changes during a batch cannot publish proof");
+    Fixture late; AddIndexRecord(late, true);
+    auto retained = late.Capture(&error); Require(retained != nullptr, error.c_str());
+    // Use the existing cancellation boundary as an interleaving seam. First
+    // locate the final boundary without assuming a particular chunk count,
+    // then mutate an already-hashed index immediately before publication.
+    std::size_t boundaries = 0, current = 0;
+    Require(retained->ControlEvidence(late.review.execution.archives, &evidence, [&] { ++boundaries; return false; }, &error) &&
+        boundaries > 0, "observe complete batch cancellation boundaries");
+    Require(!retained->ControlEvidence(late.review.execution.archives, &evidence, [&] {
+        if (++current == boundaries) Write(late.review.execution.archives.front().sourceIndexPath, late.record + "\n");
+        return false;
+    }, &error) && current == boundaries && evidence.empty(), "late mutation of an earlier index prevents partial publication");
+}
+void BatchControlBounds() {
+    Fixture fixture; std::string error; auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    std::vector<P::VerifiedIndexControlEvidence> evidence(1);
+    std::vector<P::ArchiveManifest> excessive(P::MaximumIndexControlRecords + 1, fixture.review.execution.archives.front());
+    Require(!snapshot->ControlEvidence(excessive, &evidence, {}, &error) && evidence.empty() && error == "provider_index_control_limit",
+        "record count limit applies before duplicate processing");
+    Fixture large;
+    auto archive = large.review.execution.archives.front();
+    archive.path = "/" + std::string(P::MaximumIndexControlBytes / 2 - 1, 'x');
+    large.review.execution.archives = {archive}; archive.identifier = "another-destination";
+    large.review.execution.archives.push_back(std::move(archive));
+    auto captured = large.Capture(&error); Require(captured != nullptr, error.c_str());
+    Require(!captured->ControlEvidence(large.review.execution.archives, &evidence, {}, &error) && evidence.empty() &&
+        error == "provider_index_control_limit", "aggregate encoded byte limit has no partial output");
+}
 void SeparateAllArchitectureIndex() {
     Fixture fixture;
     auto &archive = fixture.review.execution.archives.front();
@@ -221,5 +362,6 @@ void SeparateAllArchitectureIndex() {
 
 int main() {
     ControlProof(); ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
+    BatchControlBeforeDownload(false); BatchControlBeforeDownload(true); BatchControlProvenance(); BatchControlBounds();
     std::cout << "[apt-provider-archive-evidence] PASS\n";
 }

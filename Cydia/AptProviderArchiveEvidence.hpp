@@ -5,6 +5,16 @@
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
+constexpr std::size_t MaximumIndexControlRecords = 4096;
+constexpr std::size_t MaximumIndexControlBytes = 32 * 1024 * 1024;
+// A parent-retained Packages record and its provenance, not archive contents or
+// native execution authority. Scripts and trigger declarations require a
+// separate inspection of the downloaded archive.
+struct VerifiedIndexControlEvidence {
+    ArchiveManifest archive;
+    std::map<std::string, std::string> controls;
+    std::string evidenceIdentity;
+};
 struct VerifiedArchiveControlEvidence {
     VerifiedArchiveEvidence archive;
     CydiaPackages::ArchiveControlMetadata control;
@@ -36,6 +46,16 @@ public:
     // relationship fields from the exact reviewed Packages record. No archive
     // is needed yet; absence of triggers cannot be inferred from this record.
     bool ControlFields(const ArchiveManifest &requested, std::map<std::string, std::string> *controls,
+        const std::function<bool()> &cancelled, std::string *error) const;
+    // Atomic, bounded batch of exact, distinct reviewed manifests. Each
+    // referenced index is hashed once for the entire batch; the retained source
+    // snapshot and index identities are checked again before publication.
+    // Output preserves request order, while each identity is independent of
+    // that order/subset and binds the full manifest, canonical controls and
+    // retained source/index provenance. The byte limit covers encoded
+    // manifests, controls and identity strings together. No archive is needed.
+    bool ControlEvidence(const std::vector<ArchiveManifest> &requested,
+        std::vector<VerifiedIndexControlEvidence> *evidence,
         const std::function<bool()> &cancelled, std::string *error) const;
     // Same archive hash/identity proof as Verify plus an independent archive
     // control/index match. Captured trigger bytes remain unparsed declarations;

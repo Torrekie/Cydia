@@ -117,7 +117,13 @@ checks, including actual architectures and versioned virtual providers. Native
 version comparisons use a frozen parent-owned dpkg callback and exit codes;
 localized diagnostics never determine execution policy. The initial-generation
 allowance builder binds prospective Breaks/sibling causes to exact reviewed
-restoration endpoints. These library facts are not an execution route: automatic
+restoration endpoints. Batch index-control capture binds each exact reviewed
+record to retained source/index provenance before download. Protected ownership
+capture retains native file lists and diversions, including configuration-only
+owners, without inferring filesystem types or permission to replace files.
+The native Pre-Depends evaluator keeps current and last configured versions,
+virtual providers, incoming self dependencies and same-child deconfiguration
+queues distinct. These library facts are not an execution route: automatic
 deconfiguration still requires immutable native approval, locked reconstruction,
 complete per-batch effect admission and restoration-aware settlement. The current
 pre-unpack guard remains active until that integration is complete.

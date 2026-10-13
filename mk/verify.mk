@@ -151,6 +151,19 @@ $(APT_NATIVE_VERSION_COMPARISON_TEST): tests/AptProviderNativeVersionComparisonT
 verify: verify-apt-native-version-comparison
 verify-apt-native-version-comparison: $(APT_NATIVE_VERSION_COMPARISON_TEST)
 	@$<
+
+APT_PREDEPENDS_EVIDENCE_TEST := $(BUILD_DIR)/tests/AptProviderPreDependsEvidenceTests
+$(APT_PREDEPENDS_EVIDENCE_TEST): tests/AptProviderPreDependsEvidenceTests.cpp \
+		Cydia/AptProviderPreDependsEvidence.cpp Cydia/AptProviderPreDependsEvidence.hpp \
+		Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderBinaryRelationships.hpp \
+		Cydia/PackageArchivePolicy.cpp Cydia/PackageArchivePolicy.hpp Cydia/AptProviderTriggerEffects.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
+.PHONY: verify-apt-predepends-evidence
+verify: verify-apt-predepends-evidence
+verify-apt-predepends-evidence: $(APT_PREDEPENDS_EVIDENCE_TEST)
+	@$<
+
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 

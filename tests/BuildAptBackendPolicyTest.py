@@ -186,6 +186,12 @@ def main():
     compile_driver(["tests/AptProviderTriggerMetadataTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-metadata")
     compile_driver(["tests/AptProviderInstalledScriptsTests.cpp", "Cydia/AptProviderInstalledScripts.cpp"] +
         trigger_effect_sources, "cydia-provider-installed-scripts")
+    compile_driver(["tests/AptProviderInstalledOwnershipTests.cpp", "Cydia/AptProviderInstalledOwnership.cpp"] +
+        trigger_effect_sources, "cydia-provider-installed-ownership")
+    compile_driver(["tests/AptProviderPreDependsEvidenceTests.cpp", "Cydia/AptProviderPreDependsEvidence.cpp",
+        "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources,
+        "cydia-provider-predepends-evidence", sanitize=True,
+        extra_compile_flags=["-DCYDIA_PREDEPENDS_NATIVE_APT"])
     compile_driver(["tests/AptProviderDeconfigurationEffectsTests.cpp", "Cydia/AptProviderDeconfigurationEffects.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-deconfiguration-allowances", sanitize=True)
     compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [

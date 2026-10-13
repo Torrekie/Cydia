@@ -111,6 +111,8 @@ apt_api_sources := \
     Cydia/AptProviderTriggerEffects.cpp \
     Cydia/AptProviderTriggerMetadata.cpp \
     Cydia/AptProviderInstalledScripts.cpp \
+    Cydia/AptProviderInstalledOwnership.cpp \
+    Cydia/AptProviderPreDependsEvidence.cpp \
     Cydia/AptProviderDeconfigurationEffects.cpp \
     Cydia/AptProviderNativeVersionComparison.cpp \
     Cydia/AptProviderTriggerApproval.cpp \
