@@ -10,7 +10,8 @@ namespace {
 namespace B = BinaryRelationships;
 const char Tag[] = "CYDIA-DECONFIGURATION-APPROVAL-1";
 bool Fail(std::string *error, const char *code = "provider_deconfiguration_approval_invalid") {
-    if (error) *error = code; return false;
+    if (error) *error = code;
+    return false;
 }
 bool Digest(const std::string &s) { return s.size() == 64 && s.find_first_not_of("0123456789abcdef") == std::string::npos; }
 std::string Slot(const ExecutionPackage &p) { return p.package + ':' + p.architecture; }

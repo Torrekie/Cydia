@@ -6,7 +6,8 @@ namespace {
 const char CaptureTag[] = "CYDIA-EFFECT-REVIEW-CAPTURE-1";
 const char BundleTag[] = "CYDIA-EFFECT-REVIEW-BUNDLE-1";
 bool Fail(std::string *error, const char *code = "provider_effect_review_invalid") {
-    if (error) *error = code; return false;
+    if (error) *error = code;
+    return false;
 }
 bool Review(const ReviewedTransaction &review, std::string *bytes) {
     Message bound; bound.sequence = 1; bound.operation = Operation::RunPackageManager; bound.binding = review.binding;
