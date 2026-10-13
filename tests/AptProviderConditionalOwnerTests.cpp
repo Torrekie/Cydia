@@ -295,7 +295,7 @@ struct ConditionalFixture : Fixture {
         // This does not alter the host HOME or install any product helper.
         std::filesystem::create_directory(root + "/home");
         configuration = root + "/home/.dpkg.cfg";
-        Write(configuration, "log=" + root + "/dpkg.log\nno-debsig\nno-force-all\nforce-overwrite,downgrade\n");
+        Write(configuration, "log=" + root + "/dpkg.log\nno-debsig\nno-force-all\nforce=overwrite,downgrade\n");
         fixtureAuthority = P::NativeDpkgAuthority(); fixtureAuthorityAvailable = true;
         fixtureAuthority.dpkgRoot = environment.dpkgRoot; fixtureAuthority.dpkgAdmin = environment.dpkgAdmin;
         fixtureAuthority.executableSearchPath = options.selected.executableSearchPath;
@@ -309,7 +309,7 @@ struct ConditionalFixture : Fixture {
         // inside the retained snapshot. Native children never merge ambient
         // environ after policy matching or turn a fixture into real host root.
         if (std::getenv("FAKEROOTKEY"))
-            for (const char *name : {"LD_PRELOAD", "FAKEROOTKEY", "FAKED_MODE", "FAKEROOTDONTTRYCHOWN"})
+            for (const char *name : {"LD_PRELOAD", "LD_LIBRARY_PATH", "FAKEROOTKEY", "FAKED_MODE", "FAKEROOTDONTTRYCHOWN"})
                 if (const char *value = std::getenv(name)) launchEntries.push_back(std::string(name) + '=' + value);
         Require(CydiaRuntime::NativeLaunchEnvironment::FromEntries(launchEntries, &fixtureAuthority.launchEnvironment),
             "actual children use a retained explicit isolated HOME and locale");

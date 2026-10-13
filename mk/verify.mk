@@ -1267,6 +1267,21 @@ verify-repository-package-presentation: $(BUILD_DIR)/tests/RepositoryPackagePres
 
 verify: verify-repository-package-presentation
 
+REPOSITORY_ACCOUNT_SERVICE_TEST := $(BUILD_DIR)/tests/RepositoryAccountServiceTests
+$(REPOSITORY_ACCOUNT_SERVICE_TEST): tests/RepositoryAccountServiceTests.mm \
+		Cydia/RepositoryAccountService.mm Cydia/RepositoryAccountService.h \
+		$(wildcard tests/stubs/repository-account/*/*.h)
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks -Wall -Wextra \
+		-DCYDIA_REPOSITORY_ACCOUNT_TESTING=1 -Itests/stubs/repository-account -I. \
+		tests/RepositoryAccountServiceTests.mm Cydia/RepositoryAccountService.mm \
+		-framework Foundation -o $@
+
+verify-repository-account-service: $(REPOSITORY_ACCOUNT_SERVICE_TEST)
+	@$<
+
+verify: verify-repository-account-service
+
 $(PACKAGE_DEPICTION_FACADE_TEST): tests/PackageDepictionJavaScriptFacadeTests.mm \
 		Cydia/PackageDepictionJavaScriptFacade.h Cydia/PackageDepictionJavaScriptFacade.mm
 	@mkdir -p $(dir $@)
@@ -1485,6 +1500,9 @@ verify-ui-route-context:
 
 verify-repository-package-presentation:
 	@echo "[verify] Account presentation runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-repository-account-service:
+	@echo "[verify] Account service runtime fixture requires a Darwin host; iOS compile coverage remains enabled"
 
 verify-external-url-policy:
 	@echo "[verify] External URL policy runtime test requires a Darwin host; iOS compile coverage remains enabled"

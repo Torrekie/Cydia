@@ -32,10 +32,14 @@ static NSURL *URLValue(id value) {
     NSString *text = String(value); return text ? [NSURL URLWithString:text] : nil;
 }
 static NSDictionary *DeviceFields(void) {
+#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+    return CydiaRepositoryAccountTestDeviceFields();
+#else
     NSString *identifier = UniqueIdentifier();
     struct utsname info;
     if (identifier.length == 0 || uname(&info) != 0) return nil;
     return @{@"udid": identifier, @"device": [NSString stringWithUTF8String:info.machine]};
+#endif
 }
 static NSDictionary *KeyQuery(CydiaRepositoryAccount *account) {
     return @{(__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
@@ -344,6 +348,7 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
 }
 - (void)authorizePackage:(NSString *)package version:(NSString *)version architecture:(NSString *)architecture
     account:(CydiaRepositoryAccount *)account completion:(void (^)(CydiaRepositoryDownloadGrant *, NSError *))completion {
+    package = [package copy]; version = [version copy]; architecture = [architecture copy];
     if (!account.supportsAccountIntegration) { completion(nil, AccountError(CydiaAccountErrorUnsupported)); return; }
     NSString *path = [self packagePath:package action:@"authorize_download"];
     NSMutableDictionary *body = [self bodyForAccount:account requireToken:YES];

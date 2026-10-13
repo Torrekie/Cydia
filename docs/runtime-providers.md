@@ -781,6 +781,14 @@ labeled Open Repository Website entry. Error `recovery_url` values are not
 treated as checkout links. Public website actions are explicit HTTPS browser
 navigation, with no token, grant or device fields appended by Cydia.
 
+Account-service fixtures execute the production discovery, callback, credential
+scope, logout and grant logic with test-only browser, transport, Keychain and
+device-field substitutes. They cover replay and cancellation, endpoint changes,
+late responses after logout or a newer login, validation/storage failures,
+mutable selection inputs, redirects and response bounds. These establish
+Cydia's refusal and identity behavior; they do not establish real browser,
+Keychain or vendor acceptance.
+
 Keep long-lived account tokens and purchase secrets in Keychain. Honor any
 protocol-required user authentication and disclose required device binding;
 do not send permanent device identifiers with every public metadata request.
