@@ -319,7 +319,8 @@ struct ConditionalFixture : Fixture {
         fixtureAuthority.configurationEvidence = {config};
         for (const auto &path : fixtureAuthority.componentPaths) {
             P::InstalledComponentEvidence file; std::string error;
-            Require(P::CaptureTransactionComponent(path, &file, &error), error.c_str());
+            const bool captured = P::CaptureTransactionComponent(path, &file, &error);
+            Require(captured, ("conditional component capture: " + error).c_str());
             fixtureAuthority.executorGenerations[path] = {file.file.sha256}; components.push_back(std::move(file));
         }
         fixturePolicyProducer = [](const P::NativeDpkgAuthority &authority, const std::string &executable,
@@ -363,15 +364,17 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
     // This first capture produces only DTO transport. Owner Begin performs a
     // second, independent locked capture before any retained archive staging.
     std::shared_ptr<const P::ProtectedDeconfigurationReview> reviewed;
-    Require(P::CaptureReviewedDeconfiguration(CydiaRuntime::PackageDatabasePaths::Current(), options.selected,
-        options.review, &reviewed, &error), error.c_str());
+    const bool capturedReview = P::CaptureReviewedDeconfiguration(CydiaRuntime::PackageDatabasePaths::Current(), options.selected,
+        options.review, &reviewed, &error);
+    Require(capturedReview, ("conditional review capture: " + error).c_str());
     auto bundle = std::make_shared<P::EffectReviewBundle>(); bundle->methodsIdentity = options.selected.runtime.binding.methodsIdentity;
     bundle->deconfiguration = reviewed->allowances;
     Require(bundle->deconfiguration.allowances.size() == 1 && bundle->deconfiguration.allowances.count("victim:amd64@1") &&
         bundle->deconfiguration.allowances.at("victim:amd64@1").endpoint.action == 4,
         "actual reconstructed nonempty Breaks approval has only the reviewed successor configure endpoint");
-    Require(P::BuildTriggerEffectEnvelope(options.review, reviewed->checkpoint, &bundle->triggers, &error,
-        reviewed->allowances.nativeAuthorityIdentity), error.c_str());
+    const bool builtEffects = P::BuildTriggerEffectEnvelope(options.review, reviewed->checkpoint, &bundle->triggers, &error,
+        reviewed->allowances.nativeAuthorityIdentity);
+    Require(builtEffects, ("conditional trigger envelope: " + error).c_str());
     options.reviewedDeconfiguration = bundle;
     options.reviewedEffects = std::shared_ptr<const P::TriggerEffectEnvelope>(bundle, &bundle->triggers);
     options.authenticate = [options](ConditionalV::ApplicationProcessIdentity *application, uid_t *uid, std::string *) {
@@ -476,6 +479,13 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
         source.insert(source.end(), {"--status-fd=99", "--no-triggers", "--triggers-only", "cache:amd64"});
         return scope(ConditionalN::Role::TriggerDrain, source, channels, reason);
     };
+    // Owner requires both callbacks, as cydo supplies them. Every permitted
+    // fixture child must still take the matched, prepared native executor.
+    options.execute = [](const std::string &, const std::vector<std::string> &, int, int,
+        const std::function<void()> &, const CydiaRuntime::NativeLaunchEnvironment &) {
+        Require(false, "conditional owner cannot fall back to an unprepared executor");
+        return P::ParentExecutionReply();
+    };
     options.executePrepared = [&](const std::string &executable, const std::vector<std::string> &arguments,
         int input, int status, const std::function<void()> &notify, const CydiaRuntime::NativeLaunchEnvironment &environment,
         std::size_t statusIndex) {
@@ -519,7 +529,8 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
         return reply;
     };
     P::TransactionOwner actual(options); owner = &actual;
-    Require(actual.Begin(&error), error.c_str());
+    const bool begun = actual.Begin(&error);
+    Require(begun, ("conditional owner Begin: " + error).c_str());
     const auto execute = [&](std::uint64_t sequence, std::uint64_t identifier, bool autoDeconfigure, P::DpkgState *after) {
         const auto found = std::find_if(options.review.execution.actions.begin(), options.review.execution.actions.end(),
             [&](const P::ReviewedAction &action) { return action.identifier == identifier; });
