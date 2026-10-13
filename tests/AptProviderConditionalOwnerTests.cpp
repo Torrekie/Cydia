@@ -259,6 +259,9 @@ struct ConditionalFixture : Fixture {
         const auto sampleControl = ConditionalControl("sample", "1", "all", "Breaks: victim (<< 2)\n");
         std::string tar = Tar("control", sampleControl);
         tar.resize(tar.size() - 1024); tar += Tar("triggers", "activate-await cache-refresh\n");
+        // The known trigger file still carries the ordinary maintainer warning.
+        // Record its fixture review approval; retained archive checks remain required.
+        policy.unverifiedArchiveWarningsAccepted.insert(first.identifier);
         deb = "!<arch>\n" + Ar("debian-binary", "2.0\n") + Ar("control.tar", tar) +
             Ar("data.tar", Tar("usr/lib/fixture", "approved library bytes"));
         first.size = deb.size(); first.hashes = {{"SHA512", Hash(deb, Hashes::SHA512SUM)}};
