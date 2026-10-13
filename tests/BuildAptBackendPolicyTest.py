@@ -227,7 +227,7 @@ def main():
         transaction_effect_sources + ["Cydia/AptProviderRestorationCapture.cpp",
         "Cydia/AptProviderInstalledScripts.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
         "Cydia/AptProviderDpkgState.cpp", "Cydia/DpkgRunner.cpp", "Cydia/RuntimeState.cpp",
-        "Cydia/RuntimeSnapshotInputs.cpp"]))
+        "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocumentCommit.cpp"]))
     compile_driver(restoration_capture_sources, "cydia-provider-restoration-capture",
         extra_link_flags=["-lz"])
     compile_driver(["tests/AptProviderDeconfigurationEffectsTests.cpp", "Cydia/AptProviderDeconfigurationEffects.cpp",
