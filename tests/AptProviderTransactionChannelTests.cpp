@@ -101,6 +101,28 @@ int main() {
     Check(!Encode(wrongScope, &encoded), "legacy transaction cannot inject child messages");
     wrongScope = scoped; wrongScope.operation = Operation::Commit;
     Check(!Encode(wrongScope, &encoded), "Commit cannot negotiate a dpkg child");
+    {
+        using namespace CydiaAPT::Provider;
+        ConffilePolicyDecision policy; policy.match = NativeEffectPolicy::Status::Matched;
+        policy.input = CydiaRuntime::Dpkg::ConffileInputPolicy::Automatic;
+        policy.inputIdentity.assign(64, 'a'); policy.recordIdentity.assign(64, 'b'); policy.launchIdentity.assign(64, 'c');
+        auto event = scoped; event.event = Event::ChildPolicy; event.conffilePolicy = true;
+        Check(EncodeConffilePolicy(policy, &event.payload) && Encode(event, &encoded) && Decode(encoded, &decoded) &&
+            decoded.conffilePolicy && decoded.event == Event::ChildPolicy, "v3 policy bound to child envelope");
+        ConffilePolicyDecision copy;
+        Check(DecodeConffilePolicy(decoded.payload, &copy) && copy.launchIdentity == policy.launchIdentity, "exact launch identity roundtrip");
+        auto invalidPolicy = policy; invalidPolicy.match = NativeEffectPolicy::Status::Missing;
+        Check(!EncodeConffilePolicy(invalidPolicy, &encoded), "unmatched policy cannot claim automatic proof");
+        invalidPolicy = policy; invalidPolicy.launchIdentity[0] = 'X';
+        Check(!EncodeConffilePolicy(invalidPolicy, &encoded), "malformed launch binding refused");
+        auto legacy = event; legacy.conffilePolicy = false;
+        Check(!Encode(legacy, &encoded), "v2 cannot inject a policy handshake");
+        Check(sender.Send(event) && receiver.Receive(&decoded, &received) && received.empty(), "policy transfers no child descriptors");
+        event.event = Event::ChildPolicyAccepted;
+        Check(sender.Send(event) && receiver.Receive(&decoded, &received) && received.empty(), "acknowledgement echoes exact decision frame");
+        for (std::size_t size = 0; size != event.payload.size(); ++size)
+            Check(!DecodeConffilePolicy(event.payload.substr(0, size), &copy), "truncated policy refused");
+    }
     for (const auto &bad : std::vector<std::string>{"8388609:", "01:x,", "1:x;", "3:ab"}) {
         Pair(sockets); Channel channel(sockets[0]); SendRaw(sockets[1], bad); close(sockets[1]);
         Check(!channel.Receive(&decoded, &received, 200) && !channel.valid() && received.empty(), "reject invalid/truncated outer frame");

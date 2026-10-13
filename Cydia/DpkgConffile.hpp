@@ -21,6 +21,13 @@ bool ParseConffileStatus(const std::string &line, ConffilePrompt *prompt);
 // without input. Absence and confdef alone do not establish native dpkg policy.
 bool ConffileChoiceIsAutomatic(const std::vector<std::string> &arguments);
 
+// A helper-derived, child-scoped decision, not a worker or status assertion.
+// DefaultUnknown is reserved for a recognized but incomplete question policy;
+// the generic status lacks per-question CFOF_KEEP/INSTALL bits. The audited
+// dpkg-1.23.7 effect profile can prove every prompt has KEEP and classifies
+// confdef as Automatic. Unknown profiles use Unverified.
+enum class ConffileInputPolicy { Pending, Interactive, Automatic, DefaultUnknown, Unverified };
+
 struct ConffileCallbacks {
     std::function<void(const std::string &)> status;
     std::function<void(const ConffilePrompt &)> question;
@@ -44,10 +51,16 @@ class ConffileExecution {
     std::shared_ptr<State> state_;
     bool enabled_ = false;
 public:
-    explicit ConffileExecution(const std::vector<std::string> &arguments, bool enabled = true);
+    // The default preserves the transitional argv-only bridge. Production
+    // retained-owner activation should require policy for every child; a false
+    // value is NOT evidence of native configuration/compiled force settings.
+    explicit ConffileExecution(const std::vector<std::string> &arguments, bool enabled = true, bool requirePolicy = false);
     ~ConffileExecution();
     ConffileExecution(const ConffileExecution &) = delete;
     ConffileExecution &operator=(const ConffileExecution &) = delete;
+    // Required-policy scopes cannot publish questions until their authenticated
+    // helper has supplied exactly one policy before any prompt was received.
+    bool ApplyPolicy(ConffileInputPolicy);
     bool enabled() const { return enabled_; }
     bool valid() const;
     int inputDescriptor() const;

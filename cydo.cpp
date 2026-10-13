@@ -420,23 +420,16 @@ int SpawnAndWait(const std::string &tool, std::vector<std::string> arguments, in
 // Persistent transactions use only their SCM_RIGHTS child channels. Keep the
 // ordinary one-shot executor untouched; this spawn atomically closes all other
 // inherited descriptors, including the authenticated transaction connection.
-CydiaAPT::Provider::ParentExecutionReply SpawnTransactionChild(const std::string &tool,
+CydiaAPT::Provider::ParentExecutionReply SpawnPreparedTransactionChild(const std::string &tool,
     const std::vector<std::string> &authorized, int input, int status, const std::function<void()> &started,
-    const CydiaRuntime::NativeLaunchEnvironment &environment) {
+    const CydiaRuntime::NativeLaunchEnvironment &environment, std::size_t statusOptionIndex) {
     CydiaAPT::Provider::ParentExecutionReply result;
     CydiaRuntime::NativeLaunchEnvironment::Envp envp;
     if (!environment.BuildEnvp(&envp)) { result.launchError = EINVAL; return result; }
-    std::vector<std::string> arguments(authorized); unsigned statusOptions = 0;
-    for (std::size_t i = 0; i < arguments.size(); ++i) {
-        if (arguments[i] == "--status-fd") {
-            if (++i == arguments.size() || arguments[i] != std::to_string(status)) { result.launchError = EINVAL; return result; }
-            arguments[i] = "3"; ++statusOptions;
-        } else if (arguments[i].compare(0, 12, "--status-fd=") == 0) {
-            if (arguments[i] != "--status-fd=" + std::to_string(status)) { result.launchError = EINVAL; return result; }
-            arguments[i] = "--status-fd=3"; ++statusOptions;
-        }
+    if (!CydiaAPT::Provider::ValidFinalNativeChildArguments(authorized, statusOptionIndex) || input < 0 || status < 3) {
+        result.launchError = EINVAL; return result;
     }
-    if (statusOptions != 1 || input < 0 || status < 3) { result.launchError = EINVAL; return result; }
+    std::vector<std::string> arguments(authorized);
     const int inputCopy = fcntl(input, F_DUPFD_CLOEXEC, 4);
     const int statusCopy = fcntl(status, F_DUPFD_CLOEXEC, 4);
     if (inputCopy < 0 || statusCopy < 0) {
@@ -477,6 +470,25 @@ CydiaAPT::Provider::ParentExecutionReply SpawnTransactionChild(const std::string
     else if (WIFSIGNALED(exitStatus)) result.signal = WTERMSIG(exitStatus);
     else result.launchError = ECHILD;
     return result;
+}
+
+// Compatibility path keeps its existing option scan. V3 never reaches this:
+// its parent parser retained the exact span, and the prepared executor above
+// passes byte-identical matched argv/env to the actual child.
+CydiaAPT::Provider::ParentExecutionReply SpawnTransactionChild(const std::string &tool,
+    const std::vector<std::string> &authorized, int input, int status, const std::function<void()> &started,
+    const CydiaRuntime::NativeLaunchEnvironment &environment) {
+    CydiaAPT::Provider::ParentExecutionReply denied; denied.launchError = EINVAL;
+    unsigned count = 0; std::size_t index = 0;
+    for (std::size_t i = 0; i < authorized.size(); ++i) {
+        if (authorized[i] == "--status-fd") {
+            index = i; ++count;
+            if (++i == authorized.size()) return denied;
+        } else if (authorized[i].compare(0, 12, "--status-fd=") == 0) { index = i; ++count; }
+    }
+    std::vector<std::string> arguments;
+    if (count != 1 || !CydiaAPT::Provider::FinalizeNativeChildArguments(authorized, authorized.size(), index, status, &arguments)) return denied;
+    return SpawnPreparedTransactionChild(tool, arguments, input, status, started, environment, index);
 }
 
 bool ReviewToken(const std::string &token) {
@@ -569,6 +581,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             return true;
         };
         options.execute = SpawnTransactionChild;
+        options.executePrepared = SpawnPreparedTransactionChild;
         std::string failure;
         return Provider::ServeProviderTransaction(static_cast<int>(descriptor), paths, options, &failure) ? 0 : EX_TEMPFAIL;
     }

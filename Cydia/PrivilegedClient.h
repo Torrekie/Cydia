@@ -111,9 +111,11 @@ public:
     static std::unique_ptr<ProviderTransaction> Start(const std::string &helperPath,
         const Privileged::Request &wrappedBeginRequest, const std::string &expectedReviewDigest,
         std::string *errorCode, unsigned timeoutMilliseconds = 4000,
-        const std::function<bool()> &cancelled = {}, bool scopedChildren = false);
-    // scopedChildren is negotiated explicitly and requires reviewedEffects in
-    // the canonical Begin. No provider capability is inferred by this client.
+        const std::function<bool()> &cancelled = {}, bool scopedChildren = false, bool conffilePolicy = false);
+    // v2 scopedChildren requires reviewedEffects. v3 conffilePolicy instead
+    // scopes every child, including ordinary transactions, and requires an
+    // authenticated fresh force-policy handshake. No provider capability is
+    // inferred. Activation at the broker is a separate rollout decision.
     // Serialized calls only. Execute requires the installed native conffile
     // bridge, and transfers fresh stdin/status descriptors for this child.
     // statusFd remains the reviewed target descriptor number, not a channel

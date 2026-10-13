@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/DpkgConffile.hpp"
+#include "Cydia/AptProviderConffilePolicy.hpp"
 #include <cerrno>
 #include <atomic>
 #include <chrono>
@@ -42,7 +43,7 @@ int Child(int fd, const std::string &mode) {
     if (mode == "automatic") return ready == 0 ? 0 : 4;
     if (ready != 1) return 5;
     char answer[2]; const ssize_t n = read(STDIN_FILENO, answer, sizeof(answer));
-    if (mode == "oversized" || mode == "malformed") return n == 0 ? 0 : 8;
+    if (mode == "oversized" || mode == "malformed" || mode == "suppressed") return n == 0 ? 0 : 8;
     if (n != 2 || answer[0] != (mode == "new" ? 'Y' : 'N') || answer[1] != '\n') return 6;
     return Write(fd, "status: sample: installed\n") ? 0 : 7;
 }
@@ -210,6 +211,52 @@ int main(int argc, char **argv) {
         done.store(true); flood.join(); close(retained);
         std::signal(SIGPIPE, previousSignal);
         Check(elapsed < std::chrono::seconds(2), "retained status writer prevented bounded settlement");
+    }
+    {
+        namespace P = CydiaAPT::Provider;
+        namespace N = P::NativeEffectPolicy;
+        const std::string profile("dpkg-1.23.7-effects-1");
+        N::Match matched; matched.status = N::Status::Matched;
+        auto settings = std::make_shared<N::Settings>(); matched.settings = settings;
+        Check(P::ConffilePolicyForMatch(matched, profile) == D::ConffileInputPolicy::Interactive, "complete empty force subset is interactive");
+        for (const auto force : {N::Force::Confold, N::Force::Confnew, N::Force::Confdef}) {
+            settings->forces = {force};
+            const auto policy = P::ConffilePolicyForMatch(matched, profile);
+            Check(policy == D::ConffileInputPolicy::Automatic, "native configured automatic force lost");
+            D::ConffileExecution io({}, true, true);
+            Check(io.ApplyPolicy(policy) && !io.ApplyPolicy(D::ConffileInputPolicy::Interactive), "policy can be applied only once");
+            const auto before = events.Count();
+            Reap(Spawn(argv[0], io, "automatic"), io);
+            Check(events.Count() == before, "matched cfg force queued a question");
+        }
+        // A distributor record for the exact finalized --refuse-confold prefix
+        // describes the FINAL empty force set. argv hints must not override it.
+        settings->forces.clear();
+        {
+            D::ConffileExecution io({"--force-confold", "--refuse-confold"}, true, true);
+            Check(io.ApplyPolicy(P::ConffilePolicyForMatch(matched, profile)), "final cfg refusal policy");
+            const auto count = events.Count(); const auto child = Spawn(argv[0], io, "old");
+            const auto question = events.Wait(count + 1);
+            Check(D::AnswerConffilePrompt(question.execution, question.question, true), "final refusal restored input");
+            Reap(child, io);
+        }
+        matched.status = N::Status::Missing;
+        Check(P::ConffilePolicyForMatch(matched, profile) == D::ConffileInputPolicy::Unverified, "missing effect policy guessed");
+        matched.status = N::Status::Matched; settings->forces = {N::Force::Confdef};
+        Check(P::ConffilePolicyForMatch(matched, "unmodeled-vendor") == D::ConffileInputPolicy::Unverified, "unknown default inferred");
+        for (const auto policy : {D::ConffileInputPolicy::Unverified, D::ConffileInputPolicy::DefaultUnknown, D::ConffileInputPolicy::Pending}) {
+            D::ConffileExecution io({}, true, true);
+            if (policy != D::ConffileInputPolicy::Pending) Check(io.ApplyPolicy(policy), "suppressed policy setup");
+            const auto before = events.Count(); Reap(Spawn(argv[0], io, "suppressed"), io);
+            Check(events.Count() == before && !D::AnswerConffilePrompt(old.execution, old.question, true), "unverified policy wrote an answer");
+        }
+        std::vector<std::string> source{"--root=/", "--admindir=/db", "--pre-invoke", "--status-fd=99", "--status-fd", "7", "--configure", "sample"}, final;
+        Check(P::FinalizeNativeChildArguments(source, 7, 4, 7, &final) && final[3] == "--status-fd=99" &&
+            final[4] == "--status-fd" && final[5] == "3" && final.back() == "sample" &&
+            P::ValidFinalNativeChildArguments(final, 4), "exact status span preserves opaque hook text");
+        Check(!P::FinalizeNativeChildArguments(source, 5, 4, 7, &final) && final.empty(), "split status value crossed prefix");
+        Check(!P::FinalizeNativeChildArguments(source, 7, 4, 8, &final), "wrong received descriptor accepted");
+        Check(!P::FinalizeNativeChildArguments(source, 7, 7, 7, &final), "operand became status option");
     }
     D::SetConffileCallbacks({});
     D::ConffileExecution disabled({}); Check(!disabled.enabled() && disabled.valid(), "headless behavior changed");

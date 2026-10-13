@@ -171,6 +171,34 @@ results are refused. This codec does not change transaction protocol versions,
 advertise capability or enable execution. Begin integration must independently
 recapture and rebuild the parent proof before comparing canonical approvals.
 
+A bounded restoration ledger records only observed, approved old-generation
+deconfiguration after a successful child. It transfers debt only through the
+exact reviewed successor Unpack and independently proven installed controls and
+scripts. An actual Configure can discharge debt only after the native package
+and its trigger obligations settle; exact Remove/Purge endpoints preserve any
+separately reviewed later Purge. Unused allowances create no debt or operation.
+Failed, cancelled or uncertain children retire the ledger without completing
+actions or clearing debt. Its single-use bookkeeping is not yet connected to
+the transaction owner. Integration still requires protected content identities,
+complete transition checks, restoration-aware Drain/Defer/Refuse decisions,
+trigger quiescence and the existing final state compare-and-swap.
+
+Internal transaction-channel version three can bind a protected conffile policy
+to each actual child before spawn. The parent retains the parser's exact option
+span, binds root and admin paths, finalizes status fd3, matches the complete
+native settings and hashes the exact arguments and frozen environment. The
+frontend applies that decision to its pending child scope and acknowledges the
+same nonce, review, sequence, child ordinal and descriptor before the helper
+rechecks authority and launches. For the supported semantic profile, effective
+`confold`, `confnew` and `confdef` suppress answers: native dpkg can emit the
+notification before choosing automatically. Missing or unsupported policy never
+becomes a guessed interactive decision; a notification then closes input
+without an answer. The broker does not yet negotiate this mode. Legacy one-shot
+and transitional in-process paths retain their argument-only behavior.
+This handshake binds a child policy, not proof that a particular native question
+is still waiting on stdin. A stronger per-question status interface would be a
+separate distribution dpkg change.
+
 After settlement, Cydia retires the worker, cache handles, grants and review;
 the next normal reload performs fresh discovery. A helper-confirmed final
 commit remains a known outcome if the worker subsequently fails. Unknown
@@ -714,7 +742,8 @@ APT/ICU provider migration or public-source support.
 | `PackageArchivePolicy.*`, `PackageArchiveReader.*` | Bounded exact payload-file bytes and numeric metadata can be captured without extraction; this is a foundation for independently verified component succession, not execution authority |
 | `AptProviderTransactionOwner.*`, `AptProviderTransactionLease.*`, `AptProviderComponentSuccession.*`, `AptProviderNativeDpkgAuthority.*` | Persistent helper ownership, retained archive copies, native declaration/loader evidence, approved component generations and exact settlement; declaration delivery and real distribution acceptance remain |
 | `AptProviderTrigger*`, `RuntimeSnapshotInputs.*`, transaction channel/service | Protected registry/control capture, immutable native approval, bounded finite drain ledger and separate child scopes; legacy mode remains restricted |
-| `DpkgConffile.*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Child/question-scoped configuration replies, space-containing paths, forced-choice suppression and stale-alert invalidation; native per-question readiness remains unproved |
+| `DpkgConffile.*`, `AptProviderConffilePolicy*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Child/question-scoped replies, exact final launch binding, protected force-state suppression and stale-alert invalidation; v3 activation and native per-question readiness remain separate gates |
+| `AptProviderDeconfigurationApproval.*`, `AptProviderRestorationDebt.*` | Bounded immutable approval codec and observed restoration bookkeeping; protected capture, locked reconstruction and owner integration remain prerequisites to activation |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
 | `DatabaseStatus.mm`, `ProgressEvent.mm`, acquisition protocol | Redacted display URLs, typed account/transport failures and protected short-lived grants |

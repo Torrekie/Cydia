@@ -53,7 +53,7 @@ int ScopedChildren(CydiaAPT::Provider::TransactionChannel::Channel &channel,
     P::ParentExecutionRequest execution;
     if (!P::Decode(request.payload, &execution)) return 80;
     bool anyStarted = false;
-    for (unsigned index = 0; index != 2; ++index) {
+    for (unsigned index = 0; index != (request.conffilePolicy ? 1u : 2u); ++index) {
         TC::ChildDescriptor purpose;
         if (!index) { purpose.primaryBatch = execution.batch; purpose.primaryAction = static_cast<unsigned>(execution.action); purpose.primaryActions = execution.actions; }
         else {
@@ -84,11 +84,44 @@ int ScopedChildren(CydiaAPT::Provider::TransactionChannel::Channel &channel,
             event = request; event.payload.clear(); event.event = TC::Event::Settled; event.errorCode = "provider_execution_denied";
             return channel.Send(event) ? 0 : 94;
         }
+        if (request.conffilePolicy) {
+            P::ConffilePolicyDecision policy;
+            policy.match = P::NativeEffectPolicy::Status::Matched;
+            policy.input = mode == "policy-refusal" ? CydiaRuntime::Dpkg::ConffileInputPolicy::Interactive : CydiaRuntime::Dpkg::ConffileInputPolicy::Automatic;
+            policy.inputIdentity.assign(64, 'a'); policy.recordIdentity.assign(64, 'b'); policy.launchIdentity.assign(64, 'c');
+            if (mode == "policy-missing" || mode == "policy-unknown-default") {
+                policy.match = P::NativeEffectPolicy::Status::Unsupported; policy.recordIdentity.clear();
+                policy.input = CydiaRuntime::Dpkg::ConffileInputPolicy::Unverified;
+            }
+            event.event = TC::Event::ChildPolicy; event.success = true;
+            if (!TC::EncodeConffilePolicy(policy, &event.payload)) return 95;
+            if (mode == "policy-wrong-ordinal") ++event.childOrdinal;
+            if (!channel.Send(event)) return 96;
+            std::vector<int> extra;
+            if (!channel.Receive(&answer, &extra)) { for (int fd : descriptors) close(fd); return 0; }
+            if (!extra.empty() || answer.event != TC::Event::ChildPolicyAccepted || answer.payload != event.payload ||
+                answer.childDescriptor != event.childDescriptor || answer.childOrdinal != event.childOrdinal ||
+                answer.sequence != event.sequence || answer.nonce != event.nonce || !answer.conffilePolicy) return 97;
+            if (mode == "policy-replayed") {
+                if (!channel.Send(event)) return 0;
+                const bool accepted = channel.Receive(&answer, &extra, 1000);
+                for (int fd : descriptors) close(fd);
+                return accepted ? 98 : 0;
+            }
+            event.payload.clear();
+        }
         const pid_t child = fork(); if (child < 0) return 85;
         if (!child) {
             channel.Close();
             if (!WriteAll(descriptors[1], "status: /etc/with spaces.conf : conffile-prompt : '/etc/with spaces.conf' '/etc/with spaces.conf.dpkg-new' 1 1 \n")) _exit(86);
             char answer[2];
+            if (request.conffilePolicy && mode != "policy-refusal") {
+                pollfd input = {descriptors[0], POLLIN, 0};
+                const int ready = poll(&input, 1, 250);
+                if (mode == "policy-missing" || mode == "policy-unknown-default")
+                    _exit(ready == 1 && read(descriptors[0], answer, 2) == 0 ? 0 : 99);
+                _exit(ready == 0 ? 0 : 100);
+            }
             if (read(descriptors[0], answer, 2) != 2 || std::string(answer, 2) != "N\n") _exit(87);
             if (mode == "scoped-loss") std::this_thread::sleep_for(std::chrono::milliseconds(180));
             _exit(0);
@@ -127,7 +160,7 @@ int TransactionHelper(int socket) {
     if (request.scopedChildren) {
         std::vector<std::string> fields;
         if (!CydiaAPT::Provider::Decode(begin.payload, &fields) || fields.size() != 3 ||
-            !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || !approved.reviewedEffects) return 75;
+            !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || (!request.conffilePolicy && !approved.reviewedEffects)) return 75;
         mode = approved.extendedState;
     }
     if (mode == "begin-timeout") { std::this_thread::sleep_for(std::chrono::milliseconds(200)); return 0; }
@@ -159,7 +192,7 @@ int TransactionHelper(int socket) {
         if (request.operation == TC::Operation::Execute && request.scopedChildren) {
             if (!descriptors.empty()) return 76;
             const int result = ScopedChildren(channel, request, mode, approved, &childOrdinal);
-            if (result || mode != "scoped-normal") return result;
+            if (result || (mode != "scoped-normal" && mode.compare(0, 7, "policy-") != 0)) return result;
             continue;
         }
         if (request.operation != TC::Operation::Execute || descriptors.size() != 2) return 68;
@@ -509,6 +542,34 @@ int main(int argc, char **argv) {
         request.payload = mode;
         transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError, 40);
         Expect(!transaction && !transactionError.empty(), "Begin cannot publish mismatched or timed-out authority");
+    }
+    for (const std::string mode : {"policy-cfg-old", "policy-confdef", "policy-refusal", "policy-missing", "policy-unknown-default",
+            "policy-wrong-ordinal", "policy-replayed"}) {
+        Provider::TransactionBeginRequest approved;
+        auto &binding = approved.review.binding;
+        binding.providerIdentifier = "fixture"; binding.session.assign(64, 'a'); binding.configurationIdentity = "config";
+        binding.policyIdentity = "policy"; binding.packageStateIdentity = "state"; binding.cacheEpoch = binding.selectionRevision = 1; binding.review = "review";
+        Provider::ReviewedAction action; action.identifier = 1; action.action = Provider::ExecutionAction::Configure; action.package = {"sample", "1", "all"};
+        approved.review.execution.actions.push_back(action); approved.extendedState = mode;
+        std::string beginBytes;
+        Expect(Provider::EncodeTransactionBegin(approved, &beginBytes) &&
+            Provider::Encode(std::vector<std::string>{"CYDIA-BROKER-1", "fixture authority", beginBytes}, &request.payload), "encode v3 ordinary approval");
+        transaction = PrivilegedClient::ProviderTransaction::Start(executable, request, "SHA256:review", &transactionError, 4000, {}, false, true);
+        Expect(transaction && transaction->valid(), "v3 ordinary child negotiation requires no trigger approval");
+        Provider::ParentExecutionRequest child; child.binding = binding; child.batch = 1; child.actions = {1}; child.action = action.action;
+        child.arguments = {"--status-fd=99", "--configure", "sample:all"};
+        std::string childBytes; Expect(Provider::Encode(child, &childBytes), "encode v3 child");
+        keepOld = true; const unsigned beforeQuestions = questionCount;
+        response = transaction->Request(TC::Operation::Execute, childBytes, statusPipe[1], {"--force-confold"});
+        if (mode == "policy-wrong-ordinal" || mode == "policy-replayed") {
+            Expect(!response.transportValid && !response.started && response.indeterminate && !transaction->valid() &&
+                questionCount == beforeQuestions, "misbound/replayed policy cannot start a child or publish UI");
+        } else {
+            Expect(response.transportValid && response.success && response.started && !response.indeterminate &&
+                questionCount == beforeQuestions + (mode == "policy-refusal" ? 1u : 0u),
+                "authenticated final policy governs actual child-pipe bytes, not argv hints");
+            Expect(transaction->Close(), "close v3 transaction after child release");
+        }
     }
     for (const std::string mode : {"scoped-normal", "scoped-cancel", "scoped-loss", "scoped-wrong-ordinal", "scoped-no-ui", "scoped-no-spawn"}) {
         Provider::TransactionBeginRequest approved;

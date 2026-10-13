@@ -66,6 +66,9 @@ struct AuthorizedExecution {
     ExecutionAction action = ExecutionAction::Unpack;
     std::vector<std::uint64_t> actions;
     std::vector<std::string> arguments; // Parent status descriptor substituted.
+    // Parent parser evidence, never worker policy: exact prefix/descriptor span
+    // retained for post-Bind child-fd preparation and effective-policy lookup.
+    std::size_t optionPrefixSize = 0, statusOptionIndex = 0;
     std::vector<VerifiedArchiveEvidence> archives;
 };
 

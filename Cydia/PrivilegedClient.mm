@@ -602,10 +602,10 @@ public:
     std::string nonce, digest;
     std::uint64_t sequence = 0;
     std::uint64_t childOrdinal = 0, triggerPass = 0;
-    bool scopedChildren = false;
+    bool scopedChildren = false, conffilePolicy = false;
     std::shared_ptr<const CydiaAPT::Provider::TriggerEffectEnvelope> reviewedEffects;
     bool ready = false, everStarted = false, uncertain = false;
-    Implementation(int socket, pid_t pid, const std::string &review, bool scoped) : channel(socket), child(pid), digest(review), scopedChildren(scoped) {}
+    Implementation(int socket, pid_t pid, const std::string &review, bool scoped, bool policy) : channel(socket), child(pid), digest(review), scopedChildren(scoped), conffilePolicy(policy) {}
     ~Implementation() { End(false); }
     void End(bool mutationPending) {
         ready = false; channel.Close();
@@ -619,11 +619,11 @@ public:
         const bool mutating = operation == Transaction::Operation::Execute || operation == Transaction::Operation::Commit;
         Transaction::Frame request; request.operation = operation; request.sequence = sequence;
         request.nonce = nonce; request.reviewDigest = digest; request.payload = payload;
-        request.scopedChildren = scopedChildren;
+        request.scopedChildren = scopedChildren; request.conffilePolicy = conffilePolicy;
         std::vector<int> descriptors;
         if (conffiles) descriptors = {conffiles->inputDescriptor(), conffiles->statusDescriptor()};
         bool sent = false, notified = false, observerFailed = false;
-        bool primarySeen = false, stopped = false, childStarted = false, channelsGranted = false;
+        bool primarySeen = false, stopped = false, childStarted = false, channelsGranted = false, policyAccepted = false;
         std::unique_ptr<Dpkg::ConffileExecution> scope;
         Transaction::Frame childFrame;
         const auto cancelledNow = [&] {
@@ -657,11 +657,11 @@ public:
             if (!channel.Receive(&reply, &received, mutating && !waitingForChannels ? 0 : (timeout ? timeout : 4000),
                     mutating && (!waitingForChannels || stopped) ? std::function<bool()>() : cancelled)) return fail(channel.error());
             for (const int fd : received) close(fd);
-            if (!received.empty() || reply.operation != operation || reply.sequence != sequence || reply.scopedChildren != scopedChildren ||
+            if (!received.empty() || reply.operation != operation || reply.sequence != sequence || reply.scopedChildren != scopedChildren || reply.conffilePolicy != conffilePolicy ||
                 reply.reviewDigest != digest || reply.event == Transaction::Event::Request ||
                 (operation != Transaction::Operation::Begin && reply.nonce != nonce)) return fail("provider_transaction_binding_invalid");
             if (static_cast<unsigned>(reply.event) >= static_cast<unsigned>(Transaction::Event::ChildNeeded)) {
-                if (!scopedChildren || operation != Transaction::Operation::Execute || !reviewedEffects)
+                if (!scopedChildren || operation != Transaction::Operation::Execute)
                     return fail("provider_transaction_child_invalid");
                 if (reply.event == Transaction::Event::ChildNeeded) {
                     Transaction::ChildDescriptor descriptor; Provider::ParentExecutionRequest execution;
@@ -673,7 +673,7 @@ public:
                             descriptor.primaryActions != execution.actions) return fail("provider_transaction_child_invalid");
                         primarySeen = true;
                     } else {
-                        if (descriptor.envelopeIdentity != reviewedEffects->identity || descriptor.pass <= triggerPass ||
+                        if (!reviewedEffects || descriptor.envelopeIdentity != reviewedEffects->identity || descriptor.pass <= triggerPass ||
                             descriptor.primaryCheckpoint > reviewedEffects->primaryReview.execution.actions.size())
                             return fail("provider_transaction_child_invalid");
                         for (const auto &target : descriptor.targets) {
@@ -684,9 +684,9 @@ public:
                         }
                         triggerPass = descriptor.pass;
                     }
-                    childOrdinal = reply.childOrdinal; childFrame = reply; childStarted = false;
+                    childOrdinal = reply.childOrdinal; childFrame = reply; childStarted = false; policyAccepted = false;
                     auto answer = reply;
-                    if (!cancelledNow()) scope.reset(new Dpkg::ConffileExecution(options));
+                    if (!cancelledNow()) scope.reset(new Dpkg::ConffileExecution(options, true, conffilePolicy));
                     if (!scope || !scope->enabled() || !scope->valid()) {
                         if (scope) { scope->Finish(); scope.reset(); }
                         answer.event = Transaction::Event::ChildDenied; answer.errorCode = cancelledNow() ? "provider_cancelled" : "provider_transaction_channels_unavailable";
@@ -702,8 +702,17 @@ public:
                 }
                 if (!scope || reply.childOrdinal != childFrame.childOrdinal || reply.childDescriptor != childFrame.childDescriptor)
                     return fail("provider_transaction_child_invalid");
+                if (reply.event == Transaction::Event::ChildPolicy) {
+                    Provider::ConffilePolicyDecision policy;
+                    if (!conffilePolicy || policyAccepted || childStarted ||
+                        !Transaction::DecodeConffilePolicy(reply.payload, &policy) || !scope->ApplyPolicy(policy.input))
+                        return fail("provider_conffile_policy_binding_invalid");
+                    auto answer = reply; answer.event = Transaction::Event::ChildPolicyAccepted;
+                    if (!channel.Send(answer, {}, timeout ? timeout : 4000)) return fail(channel.error());
+                    policyAccepted = true; continue;
+                }
                 if (reply.event == Transaction::Event::ChildStarted) {
-                    if (childStarted) return fail("provider_transaction_child_invalid");
+                    if (childStarted || (conffilePolicy && !policyAccepted)) return fail("provider_transaction_child_invalid");
                     childStarted = true; notify(); continue;
                 }
                 if (reply.event != Transaction::Event::ChildSettled) return fail("provider_transaction_child_invalid");
@@ -744,15 +753,16 @@ ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> impleme
 ProviderTransaction::~ProviderTransaction() { if (valid()) Close(); }
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper,
     const Privileged::Request &request, const std::string &digest, std::string *error,
-    unsigned timeout, const std::function<bool()> &cancelled, bool scopedChildren) {
+    unsigned timeout, const std::function<bool()> &cancelled, bool scopedChildren, bool conffilePolicy) {
     const std::string payload = Privileged::SerializeRequest(request);
+    if (conffilePolicy) scopedChildren = true;
     Transaction::Frame begin; begin.reviewDigest = digest; begin.payload = payload;
-    begin.scopedChildren = scopedChildren;
+    begin.scopedChildren = scopedChildren; begin.conffilePolicy = conffilePolicy;
     CydiaAPT::Provider::TransactionBeginRequest approved;
     if (scopedChildren) {
         std::vector<std::string> fields;
         if (!CydiaAPT::Provider::Decode(request.payload, &fields) || fields.size() != 3 ||
-            !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || !approved.reviewedEffects) {
+            !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || (!conffilePolicy && !approved.reviewedEffects)) {
             if (error) *error = "provider_transaction_review_mismatch";
             return nullptr;
         }
@@ -764,7 +774,7 @@ std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::strin
     }
     int channel = -1; pid_t child = -1;
     if (!SpawnTransaction(helper, &channel, &child, error)) return nullptr;
-    std::unique_ptr<Implementation> implementation(new Implementation(channel, child, digest, scopedChildren));
+    std::unique_ptr<Implementation> implementation(new Implementation(channel, child, digest, scopedChildren, conffilePolicy));
     implementation->reviewedEffects = approved.reviewedEffects;
     const auto result = implementation->Exchange(Transaction::Operation::Begin, payload, nullptr, {}, timeout, cancelled);
     if (!result.transportValid || !result.success) { if (error) *error = result.errorCode; return nullptr; }

@@ -156,6 +156,8 @@ void OrdinaryBatches() {
     auto evidence = fixture.ArchiveEvidence();
     Require(authorization.Authorize(unpack, evidence, &allowed, &error) && allowed.archives.size() == 3 &&
         allowed.arguments[fixture.policy.protectedDpkgOptions.size() + 1] == "8", "ordinary multiarch unpack or parent fd substitution refused");
+    Require(allowed.optionPrefixSize == allowed.arguments.size() - 3 &&
+        allowed.statusOptionIndex == fixture.policy.protectedDpkgOptions.size(), "parent parser retains exact option and status spans");
     Require(!authorization.Authorize(unpack, evidence, &allowed, &error), "concurrent batch accepted");
     Require(authorization.Settle(1, Success(), "state-v2", true, &error), "unpack completion refused");
     Require(!authorization.Authorize(unpack, evidence, &allowed, &error), "old batch replay accepted");
@@ -168,6 +170,7 @@ void OrdinaryBatches() {
     evidence.triggerTargets = {{"triggered", "2", "amd64"}};
     Require(authorization.Authorize(configure, evidence, &allowed, &error) && allowed.actions.size() == 5,
         "independently enumerated pending configure and reviewed trigger refused");
+    Require(allowed.optionPrefixSize == allowed.arguments.size(), "pending has a complete option prefix and no operands");
     Require(authorization.Settle(2, Success(), "state-v3", true, &error), "configure completion refused");
 
     auto remove = fixture.Request(P::ExecutionAction::Remove, {7, 8},
@@ -180,6 +183,19 @@ void OrdinaryBatches() {
     evidence.pendingTargets = {{"residual", "1", "amd64"}};
     Require(authorization.Authorize(purge, evidence, &allowed, &error) &&
         authorization.Settle(4, Success(), "state-v5", true, &error) && authorization.complete(), "bounded pending purge failed");
+}
+void ChildOptionSpans() {
+    for (const bool joined : {false, true}) {
+        Fixture fixture; fixture.policy.protectedDpkgOptions.insert(fixture.policy.protectedDpkgOptions.end(), {"--pre-invoke", "--status-fd=71"});
+        P::ReviewAuthorization authorization; P::AuthorizedExecution allowed; std::string error;
+        Require(authorization.Accept(fixture.review, fixture.policy, &error), "protected opaque hook fixture");
+        auto request = fixture.Request(P::ExecutionAction::Configure, {11}, {"--configure", "--", "pending:amd64"});
+        const auto statusIndex = fixture.policy.protectedDpkgOptions.size();
+        if (joined) { request.arguments[statusIndex] = "--status-fd=99"; request.arguments.erase(request.arguments.begin() + statusIndex + 1); }
+        Require(authorization.Authorize(request, fixture.Evidence(), &allowed, &error) && allowed.statusOptionIndex == statusIndex &&
+            allowed.optionPrefixSize == allowed.arguments.size() - 1 && allowed.arguments[allowed.optionPrefixSize - 1] == "--" &&
+            allowed.arguments[statusIndex - 1] == "--status-fd=71", "status span ignores hook text and prefix preserves terminator");
+    }
 }
 void ExplicitTriggerBatch() {
     Fixture fixture; P::ReviewAuthorization authorization; P::AuthorizedExecution allowed; std::string error;
@@ -282,6 +298,6 @@ void ExplicitTriggersAndWarnings() {
 }
 }
 int main() {
-    ReviewAndWire(); OrdinaryBatches(); ExplicitTriggerBatch(); EvidenceAndBatchRejection(); ExplicitTriggersAndWarnings();
+    ReviewAndWire(); OrdinaryBatches(); ChildOptionSpans(); ExplicitTriggerBatch(); EvidenceAndBatchRejection(); ExplicitTriggersAndWarnings();
     std::cout << "[apt-provider-review][ ok ] manifests, exact batches, pending sets and parent evidence\n";
 }

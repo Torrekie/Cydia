@@ -175,6 +175,34 @@ public:
         }
         return true;
     }
+    bool PrepareConffiles(const std::vector<std::string> &source, std::size_t prefixSize, std::size_t statusIndex,
+        int status, NativeEffectPolicy::Role role, const std::vector<InstalledComponentEvidence> &files,
+        TransactionEffectChildChannels &channels, std::vector<std::string> *arguments, std::size_t *finalStatusIndex,
+        std::string *error, const std::function<bool()> &cancel) {
+        if (!channels.policy || !options.executePrepared || prefixSize > source.size() || statusIndex >= prefixSize)
+            return Stop(error, "provider_conffile_policy_unavailable");
+        P::Error ignored; std::vector<std::string> bound, prefix, head;
+        // ParseBatch supplied boundaries; Bind performs the existing native
+        // option/path validation. Never search opaque hook values for flags.
+        if (!P::BindDpkgArguments(options.selected.environment, source, &bound, &ignored) ||
+            !P::BindDpkgArguments(options.selected.environment, std::vector<std::string>(source.begin(), source.begin() + prefixSize), &prefix, &ignored) ||
+            !P::BindDpkgArguments(options.selected.environment, std::vector<std::string>(source.begin(), source.begin() + statusIndex), &head, &ignored) ||
+            prefix.size() > bound.size() || head.size() >= prefix.size() ||
+            !std::equal(prefix.begin(), prefix.end(), bound.begin()) || !std::equal(head.begin(), head.end(), prefix.begin()) ||
+            !FinalizeNativeChildArguments(bound, prefix.size(), head.size(), status, arguments))
+            return Stop(error, "provider_conffile_policy_binding_invalid");
+        ConffilePolicyDecision decision;
+        if (!CaptureConffilePolicy(native, options.selected.environment.dpkg, files, role, *arguments,
+            prefix.size(), &decision, error, cancel) || !channels.policy(decision, error))
+            return Stop(error, "provider_conffile_policy_unavailable");
+        // Acknowledgement permits no new authority. Recheck after its bounded
+        // wait so changed configuration/components cannot use a stale decision.
+        ComponentClosureEvidence closure;
+        if (!Parent(nullptr, error) || !Active(cancel, error) ||
+            !Closure(options.selected.environment.dpkg, files, &closure, error, cancel))
+            return Stop(error, "provider_conffile_policy_changed");
+        *finalStatusIndex = head.size(); return true;
+    }
     bool DrainEffects(ParentExecutionReply *last, std::string *error, const std::function<bool()> &cancel,
         const std::function<void()> &started, DpkgState *finalState = nullptr) {
         if (!options.reviewedEffects) return true;
@@ -196,6 +224,7 @@ public:
                 !TransactionChannel::ValidChildDescriptors(channels.inputDescriptor, channels.statusDescriptor))
                 return Stop(error, "provider_trigger_child_channels_invalid");
             auto arguments = options.policy.protectedDpkgOptions;
+            const std::size_t statusIndex = arguments.size();
             arguments.insert(arguments.end(), {"--status-fd=" + std::to_string(channels.statusDescriptor), "--no-triggers", "--triggers-only"});
             std::size_t targetBytes = 0;
             for (const auto &target : plan.targets) targetBytes += target.package.size() + target.architecture.size() + 2;
@@ -203,7 +232,9 @@ public:
             // --pending preserves that complete set without exceeding exec's
             // argument limit on a large but otherwise admitted installation.
             if (plan.targets.empty() || targetBytes > 32768) arguments.push_back("--pending");
-            else for (const auto &target : plan.targets) arguments.push_back(target.package + ':' + target.architecture);
+            const std::size_t prefixSize = arguments.size();
+            if (!plan.targets.empty() && targetBytes <= 32768)
+                for (const auto &target : plan.targets) arguments.push_back(target.package + ':' + target.architecture);
             P::Error ignored; ComponentClosureEvidence closure;
             TransactionLeaseContext refreshed; DpkgState currentState; TriggerEffectCheckpoint currentCheckpoint;
             if (!CaptureContext(completedUnpacks, &refreshed, &currentState, error, cancel, &currentCheckpoint) ||
@@ -212,13 +243,21 @@ public:
                 !Closure(options.selected.environment.dpkg, refreshed.components, &closure, error, cancel) || !Active(cancel, error) ||
                 !lease.AuthorizeEffects(refreshed, plan.envelopeIdentity, plan.pass, closure, error))
                 return Stop(error, "provider_trigger_drain_not_authorized");
-            if (!P::BindDpkgArguments(options.selected.environment, arguments, &arguments, &ignored))
+            std::size_t finalStatusIndex = 0;
+            if (options.requireConffilePolicy) {
+                if (!PrepareConffiles(arguments, prefixSize, statusIndex, channels.statusDescriptor, NativeEffectPolicy::Role::TriggerDrain,
+                    refreshed.components, channels, &arguments, &finalStatusIndex, error, cancel)) return false;
+            } else if (!P::BindDpkgArguments(options.selected.environment, arguments, &arguments, &ignored))
                 return Stop(error, "provider_dpkg_options_changed");
-            if (cancel && cancel()) reply.launchError = ECANCELED;
-            else reply = options.execute(options.selected.environment.dpkg, arguments, channels.inputDescriptor, channels.statusDescriptor, [&] {
+            const auto childStarted = [&] {
                 std::string ignoredStart; lease.StartedEffects(plan.pass, &ignoredStart);
                 channels.started(); if (started) started();
-            }, native.launchEnvironment);
+            };
+            if (cancel && cancel()) reply.launchError = ECANCELED;
+            else if (options.requireConffilePolicy) reply = options.executePrepared(options.selected.environment.dpkg, arguments,
+                channels.inputDescriptor, channels.statusDescriptor, childStarted, native.launchEnvironment, finalStatusIndex);
+            else reply = options.execute(options.selected.environment.dpkg, arguments, channels.inputDescriptor,
+                channels.statusDescriptor, childStarted, native.launchEnvironment);
             if (last) *last = reply;
             SynchronizeCancellation();
             TransactionLeaseContext after; DpkgState afterState; TriggerEffectCheckpoint next; std::string reason;
@@ -240,6 +279,8 @@ bool TransactionOwner::Begin(std::string *error, const std::function<bool()> &ca
     const auto cancel = s.Cancellation(cancelled);
     if (s.begun) return s.Stop(error, "provider_lease_reused");
     s.begun = true;
+    if (o.requireConffilePolicy && (!o.primaryChildChannels || !o.executePrepared))
+        return s.Stop(error, "provider_conffile_policy_unavailable");
     if (o.reviewedEffects) {
         if (!o.effectChildChannels || !o.primaryChildChannels) return s.Stop(error, "provider_trigger_child_channels_unavailable");
         if (Wire(o.reviewedEffects->primaryReview) != Wire(o.review)) return s.Stop(error, "provider_trigger_review_changed");
@@ -321,7 +362,7 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
     } startedResult{result, observedStart};
     const auto notifyStarted = [&] { observedStart = true; if (started) started(); };
     TransactionLeaseContext before; DpkgState state; TriggerEffectCheckpoint beforeEffects;
-    if (!s.ready || (!s.options.reviewedEffects && (status < 3 || input < 0)) || !s.Active(cancel, error) ||
+    if (!s.ready || (!s.options.primaryChildChannels && (status < 3 || input < 0)) || !s.Active(cancel, error) ||
         !s.lease.Expects(envelope) || !SameBinding(request.binding, s.options.review.binding) ||
         !s.DrainEffects(result, error, cancel, notifyStarted) ||
         !s.CaptureContext(s.completedUnpacks, &before, &state, error, cancel, &beforeEffects) ||
@@ -337,7 +378,7 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
         void Finish() { if (!finished && channels.settled) { finished = true; channels.settled(reply); } }
         ~PrimaryScope() { Finish(); }
     } primaryScope{primary, *result};
-    if (s.options.reviewedEffects) {
+    if (s.options.primaryChildChannels) {
         if (!s.options.primaryChildChannels(request, &primary, error) || !primary.started || !primary.settled ||
             !TransactionChannel::ValidChildDescriptors(primary.inputDescriptor, primary.statusDescriptor))
             return s.Stop(error, "provider_primary_child_channels_invalid");
@@ -358,17 +399,32 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
         return s.Stop(error, "provider_trigger_primary_not_authorized");
     }
     auto arguments = batch.arguments;
-    P::Error pathError;
-    if (!P::BindDpkgArguments(s.options.selected.environment, arguments, &arguments, &pathError))
+    P::Error pathError; std::size_t finalStatusIndex = 0;
+    if (s.options.requireConffilePolicy) {
+        NativeEffectPolicy::Role role;
+        switch (batch.action) {
+            case ExecutionAction::Unpack: role = NativeEffectPolicy::Role::Unpack; break;
+            case ExecutionAction::Configure: role = NativeEffectPolicy::Role::Configure; break;
+            case ExecutionAction::Remove: role = NativeEffectPolicy::Role::Remove; break;
+            case ExecutionAction::Purge: role = NativeEffectPolicy::Role::Purge; break;
+            case ExecutionAction::Triggers: role = NativeEffectPolicy::Role::TriggerDrain; break;
+            default: return s.Stop(error, "provider_conffile_policy_unavailable");
+        }
+        if (!s.PrepareConffiles(arguments, batch.optionPrefixSize, batch.statusOptionIndex, status, role,
+            before.components, primary, &arguments, &finalStatusIndex, error, cancel)) return false;
+    } else if (!P::BindDpkgArguments(s.options.selected.environment, arguments, &arguments, &pathError))
         return s.Stop(error, "provider_dpkg_options_changed");
     // Direct executor owns actual spawn/reap. It must not propagate exceptions
     // or return while a child remains live; channel cancellation never kills it.
-    if (cancel()) result->launchError = ECANCELED;
-    else *result = s.options.execute(s.options.selected.environment.dpkg, arguments, input, status, [&] {
+    const auto childStarted = [&] {
         std::string ignoredStart; s.lease.Started(batch.batch, &ignoredStart);
         if (primary.started) primary.started();
         notifyStarted();
-    }, s.native.launchEnvironment);
+    };
+    if (cancel()) result->launchError = ECANCELED;
+    else if (s.options.requireConffilePolicy) *result = s.options.executePrepared(s.options.selected.environment.dpkg, arguments,
+        input, status, childStarted, s.native.launchEnvironment, finalStatusIndex);
+    else *result = s.options.execute(s.options.selected.environment.dpkg, arguments, input, status, childStarted, s.native.launchEnvironment);
     primaryScope.Finish();
     s.SynchronizeCancellation();
     auto completed = s.completedUnpacks;

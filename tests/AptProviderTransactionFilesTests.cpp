@@ -172,8 +172,31 @@ void StagedArchives() {
 namespace {
 P::NativeDpkgAuthority fixtureAuthority;
 bool fixtureAuthorityAvailable = true;
+// Deliberate test-only producer injection. Empty by default, so unrelated
+// fixtures cannot acquire a policy assertion. The service fixture explicitly
+// supplies the semantics of its disposable shell program, never native dpkg.
+using FixturePolicyProducer = std::function<bool(const P::NativeDpkgAuthority &, const std::string &,
+    const std::vector<P::InstalledComponentEvidence> &, const std::string &, P::NativeEffectPolicy::Role,
+    const std::vector<std::string> &, P::NativeEffectPolicy::Inputs *, std::string *, const std::function<bool()> &)>;
+FixturePolicyProducer fixturePolicyProducer;
 }
 namespace CydiaAPT { namespace Provider {
+// This target's producer substitute is explicitly not native readiness proof.
+// Real protected producer matching remains in NativeDpkgAuthorityTests.
+bool BuildNativeEffectPolicyInputs(const NativeDpkgAuthority &authority, const std::string &executable,
+    const std::vector<InstalledComponentEvidence> &files, const std::string &profile, NativeEffectPolicy::Role role,
+    const std::vector<std::string> &prefix, NativeEffectPolicy::Inputs *output, std::string *error,
+    const std::function<bool()> &cancelled) {
+    if (output) *output = NativeEffectPolicy::Inputs();
+    if (!output || !fixturePolicyProducer) {
+        if (error) *error = "fixture_effect_policy_unavailable";
+        return false;
+    }
+    ComponentClosureEvidence closure;
+    if (!RevalidateNativeDpkgAuthority(authority, files, error) ||
+        !CaptureNativeDpkgClosure(authority, executable, files, &closure, error, cancelled)) return false;
+    return fixturePolicyProducer(authority, executable, files, profile, role, prefix, output, error, cancelled);
+}
 bool ResolveNativeDpkgAuthority(const BrokerEnvironment &, const ReviewedTransaction &, NativeDpkgAuthority *out,
     std::string *error, const std::function<bool()> &) {
     if (!fixtureAuthorityAvailable) { if (error) *error = "provider_native_configuration_missing"; return false; }

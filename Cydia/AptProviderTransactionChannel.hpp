@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef Cydia_AptProviderTransactionChannel_HPP
 #define Cydia_AptProviderTransactionChannel_HPP
+#include "Cydia/AptProviderConffilePolicy.hpp"
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -11,7 +12,7 @@ namespace CydiaAPT { namespace Provider { namespace TransactionChannel {
 constexpr std::size_t MaximumFrameBytes = 8 * 1024 * 1024;
 enum class Operation { Begin, Capture, Execute, Commit, Close };
 enum class Event { Request, Started, Settled, ChildNeeded, ChildChannels, ChildDenied,
-    ChildStarted, ChildSettled, ChildReleased, ChildCancelled };
+    ChildStarted, ChildSettled, ChildReleased, ChildCancelled, ChildPolicy, ChildPolicyAccepted };
 enum class ChildPurpose { Primary, TriggerDrain };
 struct ChildPackage { std::string package, version, architecture; };
 struct ChildDescriptor {
@@ -27,6 +28,8 @@ struct ChildDescriptor {
 constexpr std::size_t MaximumChildDescriptorBytes = 256 * 1024;
 bool EncodeChildDescriptor(const ChildDescriptor &, std::string *);
 bool DecodeChildDescriptor(const std::string &, ChildDescriptor *);
+bool EncodeConffilePolicy(const ConffilePolicyDecision &, std::string *);
+bool DecodeConffilePolicy(const std::string &, ConffilePolicyDecision *);
 struct Frame {
     Operation operation = Operation::Begin;
     Event event = Event::Request;
@@ -34,6 +37,9 @@ struct Frame {
     std::string nonce, reviewDigest, payload, errorCode;
     bool success = false, mutationStarted = false, indeterminate = false;
     bool scopedChildren = false;
+    // Negotiates direct app/helper v3 only. No provider capability or target
+    // authorization; policy handshakes are required before every actual child.
+    bool conffilePolicy = false;
     std::uint64_t childOrdinal = 0;
     std::string childDescriptor;
 };

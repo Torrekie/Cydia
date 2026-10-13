@@ -3,6 +3,7 @@
  * no executable is loaded and no package database is modified.
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderNativeDpkgAuthority.hpp"
+#include "Cydia/AptProviderConffilePolicy.hpp"
 #include "Cydia/AptProviderComponentCapture.hpp"
 #include "Cydia/AptRecoveryDependencyInspector.hpp"
 #include "Cydia/AptRecoveryMachO.hpp"
@@ -222,6 +223,62 @@ N::Match Match(Fixture &f, const A::NativeDpkgAuthority &authority) {
     return A::MatchNativeEffectPolicy(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1",
         N::Role::Unpack, Prefix(f), &error);
 }
+void ConffilePolicyCapture() {
+    namespace D = CydiaRuntime::Dpkg;
+    for (const auto force : {N::Force::Confold, N::Force::Confnew, N::Force::Confdef}) {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        Write(f.root + "/conf/dpkg", force == N::Force::Confold ? "force-confold\n" :
+            (force == N::Force::Confnew ? "force-confnew\n" : "force-confdef\n"));
+        Require(f.Resolve(&authority, &error), "capture actual configured force input");
+        auto prefix = Prefix(f); prefix.back() = "--configure";
+        N::Inputs inputs;
+        Require(A::BuildNativeEffectPolicyInputs(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1",
+            N::Role::Configure, prefix, &inputs, &error), "capture configure input and frozen environment");
+        N::Record record; record.semanticProfile = inputs.semanticProfile; record.executorPath = inputs.executorPath;
+        record.executorSHA256 = inputs.executorSHA256; record.role = inputs.role; record.optionPrefix = prefix;
+        Require(N::InputIdentity(inputs, Hash, &record.inputIdentity), "bind exact config force record");
+        record.settings.forces = {force}; record.settings.statusDescriptors = {3};
+        VersionTwo(f, std::vector<N::Record>{record});
+        Require(f.Resolve(&authority, &error), "resolve protected policy record");
+        auto arguments = prefix; arguments.push_back("sample:arm64");
+        A::ConffilePolicyDecision decision;
+        Require(A::CaptureConffilePolicy(authority, f.program, f.Capture(), N::Role::Configure, arguments, prefix.size(),
+            &decision, &error) && decision.match == N::Status::Matched && decision.input == D::ConffileInputPolicy::Automatic,
+            "configuration-supplied force choice suppresses native question input");
+        const auto first = decision;
+        arguments.back() = "another:arm64";
+        Require(A::CaptureConffilePolicy(authority, f.program, f.Capture(), N::Role::Configure, arguments, prefix.size(), &decision, &error) &&
+            decision.inputIdentity == first.inputIdentity && decision.launchIdentity != first.launchIdentity,
+            "complete actual child operands belong to launch binding rather than policy lookup");
+        Write(f.root + "/conf/dpkg", "# policy changed\n");
+        Require(!A::CaptureConffilePolicy(authority, f.program, f.Capture(), N::Role::Configure, arguments, prefix.size(), &decision, &error) &&
+            decision.launchIdentity.empty(), "fresh protected config mismatch prevents launch and clears decision");
+    }
+    {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        Write(f.root + "/conf/dpkg", "force-confold\n");
+        Require(f.Resolve(&authority, &error), "capture cfg-old refusal scene");
+        auto prefix = Prefix(f); prefix.back() = "--configure"; prefix.insert(prefix.begin() + 2, "--refuse-confold");
+        N::Inputs inputs;
+        Require(A::BuildNativeEffectPolicyInputs(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1", N::Role::Configure,
+            prefix, &inputs, &error), "bind explicit refusal without interpreting native configuration");
+        N::Record record; record.semanticProfile = inputs.semanticProfile; record.executorPath = inputs.executorPath;
+        record.executorSHA256 = inputs.executorSHA256; record.role = inputs.role; record.optionPrefix = prefix;
+        Require(N::InputIdentity(inputs, Hash, &record.inputIdentity), "hash native-final refusal inputs");
+        // Source force.c::parse_force resets the bit for --refuse; declaration
+        // supplies that final result. Current reviewed-option admission is NOT
+        // widened by this library fixture.
+        record.settings.statusDescriptors = {3}; VersionTwo(f, std::vector<N::Record>{record});
+        Require(f.Resolve(&authority, &error), "resolve final-refusal assertion");
+        auto arguments = prefix; arguments.push_back("sample:arm64"); A::ConffilePolicyDecision decision;
+        Require(A::CaptureConffilePolicy(authority, f.program, f.Capture(), N::Role::Configure, arguments, prefix.size(), &decision, &error) &&
+            decision.input == D::ConffileInputPolicy::Interactive, "argv refusal supersedes cfg choice only through matched complete force settings");
+        arguments.erase(arguments.begin() + 2);
+        Require(A::CaptureConffilePolicy(authority, f.program, f.Capture(), N::Role::Configure, arguments, prefix.size() - 1, &decision, &error) &&
+            decision.match == N::Status::InputMismatch && decision.input == D::ConffileInputPolicy::Unverified,
+            "a different actual prefix cannot borrow an interactive policy");
+    }
+}
 void EffectDeclarations() {
     {
         Fixture f; A::NativeDpkgAuthority authority; std::string error;
@@ -386,6 +443,6 @@ void Closures() {
 }
 }
 int main() {
-    Declarations(); ConfiguredAutomaticDeconfiguration(); EffectDeclarations(); EffectContentAndLocalEvidence(); CircularEffectInputs(); Closures();
+    Declarations(); ConfiguredAutomaticDeconfiguration(); EffectDeclarations(); ConffilePolicyCapture(); EffectContentAndLocalEvidence(); CircularEffectInputs(); Closures();
     std::puts("Native dpkg protected declaration and Mach-O closure tests passed");
 }

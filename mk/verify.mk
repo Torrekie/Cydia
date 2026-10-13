@@ -191,6 +191,20 @@ verify: verify-apt-deconfiguration-approval
 verify-apt-deconfiguration-approval: $(APT_DECONFIGURATION_APPROVAL_TEST)
 	@$<
 
+APT_RESTORATION_DEBT_TEST := $(BUILD_DIR)/tests/AptProviderRestorationDebtTests
+apt_restoration_debt_test_sources := tests/AptProviderRestorationDebtTests.cpp \
+	Cydia/AptProviderRestorationDebt.cpp $(filter-out tests/AptProviderDeconfigurationApprovalTests.cpp,$(apt_deconfiguration_approval_test_sources))
+$(APT_RESTORATION_DEBT_TEST): $(apt_restoration_debt_test_sources) \
+		Cydia/AptProviderRestorationDebt.hpp Cydia/AptProviderDeconfigurationApproval.hpp \
+		Cydia/AptProviderDeconfigurationEffects.hpp Cydia/AptProviderBinaryRelationships.hpp \
+		Cydia/AptProviderProtocol.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(apt_restoration_debt_test_sources) -o $@
+.PHONY: verify-apt-restoration-debt
+verify: verify-apt-restoration-debt
+verify-apt-restoration-debt: $(APT_RESTORATION_DEBT_TEST)
+	@$<
+
 NATIVE_LAUNCH_ENVIRONMENT_TEST := $(BUILD_DIR)/tests/NativeLaunchEnvironmentTests
 $(NATIVE_LAUNCH_ENVIRONMENT_TEST): tests/NativeLaunchEnvironmentTests.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/NativeLaunchEnvironment.hpp
 	@mkdir -p $(dir $@)
@@ -624,6 +638,7 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/AptRecoverySnapshot.cpp Cydia/AptRecoverySnapshot.hpp \
 		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp \
 		Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp \
+		Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp \
 		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp \
 		Cydia/AptProviderTransactionRequest.cpp Cydia/AptProviderTransactionRequest.hpp \
 		tests/apt-stubs/apt-pkg/fileutl.h
@@ -680,7 +695,8 @@ verify-transaction-outcome-policy: $(TRANSACTION_OUTCOME_POLICY_TEST)
 	@$<
 verify-privileged-client: $(PRIVILEGED_CLIENT_TEST)
 APT_TRANSACTION_CHANNEL_TEST := $(BUILD_DIR)/tests/AptProviderTransactionChannelTests
-$(APT_TRANSACTION_CHANNEL_TEST): tests/AptProviderTransactionChannelTests.cpp Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp
+$(APT_TRANSACTION_CHANNEL_TEST): tests/AptProviderTransactionChannelTests.cpp Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp \
+		Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -pthread -o $@
 verify-privileged-client: $(APT_TRANSACTION_CHANNEL_TEST)
@@ -816,6 +832,7 @@ $(DPKG_STATUS_TEST): tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp 
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
 		tests/DpkgStatusParserTests.cpp Cydia/DpkgStatusParser.cpp -o $@
 $(DPKG_CONFFILE_TEST): tests/DpkgConffileTests.cpp Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp \
+		Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp \
 		Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -pthread -o $@

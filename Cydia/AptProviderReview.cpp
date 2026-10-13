@@ -110,13 +110,14 @@ struct ParsedBatch {
     ExecutionAction action = ExecutionAction::Unpack;
     bool pending = false, noTriggers = false, autoDeconfigure = false;
     std::vector<std::string> operands, arguments;
+    std::size_t optionPrefixSize = 0, statusOptionIndex = 0;
 };
 bool ParseBatch(const ParentExecutionRequest &request, const ReviewPolicy &policy,
                 int descriptor, ParsedBatch *parsed) {
     if (descriptor < 3 || request.arguments.size() > 100000 ||
         request.arguments.size() < policy.protectedDpkgOptions.size() ||
         !std::equal(policy.protectedDpkgOptions.begin(), policy.protectedDpkgOptions.end(), request.arguments.begin())) return false;
-    ParsedBatch value; value.arguments = request.arguments;
+    ParsedBatch value; value.arguments = request.arguments; value.optionPrefixSize = request.arguments.size();
     bool action = false, status = false, operands = false, forceDepends = false, abortOne = false;
     std::size_t bytes = 0;
     for (const auto &argument : request.arguments) {
@@ -125,7 +126,7 @@ bool ParseBatch(const ParentExecutionRequest &request, const ReviewPolicy &polic
     }
     for (std::size_t i = policy.protectedDpkgOptions.size(); i < request.arguments.size(); ++i) {
         const auto &argument = request.arguments[i];
-        if (argument == "--" && !operands) { operands = true; continue; }
+        if (argument == "--" && !operands) { value.optionPrefixSize = i + 1; operands = true; continue; }
         if (!operands && argument.compare(0, 2, "--") == 0) {
             ExecutionAction kind;
             bool isAction = true;
@@ -138,7 +139,7 @@ bool ParseBatch(const ParentExecutionRequest &request, const ReviewPolicy &polic
             if (isAction) { if (action) return false; action = true; value.action = kind; continue; }
             if (argument == "--status-fd" || argument.compare(0, 12, "--status-fd=") == 0) {
                 if (status) return false;
-                status = true;
+                status = true; value.statusOptionIndex = i;
                 if (argument == "--status-fd") {
                     if (++i == request.arguments.size() || !Decimal(request.arguments[i])) return false;
                     value.arguments[i] = std::to_string(descriptor);
@@ -153,6 +154,7 @@ bool ParseBatch(const ParentExecutionRequest &request, const ReviewPolicy &polic
             else if (argument == "--abort-after=1" && !abortOne) abortOne = true;
             else return false;
         } else {
+            if (!operands) value.optionPrefixSize = i;
             operands = true;
             if (argument.front() == '-') return false;
             value.operands.push_back(argument);
@@ -293,6 +295,7 @@ bool ReviewAuthorization::Authorize(const ParentExecutionRequest &request, const
         return Fail(error, "provider_unsupported_dpkg_batch");
     AuthorizedExecution result; result.batch = request.batch; result.action = request.action;
     result.arguments = parsed.arguments;
+    result.optionPrefixSize = parsed.optionPrefixSize; result.statusOptionIndex = parsed.statusOptionIndex;
     std::set<std::uint64_t> selected;
     std::set<std::string> packages;
     std::vector<const ReviewedAction *> ordered;

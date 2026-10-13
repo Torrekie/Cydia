@@ -15,15 +15,19 @@ struct TransactionServiceOptions {
     std::function<bool(BrokerEnvironment *, std::string *)> prepareEnvironment;
     std::function<ParentExecutionReply(const std::string &, const std::vector<std::string> &,
         int, int, const std::function<void()> &, const CydiaRuntime::NativeLaunchEnvironment &)> execute;
+    std::function<ParentExecutionReply(const std::string &, const std::vector<std::string> &,
+        int, int, const std::function<void()> &, const CydiaRuntime::NativeLaunchEnvironment &, std::size_t)> executePrepared;
     unsigned nonmutatingMilliseconds = 30000;
 };
 // Consumes connectedSocket. Begin payload is Privileged::SerializeRequest of
 // the wrapped Broker request whose inner payload is EncodeTransactionBegin.
 // Capture/Close payload is empty; Execute is Encode(ParentExecutionRequest).
 // Commit is Privileged::SerializeFields({baseline, Encode(ExtendedStateRequest)}).
-// Explicit scoped-child negotiation requires the retained reviewedEffects
-// approval. Both primary and trigger children then acquire independent channel
-// pairs, and must acknowledge settlement/release before another scope opens.
+// V2 scoped-child negotiation requires retained reviewedEffects approval.
+// V3 conffilePolicy scopes ordinary children too; any trigger child still
+// requires the exact independently approved envelope. After fd transfer, v3
+// requires ChildPolicy/ChildPolicyAccepted before actual start. Both forms
+// acknowledge settlement/release before another scope opens.
 // Bounded admission/capture; once mutation starts it is always waited/reaped.
 // Transport loss invalidates the lease and never authorizes a retry.
 bool ServeProviderTransaction(int connectedSocket, const CydiaRuntime::PackageDatabasePaths &,

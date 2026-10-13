@@ -33,8 +33,9 @@ bool Number(const std::string &value, std::uint64_t *result) {
 }
 bool Valid(const Frame &frame) {
     if (static_cast<unsigned>(frame.operation) > static_cast<unsigned>(Operation::Close) ||
-        static_cast<unsigned>(frame.event) > static_cast<unsigned>(Event::ChildCancelled) ||
-        !Token(frame.reviewDigest) || !Token(frame.errorCode, true) || !Token(frame.nonce, true)) return false;
+        static_cast<unsigned>(frame.event) > static_cast<unsigned>(Event::ChildPolicyAccepted) ||
+        !Token(frame.reviewDigest) || !Token(frame.errorCode, true) || !Token(frame.nonce, true) ||
+        (frame.conffilePolicy && !frame.scopedChildren)) return false;
     if (frame.operation == Operation::Begin) {
         if (frame.sequence != 0 || (frame.event == Event::Request && !frame.nonce.empty()) ||
             (frame.event == Event::Settled && frame.success && frame.nonce.empty())) return false;
@@ -44,6 +45,12 @@ bool Valid(const Frame &frame) {
         if (!frame.scopedChildren || frame.operation != Operation::Execute || !frame.childOrdinal ||
             !DecodeChildDescriptor(frame.childDescriptor, &descriptor) || frame.indeterminate) return false;
         switch (frame.event) {
+            case Event::ChildPolicy:
+            case Event::ChildPolicyAccepted: {
+                ConffilePolicyDecision policy;
+                return frame.conffilePolicy && frame.success && !frame.mutationStarted && frame.errorCode.empty() &&
+                    DecodeConffilePolicy(frame.payload, &policy);
+            }
             case Event::ChildNeeded: return !frame.success && !frame.mutationStarted && frame.payload.empty() && frame.errorCode.empty();
             case Event::ChildChannels: return frame.success && !frame.mutationStarted && frame.payload.empty() && frame.errorCode.empty();
             case Event::ChildDenied: return !frame.success && !frame.mutationStarted && frame.payload.empty() && !frame.errorCode.empty();
@@ -193,10 +200,31 @@ bool DecodeChildDescriptor(const std::string &bytes, ChildDescriptor *output) {
     if (!EncodeChildDescriptor(value, &canonical) || canonical != bytes) return false;
     *output = std::move(value); return true;
 }
+bool EncodeConffilePolicy(const ConffilePolicyDecision &value, std::string *output) {
+    if (!output || !ValidConffilePolicyDecision(value)) return false;
+    std::string bytes;
+    for (const auto &field : std::vector<std::string>{"CYDIA-CONFFILE-POLICY-1",
+        std::to_string(static_cast<unsigned>(value.match)), std::to_string(static_cast<unsigned>(value.input)),
+        value.inputIdentity, value.recordIdentity, value.launchIdentity}) Field(bytes, field);
+    *output = std::move(bytes); return true;
+}
+bool DecodeConffilePolicy(const std::string &bytes, ConffilePolicyDecision *output) {
+    if (!output) return false;
+    std::vector<std::string> fields; std::uint64_t match, input;
+    if (!Fields(bytes, &fields, 6, 1024) || fields.size() != 6 || fields[0] != "CYDIA-CONFFILE-POLICY-1" ||
+        !Number(fields[1], &match) || match > static_cast<unsigned>(NativeEffectPolicy::Status::Invalid) ||
+        !Number(fields[2], &input) || input > static_cast<unsigned>(CydiaRuntime::Dpkg::ConffileInputPolicy::Unverified)) return false;
+    ConffilePolicyDecision value; value.match = static_cast<NativeEffectPolicy::Status>(match);
+    value.input = static_cast<CydiaRuntime::Dpkg::ConffileInputPolicy>(input);
+    value.inputIdentity = fields[3]; value.recordIdentity = fields[4]; value.launchIdentity = fields[5];
+    std::string canonical;
+    if (!EncodeConffilePolicy(value, &canonical) || canonical != bytes) return false;
+    *output = std::move(value); return true;
+}
 bool Encode(const Frame &frame, std::string *output) {
     if (!output || !Valid(frame) || frame.payload.size() > MaximumFrameBytes) return false;
     std::string bytes;
-    for (const auto &value : std::vector<std::string>{frame.scopedChildren ? "CYDIA-TRANSACTION-2" : "CYDIA-TRANSACTION-1", std::to_string(static_cast<unsigned>(frame.operation)),
+    for (const auto &value : std::vector<std::string>{frame.conffilePolicy ? "CYDIA-TRANSACTION-3" : (frame.scopedChildren ? "CYDIA-TRANSACTION-2" : "CYDIA-TRANSACTION-1"), std::to_string(static_cast<unsigned>(frame.operation)),
             std::to_string(static_cast<unsigned>(frame.event)), std::to_string(frame.sequence), frame.nonce, frame.reviewDigest,
             frame.payload, frame.errorCode, frame.success ? "1" : "0", frame.mutationStarted ? "1" : "0",
             frame.indeterminate ? "1" : "0"}) Field(bytes, value);
@@ -208,10 +236,11 @@ bool Decode(const std::string &bytes, Frame *output) {
     if (!output) return false;
     std::vector<std::string> fields;
     if (!Fields(bytes, &fields) || (fields.size() != 11 && fields.size() != 14) ||
-        (fields.size() == 11 ? fields[0] != "CYDIA-TRANSACTION-1" : fields[0] != "CYDIA-TRANSACTION-2")) return false;
+        (fields.size() == 11 ? fields[0] != "CYDIA-TRANSACTION-1" :
+            (fields[0] != "CYDIA-TRANSACTION-2" && fields[0] != "CYDIA-TRANSACTION-3"))) return false;
     std::uint64_t operation, event; Frame frame;
     if (!Number(fields[1], &operation) || operation > static_cast<unsigned>(Operation::Close) ||
-        !Number(fields[2], &event) || event > static_cast<unsigned>(Event::ChildCancelled) ||
+        !Number(fields[2], &event) || event > static_cast<unsigned>(Event::ChildPolicyAccepted) ||
         !Number(fields[3], &frame.sequence)) return false;
     frame.operation = static_cast<Operation>(operation); frame.event = static_cast<Event>(event);
     frame.nonce = fields[4]; frame.reviewDigest = fields[5]; frame.payload = fields[6]; frame.errorCode = fields[7];
@@ -219,7 +248,7 @@ bool Decode(const std::string &bytes, Frame *output) {
     frame.success = fields[8] == "1"; frame.mutationStarted = fields[9] == "1"; frame.indeterminate = fields[10] == "1";
     if (fields.size() == 14) {
         if (fields[11] != "1" || !Number(fields[12], &frame.childOrdinal)) return false;
-        frame.scopedChildren = true; frame.childDescriptor = fields[13];
+        frame.scopedChildren = true; frame.conffilePolicy = fields[0] == "CYDIA-TRANSACTION-3"; frame.childDescriptor = fields[13];
     }
     if (!Valid(frame)) return false;
     *output = std::move(frame); return true;

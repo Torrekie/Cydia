@@ -94,7 +94,7 @@ struct Descriptors {
 struct ChildScope {
     TC::Frame frame;
     Descriptors descriptors;
-    bool started = false, settled = false;
+    bool started = false, settled = false, policyAccepted = false;
 };
 }
 bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePaths &paths,
@@ -123,7 +123,7 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         !ResolveBrokerRequest(paths, wrapped, options.applicationUID, &selected, &payload, &privilegedError))
         return sendFailure(privilegedError.code.empty() ? "provider_authority_changed" : privilegedError.code);
     if (!DecodeTransactionBegin(payload, &begin) || TransactionBeginDigest(begin) != request.reviewDigest ||
-        request.scopedChildren != static_cast<bool>(begin.reviewedEffects))
+        (request.conffilePolicy ? !request.scopedChildren : request.scopedChildren != static_cast<bool>(begin.reviewedEffects)))
         return sendFailure("provider_transaction_review_mismatch");
     if (!options.prepareEnvironment || !options.prepareEnvironment(&selected, &failure) || !options.execute)
         return sendFailure(failure.empty() ? "provider_transaction_unavailable" : failure);
@@ -132,6 +132,9 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
     ownerOptions.application = options.application; ownerOptions.applicationUID = options.applicationUID;
     ownerOptions.authenticate = options.authenticate; ownerOptions.execute = options.execute; ownerOptions.reviewDigest = request.reviewDigest;
     const bool scoped = request.scopedChildren;
+    const bool policyRequired = request.conffilePolicy;
+    ownerOptions.requireConffilePolicy = policyRequired; ownerOptions.executePrepared = options.executePrepared;
+    if (policyRequired && !options.executePrepared) return sendFailure("provider_conffile_policy_unavailable");
     ownerOptions.reviewedEffects = begin.reviewedEffects;
     TransactionOwner *activeOwner = nullptr;
     std::uint64_t childOrdinal = 0;
@@ -148,7 +151,7 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         TC::Frame response;
         if (!channel.Receive(&response, &scope->descriptors.values, timeout) || !Authenticated(options, reason) ||
             response.operation != request.operation || response.sequence != request.sequence || response.nonce != request.nonce ||
-            response.reviewDigest != request.reviewDigest || !response.scopedChildren ||
+            response.reviewDigest != request.reviewDigest || !response.scopedChildren || response.conffilePolicy != policyRequired ||
             response.childOrdinal != scope->frame.childOrdinal || response.childDescriptor != scope->frame.childDescriptor) {
             activeOwner->TransportLost(); return Fail(reason, "provider_transaction_child_invalid");
         }
@@ -161,8 +164,23 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         }
         scopeActive = true;
         channels->inputDescriptor = scope->descriptors.values[0]; channels->statusDescriptor = scope->descriptors.values[1];
+        if (policyRequired) channels->policy = [&, scope](const ConffilePolicyDecision &policy, std::string *reason) {
+            if (scope->policyAccepted || scope->started || scope->settled)
+                return Fail(reason, "provider_conffile_policy_binding_invalid");
+            auto event = scope->frame; event.event = TC::Event::ChildPolicy; event.success = true;
+            TC::Frame response; Descriptors received;
+            if (!TC::EncodeConffilePolicy(policy, &event.payload) || !channel.Send(event, {}, timeout) ||
+                !channel.Receive(&response, &received.values, timeout) || !received.values.empty() || !Authenticated(options, reason) ||
+                response.event != TC::Event::ChildPolicyAccepted || response.operation != event.operation ||
+                response.sequence != event.sequence || response.nonce != event.nonce || response.reviewDigest != event.reviewDigest ||
+                !response.scopedChildren || !response.conffilePolicy || response.childOrdinal != event.childOrdinal ||
+                response.childDescriptor != event.childDescriptor || response.payload != event.payload) {
+                activeOwner->TransportLost(); return Fail(reason, "provider_conffile_policy_binding_invalid");
+            }
+            scope->policyAccepted = true; return true;
+        };
         channels->started = [&, scope] {
-            if (scope->started || scope->settled) { activeOwner->TransportLost(); return; }
+            if (scope->started || scope->settled || (policyRequired && !scope->policyAccepted)) { activeOwner->TransportLost(); return; }
             scope->started = mutationInRequest = true;
             auto event = scope->frame; event.event = TC::Event::ChildStarted; event.success = event.mutationStarted = true;
             if (!channel.Send(event, {}, timeout)) activeOwner->TransportLost();
@@ -177,7 +195,7 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
             if (!Encode(result, &event.payload) || !channel.Send(event, {}, timeout) ||
                 !channel.Receive(&response, &received.values, timeout) || !received.values.empty() || !Authenticated(options, nullptr) ||
                 response.operation != event.operation || response.sequence != event.sequence || response.nonce != event.nonce ||
-                response.reviewDigest != event.reviewDigest || !response.scopedChildren || response.childOrdinal != event.childOrdinal ||
+                response.reviewDigest != event.reviewDigest || !response.scopedChildren || response.conffilePolicy != policyRequired || response.childOrdinal != event.childOrdinal ||
                 response.childDescriptor != event.childDescriptor || response.mutationStarted != event.mutationStarted ||
                 (response.event != TC::Event::ChildReleased && response.event != TC::Event::ChildCancelled)) {
                 activeOwner->TransportLost(); return;
@@ -216,7 +234,7 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         }
         const bool bound = request.event == TC::Event::Request && request.operation != TC::Operation::Begin &&
             sequence != std::numeric_limits<std::uint64_t>::max() && request.sequence == sequence + 1 &&
-            request.nonce == ownerOptions.nonce && request.reviewDigest == ownerOptions.reviewDigest && request.scopedChildren == scoped;
+            request.nonce == ownerOptions.nonce && request.reviewDigest == ownerOptions.reviewDigest && request.scopedChildren == scoped && request.conffilePolicy == policyRequired;
         if (!bound || !Authenticated(options, &failure)) {
             owner.Cancel(); return sendFailure(bound ? failure : "provider_transaction_binding_invalid");
         }
@@ -226,7 +244,8 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         TransactionLeaseEnvelope envelope; envelope.nonce = request.nonce; envelope.reviewDigest = request.reviewDigest; envelope.sequence = sequence;
         bool started = false;
         const auto notifyStarted = [&]() {
-            if (started) return; started = true;
+            if (started) return;
+            started = true;
             mutationInRequest = true;
             if (scoped && request.operation == TC::Operation::Execute) return;
             TC::Frame event = reply; event.event = TC::Event::Started; event.success = true; event.mutationStarted = true;

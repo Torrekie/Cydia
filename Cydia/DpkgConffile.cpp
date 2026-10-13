@@ -78,7 +78,8 @@ struct ConffileExecution::State {
     std::thread reader;
     int input = -1, writer = -1, status = -1, readerFd = -1;
     std::uint64_t execution = 0, nextQuestion = 0, question = 0;
-    bool alive = true, automatic = false, unavailable = false;
+    bool alive = true, unavailable = false, requiresPolicy = false, policyApplied = false, promptSeen = false;
+    ConffileInputPolicy policy = ConffileInputPolicy::Pending;
     std::string lastProgress;
     ~State() { Close(input); Close(writer); Close(status); Close(readerFd); }
     void Invalidate() {
@@ -89,7 +90,7 @@ struct ConffileExecution::State {
     void Unavailable() {
         Invalidate();
         { std::lock_guard<std::mutex> lock(mutex);
-            if (!alive || automatic || unavailable) return;
+            if (!alive || policy == ConffileInputPolicy::Automatic || unavailable) return;
             unavailable = true; Close(writer);
         }
         if (callbacks.unavailable) callbacks.unavailable();
@@ -110,8 +111,18 @@ struct ConffileExecution::State {
         if (isPrompt || line.compare(0, 8, "status: ") == 0 || line.compare(0, 12, "processing: ") == 0 ||
             progressed || line.compare(0, 8, "pmerror:") == 0) Invalidate();
         if (isPrompt) {
+            bool permitted;
             { std::lock_guard<std::mutex> lock(mutex);
-                if (!alive || automatic || unavailable || nextQuestion == std::numeric_limits<std::uint64_t>::max()) return;
+                promptSeen = true;
+                if (!alive || policy == ConffileInputPolicy::Automatic || unavailable) return;
+                permitted = policy == ConffileInputPolicy::Interactive;
+            }
+            // configure.c::promptconfaction sends status before show_prompt
+            // tests FORCE_CONFF_*. Never leave an answer queued for a native
+            // automatic or indeterminate choice; EOF is not an invented answer.
+            if (!permitted) { Unavailable(); return; }
+            { std::lock_guard<std::mutex> lock(mutex);
+                if (!alive || unavailable || nextQuestion == std::numeric_limits<std::uint64_t>::max()) return;
                 prompt.execution = execution; prompt.question = question = ++nextQuestion;
             }
             if (callbacks.question) callbacks.question(prompt);
@@ -150,12 +161,14 @@ struct ConffileExecution::State {
 void SetConffileCallbacks(const ConffileCallbacks &value) {
     std::lock_guard<std::mutex> lock(registryMutex); callbacks = value;
 }
-ConffileExecution::ConffileExecution(const std::vector<std::string> &arguments, bool enable) {
+ConffileExecution::ConffileExecution(const std::vector<std::string> &arguments, bool enable, bool requirePolicy) {
     std::lock_guard<std::mutex> lock(registryMutex);
     enabled_ = enable && static_cast<bool>(callbacks.question);
     if (!enabled_ || !active.expired() || nextExecution == std::numeric_limits<std::uint64_t>::max()) return;
     std::shared_ptr<State> state(new State());
-    state->callbacks = callbacks; state->automatic = ConffileChoiceIsAutomatic(arguments);
+    state->callbacks = callbacks; state->requiresPolicy = requirePolicy;
+    state->policy = requirePolicy ? ConffileInputPolicy::Pending :
+        (ConffileChoiceIsAutomatic(arguments) ? ConffileInputPolicy::Automatic : ConffileInputPolicy::Interactive);
     int input[2] = {-1, -1}, status[2] = {-1, -1};
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, input) != 0) return;
     state->input = input[0]; state->writer = input[1];
@@ -173,6 +186,14 @@ ConffileExecution::ConffileExecution(const std::vector<std::string> &arguments, 
     state_ = state; active = state;
 }
 ConffileExecution::~ConffileExecution() { Finish(); }
+bool ConffileExecution::ApplyPolicy(ConffileInputPolicy policy) {
+    if (!state_ || policy == ConffileInputPolicy::Pending ||
+        static_cast<unsigned>(policy) > static_cast<unsigned>(ConffileInputPolicy::Unverified)) return false;
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    if (!state_->alive || !state_->requiresPolicy || state_->policyApplied || state_->promptSeen || state_->unavailable) return false;
+    state_->policy = policy; state_->policyApplied = true;
+    return true;
+}
 bool ConffileExecution::valid() const { return !enabled_ || state_ != nullptr; }
 int ConffileExecution::inputDescriptor() const { return state_ ? state_->input : -1; }
 int ConffileExecution::statusDescriptor() const { return state_ ? state_->status : -1; }
@@ -200,7 +221,7 @@ bool AnswerConffilePrompt(std::uint64_t execution, std::uint64_t question, bool 
     if (!state) return false;
     bool success = false;
     { std::lock_guard<std::mutex> lock(state->mutex);
-        if (!question || !state->alive || state->execution != execution || state->question != question || state->writer < 0) return false;
+        if (!question || !state->alive || state->policy != ConffileInputPolicy::Interactive || state->execution != execution || state->question != question || state->writer < 0) return false;
         const char *answer = keepOld ? "N\n" : "Y\n";
         ssize_t written;
         do {

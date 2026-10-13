@@ -6,6 +6,7 @@
 #include "Cydia/AptProviderTransactionFiles.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
 #include "Cydia/NativeLaunchEnvironment.hpp"
+#include "Cydia/AptProviderConffilePolicy.hpp"
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
@@ -14,9 +15,12 @@ struct TransactionEffectChildChannels {
     // Fresh per-child question/status ownership. Callbacks must not throw.
     // settled closes/releases this scope, including when no child was started.
     std::function<void()> started;
+    // v3 only: immutable suppression policy acknowledged before actual spawn.
+    std::function<bool(const ConffilePolicyDecision &, std::string *)> policy;
     std::function<void(const ParentExecutionReply &)> settled;
 };
 struct TransactionOwnerOptions {
+    bool requireConffilePolicy = false; // Internal v3 negotiation, no feature permission.
     BrokerEnvironment selected; // Independently resolved once by cydo.
     CydiaRuntime::Privileged::ApplicationProcessIdentity application;
     uid_t applicationUID = 0;
@@ -33,8 +37,9 @@ struct TransactionOwnerOptions {
     // or status stream. The service must bind each scope to the shown pass and
     // its exact targets before this factory returns; it grants no target authority.
     std::function<bool(const TriggerDrainPlan &, TransactionEffectChildChannels *, std::string *)> effectChildChannels;
-    // Finite mode obtains primary descriptors only after preceding drains have
-    // settled and released their scopes. Legacy mode retains passed descriptors.
+    // Scoped mode obtains primary descriptors only after preceding drains have
+    // settled and released their scopes. Unscoped legacy mode retains passed
+    // descriptors. V3 scopes each primary even without a trigger envelope.
     std::function<bool(const ParentExecutionRequest &, TransactionEffectChildChannels *, std::string *)> primaryChildChannels;
     // Kernel process identity/UID capture owned by cydo; never a channel field.
     std::function<bool(CydiaRuntime::Privileged::ApplicationProcessIdentity *, uid_t *, std::string *)> authenticate;
@@ -46,6 +51,10 @@ struct TransactionOwnerOptions {
     // parent-retained envp; an executor must never substitute ambient environ.
     std::function<ParentExecutionReply(const std::string &, const std::vector<std::string> &,
         int inputDescriptor, int statusDescriptor, const std::function<void()> &started, const CydiaRuntime::NativeLaunchEnvironment &)> execute;
+    // Receives final child-fd3 argv and exact descriptor-option index. This
+    // callback validates that span and must not rewrite argv/env after matching.
+    std::function<ParentExecutionReply(const std::string &, const std::vector<std::string> &,
+        int, int, const std::function<void()> &, const CydiaRuntime::NativeLaunchEnvironment &, std::size_t)> executePrepared;
 };
 class TransactionOwner {
     class Implementation;

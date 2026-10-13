@@ -49,7 +49,8 @@ ProviderTransaction::~ProviderTransaction() = default;
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
 ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> implementation) : implementation_(std::move(implementation)) {}
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper, const Privileged::Request &request,
-    const std::string &digest, std::string *error, unsigned, const std::function<bool()> &, bool scopedChildren) {
+    const std::string &digest, std::string *error, unsigned, const std::function<bool()> &, bool scopedChildren, bool conffilePolicy) {
+    Require(!conffilePolicy, "draft conffile policy is not activated by this broker fixture");
     Require(transactionMock.enabled, "archive denial must precede persistent transaction admission");
     ++transactionMock.starts; std::vector<std::string> fields;
     Require(helper == "/fixture/cydo" && P::Decode(request.payload, &fields) && fields.size() == 3 && fields[0] == "CYDIA-BROKER-1" &&
@@ -99,7 +100,7 @@ ProviderTransactionResult ProviderTransaction::Request(P::TransactionChannel::Op
 bool ProviderTransaction::Close(std::string *, unsigned) { ++transactionMock.closes; return true; }
 #else
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &, const Privileged::Request &,
-    const std::string &, std::string *, unsigned, const std::function<bool()> &, bool) {
+    const std::string &, std::string *, unsigned, const std::function<bool()> &, bool, bool) {
     Require(false, "archive denial must precede persistent transaction admission"); return {};
 }
 ProviderTransactionResult ProviderTransaction::Request(P::TransactionChannel::Operation, const std::string &, int,

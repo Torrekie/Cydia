@@ -221,6 +221,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderTransactionOwner.cpp Cydia/AptProviderTransactionService.cpp \
 		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderNativeDpkgAuthority.hpp Cydia/AptProviderReview.cpp Cydia/AptProviderArchiveEvidence.cpp \
 		Cydia/AptProviderNativeEffectPolicy.cpp Cydia/AptProviderNativeEffectPolicy.hpp \
+		Cydia/AptProviderConffilePolicy.cpp Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp \
 		Cydia/AptProviderTriggerEffects.cpp Cydia/AptProviderTriggerMetadata.cpp \
 		Cydia/AptProviderInstalledScripts.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		Cydia/AptProviderUnpackOwnership.cpp \

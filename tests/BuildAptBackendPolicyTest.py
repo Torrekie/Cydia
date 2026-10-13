@@ -34,6 +34,15 @@ def main():
                "Cydia/RepositorySecurityPolicy.cpp"]
     def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=(), extra_compile_flags=()):
         driver_sources = list(driver_sources)
+        if any(source in driver_sources for source in ["Cydia/AptProviderTransactionOwner.cpp",
+                "Cydia/AptProviderTransactionService.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp"]):
+            for source in ["Cydia/AptProviderConffilePolicy.cpp", "Cydia/AptProviderConffilePolicyValues.cpp",
+                    "Cydia/AptProviderNativeEffectPolicy.cpp"]:
+                if source not in driver_sources:
+                    driver_sources.append(source)
+        if any(source in driver_sources for source in ["Cydia/AptProviderTransactionChannel.cpp", "Cydia/DpkgConffile.cpp"]) and \
+                "Cydia/AptProviderConffilePolicyValues.cpp" not in driver_sources:
+            driver_sources.append("Cydia/AptProviderConffilePolicyValues.cpp")
         if "Cydia/AptProviderNativeDpkgAuthority.cpp" in driver_sources and "Cydia/AptProviderNativeEffectPolicy.cpp" not in driver_sources:
             driver_sources.append("Cydia/AptProviderNativeEffectPolicy.cpp")
         if any(source in driver_sources for source in ["Cydia/DpkgRunner.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
@@ -165,7 +174,8 @@ def main():
         "Cydia/AptProviderTransactionService.cpp", "Cydia/AptProviderTransactionChannel.cpp",
         "Cydia/AptProviderTransactionRequest.cpp", "Cydia/AptProviderTransactionRequestDigest.cpp",
         "Cydia/AptProviderTransactionResult.cpp",
-        "Cydia/AptProviderBrokerValues.cpp", "Cydia/AptProviderSelectionValues.cpp", "Cydia/AptRecoverySnapshot.cpp"],
+        "Cydia/AptProviderBrokerValues.cpp", "Cydia/AptProviderSelectionValues.cpp", "Cydia/AptRecoverySnapshot.cpp",
+        "Cydia/DpkgConffile.cpp", "Cydia/DpkgStatusParser.cpp"],
         "cydia-provider-transaction-service", extra_link_flags=["-lz"],
         extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1", "-DCYDIA_TRANSACTION_SERVICE_TESTING=1"])
     compile_driver(["tests/AptProviderNativeDpkgAuthorityTests.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
@@ -205,6 +215,10 @@ def main():
     compile_driver(["tests/AptProviderDeconfigurationApprovalTests.cpp", "Cydia/AptProviderDeconfigurationApproval.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp", "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp",
         "Cydia/PackageIdentity.cpp", "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-deconfiguration-approval", sanitize=True)
+    compile_driver(["tests/AptProviderRestorationDebtTests.cpp", "Cydia/AptProviderRestorationDebt.cpp",
+        "Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
+        "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
+        "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-restoration-debt", sanitize=True)
     compile_driver(["tests/AptProviderDeconfigurationEffectsTests.cpp", "Cydia/AptProviderDeconfigurationEffects.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-deconfiguration-allowances", sanitize=True)
     compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [
