@@ -55,11 +55,16 @@ bool Cancelled(const std::function<bool()> &cancelled, std::string *error) {
     Fail(error, "provider_trigger_capture_cancelled"); return true;
 }
 std::string MetadataIdentity(const TriggerPackageMetadata &metadata, const P::Evidence &declaration) {
-    std::string bytes("CYDIA-INSTALLED-TRIGGER-PACKAGE-1");
+    std::string bytes("CYDIA-INSTALLED-TRIGGER-PACKAGE-2");
     for (const auto &value : {metadata.package.package, metadata.package.version, metadata.package.architecture}) Frame(&bytes, value);
+    Frame(&bytes, metadata.configVersion);
+    Frame(&bytes, std::to_string(static_cast<unsigned>(metadata.diskStatus)));
     for (const auto &control : metadata.controls) { Frame(&bytes, control.first); Frame(&bytes, control.second); }
     Frame(&bytes, P::SerializeSnapshotEvidence(declaration)); return Hash(bytes);
 }
+}
+bool TriggerCaptureLockHeld(const P::Environment &environment, const TriggerCaptureLock &proof) {
+    return LockHeld(environment, proof);
 }
 bool ParseTriggerDeclarations(const std::string &bytes, std::vector<TriggerDeclaration> *declarations, std::string *error) {
     if (!declarations) return Fail(error, "provider_trigger_declarations_invalid");
@@ -110,7 +115,8 @@ bool ParseInstalledTriggerControl(const std::string &status, const DpkgState &st
         // Forgotten selections can have no installed binary metadata.
         if (architecture == fields.end() || version == fields.end()) {
             const auto found = state.packages.find(name->second + ':');
-            return found != state.packages.end() && found->second.status == DpkgPackageStatus::NotInstalled;
+            return found != state.packages.end() && found->second.status == DpkgPackageStatus::NotInstalled &&
+                !fields.count("config-version");
         }
         const auto key = name->second + ':' + architecture->second;
         const auto found = state.packages.find(key);
@@ -125,6 +131,22 @@ bool ParseInstalledTriggerControl(const std::string &status, const DpkgState &st
             (found->second.reinstallRequired ? " reinstreq " : " ok ");
         if (statusField->second.compare(0, prefix.size(), prefix) != 0) return false;
         TriggerPackageMetadata metadata; metadata.package = found->second.package;
+        // Match libdpkg's installed-status parser, using the disk status:
+        // read-only query may already have incorporated deferred triggers.
+        const std::string phase = statusField->second.substr(prefix.size());
+        const std::vector<std::string> phases = {"not-installed", "config-files", "half-installed", "unpacked",
+            "half-configured", "triggers-awaited", "triggers-pending", "installed"};
+        const auto native = std::find(phases.begin(), phases.end(), phase);
+        if (native == phases.end()) return false;
+        metadata.diskStatus = static_cast<DpkgPackageStatus>(native - phases.begin());
+        const auto configured = fields.find("config-version");
+        if (configured != fields.end()) {
+            if (phase == "installed" || phase == "triggers-pending" || phase == "not-installed" ||
+                configured->second.empty() || configured->second.size() > 1024 ||
+                configured->second.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.+:~-") != std::string::npos)
+                return false;
+            metadata.configVersion = configured->second;
+        } else if (phase == "installed" || phase == "triggers-pending") metadata.configVersion = version->second;
         std::string ignored;
         if (!CydiaPackages::CanonicalPackageEffectControlFields(fields, &metadata.controls, &ignored)) return false;
         const auto &multi = metadata.controls["multi-arch"];
@@ -197,15 +219,17 @@ bool CaptureInstalledTriggerMetadata(const P::Environment &environment, const Dp
         if (chosen.bytes.size() > MaximumTriggerEvidenceBytes - bytes) return Fail(error, "provider_trigger_evidence_limit");
         bytes += chosen.bytes.size();
         if (!ParseTriggerDeclarations(chosen.bytes, &package.second.declarations, error)) return false;
+        package.second.declarationIdentity = Hash(P::SerializeSnapshotEvidence(chosen));
         package.second.evidenceIdentity = MetadataIdentity(package.second, chosen);
-        if (package.second.evidenceIdentity.size() != 64) return Fail(error, "provider_trigger_hash_failed");
+        if (package.second.declarationIdentity.size() != 64 || package.second.evidenceIdentity.size() != 64)
+            return Fail(error, "provider_trigger_hash_failed");
         result.files.push_back(a); result.files.push_back(b);
     }
     if (Cancelled(cancelled, error)) return false;
     if (!LockHeld(environment, lock) || !P::RecheckEvidence(result.files, &ignored) ||
         !readState(&after) || before != after)
         return Fail(error, "provider_trigger_state_changed");
-    std::string bytesToHash("CYDIA-INSTALLED-TRIGGER-METADATA-1");
+    std::string bytesToHash("CYDIA-INSTALLED-TRIGGER-METADATA-2");
     for (const auto &file : result.files) Frame(&bytesToHash, P::SerializeSnapshotEvidence(file));
     result.packageStateIdentity = after; result.evidenceIdentity = Hash(bytesToHash);
     if (result.evidenceIdentity.size() != 64) return Fail(error, "provider_trigger_hash_failed");

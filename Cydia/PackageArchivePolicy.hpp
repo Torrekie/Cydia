@@ -43,6 +43,13 @@ struct ArchivePolicyResult {
 // Unsupported/malformed fields leave the output empty.
 bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string> &fields,
     std::map<std::string, std::string> *controls, std::string *error);
+struct ArchiveMaintainerScript {
+    // Control-tar evidence only. It predicts neither the installed inode nor
+    // ownership after dpkg overrides or maintainer scripts have run.
+    bool present = false;
+    std::string bytes;
+    std::uint32_t mode = 0, uid = 0, gid = 0;
+};
 struct ArchiveControlMetadata {
     bool complete = false;
     ArchiveIdentity identity;
@@ -50,6 +57,7 @@ struct ArchiveControlMetadata {
     // Absence and an explicitly empty triggers file remain distinguishable.
     bool triggersPresent = false;
     std::string triggers, reason;
+    ArchiveMaintainerScript prerm, postinst;
 };
 
 /* Read exactly the requested number of decoded bytes; false means failure

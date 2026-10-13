@@ -55,6 +55,7 @@ void NativeFormatAndEvidence() {
     auto state = fixture.State();
     Require(P::CaptureInstalledTriggerMetadata(fixture.environment, state, fixture.lock, &metadata, &error) &&
         metadata.packages.size() == 1 && metadata.packages.at("cache:amd64").declarations.size() == 1 &&
+        metadata.packages.at("cache:amd64").configVersion == "1" &&
         metadata.packages.at("cache:amd64").controls.at("depends") == "libc:any (>= 1), helper | alternative",
         "missing info/format uses legacy bare filename even for Multi-Arch same");
     Require(P::CaptureTriggerEffectCheckpoint(fixture.environment, state, fixture.lock, &point, &error) &&
@@ -76,6 +77,39 @@ void NativeFormatAndEvidence() {
     Write(fixture.info + "/format-new", "1\n");
     Require(!P::CaptureInstalledTriggerMetadata(fixture.environment, fixture.State(), fixture.lock, &metadata, &error),
         "interrupted native metadata migration cannot grant authority");
+}
+void ConfiguredVersionSemantics() {
+    Fixture fixture; P::InstalledTriggerMetadata metadata; std::string error;
+    const auto capture = [&](const std::string &phase, const std::string &field, const std::string &queryPhase) {
+        Write(fixture.environment.dpkgAdmin + "/status", "Package: cache\nVersion: 2\nArchitecture: amd64\n"
+            "Multi-Arch: same\nStatus: install ok " + phase + '\n' + field + '\n');
+        std::string identity; R::Error failure;
+        Require(R::RuntimeSnapshot(fixture.environment, &identity, &failure), "capture configuration-version fixture state");
+        const std::string actual = queryPhase.empty() ? phase : queryPhase;
+        P::DpkgState state;
+        Require(P::ParseDpkgState("cache\t2\tamd64\tinstall ok " + actual + "\tsame\t" +
+            (actual == "triggers-pending" ? "cache-refresh" : "") + '\t' +
+            (actual == "triggers-awaited" ? "helper:amd64" : "") + '\n', "amd64\n", "", identity, &state, &error),
+            "parse configuration-version native query");
+        return P::CaptureInstalledTriggerMetadata(fixture.environment, state, fixture.lock, &metadata, &error);
+    };
+    Require(capture("installed", "", "") && metadata.packages.at("cache:amd64").configVersion == "2", "installed current version is last configured");
+    Require(capture("triggers-pending", "", "") && metadata.packages.at("cache:amd64").configVersion == "2", "pending current version is last configured");
+    Require(capture("unpacked", "Config-Version: 1\n", "") && metadata.packages.at("cache:amd64").configVersion == "1" &&
+        !metadata.packages.at("cache:amd64").controls.count("config-version"), "historical configured version is separate from incoming equality");
+    const auto old = metadata.packages.at("cache:amd64");
+    Require(capture("half-configured", "Config-Version: 0\n", "") && metadata.packages.at("cache:amd64").configVersion == "0" &&
+        metadata.packages.at("cache:amd64").evidenceIdentity != old.evidenceIdentity &&
+        metadata.packages.at("cache:amd64").declarationIdentity == old.declarationIdentity, "configured value binds metadata while declaration evidence stays distinct");
+    Require(capture("unpacked", "", "") && metadata.packages.at("cache:amd64").configVersion.empty(), "never configured is represented explicitly by empty version");
+    Require(capture("triggers-awaited", "Config-Version: 1\n", "") && metadata.packages.at("cache:amd64").configVersion == "1", "awaited phase retains historical version");
+    Require(capture("triggers-awaited", "", "") && metadata.packages.at("cache:amd64").configVersion.empty(), "awaited phase does not invent configured version");
+    Require(capture("installed", "", "triggers-awaited") && metadata.packages.at("cache:amd64").configVersion == "2" &&
+        metadata.packages.at("cache:amd64").diskStatus == P::DpkgPackageStatus::Installed,
+        "read-only incorporation never replaces disk phase or configured-version semantics");
+    Require(!capture("installed", "Config-Version: 1\n", "") && metadata.packages.empty(), "native-invalid explicit installed Config-Version refuses");
+    Require(!capture("triggers-pending", "Config-Version: 1\n", ""), "native-invalid explicit pending Config-Version refuses");
+    Require(!capture("unpacked", "Config-Version: 1 bad\n", "") && metadata.packages.empty(), "malformed configured version cannot become dependency evidence");
 }
 void DeferredAndUnsafe() {
     Fixture fixture; P::TriggerEffectCheckpoint point; P::InstalledTriggerMetadata metadata; std::string error;
@@ -104,6 +138,6 @@ void DeferredAndUnsafe() {
 }
 int main() {
     Require(geteuid() == 0, "run only isolated protected fixtures under fakeroot");
-    alarm(20); NativeFormatAndEvidence(); DeferredAndUnsafe(); alarm(0);
+    alarm(20); NativeFormatAndEvidence(); ConfiguredVersionSemantics(); DeferredAndUnsafe(); alarm(0);
     std::cout << "apt-provider-trigger-metadata tests passed\n";
 }

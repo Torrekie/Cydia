@@ -68,6 +68,11 @@ def main():
     compile_driver(["tests/PackageArchivePolicyTests.cpp", "Cydia/PackageArchivePolicy.cpp",
                     "Cydia/PackageArchiveReader.cpp"], "cydia-package-archive-reader", sanitize=True,
                    extra_compile_flags=["-DCYDIA_TEST_PACKAGE_ARCHIVE_READER"])
+    compile_driver(["tests/AptProviderBinaryRelationshipsTests.cpp", "Cydia/AptProviderBinaryRelationships.cpp"],
+                   "cydia-provider-binary-relationships", sanitize=True,
+                   extra_compile_flags=["-DCYDIA_BINARY_RELATIONSHIPS_NATIVE_APT"])
+    compile_driver(["tests/AptProviderNativeVersionComparisonTests.cpp", "Cydia/AptProviderNativeVersionComparison.cpp",
+        "Cydia/AptProviderBinaryRelationships.cpp"], "cydia-provider-native-version-comparison", sanitize=True)
     # Provider admission and archive proof use the same native APT objects;
     # no second APT build, external provider service, or network is involved.
     compile_driver(["tests/AptProviderSelectionTests.cpp",
@@ -179,6 +184,10 @@ def main():
         "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp", "Cydia/RepositorySecurityPolicy.cpp"]
     compile_driver(["tests/AptProviderTriggerEffectsTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-effects", sanitize=True)
     compile_driver(["tests/AptProviderTriggerMetadataTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-metadata")
+    compile_driver(["tests/AptProviderInstalledScriptsTests.cpp", "Cydia/AptProviderInstalledScripts.cpp"] +
+        trigger_effect_sources, "cydia-provider-installed-scripts")
+    compile_driver(["tests/AptProviderDeconfigurationEffectsTests.cpp", "Cydia/AptProviderDeconfigurationEffects.cpp",
+        "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-deconfiguration-allowances", sanitize=True)
     compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [
         "Cydia/AptProviderTriggerCapture.cpp", "Cydia/AptProviderTriggerApproval.cpp",
         "Cydia/AptProviderComponentCapture.cpp", "Cydia/AptProviderComponentSuccession.cpp", "Cydia/AptProviderReview.cpp"],

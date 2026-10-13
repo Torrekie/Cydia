@@ -130,6 +130,27 @@ $(PACKAGE_ARCHIVE_POLICY_TEST): tests/PackageArchivePolicyTests.cpp \
 
 verify-package-archive-policy: $(PACKAGE_ARCHIVE_POLICY_TEST)
 	@$<
+
+APT_BINARY_RELATIONSHIPS_TEST := $(BUILD_DIR)/tests/AptProviderBinaryRelationshipsTests
+$(APT_BINARY_RELATIONSHIPS_TEST): tests/AptProviderBinaryRelationshipsTests.cpp \
+		Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderBinaryRelationships.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
+.PHONY: verify-apt-binary-relationships
+verify: verify-apt-binary-relationships
+verify-apt-binary-relationships: $(APT_BINARY_RELATIONSHIPS_TEST)
+	@$<
+
+APT_NATIVE_VERSION_COMPARISON_TEST := $(BUILD_DIR)/tests/AptProviderNativeVersionComparisonTests
+$(APT_NATIVE_VERSION_COMPARISON_TEST): tests/AptProviderNativeVersionComparisonTests.cpp \
+		Cydia/AptProviderNativeVersionComparison.cpp Cydia/AptProviderNativeVersionComparison.hpp \
+		Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderBinaryRelationships.hpp Cydia/DpkgRunner.h
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
+.PHONY: verify-apt-native-version-comparison
+verify: verify-apt-native-version-comparison
+verify-apt-native-version-comparison: $(APT_NATIVE_VERSION_COMPARISON_TEST)
+	@$<
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 

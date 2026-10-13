@@ -36,12 +36,18 @@ bool SameDeclarations(const std::vector<TriggerDeclaration> &a, const std::vecto
         if (a[i].kind != b[i].kind || a[i].trigger != b[i].trigger || a[i].await != b[i].await) return false;
     return true;
 }
-bool SameMetadata(const TriggerPackageMetadata &a, const TriggerPackageMetadata &b, bool identity) {
+bool SamePackageContent(const TriggerPackageMetadata &a, const TriggerPackageMetadata &b) {
     return SamePackage(a.package, b.package) && a.controls == b.controls &&
-        SameDeclarations(a.declarations, b.declarations) && (!identity || a.evidenceIdentity == b.evidenceIdentity);
+        SameDeclarations(a.declarations, b.declarations);
+}
+bool SameMetadata(const TriggerPackageMetadata &a, const TriggerPackageMetadata &b) {
+    return SamePackageContent(a, b) && a.configVersion == b.configVersion &&
+        a.diskStatus == b.diskStatus && a.declarationIdentity == b.declarationIdentity && a.evidenceIdentity == b.evidenceIdentity;
 }
 void MetadataBytes(std::string *bytes, const TriggerPackageMetadata &value) {
     Frame(bytes, Generation(value.package)); Frame(bytes, value.evidenceIdentity);
+    Frame(bytes, value.configVersion); Frame(bytes, value.declarationIdentity);
+    Frame(bytes, std::to_string(static_cast<unsigned>(value.diskStatus)));
     for (const auto &control : value.controls) { Frame(bytes, control.first); Frame(bytes, control.second); }
     Frame(bytes, "");
     for (const auto &declaration : value.declarations) {
@@ -120,7 +126,15 @@ bool Checkpoint(const TriggerEffectCheckpoint &checkpoint, Interests *interests,
         if (record.second.package.version.empty()) continue;
         const auto metadata = checkpoint.metadata.packages.find(record.first);
         if (metadata == checkpoint.metadata.packages.end() || !SamePackage(metadata->second.package, record.second.package) ||
-            !Digest(metadata->second.evidenceIdentity)) return Fail(error, "provider_trigger_control_changed");
+            !Digest(metadata->second.evidenceIdentity) || !Digest(metadata->second.declarationIdentity) ||
+            static_cast<unsigned>(metadata->second.diskStatus) > static_cast<unsigned>(DpkgPackageStatus::Installed) ||
+            metadata->second.configVersion.size() > 1024 || metadata->second.configVersion.find_first_not_of(
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.+:~-") != std::string::npos)
+            return Fail(error, "provider_trigger_control_changed");
+        if (((metadata->second.diskStatus == DpkgPackageStatus::Installed || metadata->second.diskStatus == DpkgPackageStatus::TriggersPending) &&
+            metadata->second.configVersion != metadata->second.package.version) ||
+            (metadata->second.diskStatus == DpkgPackageStatus::NotInstalled && !metadata->second.configVersion.empty()))
+            return Fail(error, "provider_trigger_control_changed");
         std::map<std::string, std::string> controls;
         if (!CydiaPackages::CanonicalPackageEffectControlFields(metadata->second.controls, &controls, error) ||
             controls != metadata->second.controls || controls["multi-arch"] != (record.second.multiArch.empty() ? "no" : record.second.multiArch))
@@ -249,19 +263,40 @@ bool SameBatch(const AuthorizedExecution &a, const AuthorizedExecution &b) {
     return true;
 }
 bool UnchangedMetadata(const TriggerEffectCheckpoint &before, const TriggerEffectCheckpoint &after,
-    const std::set<std::string> &changed, const std::map<std::string, TriggerPackageMetadata> &incoming, std::string *error) {
+    const std::set<std::string> &changed, const std::map<std::string, TriggerPackageMetadata> &incoming,
+    const std::set<std::string> &configured, std::string *error) {
     for (const auto &metadata : after.metadata.packages) {
         const auto previous = before.metadata.packages.find(metadata.first);
         const auto generation = Generation(metadata.second.package);
         if (changed.count(generation)) {
             const auto refined = incoming.find(generation);
             if (refined != incoming.end()) {
-                if (!SameMetadata(refined->second, metadata.second, false)) return Fail(error, "provider_trigger_incoming_changed");
+                // Config-Version belongs to native installed state, not the
+                // incoming control archive or source index.
+                if (!SamePackageContent(refined->second, metadata.second)) return Fail(error, "provider_trigger_incoming_changed");
             } else if (previous == before.metadata.packages.end() || previous->second.controls != metadata.second.controls ||
                 (!metadata.second.declarations.empty() && !SameDeclarations(previous->second.declarations, metadata.second.declarations)))
                 return Fail(error, "provider_trigger_control_changed");
-        } else if (previous == before.metadata.packages.end() || !SameMetadata(previous->second, metadata.second, true))
-            return Fail(error, "provider_trigger_control_changed");
+        } else if (previous == before.metadata.packages.end() || !SameMetadata(previous->second, metadata.second)) {
+            // Native dump omits Config-Version once installed/pending. A
+            // successful explicit configure, or a waiter becoming installed,
+            // then reads back Version as the last configured version. Permit
+            // only that transition, retaining exact declaration-file evidence.
+            // Query may already have normalized a disk waiter to pending or
+            // installed without rewriting its historical Config-Version.
+            if (previous == before.metadata.packages.end()) return Fail(error, "provider_trigger_control_changed");
+            const auto &old = previous->second, &now = metadata.second;
+            const bool phaseAllowed = now.diskStatus >= DpkgPackageStatus::TriggersAwaited &&
+                (configured.count(generation) || old.diskStatus >= DpkgPackageStatus::TriggersAwaited);
+            const bool versionAllowed = old.configVersion == now.configVersion ||
+                ((configured.count(generation) || old.diskStatus == DpkgPackageStatus::TriggersAwaited) &&
+                 (now.diskStatus == DpkgPackageStatus::Installed || now.diskStatus == DpkgPackageStatus::TriggersPending) &&
+                 now.configVersion == now.package.version);
+            const bool nativeTransition = phaseAllowed && versionAllowed &&
+                (old.diskStatus != now.diskStatus || old.configVersion != now.configVersion) &&
+                SamePackageContent(old, now) && old.declarationIdentity == now.declarationIdentity;
+            if (!nativeTransition) return Fail(error, "provider_trigger_control_changed");
+        }
     }
     for (const auto &metadata : before.metadata.packages) if (!after.metadata.packages.count(metadata.first) &&
         !changed.count(Generation(metadata.second.package))) {
@@ -279,7 +314,7 @@ bool UnchangedMetadata(const TriggerEffectCheckpoint &before, const TriggerEffec
 std::string TriggerEffectCheckpointIdentity(const TriggerEffectCheckpoint &checkpoint) {
     Interests interests; std::string ignored, state;
     if (!Checkpoint(checkpoint, &interests, &ignored) || !StateBytes(checkpoint.packages, &state)) return "";
-    std::string bytes("CYDIA-TRIGGER-EFFECT-CHECKPOINT-1");
+    std::string bytes("CYDIA-TRIGGER-EFFECT-CHECKPOINT-2");
     Frame(&bytes, checkpoint.packages.packageStateIdentity); Frame(&bytes, checkpoint.packages.nativeArchitecture);
     for (const auto &arch : checkpoint.packages.registeredArchitectures) Frame(&bytes, arch);
     Frame(&bytes, ""); Frame(&bytes, state); Frame(&bytes, checkpoint.registry.evidenceIdentity);
@@ -424,13 +459,16 @@ bool TriggerEffectLedger::Reconcile(const AuthorizedExecution &batch, const Pare
     if (!active_ || !primary_.batch || !SameBatch(primary_, batch) || !Successful(reply) ||
         next.identity.empty() || next.identity != TriggerEffectCheckpointIdentity(next) || !Graph(next, envelope_, error))
         return Reject(error, "provider_trigger_primary_unsettled");
-    std::set<std::string> changed;
+    std::set<std::string> changed, configured;
     for (const auto id : batch.actions) for (const auto &action : envelope_.primaryReview.execution.actions)
-        if (action.identifier == id && (action.action == ExecutionAction::Unpack || action.action == ExecutionAction::Remove ||
-            action.action == ExecutionAction::Purge)) changed.insert(Generation(action.package));
+        if (action.identifier == id) {
+            if (action.action == ExecutionAction::Unpack || action.action == ExecutionAction::Remove ||
+                action.action == ExecutionAction::Purge) changed.insert(Generation(action.package));
+            if (action.action == ExecutionAction::Configure) configured.insert(Generation(action.package));
+        }
     const std::map<std::string, TriggerPackageMetadata> noIncoming;
     if (!UnchangedMetadata(current_, next, changed,
-        batch.action == ExecutionAction::Unpack ? incomingMetadata_ : noIncoming, error)) return Reject(error, "provider_trigger_control_changed");
+        batch.action == ExecutionAction::Unpack ? incomingMetadata_ : noIncoming, configured, error)) return Reject(error, "provider_trigger_control_changed");
     if (batch.action == ExecutionAction::Triggers) {
         if (!SameBase(current_.packages, next.packages) || seenGraphs_.count(GraphIdentity(next)))
             return Reject(error, "provider_trigger_drain_no_progress");
@@ -456,7 +494,7 @@ bool TriggerEffectLedger::SettleDrain(std::uint64_t pass, const ParentExecutionR
     const TriggerEffectCheckpoint &next, std::string *error) {
     if (!active_ || !pending_.pass || pass != pending_.pass || !Successful(reply) || next.identity.empty() ||
         next.identity != TriggerEffectCheckpointIdentity(next) || !Graph(next, envelope_, error) ||
-        !SameBase(current_.packages, next.packages) || !UnchangedMetadata(current_, next, {}, {}, error))
+        !SameBase(current_.packages, next.packages) || !UnchangedMetadata(current_, next, {}, {}, {}, error))
         return Reject(error, "provider_trigger_drain_unsettled");
     const auto graph = GraphIdentity(next);
     if (seenGraphs_.count(graph)) return Reject(error, "provider_trigger_drain_no_progress");

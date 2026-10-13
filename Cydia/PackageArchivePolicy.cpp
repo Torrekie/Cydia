@@ -164,6 +164,8 @@ struct PackageArchivePolicy::Impl {
     std::map<std::string, std::string> hardLinks;
     std::string control, triggers;
     std::map<std::string, std::string> controlFields;
+    ArchiveMaintainerScript prerm, postinst;
+    bool scriptMetadataValid = true;
     bool payloadRequested = false;
     std::set<std::string> payloadPaths, payloadSeen;
     ArchivePayloadConsumer payloadConsumer;
@@ -440,6 +442,20 @@ struct PackageArchivePolicy::Impl {
                     return stopped ? false : Stop(ArchivePolicyStatus::Unverified, path, "inspection_limit");
                 if (path == "/control") save = &control;
                 else if (path == "/triggers") { save = &triggers; Unverified(path, "maintainer_semantics_unverified"); }
+                else if (path == "/prerm" || path == "/postinst") {
+                    ArchiveMaintainerScript &script(path == "/prerm" ? prerm : postinst);
+                    script.present = true; save = &script.bytes;
+                    std::uint64_t mode = 0, uid = 0, gid = 0;
+                    if (!Number(header + 100, 8, &mode) || !Number(header + 108, 8, &uid) ||
+                        !Number(header + 116, 8, &gid) || mode > 07777 ||
+                        uid > std::numeric_limits<std::uint32_t>::max() || gid > std::numeric_limits<std::uint32_t>::max())
+                        scriptMetadataValid = false;
+                    else {
+                        script.mode = static_cast<std::uint32_t>(mode);
+                        script.uid = static_cast<std::uint32_t>(uid); script.gid = static_cast<std::uint32_t>(gid);
+                    }
+                    Unverified(path, "maintainer_semantics_unverified");
+                }
                 else if (path != "/" && path != "/md5sums" && path != "/conffiles")
                     Unverified(path, "maintainer_semantics_unverified");
             } else if (!DataItem(path, type, link)) return false;
@@ -502,9 +518,13 @@ ArchiveControlMetadata PackageArchivePolicy::ControlMetadata() const {
     if (impl_->stopped || !impl_->result.complete || !impl_->result.identityVerified) {
         result.reason = "control_metadata_incomplete"; return result;
     }
+    if (!impl_->scriptMetadataValid) {
+        result.reason = "control_script_metadata_unverified"; return result;
+    }
     if (!CanonicalPackageEffectControlFields(impl_->controlFields, &result.controls, &result.reason)) return result;
     result.identity = impl_->expected; result.triggersPresent = impl_->controlNames.count("/triggers") != 0;
-    result.triggers = impl_->triggers; result.complete = true; return result;
+    result.triggers = impl_->triggers; result.prerm = impl_->prerm; result.postinst = impl_->postinst;
+    result.complete = true; return result;
 }
 ArchivePayloadInspection PackageArchivePolicy::PayloadInspection() const {
     ArchivePayloadInspection result(impl_->payload);

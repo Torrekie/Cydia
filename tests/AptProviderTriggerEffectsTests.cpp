@@ -36,6 +36,9 @@ P::TriggerEffectCheckpoint Point(const std::string &rows, const std::map<std::st
         if (record.second.package.version.empty()) continue;
         P::TriggerPackageMetadata metadata; metadata.package = record.second.package;
         metadata.evidenceIdentity.assign(64, 'c'); metadata.controls = Controls(record.second.multiArch.empty() ? "no" : record.second.multiArch);
+        metadata.declarationIdentity.assign(64, 'd');
+        metadata.diskStatus = record.second.status;
+        if (record.second.status >= P::DpkgPackageStatus::TriggersAwaited) metadata.configVersion = record.second.package.version;
         const auto found = declarations.find(record.first);
         Require(P::ParseTriggerDeclarations(found == declarations.end() ? "" : found->second, &metadata.declarations, &error), "fixture declarations");
         result.metadata.packages.emplace(record.first, metadata);
@@ -182,6 +185,46 @@ void IncomingAndPrimary() {
     P::TriggerEffectLedger wrongArchive; auto wrong = proof; wrong.archive.fileIdentity.clear();
     Require(wrongArchive.Begin(envelope, before, &error) && !wrongArchive.RefineIncoming({wrong}, &error), "claimed archive control without retained evidence rejected");
 }
+void ConfiguredVersions() {
+    std::string error;
+    for (const std::string previous : {std::string(), std::string("0")}) {
+        auto before = Initial(); const auto original = before.identity;
+        before.metadata.packages.at("waiting:all").configVersion = previous;
+        Seal(&before, "state-1");
+        Require(before.identity != original, "last-configured version is bound in checkpoint identity");
+        auto after = Point(Row("cache", "1", "amd64", "installed", "same") + Row("cache", "1", "i386", "installed", "same") +
+            Row("waiting", "1", "all") + Row("unrelated", "2", "all"), SharedDeclarations, SharedRegistry, "state-2");
+        P::TriggerEffectLedger ledger; P::TriggerDrainPlan pass;
+        Require(ledger.Begin(Envelope(before, Review(before)), before, &error) && ledger.NextDrain(before.identity, &pass, &error) &&
+            ledger.SettleDrain(pass.pass, Success(), after, &error) && ledger.quiescent(),
+            "successful drain can make an awaited historical or absent Config-Version synthesize current Version");
+        auto incorporated = before;
+        incorporated.packages.packages.at("waiting:all").status = P::DpkgPackageStatus::Installed;
+        incorporated.packages.packages.at("waiting:all").triggersAwaited.clear(); Seal(&incorporated, "state-1");
+        P::TriggerEffectLedger readOnly;
+        Require(readOnly.Begin(Envelope(incorporated, Review(incorporated)), incorporated, &error) &&
+            readOnly.NextDrain(incorporated.identity, &pass, &error) && readOnly.SettleDrain(pass.pass, Success(), after, &error),
+            "read-only incorporated waiter retains disk historical version until actual native settlement");
+        P::TriggerEffectLedger unrelated;
+        Require(unrelated.Begin(Envelope(before, Review(before)), before, &error) && unrelated.NextDrain(before.identity, &pass, &error),
+            "unrelated configured-version mutation fixture");
+        after.metadata.packages.at("unrelated:all").configVersion = "1";
+        after.metadata.packages.at("unrelated:all").diskStatus = P::DpkgPackageStatus::TriggersAwaited; Seal(&after, "state-2");
+        Require(!unrelated.SettleDrain(pass.pass, Success(), after, &error), "drain cannot alter unrelated configured-version evidence");
+    }
+    auto before = Point(Row("target", "2", "all", "unpacked"), {}, {});
+    before.metadata.packages.at("target:all").configVersion = "1"; Seal(&before, "state-1");
+    auto review = Review(before); review.execution.actions = {Action(1, P::ExecutionAction::Configure, {"target", "2", "all"})};
+    auto batch = Batch(1, P::ExecutionAction::Configure, {1});
+    auto after = Point(Row("target", "2", "all"), {}, {}, "state-2");
+    P::TriggerEffectLedger configured;
+    Require(configured.Begin(Envelope(before, review), before, &error) && configured.PreparePrimary(before.identity, batch, &error) &&
+        configured.Reconcile(batch, Success(), after, &error), "reviewed configure advances only target last-configured version");
+    P::TriggerEffectLedger replaced;
+    Require(replaced.Begin(Envelope(before, review), before, &error) && replaced.PreparePrimary(before.identity, batch, &error), "declaration identity fixture");
+    after.metadata.packages.at("target:all").declarationIdentity.assign(64, 'e'); Seal(&after, "state-2");
+    Require(!replaced.Reconcile(batch, Success(), after, &error), "configure cannot conceal declaration-file changes behind Config-Version transition");
+}
 void Parsers() {
     std::string error; std::vector<P::TriggerDeclaration> declarations;
     Require(P::ParseTriggerDeclarations(" # native comments\ninterest-await Cache.Refresh\ninterest-noawait Cache.Refresh\n"
@@ -202,6 +245,6 @@ void Parsers() {
 }
 }
 int main() {
-    Parsers(); RepeatedDrains(); DeferredQueues(); Rejections(); IncomingAndPrimary();
+    Parsers(); RepeatedDrains(); DeferredQueues(); Rejections(); IncomingAndPrimary(); ConfiguredVersions();
     std::cout << "apt-provider-trigger-effects tests passed\n";
 }

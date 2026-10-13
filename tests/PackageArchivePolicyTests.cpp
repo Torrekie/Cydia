@@ -130,6 +130,32 @@ void ControlMetadataTests() {
     const auto empty = InspectControl(Entry("control", '0', Control()) + Entry("triggers"));
     assert(absent.complete && !absent.triggersPresent && absent.triggers.empty());
     assert(empty.complete && empty.triggersPresent && empty.triggers.empty());
+    assert(!absent.prerm.present && !absent.postinst.present && absent.prerm.bytes.empty() && absent.postinst.bytes.empty());
+    const std::string prerm = "#!/bin/sh\nexit 0\n", postinst("binary\0bytes", 12);
+    const auto scripts = InspectControl(Entry("control", '0', Control()) +
+        Entry("prerm", '0', prerm, "", "", 0755, 12, 34) +
+        Entry("postinst", '0', postinst, "", "", 04755, 56, 78));
+    assert(scripts.complete && scripts.prerm.present && scripts.postinst.present);
+    assert(scripts.prerm.bytes == prerm && scripts.prerm.mode == 0755 && scripts.prerm.uid == 12 && scripts.prerm.gid == 34);
+    assert(scripts.postinst.bytes == postinst && scripts.postinst.mode == 04755 && scripts.postinst.uid == 56 && scripts.postinst.gid == 78);
+    const auto emptyScript = InspectControl(Entry("control", '0', Control()) + Entry("postinst", '0', "", "", "", 0755));
+    assert(emptyScript.complete && emptyScript.postinst.present && emptyScript.postinst.bytes.empty() && emptyScript.postinst.mode == 0755);
+    for (const auto &member : {Entry("prerm", '2', "", "postinst"),
+            Entry("postinst", '0', prerm) + Entry("./postinst", '0', prerm)}) {
+        const auto refused = InspectControl(Entry("control", '0', Control()) + member);
+        assert(!refused.complete && !refused.prerm.present && !refused.postinst.present && refused.controls.empty());
+    }
+    std::string oversizedOwner(8, '\0'); oversizedOwner[0] = static_cast<char>(0x80); oversizedOwner[3] = 1;
+    for (const auto &member : {Entry("prerm", '0', prerm, "", "", 0100755),
+            TarNumber(Entry("postinst", '0', prerm), 108, "invalid!"),
+            TarNumber(Entry("postinst", '0', prerm), 116, oversizedOwner)}) {
+        const auto refused = InspectControl(Entry("control", '0', Control()) + member);
+        assert(!refused.complete && refused.reason == "control_script_metadata_unverified" &&
+            !refused.prerm.present && !refused.postinst.present && refused.controls.empty());
+        // Additional evidence refusal does not change existing layout inspection.
+        const auto layout = Inspect("", rootless, Entry("control", '0', Control()) + member);
+        assert(layout.complete && layout.identityVerified && layout.status == ArchivePolicyStatus::Unverified);
+    }
     for (const auto &entries : std::vector<std::string>{Entry("control", '0', body) + Entry("triggers") + Entry("./triggers"),
         Entry("control", '0', body) + Entry("triggers", '2', "", "control"), Entry("control", '0', Control("amd64")),
         Entry("control", '0', Control() + "Depends: foo bar\n")}) {
@@ -139,6 +165,8 @@ void ControlMetadataTests() {
     ArchiveLimits small; small.maxMetadataBytes = 128;
     const auto bounded = InspectControl(Entry("control", '0', Control()) + Entry("triggers", '0', std::string(129, 'x')), "", small);
     assert(!bounded.complete && bounded.controls.empty() && bounded.triggers.empty());
+    const auto boundedScript = InspectControl(Entry("control", '0', Control()) + Entry("prerm", '0', std::string(129, 'x')), "", small);
+    assert(!boundedScript.complete && !boundedScript.prerm.present && boundedScript.prerm.bytes.empty());
     const auto late = InspectControl(Entry("control", '0', body) + Entry("triggers", '0', triggers), Entry("bad", 'x', "metadata"));
     assert(!late.complete && late.controls.empty() && late.triggers.empty());
 }
@@ -347,14 +375,19 @@ int main() {
     const std::string data(ArMember("data.tar", Tar(prefixed)));
     Expect(InspectDeb(container + control + data), accepted);
     const std::string declarations = "interest-noawait /usr/share/icons\n";
-    const std::string effectTar = Tar(Entry("control", '0', Control() + "Depends: perl:any (>= 5)\n") + Entry("triggers", '0', declarations));
+    const std::string effectScript = "#!/bin/sh\nexit 0\n";
+    const std::string effectTar = Tar(Entry("control", '0', Control() + "Depends: perl:any (>= 5)\n") + Entry("triggers", '0', declarations) +
+        Entry("prerm", '0', effectScript, "", "", 0755) + Entry("postinst", '0', "", "", "", 0755));
     const auto controlEvidence = InspectControlDeb(container + ArMember("control.tar.gz", Compress(effectTar, FileFd::Gzip)) + data);
     assert(controlEvidence.archive.complete && controlEvidence.control.complete && controlEvidence.control.triggers == declarations);
+    assert(controlEvidence.control.prerm.present && controlEvidence.control.prerm.bytes == effectScript && controlEvidence.control.prerm.mode == 0755);
+    assert(controlEvidence.control.postinst.present && controlEvidence.control.postinst.bytes.empty() && controlEvidence.control.postinst.mode == 0755);
     for (const auto &broken : std::vector<std::string>{
             container + ArMember("control.tar.gz", Compress(effectTar, FileFd::Gzip) + "garbage") + data,
             container + ArMember("control.tar", effectTar) + ArMember("data.tar", Tar(prefixed) + rooted)}) {
         const auto refused = InspectControlDeb(broken);
         assert(!refused.control.complete && refused.control.controls.empty() && refused.control.triggers.empty());
+        assert(!refused.control.prerm.present && !refused.control.postinst.present);
     }
     const std::string evidenceData(Entry("." + component, '0', "abc", "", "", 04755, 12, 34) +
         Entry("." + emptyComponent, '0', "", "", "", 0600, 56, 78));

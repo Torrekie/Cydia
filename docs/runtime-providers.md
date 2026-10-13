@@ -108,6 +108,20 @@ An approved finite-effects transaction cannot downgrade to the legacy executor.
 Automatic deconfiguration and trigger-only transactions without primary
 operations remain unsupported.
 
+The Cydia library retains native installed `Config-Version` and raw disk status
+separately from the read-only query view, and can capture protected `prerm` and
+`postinst` generations for an independently selected package subset. Incoming
+control inspection preserves exact script presence, bytes and tar metadata.
+Bounded binary relationship parsing distinguishes dpkg's unpack and configure
+checks, including actual architectures and versioned virtual providers. Native
+version comparisons use a frozen parent-owned dpkg callback and exit codes;
+localized diagnostics never determine execution policy. The initial-generation
+allowance builder binds prospective Breaks/sibling causes to exact reviewed
+restoration endpoints. These library facts are not an execution route: automatic
+deconfiguration still requires immutable native approval, locked reconstruction,
+complete per-batch effect admission and restoration-aware settlement. The current
+pre-unpack guard remains active until that integration is complete.
+
 After settlement, Cydia retires the worker, cache handles, grants and review;
 the next normal reload performs fresh discovery. A helper-confirmed final
 commit remains a known outcome if the worker subsequently fails. Unknown

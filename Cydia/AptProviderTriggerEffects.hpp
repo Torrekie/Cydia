@@ -22,8 +22,15 @@ struct TriggerPackageMetadata {
     // Native control field names are lowercase. Folding whitespace is
     // normalized, but relationship alternatives/order/version syntax are kept.
     std::map<std::string, std::string> controls;
+    // Installed-only native semantic value: Version for installed/pending,
+    // otherwise the retained Config-Version (possibly empty). Never part of
+    // incoming archive/index control equality.
+    std::string configVersion;
+    // Raw protected status-file phase, before dpkg-query incorporates deferred
+    // trigger state in memory. DpkgState::status is the separate query view.
+    DpkgPackageStatus diskStatus = DpkgPackageStatus::NotInstalled;
     std::vector<TriggerDeclaration> declarations;
-    std::string evidenceIdentity;
+    std::string declarationIdentity, evidenceIdentity;
 };
 struct InstalledTriggerMetadata {
     // Package:actual-Architecture, with exact version retained in each record.
@@ -38,6 +45,9 @@ struct TriggerCaptureLock {
     int descriptor = -1;
     pid_t parent = 0;
 };
+// Shared installed-metadata capture gate. Checks the retained native lock;
+// neither acquiring a new lock nor accepting a provider assertion.
+bool TriggerCaptureLockHeld(const CydiaRuntime::Privileged::Environment &, const TriggerCaptureLock &);
 // Parent-internal frozen transaction snapshot reader. It may map protected
 // bytes to the retained lease state token; never populated from provider IPC.
 // An empty function uses the normal selected RuntimeSnapshot implementation.
