@@ -106,6 +106,7 @@ static NSString *SettingsText(NSString *key) {
         case CydiaRuntimeProviderStateMissing: return RuntimeText(@"STATUS_MISSING");
         case CydiaRuntimeProviderStateUnsupported: return RuntimeText(@"STATUS_UNSUPPORTED");
         case CydiaRuntimeProviderStateBroken: return RuntimeText(@"STATUS_BROKEN");
+        case CydiaRuntimeProviderStatePreparationFailed: return RuntimeText(@"OPERATION_FAILED");
         default: return RuntimeText(@"STATUS_UNCHECKED");
     }
 }

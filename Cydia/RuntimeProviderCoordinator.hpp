@@ -5,6 +5,7 @@
 #include "Cydia/AptProviderSelection.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
 #include "Cydia/RuntimeProviderStatus.h"
+#include <functional>
 #include <memory>
 
 namespace CydiaAPT {
@@ -18,11 +19,14 @@ class RuntimeProviderCoordinator {
 public:
     RuntimeProviderCoordinator();
     ~RuntimeProviderCoordinator();
-    // Database owns the serialization gate and has invalidated all UI handles.
+    // Database owns the serialization gate. willAdopt invalidates its UI/cache
+    // handles only after validated selection succeeds, before the old backend
+    // is destroyed. Failed read-only preparation never calls it.
     // On a failed explicit change an existing runtime is left intact. Automatic
     // startup fallback occurs only here, never during an operation or retry.
     bool Select(AptBackend **backend, AcquireStatus &status, NSString *preference,
-        NSString *securityPreference, bool allowRecovery, NSString **diagnostic, bool explicitRequest = false);
+        NSString *securityPreference, bool allowRecovery, NSString **diagnostic, bool explicitRequest = false,
+        const std::function<void()> &willAdopt = {});
     CydiaRuntimeProviderStatus *Status() const;
     bool external() const;
     // Both a distribution adapter and the bundled recovery worker require

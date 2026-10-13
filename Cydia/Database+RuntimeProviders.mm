@@ -55,24 +55,36 @@ NSError *Error(NSString *text) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [[NSNotificationCenter defaultCenter] postNotificationName:CydiaRuntimeProviderStatusDidChangeNotification object:self];
                 });
-                // Existing Package instances become stale before destroying the
-                // backend that owns their handles. The ordinary reload below
-                // reconstructs the cache and updates every visible controller.
-                ++era_; packages_ = nil; sourceMap_.clear(); [sourceList_ removeAllObjects];
-                transactionSnapshot_ = nil; [self invalidateConfirmationReview];
+                bool adopted(false);
+                const auto willAdopt = [&] {
+                    // Existing Package instances become stale only after a
+                    // successful selection, before their backend is destroyed.
+                    adopted = true;
+                    ++era_; packages_ = nil; sourceMap_.clear(); [sourceList_ removeAllObjects];
+                    transactionSnapshot_ = nil; [self invalidateConfirmationReview];
+                };
                 NSString *diagnostic(nil);
                 const bool selected(runtime_->Select(&apt_, *status_, nextPreference, security ?: oldSecurity,
-                    security == nil || !runtime_->external(), &diagnostic, true));
+                    security == nil || !runtime_->external(), &diagnostic, true, willAdopt));
                 if (!selected) {
                     error = Error(diagnostic);
-                    if (!runtime_->ready()) runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr, true);
+                    // A check of the unchanged preference must not repeat a
+                    // failed cold-start preparation or turn it into recovery.
+                    NSString *nextSecurity(security ?: oldSecurity);
+                    const bool changed = ![nextPreference isEqual:oldPreference] ||
+                        !(nextSecurity == oldSecurity || [nextSecurity isEqual:oldSecurity]);
+                    if (!runtime_->ready() && changed)
+                        runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr, true, willAdopt);
                 }
                 else if ((preference && !CydiaSetRuntimeProviderPreference(preference)) ||
                          (security && !CydiaSetRepositorySecurityPreference(security))) {
                     error = Error(nil);
-                    runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr, true);
+                    runtime_->Select(&apt_, *status_, oldPreference, oldSecurity, true, nullptr, true, willAdopt);
                 }
-                runtimeReloadPending_ = YES; reload = YES;
+                // A failed candidate leaves the existing queue/cache intact;
+                // do not reset it through the ordinary reload path afterward.
+                if (adopted) runtimeReloadPending_ = YES;
+                reload = adopted;
                 [self publishRuntimeProviderStatus];
             }
         } @finally { [self endSettingsChange]; }
@@ -109,7 +121,8 @@ NSError *Error(NSString *text) {
 }
 - (void)publishRuntimeProviderStatus {
     CydiaRuntimeProviderStatus *snapshot(runtime_->Status());
-    if (!runtime_->healthy()) snapshot = [[CydiaRuntimeProviderStatus alloc] initWithPreference:snapshot.preference
+    if (!runtime_->healthy() && snapshot.state != CydiaRuntimeProviderStatePreparationFailed)
+        snapshot = [[CydiaRuntimeProviderStatus alloc] initWithPreference:snapshot.preference
         state:CydiaRuntimeProviderStateBroken providerName:snapshot.providerName providerVersion:snapshot.providerVersion
         aptVersion:snapshot.aptVersion diagnostic:CydiaRuntimeProviderLocalize(@"BROKEN_HELP")];
     @synchronized(runtimeStatusLock_) { runtimeStatus_ = snapshot; }
@@ -128,8 +141,11 @@ NSError *Error(NSString *text) {
             ofType:@"Error"] forTask:UCLocalize("PREPARE_ARCHIVES")];
         return false;
     }
+    const auto descriptor(CydiaAPT::ActiveRuntimeDescriptor());
+    if (runtime_->remote() && !descriptor) return false;
+    const auto origin(descriptor ? descriptor->origin : CydiaAPT::RuntimeDescriptorOrigin::Embedded);
     CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:runtime_->review()
-        reviewedEffects:runtime_->reviewedEffects()]);
+        runtimeOrigin:origin reviewedEffects:runtime_->reviewedEffects()]);
     @synchronized(runtimeStatusLock_) { confirmationReview_ = review; confirmationApproved_ = NO; }
     return review != nil;
 }
@@ -142,7 +158,10 @@ NSError *Error(NSString *text) {
     BOOL accepted(NO);
     @try {
         @synchronized(runtimeStatusLock_) {
-            if (review != nil && review == confirmationReview_ && !confirmationApproved_) {
+            const auto descriptor(CydiaAPT::ActiveRuntimeDescriptor());
+            const auto origin(descriptor ? descriptor->origin : CydiaAPT::RuntimeDescriptorOrigin::Embedded);
+            if (review != nil && review == confirmationReview_ && !confirmationApproved_ &&
+                (!runtime_->remote() || descriptor) && review.runtimeOrigin == origin) {
                 std::string error;
                 accepted = runtime_->ApproveReview(*apt_, [review displayedActions], [review displayedArchiveWarnings], &error,
                     [review displayedEffectsIdentity]);
@@ -154,7 +173,10 @@ NSError *Error(NSString *text) {
 }
 - (bool)confirmedTransactionUnchanged {
     @synchronized(runtimeStatusLock_) {
-        if (!confirmationApproved_ || confirmationReview_ == nil || !runtime_->ReviewUnchanged(*apt_)) return false;
+        const auto descriptor(CydiaAPT::ActiveRuntimeDescriptor());
+        const auto origin(descriptor ? descriptor->origin : CydiaAPT::RuntimeDescriptorOrigin::Embedded);
+        if (!confirmationApproved_ || confirmationReview_ == nil || !runtime_->ReviewUnchanged(*apt_) ||
+            (runtime_->remote() && !descriptor) || [confirmationReview_ runtimeOrigin] != origin) return false;
         // A worker may not renew its review after approval. The
         // embedded engine has no worker binding, so compare its complete value.
         return runtime_->remote() || [confirmationReview_ matchesTransaction:apt_->transactionData()];

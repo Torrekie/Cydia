@@ -4,6 +4,7 @@
 #import <Foundation/Foundation.h>
 #include "Cydia/AptProviderProtocol.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
+#include "Cydia/AptRuntimeDescriptor.hpp"
 
 // Immutable parent-owned value retained by both Database and its confirmation
 // controller. Its object identity is the approval token; no worker token alone
@@ -12,11 +13,16 @@
 @property(nonatomic, copy, readonly) NSArray<NSDictionary<NSString *, NSString *> *> *operations;
 @property(nonatomic, copy, readonly) NSArray<NSDictionary<NSString *, NSString *> *> *archiveWarningRows;
 @property(nonatomic, copy, readonly) NSString *runtimeNotice;
+// Copied from the coordinator's adopted immutable descriptor; protocol review
+// presence and worker identifiers never determine recovery policy presentation.
+@property(nonatomic, readonly) CydiaAPT::RuntimeDescriptorOrigin runtimeOrigin;
 @property(nonatomic, copy, readonly) NSArray<NSDictionary<NSString *, NSString *> *> *processingRows;
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
-    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)providerReview;
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)providerReview
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin;
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
     providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)providerReview
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
     reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects;
 - (const CydiaAPT::TransactionData &)transaction;
 - (const std::set<std::uint64_t> &)displayedActions;

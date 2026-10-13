@@ -77,7 +77,8 @@ struct Fixture {
         provider.execution.actions[2].archive = "independent-archive";
     }
     CydiaTransactionReview *Make() const {
-        return [[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:&provider];
+        return [[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:&provider
+            runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::External];
     }
 };
 
@@ -183,12 +184,33 @@ void EveryKnownActionIsVisibleAndUnknownRejected() {
 
 void EmbeddedRecoveryNotice() {
     Fixture fixture;
-    CydiaTransactionReview *embedded([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:nullptr]);
+    CydiaTransactionReview *embedded([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:nullptr
+        runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::Embedded]);
     Require(embedded != nil && [embedded matchesTransaction:fixture.transaction], "embedded transaction snapshot is missing");
     Text(embedded.runtimeNotice, CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW"), "embedded recovery notice is missing");
     Require(embedded.operations.count == 0 && embedded.archiveWarningRows.count == 0 &&
         [embedded displayedActions].empty() && [embedded displayedArchiveWarnings].empty(),
         "embedded review invented provider approval IDs");
+}
+void RecoveryWorkerNotice() {
+    Fixture fixture;
+    using Origin = CydiaAPT::RuntimeDescriptorOrigin;
+    auto origin = Origin::RecoveryWorker;
+    CydiaTransactionReview *recovery([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction
+        providerReview:&fixture.provider runtimeOrigin:origin]);
+    Require(recovery != nil && recovery.runtimeOrigin == Origin::RecoveryWorker && recovery.operations.count == 4,
+        "private recovery keeps exact protocol review while retaining its adopted runtime origin");
+    Text(recovery.runtimeNotice, CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW"), "private recovery worker policy notice is missing");
+    origin = Origin::External; fixture.provider.binding.providerIdentifier = "different-provider";
+    Require(recovery.runtimeOrigin == Origin::RecoveryWorker, "retained origin changed with later caller state");
+    Text(recovery.runtimeNotice, CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW"), "later provider state erased reviewed policy notice");
+    CydiaTransactionReview *external([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction
+        providerReview:&fixture.provider runtimeOrigin:origin]);
+    Text(external.runtimeNotice, @"", "external origin inherited another runtime's recovery notice");
+    Require([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:nullptr
+        runtimeOrigin:Origin::External] == nil, "missing external protocol review cannot become embedded recovery");
+    Require([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:&fixture.provider
+        runtimeOrigin:Origin::Embedded] == nil, "embedded origin cannot borrow a worker review");
 }
 void ImmutableProcessingPool() {
     Fixture fixture;
@@ -204,7 +226,7 @@ void ImmutableProcessingPool() {
     effects.awaiters = effects.recipients;
     effects.awaiters.emplace("native-package:iphoneos-arm64@1.0", P::ExecutionPackage{"native-package", "1.0", "iphoneos-arm64"});
     CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction
-        providerReview:&fixture.provider reviewedEffects:&effects]);
+        providerReview:&fixture.provider runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::External reviewedEffects:&effects]);
     Require(review != nil && review.processingRows.count == 2 && [review displayedEffectsIdentity] == effects.identity,
         "processing approval retains exact union and native authority binding");
     Row(review.processingRows, 0, @"foreign-package (Additional · iphoneos-arm)", @"2.0");
@@ -214,7 +236,8 @@ void ImmutableProcessingPool() {
         ![review.processingRows isKindOfClass:[NSMutableArray class]], "displayed processing pool cannot mutate with input");
     effects.awaiters = effects.recipients; effects.primaryReview.binding.review = "different-review";
     Require([[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:&fixture.provider
-        reviewedEffects:&effects] == nil, "processing approval cannot hide a changed primary review");
+        runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::External reviewedEffects:&effects] == nil,
+        "processing approval cannot hide a changed primary review");
 }
 }
 
@@ -222,7 +245,7 @@ int main() {
     @autoreleasepool {
         ImmutableOwnedSnapshot(); ChangesInvalidateTheSnapshot(); ExactRowsAndSingleArchitecture();
         DistinctForeignArchitecture(); EveryKnownActionIsVisibleAndUnknownRejected(); EmbeddedRecoveryNotice();
-        ImmutableProcessingPool();
+        ImmutableProcessingPool(); RecoveryWorkerNotice();
         std::cout << "[transaction-review] PASS\n";
     }
 }

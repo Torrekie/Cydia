@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/RuntimeProviderCoordinator.hpp"
+#include "Cydia/RuntimeProviderAdmission.hpp"
 #include "Cydia/AptProviderArchiveEvidence.hpp"
 #include "Cydia/AptProviderBroker.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
@@ -8,6 +9,7 @@
 #include "Cydia/AptProviderTransactionRequest.hpp"
 #include "Cydia/AptRecoverySnapshot.hpp"
 #include "Cydia/DatabaseStatus.h"
+#include "Cydia/FetchDiagnostics.h"
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include <cstdlib>
@@ -150,26 +152,33 @@ bool CaptureOpenedAuthority(const AptBackend &backend, const RuntimeDescriptor &
     }
     return true;
 }
-bool AdmitCandidate(RemoteCandidate *candidate, P::RegisteredProviderSnapshot *selected, Recovery::Snapshot *recovery) {
-    if (!candidate || !candidate->backend) return false;
+RuntimeAdmissionResult AdmitCandidate(RemoteCandidate *candidate, P::RegisteredProviderSnapshot *selected, Recovery::Snapshot *recovery) {
+    if (!candidate || !candidate->backend) return {};
     AptBackend &backend(*candidate->backend);
-    backend.discardErrors();
-    const bool loaded(backend.loadSources());
-    const auto sourceErrors(backend.drainErrors());
-    bool accepted(loaded);
-    for (const auto &error : sourceErrors) accepted &= error.warning;
-    if (accepted) accepted = backend.openCache();
-    const auto cacheErrors(backend.drainErrors());
-    for (const auto &error : cacheErrors) accepted &= error.warning;
     P::Binding binding;
-    accepted = accepted && CaptureOpenedAuthority(backend, candidate->descriptor, selected, recovery, &binding);
+    auto admission = PrepareRuntimeProvider(backend, [&] {
+        return CaptureOpenedAuthority(backend, candidate->descriptor, selected, recovery, &binding);
+    });
     candidate->context->Operation(nullptr, -1);
-    if (accepted) {
+    if (admission.kind == RuntimeAdmissionKind::Ready) {
         candidate->descriptor.binding.packageStateIdentity = binding.packageStateIdentity;
-        accepted = ValidateRuntimeDescriptor(candidate->descriptor, candidate->descriptor.binding);
+        if (!ValidateRuntimeDescriptor(candidate->descriptor, candidate->descriptor.binding))
+            admission.kind = RuntimeAdmissionKind::AuthorityChanged;
     }
-    if (!accepted) { candidate->backend.reset(); candidate->context.reset(); }
-    return accepted;
+    if (admission.kind != RuntimeAdmissionKind::Ready) { candidate->backend.reset(); candidate->context.reset(); }
+    return admission;
+}
+NSString *AdmissionDiagnostic(const RuntimeAdmissionResult &admission) {
+    if (admission.kind == RuntimeAdmissionKind::AuthorityChanged)
+        return [[NSBundle mainBundle] localizedStringForKey:@"TRANSACTION_STALE" value:nil table:@"Settings"];
+    NSMutableArray<NSString *> *messages([NSMutableArray array]);
+    for (const auto &error : admission.errors) {
+        if (error.warning) continue;
+        NSString *message(CydiaAPTDiagnosticMessage(error));
+        if (message.length && ![messages containsObject:message]) [messages addObject:message];
+        if (messages.count == 8) break;
+    }
+    return messages.count ? [messages componentsJoinedByString:@"\n"] : CydiaRuntimeProviderLocalize(@"OPERATION_FAILED");
 }
 }
 void ConfigureRuntimeProviderStartup(const InitializationOptions &options) {
@@ -226,7 +235,8 @@ bool RuntimeProviderCoordinator::AcceptOpenedCache(const AptBackend &backend) {
 }
 
 bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &progress, NSString *preference,
-    NSString *securityPreference, bool allowRecovery, NSString **diagnostic, bool explicitRequest) {
+    NSString *securityPreference, bool allowRecovery, NSString **diagnostic, bool explicitRequest,
+    const std::function<void()> &willAdopt) {
     auto &state(*implementation_);
     if (diagnostic) *diagnostic = nil;
     if (!backend || indeterminate()) {
@@ -242,6 +252,7 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
         if (!SetRepositorySecurityMode(EffectiveRepositorySecurityMode(nextSecurity, false))) {
             if (diagnostic) *diagnostic = CydiaRuntimeProviderLocalize(@"BROKEN_HELP"); return false;
         }
+        if (willAdopt) willAdopt();
         state.ClearReview(); state.securityPreference = nextSecurity;
         return true;
     }
@@ -251,6 +262,17 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
     P::ProbeResult selectedProbe;
     P::Environment selectedEnvironment;
     Recovery::Snapshot recoverySnapshot;
+    // Failure to read a source/cache or a changed authority is an operation
+    // failure. Preserve the last adopted backend; at cold startup publish a
+    // truthful no-adoption status instead of silently selecting recovery.
+    const auto rejectPreparation = [&](const RuntimeAdmissionResult &admission) {
+        NSString *message(AdmissionDiagnostic(admission));
+        if (diagnostic) *diagnostic = message;
+        NSString *shownPreference(explicitRequest ? state.status.preference : preference);
+        if (!healthy()) state.status = [[CydiaRuntimeProviderStatus alloc] initWithPreference:shownPreference
+            state:CydiaRuntimeProviderStatePreparationFailed providerName:nil providerVersion:nil aptVersion:nil diagnostic:message];
+        return false;
+    };
     if (!requestedRecovery) {
         const std::string helper(state.options.helperPath);
         auto reader = [helper](const std::string &path, const P::RegistrationIdentity *expected,
@@ -263,7 +285,10 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
             P::BrokerOptions broker; broker.authority = selection.snapshot.identity;
             candidate = StartCandidate(progress, selection.snapshot.runtime, selection.snapshot.executable,
                 selection.probe, selection.hello, broker);
-            if (AdmitCandidate(&candidate, &selection.snapshot, &recoverySnapshot)) {
+            const auto admission(AdmitCandidate(&candidate, &selection.snapshot, &recoverySnapshot));
+            if (admission.kind == RuntimeAdmissionKind::PreparationFailed || admission.kind == RuntimeAdmissionKind::AuthorityChanged)
+                return rejectPreparation(admission);
+            if (admission.kind == RuntimeAdmissionKind::Ready) {
                 selectedProbe = selection.probe; selectedEnvironment = selection.hello.expected;
                 selectedEnvironment.packageStateIdentity = selection.snapshot.packageStateIdentity;
             }
@@ -294,7 +319,10 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
                     P::BrokerOptions broker;
                     broker.recoveryAuthority = std::make_shared<const Recovery::RequestAuthority>(Recovery::AuthorityRequest(recoverySnapshot));
                     candidate = StartCandidate(progress, recoverySnapshot.runtime, recoverySnapshot.executable, probe, hello, broker, capsule);
-                    if (AdmitCandidate(&candidate, &selection.snapshot, &recoverySnapshot)) {
+                    const auto admission(AdmitCandidate(&candidate, &selection.snapshot, &recoverySnapshot));
+                    if (admission.kind == RuntimeAdmissionKind::PreparationFailed || admission.kind == RuntimeAdmissionKind::AuthorityChanged)
+                        return rejectPreparation(admission);
+                    if (admission.kind == RuntimeAdmissionKind::Ready) {
                         selectedProbe = probe; selectedEnvironment = Recovery::SnapshotEnvironment(recoverySnapshot);
                     }
                 }
@@ -319,6 +347,7 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
             if (previous && AdoptRuntimeDescriptor(*previous, previous->binding)) SetRuntimeDescriptorTrustValid(previous->binding, previousTrust);
             if (diagnostic) *diagnostic = CydiaRuntimeProviderLocalize(@"BROKEN_HELP"); return false;
         }
+        if (willAdopt) willAdopt();
         delete *backend; *backend = nullptr;
         state.ClearReview(); state.context.reset(); Client::ClearProviderAuthority(); Client::ClearLockBridge();
         const auto &descriptor(candidate.descriptor);
@@ -330,14 +359,24 @@ bool RuntimeProviderCoordinator::Select(AptBackend **backend, AcquireStatus &pro
         state.context = candidate.context; state.selected = selection.snapshot; state.recovery = recoverySnapshot;
         *backend = candidate.backend.release(); state.initialized = true;
         state.preference = nextPreference; state.securityPreference = nextSecurity;
+        NSString *fallbackDiagnostic(state.recoveryWorker && !requestedRecovery ? CydiaRuntimeProviderLocalize(
+            selection.availability == P::Availability::Missing ? @"MISSING_HELP" :
+            selection.availability == P::Availability::Unsupported ? @"UNSUPPORTED_HELP" : @"BROKEN_HELP") : nil);
         state.status = [[CydiaRuntimeProviderStatus alloc] initWithPreference:preference
             state:state.recoveryWorker ? CydiaRuntimeProviderStateRecoveryActive : CydiaRuntimeProviderStateExternalActive
             providerName:state.recoveryWorker ? CydiaRuntimeProviderLocalize(@"RECOVERY") : String(selectedProbe.info.identifier)
-            providerVersion:String(selectedProbe.info.implementationVersion) aptVersion:nil diagnostic:nil];
+            providerVersion:String(selectedProbe.info.implementationVersion) aptVersion:nil diagnostic:fallbackDiagnostic];
         return true;
     }
     // Transitional startup fallback only. No running operation can arrive
     // here, and no explicit Settings choice is reported as a worker success.
+    // This process-global initialization cannot prepare beside an existing
+    // embedded cache. A caller requesting a validated adoption boundary must
+    // therefore retain its existing state rather than receive an early callback.
+    if (willAdopt) {
+        if (diagnostic) *diagnostic = CydiaRuntimeProviderLocalize(@"BROKEN_HELP");
+        return false;
+    }
     delete *backend; *backend = nullptr;
     state.ClearReview(); state.context.reset(); state.recoveryWorker = false; state.initialized = false;
     state.selected = P::RegisteredProviderSnapshot(); state.recovery = Recovery::Snapshot();

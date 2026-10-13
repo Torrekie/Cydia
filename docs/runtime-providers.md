@@ -38,6 +38,15 @@ fallback. Candidate source loading, cache opening and a fresh protected authorit
 check finish before adoption; a failed worker selection preserves the working
 backend and does not save the attempted preference.
 
+Source loading and cache preparation failures remain operation failures while
+the validated worker session is alive. They do not label the provider broken
+or select recovery. A failed Settings check preserves the adopted backend,
+queue, package handles and confirmation; invalidation occurs only at successful
+adoption. Cold-start preparation failure reports that no runtime was adopted.
+Automatic recovery retains its reason for fallback, and native confirmation
+binds the actual runtime origin so private recovery workers show the existing
+localized recovery-policy notice.
+
 Recovery preparation includes a nonexecuting libapt package-manager recorder
 and a helper-owned authority capture module. The recorder preserves explicit
 operation ordering and exact archive/index identities; it refuses configured

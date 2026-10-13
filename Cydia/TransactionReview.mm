@@ -24,13 +24,19 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
     std::string effectsIdentity_;
 }
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
-    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review {
-    return [self initWithTransaction:transaction providerReview:review reviewedEffects:nullptr];
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin {
+    return [self initWithTransaction:transaction providerReview:review runtimeOrigin:origin reviewedEffects:nullptr];
 }
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
     providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
     reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects {
     if ((self = [super init])) {
+        using Origin = CydiaAPT::RuntimeDescriptorOrigin;
+        if (origin != Origin::Embedded && origin != Origin::External && origin != Origin::RecoveryWorker) return nil;
+        if ((origin == Origin::Embedded) != (review == nullptr)) return nil;
+        _runtimeOrigin = origin;
         transaction_ = transaction;
         CydiaAPT::Provider::Encode(transaction_, &transactionBytes_);
         NSMutableArray *operations([NSMutableArray array]);
@@ -77,7 +83,7 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
             effectsIdentity_ = effects->identity;
         }
         _processingRows = [processing copy];
-        _runtimeNotice = review ? @"" : CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW");
+        _runtimeNotice = origin == Origin::External ? @"" : CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW");
     }
     return self;
 }

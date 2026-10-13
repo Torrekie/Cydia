@@ -320,7 +320,7 @@ $(APT_PROVIDER_BROKER_AUTHORIZATION_TEST): $(apt_provider_broker_authorization_s
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
 		$(apt_provider_broker_authorization_sources) -o $@
-$(APT_BACKEND_FACADE_TEST): tests/AptBackendFacadeTests.cpp Cydia/AptBackendFacade.cpp \
+$(APT_BACKEND_FACADE_TEST): tests/AptBackendFacadeTests.cpp Cydia/AptBackendFacade.cpp Cydia/RuntimeProviderAdmission.hpp \
 		Cydia/AptRemoteBackend.cpp Cydia/AptBackendImplementation.hpp Cydia/AptBackend.hpp \
 		Cydia/AptProviderSession.cpp Cydia/AptProviderSession.hpp Cydia/AptProviderProtocol.cpp \
 		Cydia/AptProviderProtocol.hpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
@@ -1315,7 +1315,7 @@ verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
 	@$<
 
 $(TRANSACTION_REVIEW_TEST): tests/TransactionReviewTests.mm \
-		Cydia/TransactionReview.mm Cydia/TransactionReview.h \
+		Cydia/TransactionReview.mm Cydia/TransactionReview.h Cydia/AptRuntimeDescriptor.hpp \
 		Cydia/AptProviderTransactionRequest.cpp \
 		Cydia/ExtendedState.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \

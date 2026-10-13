@@ -13,6 +13,9 @@ typedef NS_ENUM(NSUInteger, CydiaRuntimeProviderState) {
     CydiaRuntimeProviderStateMissing,
     CydiaRuntimeProviderStateUnsupported,
     CydiaRuntimeProviderStateBroken,
+    // A validated candidate could not prepare sources/cache; no provider is
+    // adopted at cold startup and this does not establish a broken runtime.
+    CydiaRuntimeProviderStatePreparationFailed,
 };
 
 /* An immutable, cached presentation snapshot. Provider/version fields describe

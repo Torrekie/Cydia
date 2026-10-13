@@ -3,6 +3,7 @@
  * the facade: this executable links only its remote implementation.
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptBackend.hpp"
+#include "Cydia/RuntimeProviderAdmission.hpp"
 #include "Cydia/AptProviderSession.hpp"
 #include <algorithm>
 #include <chrono>
@@ -90,7 +91,8 @@ bool Changes(P::Operation operation) {
 }
 enum class Mode {
     Complete, FailedReply, MalformedValue, MalformedVoid, WrongHandle, Disconnect, LostExecution,
-    SourceStatuses, SourceBudget, CancelSource, CancelFetch, CancelManager, SensitiveDiagnostics, DeniedRelease
+    SourceStatuses, SourceBudget, CancelSource, CancelFetch, CancelManager, SensitiveDiagnostics, DeniedRelease,
+    SourceFalse, SourceRejected, SourceError, CacheFalse, CacheError, SourceMalformed, SourceDisconnect
 };
 struct Peer {
     int client = -1, server = -1;
@@ -129,7 +131,8 @@ struct Peer {
             switch (request.operation) {
                 case P::Operation::Reset: case P::Operation::OpenCache: {
                     P::CacheReply cache; cache.opened = true; cache.binding = binding;
-                    ++cache.binding.cacheEpoch; cache.binding.selectionRevision = 0; cache.binding.review.clear();
+                    if (request.operation == P::Operation::OpenCache && mode == Mode::CacheFalse) cache.opened = false;
+                    else { ++cache.binding.cacheEpoch; cache.binding.selectionRevision = 0; cache.binding.review.clear(); }
                     Encode(cache, &response); binding = cache.binding; break;
                 }
                 case P::Operation::CreateCacheViews: case P::Operation::DiscardErrors: case P::Operation::ClearSelections:
@@ -139,7 +142,8 @@ struct Peer {
                 case P::Operation::DrainErrors:
                     Encode(std::vector<A::ErrorData>{{mode == Mode::SensitiveDiagnostics ?
                         "Download https://user:password@fixture.invalid/private-token/file?secret=value failed" : "upstream diagnostic",
-                        true, mode == Mode::SensitiveDiagnostics ? "provider_frontend_busy" : ""}}, &response); break;
+                        !(mode == Mode::SourceError || (mode == Mode::CacheError && seen.count(P::Operation::OpenCache))),
+                        mode == Mode::SensitiveDiagnostics ? "provider_frontend_busy" : ""}}, &response); break;
                 case P::Operation::CacheState: {
                     if (mode == Mode::Disconnect) { shutdown(server, SHUT_RDWR); return; }
                     A::CacheStateSummary cache; cache.installs = 4; Encode(cache, &response);
@@ -151,7 +155,16 @@ struct Peer {
                     if (mode == Mode::MalformedValue) response.payload = "invalid";
                     break;
                 }
-                case P::Operation::LoadSources: case P::Operation::ApplyStatus: case P::Operation::FixBroken:
+                case P::Operation::LoadSources:
+                    Require(request.payload.empty(), "source request is empty");
+                    if (mode == Mode::SourceDisconnect) { shutdown(server, SHUT_RDWR); return; }
+                    Encode(mode != Mode::SourceFalse, &response);
+                    if (mode == Mode::SourceRejected) {
+                        response.succeeded = false; response.errorCode = "fixture_source_configuration_rejected"; response.payload.clear();
+                    }
+                    if (mode == Mode::SourceMalformed) response.payload = "invalid";
+                    break;
+                case P::Operation::ApplyStatus: case P::Operation::FixBroken:
                 case P::Operation::MinimizeUpgrade: case P::Operation::CleanArchives: case P::Operation::PrepareArchives:
                 case P::Operation::ResolveDependencies: case P::Operation::PrepareDistUpgrade:
                     Require(request.payload.empty(), "boolean request is empty"); Encode(true, &response); break;
@@ -540,8 +553,53 @@ void FailureBoundaries() {
             "settled provider retirement invalidates handles and cannot reuse or switch engines");
     }
 }
+void CandidatePreparation() {
+    // Exercise the actual public facade and framed Session operation replies.
+    // A source/cache refusal is distinct from protocol/process loss; candidate
+    // preparation never mutates or retires an independently adopted backend.
+    for (Mode mode : {Mode::SourceFalse, Mode::SourceRejected, Mode::SourceError, Mode::CacheFalse,
+        Mode::CacheError, Mode::SourceMalformed, Mode::SourceDisconnect, Mode::Complete}) {
+        Peer adoptedPeer(Mode::Complete), candidatePeer(mode);
+        A::AptBackend adopted(Session(adoptedPeer)), candidate(Session(candidatePeer));
+        Require(adopted.openCache(), "independent adopted backend has working cache");
+        Require(adopted.installPackage(A::PackageHandle(7)), "adopted backend has a real queued selection");
+        adopted.transactionData(); P::ReviewedTransaction originalReview;
+        Require(adopted.providerReview(&originalReview), "adopted queue has an owned protocol review");
+        std::string originalReviewBytes; Require(P::Encode(originalReview, &originalReviewBytes), "serialize original queued review");
+        P::Binding original; Require(adopted.providerBinding(&original), "adopted provider binding retained");
+        unsigned authorityReads = 0;
+        const auto result(A::PrepareRuntimeProvider(candidate, [&] { ++authorityReads; return true; }));
+        const auto expected = mode == Mode::Complete ? A::RuntimeAdmissionKind::Ready :
+            mode == Mode::SourceMalformed || mode == Mode::SourceDisconnect ? A::RuntimeAdmissionKind::ProviderUnavailable :
+            A::RuntimeAdmissionKind::PreparationFailed;
+        Require(result.kind == expected, "validated operation refusal does not become broken-provider fallback");
+        Require(authorityReads == (mode == Mode::Complete ? 1u : 0u), "no admission authority claim before successful preparation");
+        P::Binding unchanged;
+        Require(adopted.providerBinding(&unchanged) && P::SameBinding(original, unchanged) && adopted.cacheState().installs == 4,
+            "failed candidate preparation preserves prior provider binding and usable cache");
+        P::ReviewedTransaction preservedReview; std::string preservedReviewBytes;
+        Require(adopted.providerReview(&preservedReview) && P::Encode(preservedReview, &preservedReviewBytes) &&
+            preservedReviewBytes == originalReviewBytes,
+            "candidate preparation preserves exact prior queued operations, revisions and review identity");
+        P::Binding candidateBinding;
+        Require(candidate.providerBinding(&candidateBinding) == (expected != A::RuntimeAdmissionKind::ProviderUnavailable),
+            "actual Session liveness distinguishes operation errors from protocol/process failure");
+        if (mode == Mode::SourceError || mode == Mode::CacheError)
+            Require(std::any_of(result.errors.begin(), result.errors.end(), [](const A::ErrorData &error) {
+                return !error.warning && error.message == "upstream diagnostic" && error.cydiaCode.empty();
+            }), "upstream preparation diagnostics retained for original gettext display");
+    }
+    Peer peer(Mode::Complete); A::AptBackend candidate(Session(peer)); unsigned authorityReads = 0;
+    const auto changed(A::PrepareRuntimeProvider(candidate, [&] { ++authorityReads; return false; }));
+    P::Binding binding;
+    Require(changed.kind == A::RuntimeAdmissionKind::AuthorityChanged && authorityReads == 1 && candidate.providerBinding(&binding),
+        "fresh authority failure stops adoption without labelling a live provider broken");
+    A::AptBackend unavailable{std::unique_ptr<P::Session>()};
+    Require(A::PrepareRuntimeProvider(unavailable, [] { return true; }).kind == A::RuntimeAdmissionKind::ProviderUnavailable,
+        "cold missing session cannot establish preparation or an active runtime");
+}
 } // namespace
 int main() {
-    CompleteDispatch(); FailureBoundaries(); SourceBoundaries(); CancellationAndExecutionState(); DiagnosticPrivacy();
+    CompleteDispatch(); FailureBoundaries(); SourceBoundaries(); CancellationAndExecutionState(); DiagnosticPrivacy(); CandidatePreparation();
     std::puts("[apt-backend-facade] complete remote dispatch, review lifetime and failure boundaries passed");
 }

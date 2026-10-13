@@ -611,7 +611,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     [self selectRuntimeProviderForReload];
     if (!runtime_->ready()) {
         sourceLoadFailed_ = YES;
-        sourceLoadDiagnostic_ = CydiaRuntimeProviderLocalize(@"BROKEN_HELP");
+        CydiaRuntimeProviderStatus *providerStatus(runtime_->Status());
+        sourceLoadDiagnostic_ = providerStatus.diagnostic.length ? providerStatus.diagnostic :
+            CydiaRuntimeProviderLocalize(@"BROKEN_HELP");
         return;
     }
     apt_->discardErrors();
