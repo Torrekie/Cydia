@@ -173,6 +173,52 @@ bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string
     *controls = std::move(result); return true;
 }
 
+namespace {
+bool EffectDependencyField(const std::string &name) {
+    return name == "depends" || name == "pre-depends" || name == "breaks" ||
+        name == "conflicts" || name == "provides" || name == "replaces";
+}
+}
+bool ValidPackageEffectControlFieldOrder(const std::map<std::string, std::string> &controls,
+    const std::vector<std::string> &order) {
+    std::map<std::string, std::string> canonical; std::string ignored;
+    if (order.size() > 6 || !CanonicalPackageEffectControlFields(controls, &canonical, &ignored) || canonical != controls) return false;
+    std::set<std::string> names;
+    for (const auto &name : order) {
+        const auto field = controls.find(name);
+        if (!EffectDependencyField(name) || field == controls.end() || field->second.empty() || !names.insert(name).second) return false;
+    }
+    for (const auto &field : controls)
+        if (EffectDependencyField(field.first) && !field.second.empty() && !names.count(field.first)) return false;
+    return true;
+}
+bool PackageEffectControlFieldOrder(const std::map<std::string, std::string> &controls,
+    const std::vector<std::string> &encountered, std::vector<std::string> *order, std::string *error) {
+    if (error) error->clear();
+    if (!order) { if (error) *error = "control_dependency_order_invalid"; return false; }
+    order->clear();
+    std::vector<std::string> result; std::set<std::string> seen;
+    if (encountered.size() > 4096) { if (error) *error = "control_dependency_order_limit"; return false; }
+    for (const auto &name : encountered) {
+        if (!seen.insert(name).second) { if (error) *error = "control_dependency_order_invalid"; return false; }
+        if (!EffectDependencyField(name)) continue;
+        const auto field = controls.find(name);
+        if (field == controls.end()) { if (error) *error = "control_dependency_order_invalid"; return false; }
+        if (!field->second.empty()) result.push_back(name); // f_dependency ignores empty fields.
+    }
+    if (!ValidPackageEffectControlFieldOrder(controls, result)) {
+        if (error) *error = "control_dependency_order_invalid";
+        return false;
+    }
+    *order = std::move(result); return true;
+}
+bool Dpkg1237WrittenPackageEffectControlFieldOrder(const std::map<std::string, std::string> &controls,
+    std::vector<std::string> *order) {
+    // lib/dpkg/parse.c fieldinfos[]; lib/dpkg/dump.c write_stanza().
+    return PackageEffectControlFieldOrder(controls,
+        {"replaces", "provides", "depends", "pre-depends", "breaks", "conflicts"}, order, nullptr);
+}
+
 struct PackageArchivePolicy::Impl {
     ArchiveIdentity expected;
     ArchiveLayout layout;
@@ -186,6 +232,7 @@ struct PackageArchivePolicy::Impl {
     std::map<std::string, std::string> hardLinks;
     std::string control, triggers;
     std::map<std::string, std::string> controlFields;
+    std::vector<std::string> controlFieldOrder;
     ArchiveMaintainerScript prerm, postinst;
     bool scriptMetadataValid = true;
     bool payloadRequested = false;
@@ -420,6 +467,7 @@ struct PackageArchivePolicy::Impl {
             if (fields.size() >= 4096) return Stop(ArchivePolicyStatus::Unverified, "control", "inspection_limit");
             if (!fields.emplace(previous, Trim(line.substr(colon + 1))).second)
                 return Stop(ArchivePolicyStatus::Invalid, "control", "duplicate_control_field");
+            controlFieldOrder.push_back(previous);
         }
         for (const auto &field : std::vector<std::pair<std::string, std::string> >{
                 {"package", expected.package}, {"version", expected.version}, {"architecture", expected.architecture}}) {
@@ -588,7 +636,16 @@ ArchiveControlMetadata PackageArchivePolicy::ControlMetadata() const {
     if (!impl_->scriptMetadataValid) {
         result.reason = "control_script_metadata_unverified"; return result;
     }
+    // Native parsedb rejects an EOF during a field value. Keep the existing
+    // layout result intact, but never claim native order for that control.
+    if (impl_->control.empty() || impl_->control.back() != '\n') {
+        result.reason = "control_native_record_unverified"; return result;
+    }
     if (!CanonicalPackageEffectControlFields(impl_->controlFields, &result.controls, &result.reason)) return result;
+    if (!PackageEffectControlFieldOrder(result.controls, impl_->controlFieldOrder, &result.dependencyOrder, &result.reason)) {
+        result.controls.clear(); return result;
+    }
+    result.dependencyOrderVerified = true; result.rawControlRecord = impl_->control;
     result.identity = impl_->expected; result.triggersPresent = impl_->controlNames.count("/triggers") != 0;
     result.triggers = impl_->triggers; result.prerm = impl_->prerm; result.postinst = impl_->postinst;
     result.complete = true; return result;

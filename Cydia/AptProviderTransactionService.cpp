@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTransactionService.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include "Cydia/RuntimeState.hpp"
 #include <algorithm>
 #include <cerrno>
@@ -59,7 +60,8 @@ bool Policy(const CydiaRuntime::PackageDatabasePaths &paths, const TransactionBe
         return Fail(error, "provider_dpkg_state_unavailable");
     const auto &binding = begin.review.binding;
     if (binding.providerIdentifier != runtime.binding.providerIdentifier || binding.configurationIdentity != runtime.binding.configurationIdentity ||
-        binding.policyIdentity != runtime.binding.policyIdentity || binding.packageStateIdentity != runtime.binding.packageStateIdentity)
+        binding.policyIdentity != runtime.binding.policyIdentity || binding.packageStateIdentity != runtime.binding.packageStateIdentity ||
+        (begin.reviewedDeconfiguration && begin.reviewedDeconfiguration->methodsIdentity != runtime.binding.methodsIdentity))
         return Fail(error, "provider_lease_state_changed");
     runtime.binding.session = binding.session;
     policy.environment.paths = selected->environment;
@@ -123,7 +125,8 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
         !ResolveBrokerRequest(paths, wrapped, options.applicationUID, &selected, &payload, &privilegedError))
         return sendFailure(privilegedError.code.empty() ? "provider_authority_changed" : privilegedError.code);
     if (!DecodeTransactionBegin(payload, &begin) || TransactionBeginDigest(begin) != request.reviewDigest ||
-        (request.conffilePolicy ? !request.scopedChildren : request.scopedChildren != static_cast<bool>(begin.reviewedEffects)))
+        (request.conffilePolicy ? !request.scopedChildren : request.scopedChildren != static_cast<bool>(begin.reviewedEffects)) ||
+        (begin.reviewedDeconfiguration && (!request.scopedChildren || !request.conffilePolicy)))
         return sendFailure("provider_transaction_review_mismatch");
     if (!options.prepareEnvironment || !options.prepareEnvironment(&selected, &failure) || !options.execute)
         return sendFailure(failure.empty() ? "provider_transaction_unavailable" : failure);
@@ -136,6 +139,7 @@ bool ServeProviderTransaction(int socket, const CydiaRuntime::PackageDatabasePat
     ownerOptions.requireConffilePolicy = policyRequired; ownerOptions.executePrepared = options.executePrepared;
     if (policyRequired && !options.executePrepared) return sendFailure("provider_conffile_policy_unavailable");
     ownerOptions.reviewedEffects = begin.reviewedEffects;
+    ownerOptions.reviewedDeconfiguration = begin.reviewedDeconfiguration;
     TransactionOwner *activeOwner = nullptr;
     std::uint64_t childOrdinal = 0;
     bool scopeActive = false, scopeCancelled = false, mutationInRequest = false;

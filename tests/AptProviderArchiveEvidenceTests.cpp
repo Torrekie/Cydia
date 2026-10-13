@@ -145,6 +145,33 @@ void ControlProof() {
     Require(!empty->VerifyControl(absent.review.execution.archives, &proof, [] { return true; }, &error) && proof.empty(),
         "cancelled control proof has no partial publication");
 }
+void DistinctNativeControlOrder() {
+    Fixture fixture; std::string error;
+    const std::string indexFields = "Pre-Depends: base (>= 1)\nBreaks: old (<< 2)\nProvides: virtual (= 1)\n";
+    const std::string archiveFields = "Provides: virtual (=1)\nBreaks: old(<<2)\nPre-Depends: base(>=1)\n";
+    SetControls(fixture, indexFields, archiveFields, false);
+    auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    std::vector<P::VerifiedIndexControlEvidence> index;
+    std::vector<P::VerifiedArchiveControlEvidence> archive;
+    Require(snapshot->ControlEvidence(fixture.review.execution.archives, &index, {}, &error) && index.size() == 1 &&
+        index[0].dependencyOrderVerified && index[0].rawControlRecord == fixture.record &&
+        index[0].dependencyOrder == std::vector<std::string>{"pre-depends", "breaks", "provides"},
+        "exact index stanza has separately bound field order before downloading");
+    Require(snapshot->VerifyControl(fixture.review.execution.archives, &archive, {}, &error) && archive.size() == 1 &&
+        archive[0].control.dependencyOrderVerified &&
+        archive[0].control.dependencyOrder == std::vector<std::string>{"provides", "breaks", "pre-depends"} &&
+        archive[0].control.rawControlRecord == "Package: sample\nVersion: 1\nArchitecture: all\n" + archiveFields &&
+        archive[0].control.controls == index[0].controls,
+        "actual native archive order is retained without mistaking index order for INSTALLNEW semantics");
+    const auto original = index[0].evidenceIdentity;
+    SetControls(fixture, "Breaks: old (<< 2)\nPre-Depends: base (>= 1)\nProvides: virtual (= 1)\n", archiveFields, false);
+    Require(!snapshot->ControlEvidence(fixture.review.execution.archives, &index, {}, &error) && index.empty(),
+        "changed index order cannot use retained record provenance");
+    auto changed = fixture.Capture(&error); Require(changed != nullptr, error.c_str());
+    Require(changed->ControlEvidence(fixture.review.execution.archives, &index, {}, &error) && index[0].evidenceIdentity != original &&
+        index[0].dependencyOrder == std::vector<std::string>{"breaks", "pre-depends", "provides"},
+        "fresh changed ordering binds a new index identity while canonical relationship values remain equal");
+}
 void ValidAndChanged(bool compressed) {
     Fixture fixture(compressed); std::string error;
     auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
@@ -361,7 +388,7 @@ void SeparateAllArchitectureIndex() {
 } // namespace
 
 int main() {
-    ControlProof(); ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
+    ControlProof(); DistinctNativeControlOrder(); ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
     BatchControlBeforeDownload(false); BatchControlBeforeDownload(true); BatchControlProvenance(); BatchControlBounds();
     std::cout << "[apt-provider-archive-evidence] PASS\n";
 }

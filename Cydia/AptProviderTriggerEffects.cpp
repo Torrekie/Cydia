@@ -50,6 +50,11 @@ void MetadataBytes(std::string *bytes, const TriggerPackageMetadata &value) {
     Frame(bytes, std::to_string(static_cast<unsigned>(value.diskStatus)));
     for (const auto &control : value.controls) { Frame(bytes, control.first); Frame(bytes, control.second); }
     Frame(bytes, "");
+    if (value.dependencyOrderVerified) {
+        Frame(bytes, "native-control-order-1");
+        for (const auto &name : value.dependencyOrder) Frame(bytes, name);
+        Frame(bytes, ""); Frame(bytes, Hash(value.rawControlRecord));
+    }
     for (const auto &declaration : value.declarations) {
         Frame(bytes, declaration.kind == TriggerDeclarationKind::Interest ? "interest" : "activate");
         Frame(bytes, declaration.trigger); Frame(bytes, declaration.await ? "1" : "0");
@@ -122,6 +127,7 @@ bool Checkpoint(const TriggerEffectCheckpoint &checkpoint, Interests *interests,
         !StateBytes(checkpoint.packages, &state) || checkpoint.metadata.packages.size() > MaximumTriggerEffectPackages ||
         checkpoint.registry.state.interests.size() > MaximumTriggerRelations || checkpoint.registry.state.deferred.size() > MaximumTriggerRelations)
         return Fail(error, "provider_trigger_checkpoint_invalid");
+    std::size_t orderedBytes = 0;
     for (const auto &record : checkpoint.packages.packages) {
         if (record.second.package.version.empty()) continue;
         const auto metadata = checkpoint.metadata.packages.find(record.first);
@@ -139,6 +145,14 @@ bool Checkpoint(const TriggerEffectCheckpoint &checkpoint, Interests *interests,
         if (!CydiaPackages::CanonicalPackageEffectControlFields(metadata->second.controls, &controls, error) ||
             controls != metadata->second.controls || controls["multi-arch"] != (record.second.multiArch.empty() ? "no" : record.second.multiArch))
             return Fail(error, "provider_trigger_control_changed");
+        const auto &ordered = metadata->second;
+        if (ordered.dependencyOrderVerified) {
+            if (ordered.rawControlRecord.empty() || ordered.rawControlRecord.size() > MaximumTriggerEvidenceBytes - orderedBytes ||
+                !CydiaPackages::ValidPackageEffectControlFieldOrder(ordered.controls, ordered.dependencyOrder))
+                return Fail(error, "provider_trigger_control_order_invalid");
+            orderedBytes += ordered.rawControlRecord.size();
+        } else if (!ordered.dependencyOrder.empty() || !ordered.rawControlRecord.empty())
+            return Fail(error, "provider_trigger_control_order_invalid");
         if (metadata->second.declarations.size() > MaximumTriggerRelations) return Fail(error, "provider_trigger_evidence_limit");
         std::string raw;
         for (const auto &declaration : metadata->second.declarations) {
@@ -427,6 +441,8 @@ bool TriggerEffectLedger::RefineIncoming(const std::vector<VerifiedArchiveContro
         TriggerPackageMetadata value; value.package = expected->package;
         if (!CydiaPackages::CanonicalPackageEffectControlFields(control.controls, &value.controls, error) || value.controls != control.controls ||
             !ParseTriggerDeclarations(control.triggers, &value.declarations, error)) return Reject(error, "provider_trigger_incoming_unverified");
+        value.dependencyOrderVerified = control.dependencyOrderVerified;
+        value.dependencyOrder = control.dependencyOrder; value.rawControlRecord = control.rawControlRecord;
         value.evidenceIdentity = Hash(archive.fileIdentity + a);
         if (!metadata.emplace(Generation(value.package), value).second ||
             !identities.emplace(expected->identifier, archive.fileIdentity).second) return Reject(error, "provider_trigger_incoming_unverified");

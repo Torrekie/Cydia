@@ -47,6 +47,9 @@ struct ArchiveControlEvidence {
 // Relationship fields and DEBIAN/triggers are published only after both tar
 // streams, compressed trailers and the archive descriptor/path identity pass.
 // Caller retains/verifies acquisition hashes; this captures no worker claims.
+// Control metadata also retains exact control-record bytes and textual native
+// dependency-field order; neither is reconstructed from a canonical map or
+// Packages index. Publication remains atomic after final trailer/path checks.
 ArchiveControlEvidence InspectPackageArchiveControlWithDecoders(const std::string &path,
     const ArchiveIdentity &expected, const ArchiveLayout &layout,
     const std::map<std::string, std::string> &decoders,

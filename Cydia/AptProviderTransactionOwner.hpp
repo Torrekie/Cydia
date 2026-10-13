@@ -10,6 +10,7 @@
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
+struct EffectReviewBundle;
 struct TransactionEffectChildChannels {
     int inputDescriptor = -1, statusDescriptor = -1;
     // Fresh per-child question/status ownership. Callbacks must not throw.
@@ -33,6 +34,10 @@ struct TransactionOwnerOptions {
     // Begin recomputes it from the locked state; no provider-proposed pool or
     // post-download expansion is accepted. Empty retains the existing route.
     std::shared_ptr<const TriggerEffectEnvelope> reviewedEffects;
+    // Independently captured application approval transport. Begin reconstructs
+    // the opaque proof under the real retained lock before any archive staging.
+    // Full per-child/restoration gates remain prerequisites to execution.
+    std::shared_ptr<const EffectReviewBundle> reviewedDeconfiguration;
     // Required for opt-in effects. Never reuse another child's conffile input
     // or status stream. The service must bind each scope to the shown pass and
     // its exact targets before this factory returns; it grants no target authority.

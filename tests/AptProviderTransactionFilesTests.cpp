@@ -18,6 +18,7 @@
 #include "Cydia/AptProviderTransactionOwner.hpp"
 #include "Cydia/AptProviderNativeDpkgAuthority.hpp"
 #include "Cydia/AptProviderTriggerCapture.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include "Cydia/RuntimeState.hpp"
 #endif
 
@@ -202,6 +203,12 @@ bool ResolveNativeDpkgAuthority(const BrokerEnvironment &, const ReviewedTransac
     if (!fixtureAuthorityAvailable) { if (error) *error = "provider_native_configuration_missing"; return false; }
     *out = fixtureAuthority; return true;
 }
+bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &, const BrokerEnvironment &selected,
+    const ReviewedTransaction &review, NativeDpkgAuthority *out, std::string *error, const std::function<bool()> &cancelled) {
+    // Same explicitly labelled fixture producer for the new protected capture
+    // entry point; production links its real protected native implementation.
+    return ResolveNativeDpkgAuthority(selected, review, out, error, cancelled);
+}
 bool RevalidateNativeDpkgAuthority(const NativeDpkgAuthority &authority, const std::vector<InstalledComponentEvidence> &files,
     std::string *error) {
     CydiaRuntime::Privileged::Error ignored;
@@ -308,7 +315,29 @@ void OwnerChild(Fixture &fixture, const P::TransactionOwnerOptions &provided, un
         result.exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
         result.signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0; return result;
     };
+    if (mode >= 9) {
+        options.requireConffilePolicy = true;
+        options.executePrepared = [&](const std::string &, const std::vector<std::string> &, int, int,
+            const std::function<void()> &, const CydiaRuntime::NativeLaunchEnvironment &, std::size_t) {
+            ++executions; return P::ParentExecutionReply();
+        };
+    }
     P::TransactionOwner owner(options); ownerPointer = &owner; std::string error;
+    if (mode >= 9) {
+        const bool accepted = owner.Begin(&error, mode == 14 ? std::function<bool()>([] { return true; }) : std::function<bool()>());
+        Require(!accepted && executions == 0 && notifications == 0 && effectScopes == 0 &&
+            !owner.mutationStarted() && !owner.complete(), "conditional Begin cannot start a primary or effect child");
+        if (mode == 9) Require(error == "provider_deconfiguration_execution_unavailable",
+            "independent locked paired reconstruction succeeds but full execution gates remain unavailable");
+        if (mode == 10 || mode == 11) Require(error == "provider_deconfiguration_review_changed",
+            "asserted allowance identity or method identity cannot replace the independently reconstructed review");
+        if (mode == 12 || mode == 13) Require(!error.empty() && error != "provider_deconfiguration_execution_unavailable",
+            "changed index or missing lock refuses before a matched approval can reach the held execution gate");
+        if (mode == 14) Require(error == "provider_cancelled", "cancelled conditional Begin cannot capture or stage");
+        Require(std::filesystem::is_empty(fixture.root + "/private"), "conditional rejection precedes any retained archive staging");
+        Require(owner.Close(&error), "refused conditional owner closes without a live child");
+        return;
+    }
     if (mode == 7) {
         Require(!owner.Begin(&error) && error == "provider_trigger_child_channels_unavailable" && !executions,
             "approved effect pool alone cannot reuse another child input scope"); return;
@@ -358,7 +387,7 @@ void OwnerChild(Fixture &fixture, const P::TransactionOwnerOptions &provided, un
     close(input[0]); close(input[1]); close(status[0]); close(status[1]);
 }
 void OwnerTransactions() {
-    for (unsigned mode = 0; mode != 9; ++mode) {
+    for (unsigned mode = 0; mode != 15; ++mode) {
         Fixture fixture; P::TransactionOwnerOptions options;
         const auto admin = fixture.root + "/admin"; std::filesystem::create_directory(admin);
         std::filesystem::create_directory(admin + "/updates");
@@ -420,6 +449,31 @@ void OwnerTransactions() {
             Require(P::BuildTriggerEffectEnvelope(options.review, checkpoint, approved.get(), &error,
                 P::TriggerNativeAuthorityIdentity(fixtureAuthority, initialComponents)), "build immutable native-reviewed effect pool");
             options.reviewedEffects = approved;
+            if (mode >= 9) {
+                // Expected DTO only: actual protected capture in the helper
+                // child must independently reproduce these exact bytes.
+                auto snapshot = P::ArchiveEvidenceSnapshot::Capture(options.selected.runtime, options.review, "/usr/bin:/bin", {}, &error);
+                std::vector<P::VerifiedIndexControlEvidence> controls;
+                Require(snapshot && snapshot->ControlEvidence(options.review.execution.archives, &controls, {}, &error),
+                    "expected review retains real source/index controls before download");
+                auto bundle = std::make_shared<P::EffectReviewBundle>(); bundle->methodsIdentity = options.selected.runtime.binding.methodsIdentity;
+                bundle->triggers = *approved; unsigned comparisons = 0;
+                const P::BinaryRelationships::VersionComparator unused = [&](const std::string &, const std::string &) {
+                    ++comparisons; return P::BinaryRelationships::VersionComparison();
+                };
+                Require(P::BuildDeconfigurationAllowances(options.review, checkpoint, approved->nativeAuthorityIdentity, controls,
+                    P::InstalledScriptMetadata(), unused, &bundle->deconfiguration, &error) &&
+                    bundle->deconfiguration.allowances.empty() && comparisons == 0,
+                    "empty expected allowance binds the exact protected checkpoint and native identity without inventing targets");
+                if (mode == 10) bundle->deconfiguration.identity.assign(64, 'b');
+                if (mode == 11) bundle->methodsIdentity = "methods:other";
+                options.reviewedDeconfiguration = bundle;
+                if (mode == 12) Write(options.review.execution.archives[0].sourceIndexPath, "changed index\n");
+                if (mode == 13) {
+                    struct flock release{}; release.l_type = F_UNLCK; release.l_whence = SEEK_SET;
+                    Require(fcntl(lock, F_SETLK, &release) == 0, "fixture releases actual frontend lock before Begin");
+                }
+            }
         }
         const pid_t child = fork(); Require(child >= 0, "fork direct helper owner");
         if (child == 0) { close(lock); OwnerChild(fixture, options, mode); _exit(0); }

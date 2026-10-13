@@ -205,6 +205,18 @@ verify: verify-apt-effect-review-bundle
 verify-apt-effect-review-bundle: $(APT_EFFECT_REVIEW_BUNDLE_TEST)
 	@$<
 
+APT_TRANSACTION_BEGIN_TEST := $(BUILD_DIR)/tests/AptProviderTransactionBeginTests
+apt_transaction_begin_test_sources := tests/AptProviderTransactionBeginTests.cpp \
+	$(filter-out tests/AptProviderEffectReviewBundleTests.cpp,$(apt_effect_review_bundle_test_sources))
+$(APT_TRANSACTION_BEGIN_TEST): $(apt_transaction_begin_test_sources) \
+		Cydia/AptProviderTransactionRequest.hpp Cydia/AptProviderEffectReviewBundle.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(apt_transaction_begin_test_sources) -o $@
+.PHONY: verify-apt-transaction-begin
+verify: verify-apt-transaction-begin
+verify-apt-transaction-begin: $(APT_TRANSACTION_BEGIN_TEST)
+	@$<
+
 APT_RESTORATION_DEBT_TEST := $(BUILD_DIR)/tests/AptProviderRestorationDebtTests
 apt_restoration_debt_test_sources := tests/AptProviderRestorationDebtTests.cpp \
 	Cydia/AptProviderRestorationDebt.cpp $(filter-out tests/AptProviderDeconfigurationApprovalTests.cpp,$(apt_deconfiguration_approval_test_sources))
@@ -322,6 +334,7 @@ $(APT_PROVIDER_AUTHORIZATION_TEST): tests/AptProviderArchiveAuthorizationTests.c
 		Cydia/RepositoryArchiveAuthorization.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
 		Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -pthread -o $@
 apt_provider_broker_authorization_sources := tests/AptProviderBrokerAuthorizationTests.cpp \
+	Cydia/AptProviderEffectReviewBundle.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 	Cydia/AptProviderTransactionRequest.cpp \
 	Cydia/AptProviderTransactionResult.cpp \
 	Cydia/AptProviderBroker.cpp Cydia/AptProviderBrokerValues.cpp Cydia/AptProviderReview.cpp \
@@ -1331,6 +1344,7 @@ verify-confirmation-view-model: $(CONFIRMATION_VIEW_MODEL_TEST)
 	@$<
 
 $(TRANSACTION_REVIEW_TEST): tests/TransactionReviewTests.mm \
+		Cydia/AptProviderEffectReviewBundle.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		Cydia/TransactionReview.mm Cydia/TransactionReview.h Cydia/AptRuntimeDescriptor.hpp \
 		Cydia/AptProviderTransactionRequest.cpp \
 		Cydia/ExtendedState.cpp \

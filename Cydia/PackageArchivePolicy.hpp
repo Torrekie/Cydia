@@ -43,6 +43,23 @@ struct ArchivePolicyResult {
 // Unsupported/malformed fields leave the output empty.
 bool CanonicalPackageEffectControlFields(const std::map<std::string, std::string> &fields,
     std::map<std::string, std::string> *controls, std::string *error);
+// The native dpkg dependency chain appends nonempty relationship fields in
+// control-record encounter order, then comma groups and alternatives in their
+// existing canonical order. The six retained fields include Provides because
+// unpack checks reverse Conflicts at that point. Other relationship types are
+// ignored by unpack; policy fields are not dependency-chain entries.
+// Input order comes only from a record parser, never map iteration. This API
+// derives/validates data; it proves no native profile, provenance or readiness.
+bool PackageEffectControlFieldOrder(const std::map<std::string, std::string> &canonicalControls,
+    const std::vector<std::string> &encounteredFieldNames, std::vector<std::string> *order, std::string *error);
+bool ValidPackageEffectControlFieldOrder(const std::map<std::string, std::string> &canonicalControls,
+    const std::vector<std::string> &order);
+// dpkg 1.23.7 dump.c writes fields in fieldinfos order, which can differ from
+// the incoming control record. This pure profile-specific expected sequence
+// grants no assertion that a selected binary follows that profile.
+bool Dpkg1237WrittenPackageEffectControlFieldOrder(const std::map<std::string, std::string> &canonicalControls,
+    std::vector<std::string> *order);
+
 struct ArchiveMaintainerScript {
     // Control-tar evidence only. It predicts neither the installed inode nor
     // ownership after dpkg overrides or maintainer scripts have run.
@@ -54,6 +71,13 @@ struct ArchiveControlMetadata {
     bool complete = false;
     ArchiveIdentity identity;
     std::map<std::string, std::string> controls;
+    // Captured from these exact DEBIAN/control bytes only after full archive
+    // verification. Index record order is independent and must never replace
+    // this actual native INSTALLNEW sequence. Complete with no relationships
+    // has verified=true and an empty order.
+    bool dependencyOrderVerified = false;
+    std::vector<std::string> dependencyOrder;
+    std::string rawControlRecord;
     // Absence and an explicitly empty triggers file remain distinguishable.
     bool triggersPresent = false;
     std::string triggers, reason;

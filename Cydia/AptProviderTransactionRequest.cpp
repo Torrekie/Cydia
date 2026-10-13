@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTransactionRequest.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include "Cydia/ExtendedState.hpp"
 
 namespace CydiaAPT { namespace Provider {
@@ -34,7 +35,9 @@ bool EffectApproval(const TriggerEffectEnvelope &value) {
 }
 bool Valid(const TransactionBeginRequest &value) {
     Message bound; bound.sequence = 1; bound.operation = Operation::RunPackageManager; bound.binding = value.review.binding;
-    if (!ValidRequestBinding(bound) || value.changes.size() > MaximumCollectionItems ||
+    if ((value.formatVersion != 2 && value.formatVersion != 3) ||
+        (value.formatVersion == 2 && value.reviewedDeconfiguration) ||
+        !ValidRequestBinding(bound) || value.changes.size() > MaximumCollectionItems ||
         value.additionalActions.size() > MaximumCollectionItems || value.archiveWarnings.size() > MaximumCollectionItems ||
         value.extendedState.size() > 4 * 1024 * 1024) return false;
     std::set<std::string> packages;
@@ -49,6 +52,13 @@ bool Valid(const TransactionBeginRequest &value) {
         std::string first, second;
         if (!EffectApproval(*value.reviewedEffects) || !Encode(value.review, &first) ||
             !Encode(value.reviewedEffects->primaryReview, &second) || first != second) return false;
+    }
+    if (value.reviewedDeconfiguration) {
+        std::string approved, paired;
+        if (!value.reviewedEffects ||
+            !EffectReviewBundleMatches(*value.reviewedDeconfiguration, value.review, value.reviewedDeconfiguration->methodsIdentity) ||
+            !EncodeTriggerEffectEnvelope(*value.reviewedEffects, &approved) ||
+            !EncodeTriggerEffectEnvelope(value.reviewedDeconfiguration->triggers, &paired) || approved != paired) return false;
     }
     return true;
 }
@@ -70,22 +80,39 @@ bool DecodeTriggerEffectEnvelope(const std::string &bytes, TriggerEffectEnvelope
     *value = std::move(parsed); return true;
 }
 bool EncodeTransactionBegin(const TransactionBeginRequest &value, std::string *bytes) {
-    if (!bytes || !Valid(value)) return false;
-    Writer writer; std::string effects;
+    if (!bytes) return false;
+    bytes->clear();
+    if (!Valid(value)) return false;
+    Writer writer; std::string effects, deconfiguration;
     if (value.reviewedEffects && !EncodeTriggerEffectEnvelope(*value.reviewedEffects, &effects)) return false;
-    if (!writer(std::string("CYDIA-TRANSACTION-BEGIN-2"), value.review, value.additionalActions,
-        value.archiveWarnings, value.changes, value.extendedState, effects) || writer.result().size() > 8 * 1024 * 1024) return false;
+    if (value.reviewedDeconfiguration && !EncodeEffectReviewBundle(*value.reviewedDeconfiguration, &deconfiguration)) return false;
+    const std::string version(value.formatVersion == 2 ? "CYDIA-TRANSACTION-BEGIN-2" : "CYDIA-TRANSACTION-BEGIN-3");
+    if (!writer(version, value.review, value.additionalActions, value.archiveWarnings, value.changes, value.extendedState, effects) ||
+        (value.formatVersion == 3 && !writer(deconfiguration)) || writer.result().size() > MaximumTransactionBeginBytes) return false;
     *bytes = writer.result(); return true;
 }
 bool DecodeTransactionBegin(const std::string &bytes, TransactionBeginRequest *value) {
-    if (!value || bytes.size() > 8 * 1024 * 1024) return false;
-    Reader reader(bytes); TransactionBeginRequest parsed; std::string version, effects;
+    if (!value) return false;
+    *value = TransactionBeginRequest();
+    if (bytes.size() > MaximumTransactionBeginBytes) return false;
+    Reader reader(bytes); TransactionBeginRequest parsed; std::string version, effects, deconfiguration;
     if (!reader(version, parsed.review, parsed.additionalActions, parsed.archiveWarnings,
-        parsed.changes, parsed.extendedState, effects) || !reader.complete() || version != "CYDIA-TRANSACTION-BEGIN-2") return false;
+        parsed.changes, parsed.extendedState, effects)) return false;
+    if (version == "CYDIA-TRANSACTION-BEGIN-2") parsed.formatVersion = 2;
+    else if (version == "CYDIA-TRANSACTION-BEGIN-3") {
+        parsed.formatVersion = 3;
+        if (!reader(deconfiguration)) return false;
+    } else return false;
+    if (!reader.complete()) return false;
     if (!effects.empty()) {
         std::shared_ptr<TriggerEffectEnvelope> approval(new TriggerEffectEnvelope());
         if (!DecodeTriggerEffectEnvelope(effects, approval.get())) return false;
         parsed.reviewedEffects = std::move(approval);
+    }
+    if (!deconfiguration.empty()) {
+        auto approval = std::make_shared<EffectReviewBundle>();
+        if (!DecodeEffectReviewBundle(deconfiguration, approval.get())) return false;
+        parsed.reviewedDeconfiguration = std::move(approval);
     }
     if (!Valid(parsed)) return false;
     std::string canonical;

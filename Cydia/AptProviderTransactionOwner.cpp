@@ -3,6 +3,7 @@
 #include "Cydia/AptProviderNativeDpkgAuthority.hpp"
 #include "Cydia/AptProviderTransactionChannel.hpp"
 #include "Cydia/AptProviderTriggerCapture.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include "Cydia/DpkgRunner.h"
 #include "Cydia/ExtendedState.hpp"
 #include "Cydia/RuntimeSnapshotInputs.hpp"
@@ -42,6 +43,7 @@ public:
     TransactionLease lease;
     ComponentSuccession components;
     TriggerEffectLedger effects;
+    std::shared_ptr<const ProtectedDeconfigurationReview> protectedDeconfiguration;
     TransactionLeaseIdentity identity;
     std::set<std::uint64_t> completedUnpacks;
     std::string initialState;
@@ -300,7 +302,16 @@ bool TransactionOwner::Begin(std::string *error, const std::function<bool()> &ca
             if (action.action == ExecutionAction::Triggers || action.action == ExecutionAction::Deconfigure)
                 return s.Stop(error, "provider_trigger_review_unsupported");
     }
-    if (!s.Active(cancel, error) || !o.execute || !s.Parent(nullptr, error) ||
+    if (o.reviewedDeconfiguration) {
+        std::string approved, paired;
+        if (!o.requireConffilePolicy || !o.reviewedEffects ||
+            !EffectReviewBundleMatches(*o.reviewedDeconfiguration, o.review, runtime.binding.methodsIdentity) ||
+            !EncodeTriggerEffectEnvelope(*o.reviewedEffects, &approved) ||
+            !EncodeTriggerEffectEnvelope(o.reviewedDeconfiguration->triggers, &paired) || approved != paired)
+            return s.Stop(error, "provider_deconfiguration_review_changed");
+    }
+    if (!s.Active(cancel, error) || !s.Parent(nullptr, error)) return false;
+    if (!o.execute ||
         !SameExpected(o.policy.environment.paths, environment) || o.policy.protectedDpkgOptions != o.selected.runtime.dpkgOptions ||
         o.policy.layout.prefix != runtime.packageInstallPrefix ||
         o.policy.environment.nativeArchitecture != runtime.architecture ||
@@ -320,6 +331,30 @@ bool TransactionOwner::Begin(std::string *error, const std::function<bool()> &ca
         return s.Stop(error, "provider_lease_state_changed");
     if (!ResolveNativeDpkgAuthority(o.selected, o.review, &s.native, error, cancel)) {
         s.ready = false; return false; // Preserve the typed missing/unsupported authority diagnostic.
+    }
+    if (o.reviewedDeconfiguration) {
+        // No decoded DTO creates native authority. Reconstruct one protected
+        // checkpoint and derive both approvals before creating private copies.
+        std::shared_ptr<const ProtectedDeconfigurationReview> captured;
+        if (!CaptureReviewedDeconfiguration(CydiaRuntime::PackageDatabasePaths::Current(), o.selected, o.review,
+            &captured, error, cancel)) {
+            const std::string code(error && !error->empty() ? *error : "provider_deconfiguration_capture_failed");
+            return s.Stop(error, code.c_str());
+        }
+        EffectReviewBundle rebuilt; rebuilt.methodsIdentity = runtime.binding.methodsIdentity;
+        rebuilt.deconfiguration = captured->allowances;
+        std::string approved, observed;
+        if (!BuildTriggerEffectEnvelope(o.review, captured->checkpoint, &rebuilt.triggers, error, captured->allowances.nativeAuthorityIdentity) ||
+            !EncodeEffectReviewBundle(rebuilt, &observed) || !EncodeEffectReviewBundle(*o.reviewedDeconfiguration, &approved) ||
+            observed != approved)
+            return s.Stop(error, "provider_deconfiguration_review_changed");
+        if (!s.Parent(nullptr, error) || !s.Active(cancel, error)) return false;
+        s.protectedDeconfiguration = std::move(captured);
+        // Capture/transport integration cannot activate mutations. Complete
+        // protected policy, ownership, Pre-Depends, primary/effect settlement
+        // and restoration-aware drain/commit admission must replace this gate.
+        // No restoration debt is initialized from approval values alone.
+        return s.Stop(error, "provider_deconfiguration_execution_unavailable");
     }
     CydiaSources::ProtectedFileSnapshot baseline;
     if (!CydiaSources::ReadSharedStateFile(environment.extendedStates, &baseline) || baseline.bytes != o.expectedExtendedState)

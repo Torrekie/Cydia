@@ -107,7 +107,8 @@ bool ParseInstalledTriggerControl(const std::string &status, const DpkgState &st
     if (status.size() > MaximumTriggerEvidenceBytes || status.find('\0') != std::string::npos ||
         state.packages.size() > MaximumTriggerEffectPackages) return Fail(error, "provider_trigger_evidence_limit");
     std::map<std::string, TriggerPackageMetadata> result;
-    std::map<std::string, std::string> fields; std::string previous;
+    std::map<std::string, std::string> fields; std::vector<std::string> fieldOrder;
+    std::string previous; std::size_t recordStart = 0, recordEnd = 0;
     const auto record = [&]() {
         if (fields.empty()) return true;
         const auto name = fields.find("package"), architecture = fields.find("architecture"), version = fields.find("version");
@@ -148,7 +149,10 @@ bool ParseInstalledTriggerControl(const std::string &status, const DpkgState &st
             metadata.configVersion = configured->second;
         } else if (phase == "installed" || phase == "triggers-pending") metadata.configVersion = version->second;
         std::string ignored;
-        if (!CydiaPackages::CanonicalPackageEffectControlFields(fields, &metadata.controls, &ignored)) return false;
+        if (!CydiaPackages::CanonicalPackageEffectControlFields(fields, &metadata.controls, &ignored) ||
+            !CydiaPackages::PackageEffectControlFieldOrder(metadata.controls, fieldOrder, &metadata.dependencyOrder, &ignored)) return false;
+        metadata.dependencyOrderVerified = true;
+        metadata.rawControlRecord = status.substr(recordStart, recordEnd - recordStart);
         const auto &multi = metadata.controls["multi-arch"];
         if (multi != (found->second.multiArch.empty() ? "no" : found->second.multiArch)) return false;
         for (const char *field : {"essential", "protected"})
@@ -159,9 +163,9 @@ bool ParseInstalledTriggerControl(const std::string &status, const DpkgState &st
     while (cursor < status.size()) {
         const auto end = status.find('\n', cursor);
         if (end == std::string::npos || end - cursor > 1024 * 1024) return Fail(error, "provider_trigger_control_invalid");
-        std::string line = status.substr(cursor, end - cursor); cursor = end + 1;
+        std::string line = status.substr(cursor, end - cursor); cursor = end + 1; recordEnd = cursor;
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (line.empty()) { if (!record()) return Fail(error, "provider_trigger_control_changed"); fields.clear(); previous.clear(); continue; }
+        if (line.empty()) { if (!record()) return Fail(error, "provider_trigger_control_changed"); fields.clear(); fieldOrder.clear(); previous.clear(); recordStart = cursor; continue; }
         if (line[0] == ' ' || line[0] == '\t') {
             if (previous.empty()) return Fail(error, "provider_trigger_control_invalid");
             fields[previous] += ' ' + Trim(line); continue;
@@ -172,6 +176,7 @@ bool ParseInstalledTriggerControl(const std::string &status, const DpkgState &st
         for (char &c : previous) { if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
             if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) return Fail(error, "provider_trigger_control_invalid"); }
         if (!fields.emplace(previous, Trim(line.substr(colon + 1))).second) return Fail(error, "provider_trigger_control_invalid");
+        fieldOrder.push_back(previous);
     }
     if (!record()) return Fail(error, "provider_trigger_control_changed");
     for (const auto &package : state.packages)

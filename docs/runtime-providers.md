@@ -159,6 +159,12 @@ deconfiguration still requires immutable native approval, locked reconstruction,
 complete per-batch effect admission and restoration-aware settlement. The current
 pre-unpack guard remains active until that integration is complete.
 
+Control capture also retains the original record and native dependency-field
+order. Index records, archive controls and installed status each keep their own
+order; equal canonical fields do not imply equal native processing order.
+Private archive copies must reproduce the exact captured control record. Trigger
+checkpoints bind installed record bytes and order as well as canonical fields.
+
 Opt-in archive inspection retains a bounded, ordered inventory of native dpkg
 member names, link targets and header/dispatch types. It preserves `/.` rather
 than substituting a normalized root path, and publishes only after complete
@@ -198,8 +204,14 @@ approvals from that same protected checkpoint. Its canonical bundle binds the
 exact review and acquisition methods, with one combined 8 MiB limit. The client
 retains immutable approval values and refuses mismatched or cancelled replies.
 A soft stop reserves child-cleanup time before the helper's hard deadline.
-Native presentation and independent Begin rebuilding remain prerequisites to
-activation; this capture route advertises no execution capability.
+Begin v3 carries the complete paired approval and binds its canonical bytes to
+the review digest; legacy v2 framing and digests remain readable when no
+deconfiguration approval is supplied. The authenticated service checks the
+independently resolved methods before binding the session. The retained owner
+reconstructs one protected checkpoint and compares both approvals before archive
+staging. Native presentation, complete pre-child admission and restoration-aware
+settlement remain prerequisites to activation; a paired Begin currently refuses
+execution after reconstruction and this capture route advertises no capability.
 
 A bounded restoration ledger records only observed, approved old-generation
 deconfiguration after a successful child. It transfers debt only through the

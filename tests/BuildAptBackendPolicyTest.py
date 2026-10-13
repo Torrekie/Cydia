@@ -56,6 +56,16 @@ def main():
                            "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp"]:
                 if source not in driver_sources:
                     driver_sources.append(source)
+        if "Cydia/AptProviderTransactionRequest.cpp" in driver_sources or "Cydia/AptProviderTransactionOwner.cpp" in driver_sources:
+            for source in ["Cydia/AptProviderEffectReviewBundle.cpp", "Cydia/AptProviderDeconfigurationApproval.cpp",
+                           "Cydia/AptProviderBinaryRelationships.cpp", "Cydia/AptProviderTransactionRequest.cpp"]:
+                if source not in driver_sources:
+                    driver_sources.append(source)
+        if "Cydia/AptProviderTransactionOwner.cpp" in driver_sources:
+            for source in ["Cydia/AptProviderTriggerCapture.cpp", "Cydia/AptProviderNativeVersionComparison.cpp",
+                           "Cydia/AptProviderDeconfigurationEffects.cpp", "Cydia/AptProviderInstalledScripts.cpp"]:
+                if source not in driver_sources:
+                    driver_sources.append(source)
         command = shlex.split(os.environ.get("CXX", "c++")) + ["-std=c++17", "-g"]
         if sanitize:
             command += ["-fsanitize=address", "-fno-omit-frame-pointer"]
@@ -223,6 +233,10 @@ def main():
         "Cydia/AptProviderTransactionRequest.cpp", "Cydia/ExtendedState.cpp",
         "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
         "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-effect-review-bundle", sanitize=True)
+    compile_driver(["tests/AptProviderTransactionBeginTests.cpp", "Cydia/AptProviderTransactionRequest.cpp",
+        "Cydia/AptProviderTransactionRequestDigest.cpp", "Cydia/ExtendedState.cpp", "Cydia/AptProviderProtocol.cpp",
+        "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp", "Cydia/RepositorySecurityPolicy.cpp"],
+        "cydia-provider-transaction-begin", sanitize=True, extra_compile_flags=["-DCYDIA_BEGIN_NATIVE_APT"])
     compile_driver(["tests/AptProviderRestorationDebtTests.cpp", "Cydia/AptProviderRestorationDebt.cpp",
         "Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
         "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",

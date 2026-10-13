@@ -154,7 +154,10 @@ bool TransactionArchiveStore::Begin(const std::string &base, const RuntimeDescri
             const VerifiedArchiveControlEvidence *original = nullptr;
             for (const auto &candidate : sourceControls) if (candidate.archive.archive.identifier == archive.identifier) original = &candidate;
             if (!original || !control.control.complete || !control.archive.complete || !control.archive.identityVerified ||
-                control.control.controls != original->control.controls || control.control.triggersPresent != original->control.triggersPresent ||
+                control.control.controls != original->control.controls ||
+                control.control.dependencyOrderVerified != original->control.dependencyOrderVerified ||
+                control.control.dependencyOrder != original->control.dependencyOrder ||
+                control.control.rawControlRecord != original->control.rawControlRecord || control.control.triggersPresent != original->control.triggersPresent ||
                 control.control.triggers != original->control.triggers || !SameScript(control.control.prerm, original->control.prerm) ||
                 !SameScript(control.control.postinst, original->control.postinst)) return Fail(error, "provider_trigger_incoming_unverified");
             VerifiedArchiveControlEvidence effect; effect.archive = retained.source; effect.control = control.control;

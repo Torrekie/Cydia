@@ -236,6 +236,8 @@ struct Range {
     std::string bytes;
     bool commercial = false;
     std::map<std::string, std::string> controls;
+    std::vector<std::string> dependencyOrder;
+    std::string rawControlRecord;
 };
 // The decoder receives only a retained descriptor, and absolute trusted tools
 // with fixed arguments. No APT compressor options or policy are consulted.
@@ -305,8 +307,8 @@ bool Decimal(const std::string &text, std::uint64_t *value) {
     return true;
 }
 bool Record(const std::string &bytes, const ArchiveManifest &archive, std::string *error, bool *commercial,
-    std::map<std::string, std::string> *controls) {
-    std::map<std::string, std::string> fields;
+    std::map<std::string, std::string> *controls, std::vector<std::string> *dependencyOrder) {
+    std::map<std::string, std::string> fields; std::vector<std::string> fieldOrder;
     std::string previous; bool ended = false; std::size_t start = 0;
     while (start < bytes.size()) {
         const auto end = bytes.find('\n', start);
@@ -324,6 +326,7 @@ bool Record(const std::string &bytes, const ArchiveManifest &archive, std::strin
                 previous = Lower(line.substr(0, colon));
                 if (previous.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-") != std::string::npos ||
                     !fields.emplace(previous, Trim(line.substr(colon + 1))).second) return Fail(error, "provider_index_invalid_record");
+                fieldOrder.push_back(previous);
             }
         }
         if (end == std::string::npos) break;
@@ -346,7 +349,8 @@ bool Record(const std::string &bytes, const ArchiveManifest &archive, std::strin
         return Fail(error, "provider_index_hash_mismatch");
     *commercial = Has(Words(fields["tag"]), "cydia::commercial");
     std::string reason;
-    if (!CydiaPackages::CanonicalPackageEffectControlFields(fields, controls, &reason))
+    if (!CydiaPackages::CanonicalPackageEffectControlFields(fields, controls, &reason) ||
+        !CydiaPackages::PackageEffectControlFieldOrder(*controls, fieldOrder, dependencyOrder, &reason))
         return Fail(error, "provider_index_control_unsupported");
     return true;
 }
@@ -381,7 +385,8 @@ bool ReadRecords(const File &file, const std::string &compression, const std::ma
             !(record.size() >= 4 && record.compare(record.size() - 4, 4, "\r\n\r\n") == 0) &&
             !(record.back() == '\n' && (!after.empty() && (after[0] == '\n' || after.compare(0, 2, "\r\n") == 0))))
             return Fail(error, "provider_index_record_boundary");
-        if (!Record(record, archive, error, &range.commercial, &range.controls)) return false;
+        if (!Record(record, archive, error, &range.commercial, &range.controls, &range.dependencyOrder)) return false;
+        range.rawControlRecord = record;
     }
     return true;
 }
@@ -397,6 +402,8 @@ public:
     std::map<std::string, ArchiveManifest> archives;
     std::set<std::string> commercial;
     std::map<std::string, std::map<std::string, std::string>> controls;
+    std::map<std::string, std::vector<std::string>> dependencyOrders;
+    std::map<std::string, std::string> rawControlRecords;
 };
 ArchiveEvidenceSnapshot::ArchiveEvidenceSnapshot() : implementation_(new Implementation) {}
 ArchiveEvidenceSnapshot::~ArchiveEvidenceSnapshot() {}
@@ -455,8 +462,10 @@ std::shared_ptr<ArchiveEvidenceSnapshot> ArchiveEvidenceSnapshot::Capture(const 
         for (const auto &range : index.ranges) {
             if (range.commercial) capture.commercial.insert(range.archive.identifier);
             capture.controls.emplace(range.archive.identifier, range.controls);
+            capture.dependencyOrders.emplace(range.archive.identifier, range.dependencyOrder);
+            capture.rawControlRecords.emplace(range.archive.identifier, range.rawControlRecord);
         }
-        // Keep only the exact selected canonical fields and manifest. Do not
+        // Keep the exact selected raw records and parsed fields/order. Do not
         // retain whole decoded indexes or substitute worker relationship data.
         index.ranges.clear();
     }
@@ -513,7 +522,8 @@ bool ArchiveEvidenceSnapshot::ControlEvidence(const std::vector<ArchiveManifest>
     ErrorScope errors;
     const auto &capture = *implementation_;
     struct Record { const ArchiveManifest *archive; const std::map<std::string, std::string> *controls;
-        std::string manifest, fields; };
+        const std::vector<std::string> *order; const std::string *raw;
+        std::string manifest, fields, ordered; };
     std::vector<Record> records;
     std::set<std::string> seen, indexes;
     std::size_t bytes = 0;
@@ -530,10 +540,16 @@ bool ArchiveEvidenceSnapshot::ControlEvidence(const std::vector<ArchiveManifest>
         const auto controls = capture.controls.find(archive.identifier);
         if (controls == capture.controls.end()) return Fail(error, "provider_archive_control_missing");
         record.controls = &controls->second;
-        if (!Encode(controls->second, &record.fields)) return Fail(error, "provider_index_control_limit");
+        const auto order = capture.dependencyOrders.find(archive.identifier);
+        const auto raw = capture.rawControlRecords.find(archive.identifier);
+        if (order == capture.dependencyOrders.end() || raw == capture.rawControlRecords.end() ||
+            !CydiaPackages::ValidPackageEffectControlFieldOrder(controls->second, order->second))
+            return Fail(error, "provider_archive_control_order_missing");
+        record.order = &order->second; record.raw = &raw->second;
+        if (!Encode(order->second, &record.ordered) || !Encode(controls->second, &record.fields)) return Fail(error, "provider_index_control_limit");
         // Include the encoded 64-character SHA256 identity string in the
         // aggregate limit, before retaining/copying any complete output.
-        for (const auto size : {record.manifest.size(), record.fields.size(), std::size_t(68)}) {
+        for (const auto size : {record.manifest.size(), record.fields.size(), record.ordered.size(), record.raw->size(), std::size_t(68)}) {
             if (size > MaximumIndexControlBytes - bytes) return Fail(error, "provider_index_control_limit");
             bytes += size;
         }
@@ -560,12 +576,14 @@ bool ArchiveEvidenceSnapshot::ControlEvidence(const std::vector<ArchiveManifest>
     for (const auto &record : records) {
         if (Cancelled(cancelled, error)) return false;
         EvidenceHash hash;
-        hash.field("CYDIA-INDEX-CONTROL-EVIDENCE-1"); hash.field(record.manifest); hash.field(record.fields);
+        hash.field("CYDIA-INDEX-CONTROL-EVIDENCE-2"); hash.field(record.manifest); hash.field(record.fields);
+        hash.field(record.ordered); hash.field(*record.raw);
         hash.field(sources); hash.field(identities.at(record.archive->sourceIndexPath));
         VerifiedIndexControlEvidence checked;
         checked.evidenceIdentity = hash.finish();
         if (checked.evidenceIdentity.empty()) return Fail(error, "provider_archive_identity_failed");
         checked.archive = *record.archive; checked.controls = *record.controls;
+        checked.dependencyOrderVerified = true; checked.dependencyOrder = *record.order; checked.rawControlRecord = *record.raw;
         result.push_back(std::move(checked));
     }
     if (Cancelled(cancelled, error)) return false;
@@ -630,7 +648,9 @@ bool ArchiveEvidenceSnapshot::VerifyImpl(const std::vector<ArchiveManifest> &req
             checked.inspection = inspected.archive; control = inspected.control;
             if (Cancelled(cancelled, error)) return false;
             const auto expected = capture.controls.find(archive.identifier);
-            if (!control.complete || expected == capture.controls.end() || control.controls != expected->second)
+            if (!control.complete || !control.dependencyOrderVerified ||
+                !CydiaPackages::ValidPackageEffectControlFieldOrder(control.controls, control.dependencyOrder) ||
+                expected == capture.controls.end() || control.controls != expected->second)
                 return Fail(error, "provider_archive_control_index_mismatch");
         } else checked.inspection = CydiaPackages::InspectPackageArchiveWithDecoders(archive.path,
             {archive.package.package, archive.package.version, archive.package.architecture}, archive.layout,

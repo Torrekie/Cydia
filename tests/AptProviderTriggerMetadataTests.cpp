@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTriggerEffects.hpp"
 #include "Cydia/RuntimeState.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -78,6 +79,37 @@ void NativeFormatAndEvidence() {
     Require(!P::CaptureInstalledTriggerMetadata(fixture.environment, fixture.State(), fixture.lock, &metadata, &error),
         "interrupted native metadata migration cannot grant authority");
 }
+void ProtectedNativeControlOrder() {
+    Fixture fixture; std::string error;
+    const std::string header = "Package: cache\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\nMulti-Arch: same\n";
+    const std::string a = header + "Breaks: old (<<2)\nPre-Depends: base (>=1),\n helper|alternative\nProvides: virtual (=1)\n\n";
+    const std::string b = header + "Provides: virtual (=1)\nPre-Depends: base (>=1),helper|alternative\nBreaks: old (<<2)\n\n";
+    Write(fixture.environment.dpkgAdmin + "/status", a);
+    P::TriggerEffectCheckpoint first;
+    Require(P::CaptureTriggerEffectCheckpoint(fixture.environment, fixture.State(), fixture.lock, &first, &error), error.c_str());
+    const auto &original = first.metadata.packages.at("cache:amd64");
+    Require(original.dependencyOrderVerified && original.rawControlRecord == a &&
+        original.dependencyOrder == std::vector<std::string>{"breaks", "pre-depends", "provides"},
+        "actual protected installed status field order and raw stanza are retained");
+    auto rebound = first;
+    std::reverse(rebound.metadata.packages.at("cache:amd64").dependencyOrder.begin(),
+        rebound.metadata.packages.at("cache:amd64").dependencyOrder.end());
+    Require(P::TriggerEffectCheckpointIdentity(rebound) != first.identity,
+        "checkpoint identity independently binds parsed ordering beyond canonical map equality");
+    rebound = first; rebound.metadata.packages.at("cache:amd64").dependencyOrder.push_back("breaks");
+    Require(P::TriggerEffectCheckpointIdentity(rebound).empty(), "duplicate order entries cannot form a checkpoint");
+    Write(fixture.environment.dpkgAdmin + "/status", b);
+    P::TriggerEffectCheckpoint second;
+    Require(P::CaptureTriggerEffectCheckpoint(fixture.environment, fixture.State(), fixture.lock, &second, &error), error.c_str());
+    const auto &changed = second.metadata.packages.at("cache:amd64");
+    Require(changed.controls == original.controls && changed.dependencyOrder != original.dependencyOrder &&
+        changed.rawControlRecord == b && second.identity != first.identity,
+        "canonical-equal reordered installed data keeps distinct protected evidence");
+    Write(fixture.environment.dpkgAdmin + "/status", header + "Breaks: old\nBreaks: other\n\n");
+    P::InstalledTriggerMetadata refused;
+    Require(!P::CaptureInstalledTriggerMetadata(fixture.environment, fixture.State(), fixture.lock, &refused, &error) &&
+        refused.packages.empty(), "duplicate status fields publish no partial ordered metadata");
+}
 void ConfiguredVersionSemantics() {
     Fixture fixture; P::InstalledTriggerMetadata metadata; std::string error;
     const auto capture = [&](const std::string &phase, const std::string &field, const std::string &queryPhase) {
@@ -138,6 +170,6 @@ void DeferredAndUnsafe() {
 }
 int main() {
     Require(geteuid() == 0, "run only isolated protected fixtures under fakeroot");
-    alarm(20); NativeFormatAndEvidence(); ConfiguredVersionSemantics(); DeferredAndUnsafe(); alarm(0);
+    alarm(20); NativeFormatAndEvidence(); ProtectedNativeControlOrder(); ConfiguredVersionSemantics(); DeferredAndUnsafe(); alarm(0);
     std::cout << "apt-provider-trigger-metadata tests passed\n";
 }

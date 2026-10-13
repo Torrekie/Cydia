@@ -22,6 +22,13 @@ struct TriggerPackageMetadata {
     // Native control field names are lowercase. Folding whitespace is
     // normalized, but relationship alternatives/order/version syntax are kept.
     std::map<std::string, std::string> controls;
+    // Installed captures retain actual protected status stanza sequence/bytes;
+    // refined incoming metadata retains the actual archive sequence instead.
+    // Native dump may reorder a whole database into fieldinfos order after a
+    // child; neither domain is inferred from canonical map iteration.
+    bool dependencyOrderVerified = false;
+    std::vector<std::string> dependencyOrder;
+    std::string rawControlRecord;
     // Installed-only native semantic value: Version for installed/pending,
     // otherwise the retained Config-Version (possibly empty). Never part of
     // incoming archive/index control equality.

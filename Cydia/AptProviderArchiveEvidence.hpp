@@ -13,6 +13,13 @@ constexpr std::size_t MaximumIndexControlBytes = 32 * 1024 * 1024;
 struct VerifiedIndexControlEvidence {
     ArchiveManifest archive;
     std::map<std::string, std::string> controls;
+    // Exact retained Packages stanza and its nonempty effect-field sequence.
+    // This binds index provenance; it does NOT assert the archive's native
+    // INSTALLNEW field order. Compare canonical index/archive semantics while
+    // keeping both independently captured orders and raw records distinct.
+    bool dependencyOrderVerified = false;
+    std::vector<std::string> dependencyOrder;
+    std::string rawControlRecord;
     std::string evidenceIdentity;
 };
 struct VerifiedArchiveControlEvidence {
@@ -53,7 +60,8 @@ public:
     // Output preserves request order, while each identity is independent of
     // that order/subset and binds the full manifest, canonical controls and
     // retained source/index provenance. The byte limit covers encoded
-    // manifests, controls and identity strings together. No archive is needed.
+    // manifests, canonical controls, ordered fields, raw records and identity
+    // strings together. No archive is needed.
     bool ControlEvidence(const std::vector<ArchiveManifest> &requested,
         std::vector<VerifiedIndexControlEvidence> *evidence,
         const std::function<bool()> &cancelled, std::string *error) const;

@@ -208,6 +208,47 @@ void DataInventoryTests() {
     assert(!truncated.ReadDataTarWithInventory(Reader(shortData, &dataOffset)));
     truncated.Finish(); ExpectNoInventory(truncated.DataInventory(), "truncated_tar");
 }
+void OrderedControlFields() {
+    const std::string a = Control() + "Pre-Depends: base (>=1), helper | alternative\n"
+        "Provides: virtual (= 2)\nBreaks: old (<< 3), obsolete\nDepends: \nReplaces: old\nConflicts: incompatible\n";
+    const std::string b = Control() + "Breaks: old (<<3),obsolete\nProvides: virtual (=2)\n"
+        "Pre-Depends: base ( >= 1 ),\n helper|alternative\nConflicts: incompatible\nReplaces: old\n";
+    const auto first = InspectControl(Entry("control", '0', a));
+    const auto second = InspectControl(Entry("control", '0', b));
+    assert(first.complete && second.complete && first.controls == second.controls);
+    assert(first.dependencyOrderVerified && second.dependencyOrderVerified && first.rawControlRecord == a && second.rawControlRecord == b);
+    assert((first.dependencyOrder == std::vector<std::string>{"pre-depends", "provides", "breaks", "replaces", "conflicts"}));
+    assert((second.dependencyOrder == std::vector<std::string>{"breaks", "provides", "pre-depends", "conflicts", "replaces"}));
+    assert(first.dependencyOrder != second.dependencyOrder);
+    assert(ValidPackageEffectControlFieldOrder(first.controls, first.dependencyOrder));
+    std::vector<std::string> written;
+    assert(Dpkg1237WrittenPackageEffectControlFieldOrder(first.controls, &written));
+    assert((written == std::vector<std::string>{"replaces", "provides", "pre-depends", "breaks", "conflicts"}));
+    assert(written != first.dependencyOrder); // Native status serialization is a distinct order domain.
+    auto missing = first.dependencyOrder; missing.pop_back();
+    auto duplicate = first.dependencyOrder; duplicate.push_back(duplicate.front());
+    auto empty = first.dependencyOrder; empty.push_back("depends");
+    auto policy = first.dependencyOrder; policy.push_back("multi-arch");
+    for (const auto &invalid : {missing, duplicate, empty, policy})
+        assert(!ValidPackageEffectControlFieldOrder(first.controls, invalid));
+    std::string error; written = {"stale"};
+    assert(!PackageEffectControlFieldOrder(first.controls, {"breaks", "breaks"}, &written, &error) && written.empty());
+    const auto noRelations = InspectControl(Entry("control", '0', Control() + "Depends: \nProvides: \n"));
+    assert(noRelations.complete && noRelations.dependencyOrderVerified && noRelations.dependencyOrder.empty());
+    const auto mixedCase = InspectControl(Entry("control", '0', Control() + "bReAkS: old\r\nPrE-DePeNdS: base\r\n"));
+    assert(mixedCase.complete && (mixedCase.dependencyOrder == std::vector<std::string>{"breaks", "pre-depends"}));
+    assert(mixedCase.rawControlRecord == Control() + "bReAkS: old\r\nPrE-DePeNdS: base\r\n");
+    for (const auto &bad : {Control() + "Breaks: old\nBreaks: other\n", Control() + "Pre-Depends: base,\n"}) {
+        const auto refused = InspectControl(Entry("control", '0', bad));
+        assert(!refused.complete && !refused.dependencyOrderVerified && refused.dependencyOrder.empty() && refused.rawControlRecord.empty());
+    }
+    auto noNewlineBody = a; noNewlineBody.pop_back();
+    const auto noNewline = InspectControl(Entry("control", '0', noNewlineBody));
+    assert(!noNewline.complete && noNewline.reason == "control_native_record_unverified" &&
+        !noNewline.dependencyOrderVerified && noNewline.dependencyOrder.empty() && noNewline.rawControlRecord.empty());
+    const auto late = InspectControl(Entry("control", '0', a), Entry("unsupported", 'x', "metadata"));
+    assert(!late.complete && !late.dependencyOrderVerified && late.dependencyOrder.empty() && late.rawControlRecord.empty());
+}
 void ControlMetadataTests() {
     std::map<std::string, std::string> canonical, equivalent; std::string error;
     assert(CanonicalPackageEffectControlFields({{"depends", "perl:any(>=5.0),\n locales | alternative"},
@@ -354,7 +395,7 @@ std::string Compress(const std::string &bytes, FileFd::CompressMode mode) {
 }
 
 int main() {
-    ControlMetadataTests();
+    OrderedControlFields(); ControlMetadataTests();
     DataInventoryTests();
     const auto accepted(ArchivePolicyStatus::Accepted), mismatch(ArchivePolicyStatus::LayoutMismatch);
     const auto invalid(ArchivePolicyStatus::Invalid), unverified(ArchivePolicyStatus::Unverified);
@@ -534,6 +575,9 @@ int main() {
         Entry("prerm", '0', effectScript, "", "", 0755) + Entry("postinst", '0', "", "", "", 0755));
     const auto controlEvidence = InspectControlDeb(container + ArMember("control.tar.gz", Compress(effectTar, FileFd::Gzip)) + data);
     assert(controlEvidence.archive.complete && controlEvidence.control.complete && controlEvidence.control.triggers == declarations);
+    assert(controlEvidence.control.dependencyOrderVerified &&
+        (controlEvidence.control.dependencyOrder == std::vector<std::string>{"depends"}) &&
+        controlEvidence.control.rawControlRecord == Control() + "Depends: perl:any (>= 5)\n");
     assert(controlEvidence.control.prerm.present && controlEvidence.control.prerm.bytes == effectScript && controlEvidence.control.prerm.mode == 0755);
     assert(controlEvidence.control.postinst.present && controlEvidence.control.postinst.bytes.empty() && controlEvidence.control.postinst.mode == 0755);
     for (const auto &broken : std::vector<std::string>{
@@ -542,6 +586,7 @@ int main() {
         const auto refused = InspectControlDeb(broken);
         assert(!refused.control.complete && refused.control.controls.empty() && refused.control.triggers.empty());
         assert(!refused.control.prerm.present && !refused.control.postinst.present);
+        assert(!refused.control.dependencyOrderVerified && refused.control.dependencyOrder.empty() && refused.control.rawControlRecord.empty());
     }
     const std::string evidenceData(Entry("." + component, '0', "abc", "", "", 04755, 12, 34) +
         Entry("." + emptyComponent, '0', "", "", "", 0600, 56, 78));
