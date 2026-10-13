@@ -194,9 +194,14 @@ scripts. An actual Configure can discharge debt only after the native package
 and its trigger obligations settle; exact Remove/Purge endpoints preserve any
 separately reviewed later Purge. Unused allowances create no debt or operation.
 Failed, cancelled or uncertain children retire the ledger without completing
-actions or clearing debt. Its single-use bookkeeping is not yet connected to
-the transaction owner. Integration still requires protected content identities,
-complete transition checks, restoration-aware Drain/Defer/Refuse decisions,
+actions or clearing debt. Opaque protected restoration checkpoints retain exact
+native phases separately from generation content identities. Successor capture
+compares freshly installed controls and selected scripts against rehashed
+retained archive bytes and exact script metadata; it does not infer native
+child success. Versioned NotInstalled selections remain present metadata,
+while genuinely forgotten records remain absent. The single-use bookkeeping
+and protected capture are not yet connected to the transaction owner.
+Integration still requires complete transition checks, restoration-aware Drain/Defer/Refuse decisions,
 trigger quiescence and the existing final state compare-and-swap.
 
 Internal transaction-channel version three can bind a protected conffile policy

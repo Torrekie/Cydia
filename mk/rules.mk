@@ -224,6 +224,8 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderConffilePolicy.cpp Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp \
 		Cydia/AptProviderTriggerEffects.cpp Cydia/AptProviderTriggerMetadata.cpp \
 		Cydia/AptProviderInstalledScripts.cpp Cydia/AptProviderBinaryRelationships.cpp \
+		Cydia/AptProviderRestorationCapture.cpp Cydia/AptProviderRestorationCapture.hpp \
+		Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderRestorationDebt.hpp \
 		Cydia/AptProviderUnpackOwnership.cpp \
 		Cydia/AptProviderInstalledOwnership.cpp Cydia/AptProviderPreDependsEvidence.cpp \
 		Cydia/AptProviderDeconfigurationEffects.cpp \

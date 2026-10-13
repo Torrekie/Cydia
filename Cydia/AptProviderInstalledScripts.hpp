@@ -26,6 +26,9 @@ struct InstalledScriptMetadata {
 // Library-only native capture. The parent derives exactTargets independently;
 // no worker selector or assertion is authority. Nonempty selection requires
 // root, the actual retained frontend lock and a fresh protected query state.
+// Versioned NotInstalled selections retain their actual controls and selected
+// script presence/absence. This is metadata presence, not installed status or
+// successful removal proof. Native Config-Version rules remain enforced.
 // Unknown/duplicate/generation-mismatched targets refuse atomically. Format0
 // uses bare names; format1 qualifies Multi-Arch:same names. Conflicting names,
 // symlink/hardlink leaves and metadata migrations refuse. Empty selection is a

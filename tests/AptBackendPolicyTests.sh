@@ -44,6 +44,7 @@ ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-unp
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-predepends-evidence"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-deconfiguration-approval"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-restoration-debt"
+fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-restoration-capture"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-deconfiguration-allowances"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-review-capture"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-recovery-dependencies"

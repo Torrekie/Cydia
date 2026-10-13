@@ -109,6 +109,7 @@ apt_api_sources := \
     Cydia/AptProviderTransactionOwner.cpp \
     Cydia/AptProviderNativeDpkgAuthority.cpp \
     Cydia/AptProviderConffilePolicy.cpp \
+    Cydia/AptProviderRestorationCapture.cpp \
     Cydia/AptProviderTriggerEffects.cpp \
     Cydia/AptProviderTriggerMetadata.cpp \
     Cydia/AptProviderInstalledScripts.cpp \

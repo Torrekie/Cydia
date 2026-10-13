@@ -222,6 +222,14 @@ def main():
         "Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
         "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
         "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-restoration-debt", sanitize=True)
+    restoration_capture_sources = list(dict.fromkeys(
+        ["tests/AptProviderRestorationCaptureTests.cpp"] + transaction_files_sources[1:] +
+        transaction_effect_sources + ["Cydia/AptProviderRestorationCapture.cpp",
+        "Cydia/AptProviderInstalledScripts.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
+        "Cydia/AptProviderDpkgState.cpp", "Cydia/DpkgRunner.cpp", "Cydia/RuntimeState.cpp",
+        "Cydia/RuntimeSnapshotInputs.cpp"]))
+    compile_driver(restoration_capture_sources, "cydia-provider-restoration-capture",
+        extra_link_flags=["-lz"])
     compile_driver(["tests/AptProviderDeconfigurationEffectsTests.cpp", "Cydia/AptProviderDeconfigurationEffects.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-deconfiguration-allowances", sanitize=True)
     compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [

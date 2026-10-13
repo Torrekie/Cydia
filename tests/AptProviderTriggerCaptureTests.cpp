@@ -352,7 +352,11 @@ void Deconfiguration(DeconfigurationCase kind) {
     Write(script, kind == DeconfigurationCase::EmptyScript ? "" : "#!/bin/sh\nexit 0\n", 0755);
     if (kind == DeconfigurationCase::AmbiguousScript)
         Write(environment.dpkgAdmin + "/info/beta:amd64.prerm", "ambiguous", 0755);
-    A::ReviewedTransaction review; review.binding = runtime.binding;
+    A::ReviewedTransaction review;
+    review.binding.providerIdentifier = runtime.binding.providerIdentifier;
+    review.binding.session = runtime.binding.session;
+    review.binding.configurationIdentity = runtime.binding.configurationIdentity;
+    review.binding.policyIdentity = runtime.binding.policyIdentity;
     review.binding.cacheEpoch = review.binding.selectionRevision = 1; review.binding.review = "review";
     review.transaction.registeredArchitectures = {"amd64"};
     A::ArchiveManifest archive; archive.identifier = "alpha"; archive.package = {"alpha", "2", "amd64"};

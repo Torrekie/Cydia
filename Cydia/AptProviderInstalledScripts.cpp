@@ -88,11 +88,16 @@ bool CaptureInstalledScripts(const P::Environment &environment, const DpkgState 
         const auto found = controls.find(key);
         const auto current = state.packages.find(key);
         if (found == controls.end() || current == state.packages.end() ||
-            current->second.status == DpkgPackageStatus::NotInstalled || target.version.empty() ||
+            target.version.empty() ||
             found->second.package.version != target.version || result.packages.count(key))
             return Fail(error, "provider_installed_scripts_target_changed");
         InstalledPackageScripts package; package.package = found->second.package; package.configVersion = found->second.configVersion;
         package.diskStatus = found->second.diskStatus;
+        // dpkg db-ctrl-format.c:pkg_infodb_get_file selects only by native
+        // info format and retained Multi-Arch value, not installation phase.
+        // A versioned NotInstalled Install/Hold selection is real metadata;
+        // its observed scripts (including orphaned contents) are evidence,
+        // never a claim that the package is installed or removal succeeded.
         const bool qualified = version == "1" && found->second.controls.at("multi-arch") == "same";
         std::string bytes("CYDIA-INSTALLED-PACKAGE-SCRIPTS-1");
         for (const auto &value : {package.package.package, package.package.version, package.package.architecture, package.configVersion}) Frame(&bytes, value);
