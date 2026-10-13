@@ -37,6 +37,7 @@ NSString *CydiaAPTDiagnosticMessage(const CydiaAPT::ErrorData &diagnostic) {
     if (DiagnosticCodeIs(code, {
         "provider_review_missing", "provider_review_or_lock_required", "provider_unverified_dpkg_effects",
         "provider_deconfiguration_unknown", "provider_trigger_targets_unknown", "provider_archive_evidence_unavailable",
+        "provider_trigger_predepends_batch_boundary", "provider_trigger_primary_not_authorized",
         "provider_archive_review_missing", "provider_parent_operation_unsupported", "provider_security_override_unsupported",
         "provider_execution_not_approved", "provider_archive_manifest_missing", "provider_dpkg_state_unavailable"}))
         return DiagnosticLabel(@"REVIEW_UNAVAILABLE", @"RuntimeProvider");

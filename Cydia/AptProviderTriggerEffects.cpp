@@ -432,6 +432,7 @@ bool TriggerEffectLedger::PreparePrimary(const std::string &expected, const Auth
         std::find(batch.arguments.begin(), batch.arguments.end(), "--auto-deconfigure") != batch.arguments.end())
         return Reject(error, "provider_dpkg_effects_unknown");
     std::set<std::uint64_t> ids; std::set<std::string> targets;
+    std::map<std::string, const ReviewedAction *> unpackActions;
     for (const auto id : batch.actions) {
         const ReviewedAction *action = NULL;
         for (const auto &candidate : envelope_.primaryReview.execution.actions) if (candidate.identifier == id) action = &candidate;
@@ -444,6 +445,34 @@ bool TriggerEffectLedger::PreparePrimary(const std::string &expected, const Auth
                 incomingArchiveIdentities_.count(action->archive) && archive.fileIdentity == incomingArchiveIdentities_.at(action->archive) &&
                 SamePackage(archive.archive.package, action->package)) proof = true;
             if (refined == incomingMetadata_.end() || !proof) return Reject(error, "provider_trigger_incoming_unverified");
+            if (!unpackActions.emplace(action->archive, action).second) return Reject(error, "provider_trigger_incoming_unverified");
+        }
+    }
+    if (batch.action == ExecutionAction::Unpack) {
+        if (batch.archives.size() != unpackActions.size()) return Reject(error, "provider_trigger_incoming_unverified");
+        std::set<std::string> archives;
+        // ReviewAuthorization validates requested operands/actions in order
+        // and retains that order in archives; actions is a sorted ID set.
+        // TransactionLease substitutes private argv paths in place, retaining
+        // this independently authorized archive/operand order. A worker's
+        // archive order or the review/refinement container order is no proof.
+        for (std::size_t position = 0; position < batch.archives.size(); ++position) {
+            const auto &archive = batch.archives[position];
+            const auto selected = unpackActions.find(archive.archive.identifier);
+            const ArchiveManifest *reviewed = NULL;
+            for (const auto &candidate : envelope_.primaryReview.execution.archives)
+                if (candidate.identifier == archive.archive.identifier) reviewed = &candidate;
+            std::string a, b;
+            if (selected == unpackActions.end() || !archives.insert(archive.archive.identifier).second || !reviewed ||
+                !Encode(*reviewed, &a) || !Encode(archive.archive, &b) || a != b)
+                return Reject(error, "provider_trigger_incoming_unverified");
+            const auto &controls = incomingMetadata_.at(Generation(selected->second->package)).controls;
+            const auto preDepends = controls.find("pre-depends");
+            if (preDepends == controls.end()) return Reject(error, "provider_trigger_incoming_unverified");
+            // Later Pre-Depends needs the state after preceding children,
+            // not a shared pre-batch snapshot. This boundary prerequisite is
+            // not native readiness or whole-child no-inline trigger proof.
+            if (position && !preDepends->second.empty()) return Reject(error, "provider_trigger_predepends_batch_boundary");
         }
     }
     if (batch.action == ExecutionAction::Triggers) {

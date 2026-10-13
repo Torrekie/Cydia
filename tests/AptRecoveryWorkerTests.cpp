@@ -65,9 +65,9 @@ struct BatchFixture {
             return true;
         };
     }
-    P::PackageManagerReply Run(const P::ReviewedTransaction &review) {
+    P::PackageManagerReply Run(const P::ReviewedTransaction &review, const std::set<std::string> &preDependsArchives = {}) {
         batches.clear(); commits = 0;
-        return R::ExecuteReviewedActions(runtime, review, {}, context);
+        return R::ExecuteReviewedActions(runtime, review, {}, context, preDependsArchives);
     }
 };
 bool Has(const std::vector<std::string> &arguments, const char *option) {
@@ -152,6 +152,67 @@ void BoundedOperations() {
             "unsplittable trigger/argument shape must reject before earlier valid effects");
     }
 }
+void PreDependsBatchBoundaries() {
+    BatchFixture fixture; P::ReviewedTransaction review; review.binding.review = "review:predepends-boundaries";
+    for (const auto id : {2u, 4u, 7u, 8u, 9u, 12u}) Append(review, id, P::ExecutionAction::Unpack, "package-" + std::to_string(id));
+    Append(review, 15, P::ExecutionAction::Configure, "package-2");
+    Append(review, 16, P::ExecutionAction::Configure, "package-4");
+    const std::set<std::string> hints{"archive-2", "archive-7", "archive-8"};
+    const auto result = fixture.Run(review, hints);
+    const std::vector<std::vector<std::uint64_t>> expected{{2,4}, {7}, {8,9,12}, {15,16}};
+    Require(result.result == CydiaAPT::PackageManagerResult::Completed && fixture.commits == 1 && fixture.batches.size() == expected.size(),
+        "Pre-Depends starts an unpack child while following ordinary unpacks remain grouped");
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        const auto &batch = fixture.batches[i];
+        Require(batch.actions == expected[i] && batch.batch == i + 1 && Has(batch.arguments, "--no-triggers") &&
+            batch.arguments[0] == fixture.runtime.dpkgOptions[0] && batch.arguments[1] == fixture.runtime.dpkgOptions[1],
+            "Pre-Depends splitting preserves action IDs, order, options and batch sequence");
+        const auto separator = std::find(batch.arguments.begin(), batch.arguments.end(), "--");
+        Require(separator != batch.arguments.end() && static_cast<std::size_t>(batch.arguments.end() - separator - 1) == expected[i].size(),
+            "split batch has exactly one operand per original action");
+        if (i < 3) for (std::size_t j = 0; j < expected[i].size(); ++j)
+            Require(*(separator + 1 + j) == "/private/cache/package-" + std::to_string(expected[i][j]) + ".deb",
+                "split retains exact reviewed archive operands");
+    }
+    const auto ordinary = fixture.Run(review);
+    Require(ordinary.result == CydiaAPT::PackageManagerResult::Completed && fixture.batches.size() == 2 &&
+        fixture.batches.front().actions == std::vector<std::uint64_t>({2,4,7,8,9,12}), "empty local hints preserve ordinary batching");
+    fixture.failBatch = 2;
+    const auto failed = fixture.Run(review, hints);
+    Require(failed.started && failed.result == CydiaAPT::PackageManagerResult::Failed && fixture.batches.size() == 2 && !fixture.commits,
+        "failed split child is never retried or followed by a state commit");
+    fixture.failBatch = 0; fixture.cancelAfterBatch = true;
+    const auto cancelled = fixture.Run(review, hints);
+    Require(cancelled.started && fixture.batches.size() == 1 && !fixture.commits, "cancellation observes the new child boundary");
+    for (unsigned variant = 0; variant < 4; ++variant) {
+        BatchFixture invalid; auto bad = review; auto invalidHints = hints;
+        if (variant == 0) invalidHints.insert("unknown-archive");
+        if (variant == 1) bad.execution.archives.push_back(bad.execution.archives.front());
+        if (variant == 2) {
+            invalidHints.clear();
+            for (std::size_t i = 0; i <= P::MaximumCollectionItems; ++i) invalidHints.insert("archive-" + std::to_string(i));
+        }
+        if (variant == 3) bad.execution.actions.back().action = P::ExecutionAction::Deconfigure;
+        const auto denied = invalid.Run(bad, invalidHints);
+        Require(!denied.started && invalid.batches.empty() && !invalid.commits,
+            "unknown/oversized hints, duplicate reviewed archives or invalid later actions refuse before all parent calls");
+    }
+    BatchFixture bounded; P::ReviewedTransaction large; large.binding.review = "review:bounded-barriers";
+    for (unsigned i = 0; i < 1100; ++i) Append(large, i + 1, P::ExecutionAction::Unpack, "package-" + std::to_string(i));
+    const auto complete = bounded.Run(large, {"archive-1025"});
+    Require(complete.result == CydiaAPT::PackageManagerResult::Completed, "size and Pre-Depends barriers compose");
+    std::vector<std::uint64_t> actions;
+    for (const auto &batch : bounded.batches) {
+        std::size_t bytes = 256;
+        for (const auto &argument : batch.arguments) bytes += argument.size() + 1 + sizeof(char *);
+        Require(bytes <= 32 * 1024 && batch.actions.size() <= 1024, "barrier does not bypass argv/count limits");
+        const auto found = std::find(batch.actions.begin(), batch.actions.end(), 1025);
+        Require(found == batch.actions.end() || found == batch.actions.begin(), "bounded batch never places a hinted archive later");
+        actions.insert(actions.end(), batch.actions.begin(), batch.actions.end());
+    }
+    Require(actions.size() == 1100, "bounded barriers lost actions");
+    for (std::size_t i = 0; i < actions.size(); ++i) Require(actions[i] == i + 1, "bounded barriers reordered actions");
+}
 void CompletePendingTriggers() {
     BatchFixture fixture; P::ReviewedTransaction review; review.binding.review = "review:triggers";
     Append(review, 7, P::ExecutionAction::Triggers, "recipient-one");
@@ -175,7 +236,7 @@ void CompletePendingTriggers() {
 }
 }
 int main() {
-    GroupedOperations(); BoundedOperations(); CompletePendingTriggers();
+    GroupedOperations(); BoundedOperations(); CompletePendingTriggers(); PreDependsBatchBoundaries();
     CydiaAPT::RuntimeDescriptor runtime; runtime.mutationEnvironmentValid = true;
     runtime.dpkgOptions = {"--root=/selected/root", "--admindir=/selected/admin"};
     const auto review(Review());

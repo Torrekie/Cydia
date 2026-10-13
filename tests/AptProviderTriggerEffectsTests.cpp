@@ -1,6 +1,7 @@
 /* Parent-owned finite effects: pure fixtures, no dpkg child or host mutation.
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTriggerEffects.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 
@@ -185,6 +186,126 @@ void IncomingAndPrimary() {
     P::TriggerEffectLedger wrongArchive; auto wrong = proof; wrong.archive.fileIdentity.clear();
     Require(wrongArchive.Begin(envelope, before, &error) && !wrongArchive.RefineIncoming({wrong}, &error), "claimed archive control without retained evidence rejected");
 }
+void PreDependsChildBoundaries() {
+    const auto before = Point(Row("cache"), {{"cache:amd64", "interest-await cache-native\n"}}, {{"cache-native", "cache:amd64\n"}});
+    auto review = Review(before); P::ArchiveManifest first, later;
+    first.identifier = "first-archive"; first.package = {"portable", "2", "all"}; first.path = "/fixture/portable.deb";
+    later.identifier = "later-archive"; later.package = {"helper", "2", "amd64"}; later.path = "/fixture/helper.deb";
+    review.execution.archives = {first, later};
+    review.execution.actions = {Action(10, P::ExecutionAction::Unpack, first.package, first.identifier),
+        Action(20, P::ExecutionAction::Unpack, later.package, later.identifier)};
+    auto firstProof = Incoming(first), laterProof = Incoming(later);
+    auto batch = Batch(1, P::ExecutionAction::Unpack, {10, 20}); batch.archives = {firstProof.archive, laterProof.archive};
+    std::string error;
+    P::TriggerEffectLedger ordinary;
+    Require(ordinary.Begin(Envelope(before, review), before, &error) && ordinary.RefineIncoming({firstProof, laterProof}, &error) &&
+        ordinary.PreparePrimary(before.identity, batch, &error), "ordinary homogeneous unpack batching is retained");
+    firstProof.control.controls["pre-depends"] = "cache (>= 1)";
+    P::TriggerEffectLedger firstOnly;
+    Require(firstOnly.Begin(Envelope(before, review), before, &error) && firstOnly.RefineIncoming({firstProof, laterProof}, &error) &&
+        firstOnly.PreparePrimary(before.identity, batch, &error), "first member Pre-Depends has a pre-child checkpoint and is not rejected by the batching prerequisite");
+    laterProof.control.controls["pre-depends"] = "cache (>= 1)";
+    P::TriggerEffectLedger laterDenied;
+    Require(laterDenied.Begin(Envelope(before, review), before, &error) && laterDenied.RefineIncoming({firstProof, laterProof}, &error) &&
+        !laterDenied.PreparePrimary(before.identity, batch, &error) && !laterDenied.indeterminate() &&
+        error == "provider_trigger_predepends_batch_boundary", "later member Pre-Depends requires another child before any execution starts");
+    laterProof.control.controls["pre-depends"].clear();
+    auto reorderedBatch = batch; reorderedBatch.actions = {20, 10};
+    std::reverse(reorderedBatch.archives.begin(), reorderedBatch.archives.end());
+    P::TriggerEffectLedger reorderedDenied;
+    Require(reorderedDenied.Begin(Envelope(before, review), before, &error) && reorderedDenied.RefineIncoming({laterProof, firstProof}, &error) &&
+        !reorderedDenied.PreparePrimary(before.identity, reorderedBatch, &error) && !reorderedDenied.indeterminate() &&
+        error == "provider_trigger_predepends_batch_boundary", "authorized archive operand order determines the boundary independently of refinement storage order");
+    std::reverse(review.execution.archives.begin(), review.execution.archives.end());
+    std::reverse(review.execution.actions.begin(), review.execution.actions.end());
+    P::TriggerEffectLedger reorderedAllowed;
+    Require(reorderedAllowed.Begin(Envelope(before, review), before, &error) && reorderedAllowed.RefineIncoming({laterProof, firstProof}, &error) &&
+        reorderedAllowed.PreparePrimary(before.identity, batch, &error), "review/archive/refinement storage order cannot move first-operand Pre-Depends to a guessed boundary");
+    auto duplicateBatch = batch; duplicateBatch.archives = {firstProof.archive, firstProof.archive, laterProof.archive};
+    P::TriggerEffectLedger duplicate;
+    Require(duplicate.Begin(Envelope(before, review), before, &error) && duplicate.RefineIncoming({firstProof, laterProof}, &error) &&
+        !duplicate.PreparePrimary(before.identity, duplicateBatch, &error) && !duplicate.indeterminate() &&
+        error == "provider_trigger_incoming_unverified", "duplicate archive evidence cannot establish ordered complete unpack proof");
+    P::TriggerEffectLedger unrefined;
+    Require(unrefined.Begin(Envelope(before, review), before, &error) && !unrefined.PreparePrimary(before.identity, batch, &error) &&
+        !unrefined.indeterminate() && error == "provider_trigger_incoming_unverified", "batch archive hints cannot replace complete parent control refinement");
+    P::TriggerEffectLedger incomplete;
+    Require(incomplete.Begin(Envelope(before, review), before, &error) && !incomplete.RefineIncoming({firstProof}, &error) &&
+        !incomplete.indeterminate(), "partial refinement cannot establish any unpack boundary");
+    auto changedProof = firstProof; changedProof.archive.fileIdentity = "different-file-proof";
+    auto changedBatch = batch; changedBatch.archives = {changedProof.archive, laterProof.archive};
+    P::TriggerEffectLedger changed;
+    Require(changed.Begin(Envelope(before, review), before, &error) && changed.RefineIncoming({firstProof, laterProof}, &error) &&
+        !changed.PreparePrimary(before.identity, changedBatch, &error) && !changed.indeterminate() &&
+        error == "provider_trigger_incoming_unverified", "unretained archive identity is rejected before the boundary guard");
+    // The boundary prerequisite does not relax the existing effect policy.
+    auto autoDeconfigure = batch; autoDeconfigure.arguments.push_back("--auto-deconfigure");
+    P::TriggerEffectLedger stillRefused;
+    Require(stillRefused.Begin(Envelope(before, review), before, &error) && stillRefused.RefineIncoming({firstProof, laterProof}, &error) &&
+        !stillRefused.PreparePrimary(before.identity, autoDeconfigure, &error) && !stillRefused.indeterminate() &&
+        error == "provider_dpkg_effects_unknown", "existing auto-deconfiguration refusal remains before any child");
+}
+void AuthorizedUnpackOperandOrder() {
+    const auto before = Point(Row("cache"), {{"cache:amd64", "interest-await cache-native\n"}}, {{"cache-native", "cache:amd64\n"}});
+    auto review = Review(before); P::ReviewPolicy policy;
+    auto &environment = policy.environment;
+    environment.paths.dpkg = "/usr/bin/dpkg"; environment.paths.dpkgQuery = "/usr/bin/dpkg-query";
+    environment.paths.dpkgDeb = "/usr/bin/dpkg-deb"; environment.paths.dpkgRoot = "/"; environment.paths.dpkgAdmin = "/var/lib/dpkg";
+    environment.configurationIdentity = "config-v1"; environment.policyIdentity = "policy-v1"; environment.methodsIdentity = "methods-v1";
+    environment.packageStateIdentity = before.packages.packageStateIdentity; environment.nativeArchitecture = "amd64";
+    environment.registeredArchitectures = environment.acquisitionArchitectures = before.packages.registeredArchitectures;
+    policy.layout = {"/", {"/var/jb"}}; policy.protectedDpkgOptions = {"--root=/", "--admindir=/var/lib/dpkg"};
+    review.binding.providerIdentifier = "provider"; review.binding.session.assign(64, 'a');
+    review.binding.configurationIdentity = environment.configurationIdentity; review.binding.policyIdentity = environment.policyIdentity;
+    review.binding.cacheEpoch = review.binding.selectionRevision = 1; review.binding.review = "review-v1";
+    review.transaction.registeredArchitectures = environment.registeredArchitectures;
+    const auto archive = [&](const std::string &name, unsigned id) {
+        const auto identity = CydiaAPT::BuildPackageIdentity(name, "amd64", "amd64", "amd64", CydiaAPT::MultiArchMode::None);
+        review.transaction.installs.push_back(identity.routingName); review.transaction.packages[identity.routingName] = {identity, "2", name};
+        P::ArchiveManifest value; value.identifier = name + "-archive"; value.package = {name, "2", "amd64"};
+        value.sourceURI = "https://repository.invalid/"; value.sourceIndexIdentity = "SHA256:" + std::string(64, 'a');
+        value.sourceDefinitionPath = "/etc/apt/sources.list.d/example.sources";
+        value.sourceIndexPath = "/var/lib/apt/lists/repository.invalid_Packages"; value.sourceIndexURI = "https://repository.invalid/Packages";
+        value.filename = "pool/" + name + ".deb"; value.recordOffset = id * 1024; value.recordSize = 512;
+        value.path = "/cache/" + name + ".deb"; value.hashes = {{"SHA256", std::string(64, '1')}}; value.size = 4096; value.layout = policy.layout;
+        return value;
+    };
+    const auto first = archive("alpha", 1), second = archive("beta", 2);
+    review.execution.archives = {first, second};
+    review.execution.actions = {Action(1, P::ExecutionAction::Unpack, first.package, first.identifier),
+        Action(2, P::ExecutionAction::Unpack, second.package, second.identifier), Action(3, P::ExecutionAction::Configure, first.package),
+        Action(4, P::ExecutionAction::Configure, second.package)};
+    auto firstProof = Incoming(first), secondProof = Incoming(second);
+    firstProof.archive.fileIdentity = "parent-file-proof:alpha"; secondProof.archive.fileIdentity = "parent-file-proof:beta";
+    P::ParentExecutionEvidence evidence; evidence.binding = review.binding; evidence.frontendLockHeld = evidence.stateVerified = true;
+    evidence.stateIdentity = review.binding.packageStateIdentity; evidence.statusDescriptor = 8;
+    evidence.deconfigurationTargetsKnown = evidence.triggerTargetsKnown = true; evidence.archives = {firstProof.archive, secondProof.archive};
+    P::ParentExecutionRequest request; request.binding = review.binding; request.batch = 1; request.action = P::ExecutionAction::Unpack;
+    request.actions = {2, 1}; request.arguments = policy.protectedDpkgOptions;
+    request.arguments.insert(request.arguments.end(), {"--status-fd", "8", "--no-triggers", "--unpack", second.path, first.path});
+    P::ReviewAuthorization authorization; P::AuthorizedExecution ordered; std::string error;
+    Require(authorization.Accept(review, policy, &error) && authorization.Authorize(request, evidence, &ordered, &error) &&
+        ordered.actions == std::vector<std::uint64_t>({1, 2}) && ordered.archives.size() == 2 &&
+        ordered.archives[0].archive.identifier == second.identifier && ordered.archives[1].archive.identifier == first.identifier,
+        "genuine authorization sorts selected IDs while retaining validated requested archive operand order");
+    // TransactionLease changes only each argv path value in place; manifests
+    // and independently authorized operand order remain exactly as above.
+    for (auto &argument : ordered.arguments) {
+        if (argument == first.path) argument = "/retained/alpha.deb";
+        else if (argument == second.path) argument = "/retained/beta.deb";
+    }
+    Require(ordered.arguments[ordered.arguments.size() - 2] == "/retained/beta.deb" && ordered.arguments.back() == "/retained/alpha.deb",
+        "lease-style private argv substitution preserves second-then-first child order");
+    firstProof.control.controls["pre-depends"] = "cache (>= 1)";
+    P::TriggerEffectLedger denied;
+    Require(denied.Begin(Envelope(before, review), before, &error) && denied.RefineIncoming({firstProof, secondProof}, &error) &&
+        !denied.PreparePrimary(before.identity, ordered, &error) && !denied.indeterminate() &&
+        error == "provider_trigger_predepends_batch_boundary", "sorted ID 1 is not the first child operand and its Pre-Depends requires a boundary");
+    firstProof.control.controls["pre-depends"].clear(); secondProof.control.controls["pre-depends"] = "cache (>= 1)";
+    P::TriggerEffectLedger allowed;
+    Require(allowed.Begin(Envelope(before, review), before, &error) && allowed.RefineIncoming({secondProof, firstProof}, &error) &&
+        allowed.PreparePrimary(before.identity, ordered, &error), "actual first operand ID 2 may have Pre-Depends even though sorted action IDs start with 1");
+}
 void ConfiguredVersions() {
     std::string error;
     for (const std::string previous : {std::string(), std::string("0")}) {
@@ -245,6 +366,6 @@ void Parsers() {
 }
 }
 int main() {
-    Parsers(); RepeatedDrains(); DeferredQueues(); Rejections(); IncomingAndPrimary(); ConfiguredVersions();
+    Parsers(); RepeatedDrains(); DeferredQueues(); Rejections(); IncomingAndPrimary(); PreDependsChildBoundaries(); AuthorizedUnpackOperandOrder(); ConfiguredVersions();
     std::cout << "apt-provider-trigger-effects tests passed\n";
 }

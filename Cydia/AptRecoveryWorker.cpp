@@ -192,13 +192,20 @@ bool ArgumentBytes(const std::string &argument, std::size_t *bytes) {
     *bytes += size; return true;
 }
 bool PlanBatches(const RuntimeDescriptor &runtime, const P::ReviewedTransaction &review,
-    const P::ServerRequestContext &context, std::vector<P::ParentExecutionRequest> *batches) {
+    const P::ServerRequestContext &context, const std::set<std::string> &preDependsArchives,
+    std::vector<P::ParentExecutionRequest> *batches) {
     if (review.execution.actions.size() > P::MaximumCollectionItems ||
+        review.execution.archives.size() > P::MaximumCollectionItems ||
+        preDependsArchives.size() > P::MaximumCollectionItems ||
         runtime.dpkgOptions.size() > MaximumBatchActions) return false;
     std::set<std::uint64_t> identifiers;
     std::map<std::string, const P::ArchiveManifest *> archives;
-    for (const auto &archive : review.execution.archives)
-        if (!archives.emplace(archive.identifier, &archive).second) return false;
+    for (const auto &archive : review.execution.archives) {
+        if (Cancelled(context) || !P::ValidIdentityToken(archive.identifier) ||
+            !archives.emplace(archive.identifier, &archive).second) return false;
+    }
+    for (const auto &identifier : preDependsArchives)
+        if (Cancelled(context) || !archives.count(identifier)) return false;
     bool triggersSeen = false;
     for (std::size_t next = 0; next < review.execution.actions.size();) {
         if (Cancelled(context)) return false;
@@ -233,6 +240,10 @@ bool PlanBatches(const RuntimeDescriptor &runtime, const P::ReviewedTransaction 
             if (kind == P::ExecutionAction::Unpack) {
                 const auto archive(archives.find(action.archive));
                 if (archive == archives.end()) return false;
+                // An earlier unpack in this child can change the state that
+                // a later Pre-Depends check observes. Retain that boundary
+                // even when libapt recorded contiguous unpack operations.
+                if (!request.actions.empty() && preDependsArchives.count(action.archive)) break;
                 operand = archive->second->path;
             }
             std::size_t expanded = bytes;
@@ -252,14 +263,14 @@ bool PlanBatches(const RuntimeDescriptor &runtime, const P::ReviewedTransaction 
 
 Provider::PackageManagerReply ExecuteReviewedActions(const RuntimeDescriptor &runtime,
     const P::ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
-    const P::ServerRequestContext &context) {
+    const P::ServerRequestContext &context, const std::set<std::string> &preDependsArchives) {
     P::PackageManagerReply result;
     if (context.operation != P::Operation::RunPackageManager || !context.parentRequest ||
         !runtime.mutationEnvironmentValid || review.binding.review.empty()) return result;
     // Validate the complete plan before the first effect, including shapes
     // that cannot be split safely to fit the bounded parent execution channel.
     std::vector<P::ParentExecutionRequest> batches;
-    if (!PlanBatches(runtime, review, context, &batches)) return result;
+    if (!PlanBatches(runtime, review, context, preDependsArchives, &batches)) return result;
     for (const auto &request : batches) {
         if (Cancelled(context)) return result;
         std::string payload; P::Message reply; P::ParentExecutionReply execution;
@@ -304,7 +315,7 @@ int RunWorker(int argc, char *argv[]) {
     P::WorkerAcquireStatus status;
     auto backend(Internal::CreateNativeBackend(status));
     P::ServerHooks hooks;
-    P::ReviewedTransaction retained;
+    RecoveryCaptureResult retained;
     const P::ServerRequestContext *active = nullptr;
     std::unique_ptr<P::ScopedWorkerArchiveAuthorization> authorization;
     WorkerTrustProof trust;
@@ -320,21 +331,28 @@ int RunWorker(int argc, char *argv[]) {
     };
     hooks.operationContext = [&](const P::ServerRequestContext *context) {
         authorization.reset(); active = context;
+        if (context && (context->operation == P::Operation::Reset || context->operation == P::Operation::OpenCache))
+            retained = RecoveryCaptureResult();
         status.SetCallbacks(context ? context->progress : std::function<bool(const P::ProgressEvent &)>(),
             context ? context->control.cancelled : std::function<bool()>());
         if (context && (context->operation == P::Operation::Reset || context->operation == P::Operation::OpenCache ||
             context->operation == P::Operation::PrepareArchives || context->operation == P::Operation::RunFetcher))
             SetCachedRepositoryTrustValid(trust.Matches(snapshot, context->control.cancelled));
-        if (context && context->operation == P::Operation::RunFetcher && !retained.binding.review.empty())
-            authorization.reset(new P::ScopedWorkerArchiveAuthorization(retained, *context, info.capabilities));
+        if (context && context->operation == P::Operation::RunFetcher && !retained.review.binding.review.empty())
+            authorization.reset(new P::ScopedWorkerArchiveAuthorization(retained.review, *context, info.capabilities));
     };
-    hooks.buildReview = [&](const TransactionData &, const P::Binding &binding, P::ExecutionManifest *manifest, std::string *code) {
+    hooks.buildReview = [&](const TransactionData &transaction, const P::Binding &binding, P::ExecutionManifest *manifest, std::string *code) {
+        retained = RecoveryCaptureResult();
         CydiaPackages::ArchiveLayout layout; layout.prefix = snapshot.runtime.packageInstallPrefix;
         if (layout.prefix == "/") layout.foreignPrefixes = {"/var/jb"};
-        const auto captured(backend->captureRecoveryReview(snapshot.runtime, binding, layout,
+        auto captured(backend->captureRecoveryReview(snapshot.runtime, binding, layout,
             active ? active->control.cancelled : std::function<bool()>(), finiteEffects));
         if (captured.status != RecoveryCaptureStatus::Recorded) { *code = captured.errorCode; return false; }
-        retained = captured.review; *manifest = retained.execution; return true;
+        std::string expected, actual;
+        if (!P::Encode(transaction, &expected) || !P::Encode(captured.review.transaction, &actual) || expected != actual) {
+            *code = "recovery_transaction_changed"; return false;
+        }
+        retained = std::move(captured); *manifest = retained.review.execution; return true;
     };
     hooks.updateLists = [&](int interval, const P::ServerRequestContext &context) {
         SetCachedRepositoryTrustValid(false);
@@ -345,7 +363,12 @@ int RunWorker(int argc, char *argv[]) {
         return result;
     };
     hooks.runPackageManager = [&](const P::ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
-            const P::ServerRequestContext &context) { return ExecuteReviewedActions(snapshot.runtime, review, changes, context); };
+            const P::ServerRequestContext &context) {
+        std::string expected, actual;
+        if (retained.status != RecoveryCaptureStatus::Recorded || !P::Encode(retained.review, &expected) ||
+            !P::Encode(review, &actual) || expected != actual) return P::PackageManagerReply();
+        return ExecuteReviewedActions(snapshot.runtime, review, changes, context, retained.preDependsArchives);
+    };
     // Reconfiguration always requires a new independently captured capsule.
     // A supported request ends this process session; no stale policy is used.
     hooks.setSecurityMode = [](RepositorySecurityMode, const P::ServerRequestContext &) { return true; };

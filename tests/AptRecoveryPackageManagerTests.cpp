@@ -77,7 +77,7 @@ struct Fixture {
         index = runtime.listsDirectory + '/' + URItoFileName("https://example.invalid/./Packages");
         Write(index, Record("base", "1", "amd64") + Record("top", "2", "amd64", "Pre-Depends: base (= 1)\n") +
             Record("cycle-a", "1", "amd64", "Depends: cycle-b (= 1)\n") + Record("cycle-b", "1", "amd64", "Depends: cycle-a (= 1)\n") +
-            Record("portable", "1:3.0~rc1-2", "all") + Record("portable", "2", "amd64") +
+            Record("portable", "1:3.0~rc1-2", "all") + Record("portable", "2", "amd64", "Pre-Depends: unselected-only\n") +
             Record("twin", "1", "amd64", "Multi-Arch: same\n") + Record("twin", "1", "i386", "Multi-Arch: same\n") +
             Record("old", "9", "amd64") + Record("purge-me", "9", "amd64") + Record("residual", "9", "amd64"));
         statusBytes = "Package: old\nStatus: install ok installed\nVersion: 1\nArchitecture: all\nDescription: old\n\n"
@@ -184,6 +184,8 @@ void OrderedInstallAndProvenance() {
     Require(_config == original && ConfigurationBytes() == configuration, "default smart ordering changed original configuration");
     const auto &review = result.review;
     Require(Action(review, "base", P::ExecutionAction::Configure) < Action(review, "top", P::ExecutionAction::Unpack), "APT Pre-Depends order changed");
+    Require(result.preDependsArchives == std::set<std::string>{review.execution.actions[Action(review, "top", P::ExecutionAction::Unpack)].archive},
+        "batching hints must come only from the exact selected record, not another version/architecture or ordinary Depends");
     Require(Action(review, "twin", P::ExecutionAction::Unpack, "amd64") != Action(review, "twin", P::ExecutionAction::Unpack, "i386"), "coinstalled architectures aliased");
     const auto &portable = review.execution.actions[Action(review, "portable", P::ExecutionAction::Unpack)];
     Require(portable.package.architecture == "all" && portable.package.version == "1:3.0~rc1-2", "exact all/version identity lost to native candidate");
@@ -294,6 +296,8 @@ void FiniteTriggerRecording() {
                 Require(result.status == RecoveryCaptureStatus::Recorded, result.errorCode.c_str());
                 Require(Action(result.review, "base", P::ExecutionAction::Configure) < Action(result.review, "top", P::ExecutionAction::Unpack),
                     "finite trigger mode preserves primary Pre-Depends barriers");
+                Require(result.preDependsArchives == std::set<std::string>{result.review.execution.actions[
+                    Action(result.review, "top", P::ExecutionAction::Unpack)].archive}, "finite mode retains exact local batching hints");
                 for (const auto &action : result.review.execution.actions)
                     Require(action.action != P::ExecutionAction::Triggers && action.package.package != "cache",
                         "kept trigger recipient never receives a once-only primary action");
@@ -339,13 +343,25 @@ void Refusals() {
         if (variant == 10) { _config->Set("DPkg::ConfigurePending", false); expected = "recovery_configure_policy_unsupported"; }
         const auto result = fixture.Capture(manager, variant == 7 ? std::function<bool()>([] { return true; }) : std::function<bool()>());
         const std::string reason("refusal case " + std::to_string(variant) + ": expected " + expected + ", got " + result.errorCode);
-        Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == expected && result.review.execution.actions.empty(), reason.c_str());
+        Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == expected &&
+            result.review.execution.actions.empty() && result.preDependsArchives.empty(), reason.c_str());
         Require(!std::filesystem::exists(fixture.root + "/forbidden"), "hook was executed before refusal"); fixture.Unchanged();
     }
+}
+void FailedReviewDiscardsHints() {
+    Fixture fixture; fixture.Select("top", "amd64");
+    AptRecoveryPackageManager manager(fixture.cache.GetDepCache()); fixture.Bind(manager);
+    auto transaction = fixture.Transaction(); transaction.installs.clear();
+    const auto result = manager.Capture(static_cast<pkgSourceList &>(fixture.cache), *fixture.records, fixture.runtime,
+        transaction, fixture.binding, fixture.layout);
+    Require(result.status != RecoveryCaptureStatus::Recorded && result.errorCode == "recovery_transaction_changed" &&
+        result.review.execution.archives.empty() && result.preDependsArchives.empty(),
+        "post-recording coverage failure discards hints together with the exact review");
+    fixture.Unchanged();
 }
 }
 int main() {
     OrderedInstallAndProvenance(); ConfigurationRestoration(); DependencyCycleRecording();
-    RemovalUsesInstalledVersion(); ResidualConfigurationPurge(); FiniteTriggerRecording(); Refusals();
+    RemovalUsesInstalledVersion(); ResidualConfigurationPurge(); FiniteTriggerRecording(); Refusals(); FailedReviewDiscardsHints();
     std::cout << "[apt-recovery-recording] native ordering/provenance/refusal fixtures passed\n";
 }

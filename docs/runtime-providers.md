@@ -102,6 +102,14 @@ input/status scope. Internal passes consume neither primary action IDs nor
 outer request sequence numbers. Cancellation stops at child boundaries;
 an actual child always settles before its scope closes.
 
+The recovery worker keeps exact selected-record Pre-Depends batching hints and
+starts a new unpack child before each later archive that declares them. The
+finite parent independently checks the corresponding boundary from verified
+archive controls and authorized operand order, which can differ from sorted
+action IDs. Ordinary homogeneous batches remain available. These boundaries
+permit fresh checkpoints; they do not establish native dependency readiness or
+authorize inline processing, implicit removal, or deconfiguration.
+
 Support alone does not select this mode. Legacy capture still refuses an
 unresolved deferred journal and retains its explicit complete trigger batches.
 An approved finite-effects transaction cannot downgrade to the legacy executor.

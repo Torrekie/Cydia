@@ -287,7 +287,8 @@ RecoveryCaptureResult AptRecoveryPackageManager::Capture(pkgSourceList &sources,
     const CydiaPackages::ArchiveLayout &layout, const std::function<bool()> &cancelled, bool finiteEffects) {
     RecoveryCaptureResult result;
     const auto fail = [&](const char *code, RecoveryCaptureStatus status = RecoveryCaptureStatus::Unsupported) {
-        result.status = status; result.errorCode = code; result.review = P::ReviewedTransaction(); return result;
+        result.status = status; result.errorCode = code; result.review = P::ReviewedTransaction();
+        result.preDependsArchives.clear(); return result;
     };
     if (consumed_) return fail("recovery_capture_already_consumed");
     consumed_ = true; cancelled_ = cancelled; capturing_ = true; finiteEffects_ = finiteEffects;
@@ -372,6 +373,13 @@ RecoveryCaptureResult AptRecoveryPackageManager::Capture(pkgSourceList &sources,
                     cancelled && cancelled() ? RecoveryCaptureStatus::Cancelled : RecoveryCaptureStatus::Unsupported);
             if (hashed != indexHashes.end()) archive.sourceIndexIdentity = hashed->second;
             else indexHashes.emplace(archive.sourceIndexPath, archive.sourceIndexIdentity);
+            // Use the same selected record as the manifest, never another
+            // version/origin or the resolver's merged dependency graph.
+            std::map<std::string, std::string> controls;
+            std::string controlError;
+            if (!CydiaPackages::CanonicalPackageEffectControlFields({{"pre-depends", parser.RecordField("Pre-Depends")}},
+                    &controls, &controlError)) return fail("recovery_predepends_record_unsupported");
+            if (!controls.at("pre-depends").empty()) result.preDependsArchives.insert(archive.identifier);
             action.archive = archive.identifier; result.review.execution.archives.push_back(std::move(archive));
             usedArchives.insert(item.Pkg->ID);
         }

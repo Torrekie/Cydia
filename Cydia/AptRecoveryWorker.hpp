@@ -3,14 +3,18 @@
 #define Cydia_AptRecoveryWorker_HPP
 #include "Cydia/AptRecoverySnapshot.hpp"
 #include "Cydia/AptProviderServer.hpp"
+#include <set>
 
 namespace CydiaAPT { namespace Recovery {
 // These requests can only execute through an independently approving parent
 // broker. No dpkg invocation, lock ownership, fallback or shared-state writer
 // exists in this process. A failed batch ends the sequence without retry.
+// Local Pre-Depends hints only introduce unpack child boundaries; they must
+// name reviewed archives. The parent independently validates actual controls
+// and effects. Empty hints preserve existing callers/fixtures.
 Provider::PackageManagerReply ExecuteReviewedActions(const RuntimeDescriptor &runtime,
     const Provider::ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
-    const Provider::ServerRequestContext &context);
+    const Provider::ServerRequestContext &context, const std::set<std::string> &preDependsArchives = {});
 
 // Explicit process entry; no startup effects when linked into the app. FD 3
 // must be a private, read-only, unlinked parent capsule. Session stdin/stdout

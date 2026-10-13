@@ -6,6 +6,7 @@
 #include <apt-pkg/deb/dpkgpm.h>
 #include <functional>
 #include <map>
+#include <set>
 
 class pkgRecords;
 class pkgSourceList;
@@ -15,6 +16,10 @@ enum class RecoveryCaptureStatus { Recorded, Unsupported, Failed, Cancelled };
 struct RecoveryCaptureResult {
     RecoveryCaptureStatus status = RecoveryCaptureStatus::Failed;
     Provider::ReviewedTransaction review;
+    // Cydia-local batching hints from the exact selected Packages records.
+    // At most Provider::MaximumCollectionItems distinct reviewed archive IDs.
+    // They are not dependency readiness or parent execution authority.
+    std::set<std::string> preDependsArchives;
     std::string errorCode;
 };
 
