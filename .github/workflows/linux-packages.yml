@@ -82,7 +82,7 @@ jobs:
           mkdir -p build/native-key-verifier
           g++ -std=c++17 -Wall -Wextra -Werror -I. \
             tests/KeyringVerifierTests.cpp Cydia/KeyringVerifier.cpp \
-            Cydia/KeyringImport.cpp Cydia/DpkgRunner.cpp Cydia/SourceDocument.cpp \
+            Cydia/KeyringImport.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/SourceDocument.cpp \
             Cydia/SourceDocumentStore.cpp Cydia/SourceDocumentCommit.cpp \
             Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp \
             -o build/native-key-verifier/KeyringVerifierTests
