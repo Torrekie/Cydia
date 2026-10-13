@@ -6,6 +6,7 @@
 #import "Cydia/Appearance.h"
 #import "Cydia/CydiaDelegate.h"
 #import "Cydia/Database.h"
+#import "Cydia/RuntimeProviderStatus.h"
 #import "Cydia/LegacyUICompatibilityNativeCaller.h"
 #import "Cydia/SectionControllers.h"
 #import "Cydia/AdvancedSettingsController.h"
@@ -381,8 +382,16 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     NSArray<NSString *> *detailTitles_, *detailValues_, *actionTitles_;
 }
 - (instancetype)initWithDatabase:(Database *)database row:(CydiaSourceDefinition *)row access:(CydiaSources::Access)access {
-    if ((self = [super init]) != nil) { database_ = database; row_ = row; access_ = access; }
+    if ((self = [super init]) != nil) {
+        database_ = database; row_ = row; access_ = access;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(runtimeStatusDidChange:)
+            name:CydiaRuntimeProviderStatusDidChangeNotification object:database];
+    }
     return self;
+}
+- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+- (void)runtimeStatusDidChange:(NSNotification *)notification {
+    if (self.isViewLoaded && self.navigationController.topViewController == self) [self reloadData];
 }
 - (void)reloadData {
     [self reloadDataAnimated:NO];
@@ -496,8 +505,14 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 - (id)initWithDatabase:(Database *)database advancedAccess:(BOOL)advancedAccess {
     if ((self = [super init]) != nil) {
         database_ = database; access_ = advancedAccess ? CydiaSources::Access::AdvancedSettings : CydiaSources::Access::Ordinary;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(runtimeStatusDidChange:)
+            name:CydiaRuntimeProviderStatusDidChangeNotification object:database];
     }
     return self;
+}
+- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+- (void)runtimeStatusDidChange:(NSNotification *)notification {
+    if (self.isViewLoaded && self.navigationController.topViewController == self) [self reloadData];
 }
 - (NSURL *)navigationURL { return nil; }
 - (void)loadView {
@@ -538,6 +553,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
         definitions_ = protectedDefinitions;
     }
     editable_ = CydiaCanEditSources(access_);
+    self.navigationItem.rightBarButtonItem.enabled = editable_;
     NSMutableArray *names([NSMutableArray arrayWithCapacity:definitions_.count]);
     NSMutableArray *summaries([NSMutableArray arrayWithCapacity:definitions_.count]);
     for (CydiaSourceDefinition *row in definitions_) {
