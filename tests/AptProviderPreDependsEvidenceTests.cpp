@@ -75,6 +75,33 @@ E::Blocker OnlyBlocker(const E::Result &result, E::Reason reason) {
         result.groups[0].witnesses.empty() && result.groups[0].blockers.size() == 1 && result.groups[0].blockers[0].reason == reason,
         "exact expected native blocker"); return result.groups[0].blockers[0];
 }
+void NativeMetadataFreeReferenceRows() {
+    Fixture fixture; fixture.Add({"target", "2", "amd64"});
+    A::DpkgPackageState reference; reference.package.package = "unrelated-virtual";
+    reference.status = A::DpkgPackageStatus::NotInstalled; reference.multiArch = "no";
+    fixture.state.packages["unrelated-virtual:"] = reference;
+    Require(fixture.Check("target (>= 2)").readiness == E::Readiness::Ready,
+        "native Multi-Arch:no metadata-free reference cannot obstruct an unrelated real Pre-Depends");
+    OnlyBlocker(fixture.Check("unrelated-virtual"), E::Reason::MissingCandidate);
+    for (const auto *multi : {"foreign", "same", "allowed"}) {
+        auto invalid = fixture;
+        invalid.state.packages.at("unrelated-virtual:").multiArch = multi;
+        Require(invalid.Check("target").readiness == E::Readiness::Unsupported,
+            "an actual binary Multi-Arch mode cannot be inferred for a metadata-free reference");
+    }
+    for (unsigned variant = 0; variant != 5; ++variant) {
+        auto invalid = fixture; auto &row = invalid.state.packages.at("unrelated-virtual:");
+        if (variant == 0) row.status = A::DpkgPackageStatus::ConfigFiles;
+        if (variant == 1) row.reinstallRequired = true;
+        if (variant == 2) row.triggersPending = {"unexpected"};
+        if (variant == 3) row.triggersAwaited = {"target:amd64"};
+        if (variant == 4) row.package.architecture = "amd64";
+        Require(invalid.Check("target").readiness == E::Readiness::Unsupported,
+            "metadata-free spelling never hides phase/error/trigger/partial-identity corruption");
+    }
+    fixture.state.packages.at("unrelated-virtual:").multiArch.clear();
+    Require(fixture.Check("target").readiness == E::Readiness::Ready, "previous empty native reference spelling remains supported");
+}
 void DirectCurrentAndHistoricalVersions() {
     for (const auto phase : {A::DpkgPackageStatus::Installed, A::DpkgPackageStatus::TriggersPending}) {
         Fixture f; f.Add({"target", "2", "amd64"}, phase);
@@ -240,6 +267,7 @@ void NativeVersionSemantics() {
 #endif
 }
 int main() {
+    NativeMetadataFreeReferenceRows();
     DirectCurrentAndHistoricalVersions(); VirtualProvidersAndAlternatives(); QueuedEffectsAndIncomingIdentity();
     AtomicUnsupportedAndComparisonFailures();
 #if defined(CYDIA_PREDEPENDS_NATIVE_APT)

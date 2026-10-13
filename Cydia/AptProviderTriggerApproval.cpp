@@ -58,4 +58,19 @@ std::string TriggerNativeAuthorityIdentity(const NativeDpkgAuthority &native,
     Hashes hash(Hashes::SHA256SUM);
     return hash.Add(bytes.data(), bytes.size()) ? hash.GetHashString(Hashes::SHA256SUM).HashValue() : "";
 }
+std::string TriggerNativeGenerationIdentity(const NativeDpkgAuthority &native,
+    const std::vector<InstalledComponentEvidence> &components, const std::string &origin) {
+    if (!Digest(origin)) return "";
+    NativeDpkgAuthority identityOnly;
+    identityOnly.configurationIdentity = native.configurationIdentity;
+    identityOnly.platformIdentity = native.platformIdentity;
+    identityOnly.launchEnvironment = native.launchEnvironment;
+    for (const auto &component : components)
+        identityOnly.componentPaths.push_back(component.file.metadata.path);
+    const auto current = TriggerNativeAuthorityIdentity(identityOnly, components);
+    if (current.empty()) return "";
+    const auto bytes = "CYDIA-NATIVE-GENERATION-1" + CydiaRuntime::Privileged::SerializeFields({origin, current});
+    Hashes hash(Hashes::SHA256SUM);
+    return hash.Add(bytes.data(), bytes.size()) ? hash.GetHashString(Hashes::SHA256SUM).HashValue() : "";
+}
 }}

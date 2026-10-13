@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderDpkgState.hpp"
+#include "Cydia/AptProviderConditionalDeconfiguration.hpp"
 #include "Cydia/ExtendedState.hpp"
 #include <algorithm>
 #include <climits>
@@ -308,19 +309,26 @@ bool DpkgPendingTargets(const DpkgState &state, ExecutionAction action,
     return true;
 }
 
-bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &review,
-                            const ParentExecutionRequest &request,
-                            ParentExecutionEvidence *evidence, std::string *error) {
+static bool ApplyState(const DpkgState &state, const ReviewedTransaction &review,
+    const ParentExecutionRequest &request, const DeconfigurationAllowanceSet *conditional,
+    ParentExecutionEvidence *evidence, std::string *error) {
     if (!evidence) return Fail(error, "provider_dpkg_state_invalid");
-    evidence->stateVerified = false; evidence->stateIdentity.clear();
+    evidence->stateVerified = false; evidence->stateIdentity.clear(); evidence->conditionalDeconfigurationIdentity.clear();
     evidence->pendingTargetsKnown = evidence->deconfigurationTargetsKnown = evidence->triggerTargetsKnown = false;
     evidence->pendingTargets.clear(); evidence->deconfigurationTargets.clear(); evidence->triggerTargets.clear();
     evidence->barePackageTargets.clear();
     if (!StateValid(state) || request.actions.empty() || request.actions.size() > MaximumCollectionItems ||
         review.execution.actions.size() > MaximumCollectionItems)
         return Fail(error, "provider_dpkg_state_invalid");
-    if (request.action == ExecutionAction::Deconfigure || Option(request.arguments, "--auto-deconfigure"))
+    if (request.action == ExecutionAction::Deconfigure || (!conditional && Option(request.arguments, "--auto-deconfigure")))
         return Fail(error, "provider_deconfiguration_unknown");
+    if (conditional) {
+        std::string encoded, first, second;
+        if (!EncodeDeconfigurationApproval(*conditional, &encoded, error) || !Encode(review, &first) ||
+            !Encode(conditional->primaryReview, &second) || first != second || request.action == ExecutionAction::Triggers ||
+            (request.action != ExecutionAction::Unpack && Option(request.arguments, "--auto-deconfigure")))
+            return Fail(error, "provider_conditional_review_changed");
+    }
     if (!Option(request.arguments, "--no-triggers"))
         return Fail(error, "provider_trigger_targets_unknown");
     std::map<std::uint64_t, const ReviewedAction *> actions;
@@ -337,15 +345,24 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
             for (const auto &record : state.packages) {
                 // dpkg src/main/unpack.c deconfigures out-of-sync coinstalled
                 // instances before pkg_check_depcon, independently of
-                // --auto-deconfigure (dpkg 1.21.9 and 1.23.7). Neither current
-                // execution mode has an independently approved restoration
-                // envelope for that effect. Refuse before launching dpkg,
-                // even if a later archive in this batch updates the sibling.
+                // --auto-deconfigure (dpkg 1.21.9 and 1.23.7). Default routes
+                // retain the unsupported-effect preguard. The opt-in adapter
+                // only binds an exact potential allowance; independent opaque
+                // per-child native admission still gates actual execution.
                 if (record.second.package.package == action->second->package.package &&
                     record.second.package.architecture != action->second->package.architecture &&
                     record.second.multiArch == "same" && record.second.status > DpkgPackageStatus::HalfConfigured &&
-                    !SameDpkgVersion(record.second.package.version, action->second->package.version))
-                    return Fail(error, "provider_deconfiguration_unknown");
+                    !SameDpkgVersion(record.second.package.version, action->second->package.version)) {
+                    const auto generation = Key(record.second.package) + '@' + record.second.package.version;
+                    if (!conditional) return Fail(error, "provider_deconfiguration_unknown");
+                    const auto approved = conditional->allowances.find(generation);
+                    if (approved == conditional->allowances.end() || record.second.reinstallRequired ||
+                        record.second.selection != approved->second.selection ||
+                        std::none_of(approved->second.causes.begin(), approved->second.causes.end(), [&](const DeconfigurationCause &cause) {
+                            return cause.kind == DeconfigurationCauseKind::SiblingVersionMismatch && cause.unpackAction == id &&
+                                cause.archive == action->second->archive && cause.comparedVersion == record.second.package.version;
+                        })) return Fail(error, "provider_conditional_sibling_unapproved");
+                }
                 if (record.second.package.package == action->second->package.package &&
                     (record.second.package.architecture == action->second->package.architecture ||
                      record.second.package.architecture == "all" || action->second->package.architecture == "all") &&
@@ -380,21 +397,35 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
         evidence->pendingTargetsKnown = true;
     }
     evidence->deconfigurationTargetsKnown = evidence->triggerTargetsKnown = true;
+    if (conditional) evidence->conditionalDeconfigurationIdentity = conditional->identity;
     evidence->stateVerified = true; evidence->stateIdentity = state.packageStateIdentity;
     if (error) error->clear();
     return true;
 }
 
-bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
-                              const ReviewedTransaction &review,
-                              const AuthorizedExecution &batch, std::string *error) {
+bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &review,
+    const ParentExecutionRequest &request, ParentExecutionEvidence *evidence, std::string *error) {
+    return ApplyState(state, review, request, nullptr, evidence, error);
+}
+bool ApplyDpkgStateEvidenceWithConditional(const DpkgState &state, const ReviewedTransaction &review,
+    const ParentExecutionRequest &request, const DeconfigurationAllowanceSet &approval,
+    ParentExecutionEvidence *evidence, std::string *error) {
+    return ApplyState(state, review, request, &approval, evidence, error);
+}
+static bool VerifyTransition(const DpkgState &before, const DpkgState &after,
+    const ReviewedTransaction &review, const AuthorizedExecution &batch,
+    const DeconfigurationAllowanceSet *conditional, const RestorationDebtLedger *prepared,
+    const ConditionalDeconfigurationTransition *transition, bool effects, std::string *error) {
     if (!StateValid(before) || !StateValid(after) || !batch.batch || batch.actions.empty() ||
         batch.actions.size() > MaximumCollectionItems || review.execution.actions.size() > MaximumCollectionItems ||
         before.nativeArchitecture != after.nativeArchitecture ||
         before.registeredArchitectures != after.registeredArchitectures)
         return Fail(error, "provider_dpkg_state_changed");
-    if (!Option(batch.arguments, "--no-triggers") || Option(batch.arguments, "--auto-deconfigure"))
+    if (!Option(batch.arguments, "--no-triggers") || (!conditional && Option(batch.arguments, "--auto-deconfigure")))
         return Fail(error, "provider_dpkg_effects_unknown");
+    std::set<std::string> restorationSlots;
+    if (conditional && (!prepared || !transition || !ValidateConditionalDeconfigurationTransition(before, after,
+        review, batch, *conditional, *prepared, *transition, &restorationSlots, error))) return false;
     std::map<std::uint64_t, const ReviewedAction *> actions;
     for (const auto &action : review.execution.actions)
         if (!action.identifier || !actions.emplace(action.identifier, &action).second)
@@ -431,6 +462,15 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
         if (action.action == ExecutionAction::Triggers || action.action == ExecutionAction::Deconfigure)
             return Fail(error, "provider_dpkg_effects_unknown");
         auto old = before.packages.find(key); auto now = after.packages.find(key);
+        if (restorationSlots.count(key) && (action.action == ExecutionAction::Unpack || action.action == ExecutionAction::Configure)) {
+            // The prepared debt copy checked exact observed generation, phase,
+            // endpoint and (for successors) actual native controls/scripts.
+            if (old != before.packages.end() && !affectedBefore.insert(old->first).second)
+                return Fail(error, "provider_duplicate_batch_target");
+            if (now != after.packages.end() && !affectedAfter.insert(now->first).second)
+                return Fail(error, "provider_duplicate_batch_target");
+            continue;
+        }
         // An all/native transition replaces a single same-name instance. It
         // must never hide a removed coinstalled foreign package.
         if (action.action == ExecutionAction::Unpack && old == before.packages.end()) {
@@ -444,11 +484,11 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
         }
         if (old != before.packages.end() && !affectedBefore.insert(old->first).second)
             return Fail(error, "provider_duplicate_batch_target");
-        if (old != before.packages.end() && !EmptyTriggers(old->second))
+        if (old != before.packages.end() && !effects && !EmptyTriggers(old->second))
             return Fail(error, "provider_dpkg_effects_unknown");
         if (action.action != ExecutionAction::Unpack && (old == before.packages.end() ||
             !SamePackage(old->second.package, action.package) || old->second.reinstallRequired ||
-            !EmptyTriggers(old->second))) return Fail(error, "provider_dpkg_target_changed");
+            (!effects && !EmptyTriggers(old->second)))) return Fail(error, "provider_dpkg_target_changed");
         if (action.action == ExecutionAction::Remove || action.action == ExecutionAction::Purge) {
             // dpkg can discard all metadata when a package is purged. Retain
             // any surviving wanted-selection entry without inventing an arch.
@@ -468,7 +508,7 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
             continue;
         }
         if (now == after.packages.end() || !SamePackage(now->second.package, action.package) ||
-            now->second.reinstallRequired || !EmptyTriggers(now->second) ||
+            now->second.reinstallRequired || (!effects && !EmptyTriggers(now->second)) ||
             (now->second.selection != DpkgSelection::Install &&
                 !(old != before.packages.end() && old->second.selection == DpkgSelection::Hold &&
                   now->second.selection == DpkgSelection::Hold)))
@@ -478,26 +518,49 @@ bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
                 return Fail(error, "provider_dpkg_transition_incomplete");
         } else if (action.action == ExecutionAction::Configure) {
             if ((old->second.status != DpkgPackageStatus::Unpacked && old->second.status != DpkgPackageStatus::HalfConfigured) ||
-                now->second.status != DpkgPackageStatus::Installed || now->second.multiArch != old->second.multiArch)
+                (effects ? now->second.status < DpkgPackageStatus::TriggersAwaited : now->second.status != DpkgPackageStatus::Installed) ||
+                now->second.multiArch != old->second.multiArch)
                 return Fail(error, "provider_dpkg_transition_incomplete");
         } else return Fail(error, "provider_unsupported_dpkg_batch");
         if (!affectedAfter.insert(now->first).second) return Fail(error, "provider_duplicate_batch_target");
     }
-    for (const auto &item : before.packages) if (!affectedBefore.count(item.first)) {
+    const auto triggerOnlyTransition = [&](const DpkgPackageState &old, const DpkgPackageState &now) {
+        return effects && SamePackage(old.package, now.package) && old.selection == now.selection &&
+            old.reinstallRequired == now.reinstallRequired && old.multiArch == now.multiArch &&
+            old.status >= DpkgPackageStatus::TriggersAwaited && now.status >= DpkgPackageStatus::TriggersAwaited;
+    };
+    for (const auto &item : before.packages) if (!affectedBefore.count(item.first) && !restorationSlots.count(item.first)) {
         const auto now = after.packages.find(item.first);
         if (DpkgStateReferenceOnly(item.second) &&
             (now == after.packages.end() || DpkgStateReferenceOnly(now->second))) continue;
-        if (now == after.packages.end() || !SameRecord(item.second, now->second))
+        if (now == after.packages.end() || (!SameRecord(item.second, now->second) && !triggerOnlyTransition(item.second, now->second)))
             return Fail(error, "provider_unexpected_dpkg_transition");
     }
-    for (const auto &item : after.packages) if (!affectedAfter.count(item.first)) {
+    for (const auto &item : after.packages) if (!affectedAfter.count(item.first) && !restorationSlots.count(item.first)) {
         const auto old = before.packages.find(item.first);
         if (DpkgStateReferenceOnly(item.second) && (old == before.packages.end() || DpkgStateReferenceOnly(old->second))) continue;
-        if (old == before.packages.end() || affectedBefore.count(item.first) || !SameRecord(old->second, item.second))
+        if (old == before.packages.end() || affectedBefore.count(item.first) ||
+            (!SameRecord(old->second, item.second) && !triggerOnlyTransition(old->second, item.second)))
             return Fail(error, "provider_unexpected_dpkg_transition");
     }
     if (error) error->clear();
     return true;
+}
+
+bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
+    const ReviewedTransaction &review, const AuthorizedExecution &batch, std::string *error) {
+    return VerifyTransition(before, after, review, batch, nullptr, nullptr, nullptr, false, error);
+}
+bool VerifyDpkgStateTransitionWithConditional(const DpkgState &before, const DpkgState &after,
+    const ReviewedTransaction &review, const AuthorizedExecution &batch, const DeconfigurationAllowanceSet &approval,
+    const RestorationDebtLedger &prepared, const ConditionalDeconfigurationTransition &transition, std::string *error) {
+    return VerifyTransition(before, after, review, batch, &approval, &prepared, &transition, false, error);
+}
+
+bool VerifyDpkgStateTransitionWithConditionalEffects(const DpkgState &before, const DpkgState &after,
+    const ReviewedTransaction &review, const AuthorizedExecution &batch, const DeconfigurationAllowanceSet &approval,
+    const RestorationDebtLedger &prepared, const ConditionalDeconfigurationTransition &transition, std::string *error) {
+    return VerifyTransition(before, after, review, batch, &approval, &prepared, &transition, true, error);
 }
 
 }} // namespace CydiaAPT::Provider

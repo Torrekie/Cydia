@@ -7,6 +7,9 @@
 #include "Cydia/AptProviderArchiveEvidence.hpp"
 
 namespace CydiaAPT { namespace Provider {
+struct DeconfigurationAllowanceSet;
+class RestorationDebtLedger;
+struct ConditionalDeconfigurationTransition;
 constexpr std::size_t MaximumTriggerEffectPackages = 4096;
 constexpr unsigned MaximumTriggerPassesPerCheckpoint = 32;
 constexpr unsigned MaximumTriggerPassesPerTransaction = 256;
@@ -128,6 +131,8 @@ class TriggerEffectLedger {
     unsigned checkpointPasses_ = 0, totalPasses_ = 0;
     bool initialized_ = false, active_ = false, uncertain_ = false;
     bool Reject(std::string *, const char *);
+    bool PreparePrimaryImpl(const std::string &, const AuthorizedExecution &,
+        const DeconfigurationAllowanceSet *, std::string *);
 public:
     bool Begin(const TriggerEffectEnvelope &, const TriggerEffectCheckpoint &, std::string *error);
     // Parent-only proof from ArchiveEvidenceSnapshot::VerifyControl, after UI
@@ -144,6 +149,14 @@ public:
     // dependency-driven deconfiguration remains unavailable.
     bool Reconcile(const AuthorizedExecution &, const ParentExecutionReply &,
                    const TriggerEffectCheckpoint &, std::string *error);
+    // Opt-in owner path. Approval is independently rebuilt; the opaque native
+    // pre-child admission remains mandatory. The complete state overload uses
+    // actual phases and never maps HalfConfigured/Unpacked to Installed.
+    bool PreparePrimaryWithConditional(const std::string &, const AuthorizedExecution &,
+        const DeconfigurationAllowanceSet &, std::string *error);
+    bool ReconcileWithConditional(const AuthorizedExecution &, const ParentExecutionReply &,
+        const TriggerEffectCheckpoint &, const DeconfigurationAllowanceSet &,
+        const RestorationDebtLedger &, const ConditionalDeconfigurationTransition &, std::string *error);
     bool NextDrain(const std::string &expectedCheckpoint, TriggerDrainPlan *, std::string *error);
     bool SettleDrain(std::uint64_t pass, const ParentExecutionReply &, const TriggerEffectCheckpoint &,
                      std::string *error);

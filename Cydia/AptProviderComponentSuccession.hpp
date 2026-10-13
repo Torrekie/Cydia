@@ -56,10 +56,10 @@ class ComponentSuccession {
         std::uint64_t action = 0;
         CydiaPackages::ArchivePayloadFileEvidence file;
     };
-    std::map<std::string, InstalledComponentEvidence> current_;
+    std::map<std::string, InstalledComponentEvidence> initial_, current_;
     std::map<std::string, Replacement> replacements_;
     std::set<std::uint64_t> unpacks_, completed_;
-    std::string configuration_, platform_;
+    std::string configuration_, platform_, originReviewBytes_;
     bool initialized_ = false, active_ = false;
 public:
     bool Begin(const ReviewedTransaction &, const ReviewPolicy &,
@@ -69,6 +69,13 @@ public:
         std::string *error);
     bool Observe(const std::set<std::uint64_t> &completedUnpacks,
         const std::vector<InstalledComponentEvidence> &installed, std::string *error);
+    // Read-only consumers of this owner-retained ledger, never provider data.
+    // Origin remains the exact accepted Begin review/component set after later
+    // approved unpack observations. A current set must cover the whole ledger.
+    bool AuthorizeOrigin(const ReviewedTransaction &, const std::string &nativeConfigurationIdentity,
+        const std::string &platformIdentity, std::vector<InstalledComponentEvidence> *initial,
+        std::string *error) const;
+    bool AuthorizeComponents(const std::vector<InstalledComponentEvidence> &, std::string *error) const;
     bool AuthorizeLaunch(const ComponentClosureEvidence &, std::string *error) const;
     bool active() const { return active_; }
     void Invalidate() { active_ = false; }

@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTriggerEffects.hpp"
 #include "Cydia/ExtendedState.hpp"
+#include "Cydia/AptProviderConditionalDeconfiguration.hpp"
 #include <apt-pkg/hashes.h>
 #include <algorithm>
 
@@ -287,7 +288,8 @@ bool SameBatch(const AuthorizedExecution &a, const AuthorizedExecution &b) {
 }
 bool UnchangedMetadata(const TriggerEffectCheckpoint &before, const TriggerEffectCheckpoint &after,
     const std::set<std::string> &changed, const std::map<std::string, TriggerPackageMetadata> &incoming,
-    const std::set<std::string> &configured, std::string *error) {
+    const std::set<std::string> &configured, std::string *error,
+    const std::set<std::string> &restorationSlots = {}) {
     for (const auto &metadata : after.metadata.packages) {
         const auto previous = before.metadata.packages.find(metadata.first);
         const auto generation = Generation(metadata.second.package);
@@ -299,6 +301,13 @@ bool UnchangedMetadata(const TriggerEffectCheckpoint &before, const TriggerEffec
                 if (!SamePackageContent(refined->second, metadata.second)) return Fail(error, "provider_trigger_incoming_changed");
             } else if (previous == before.metadata.packages.end() || previous->second.controls != metadata.second.controls ||
                 (!metadata.second.declarations.empty() && !SameDeclarations(previous->second.declarations, metadata.second.declarations)))
+                return Fail(error, "provider_trigger_control_changed");
+        } else if (restorationSlots.count(metadata.first)) {
+            // Protected restoration capture + full state/debt verifier checked
+            // exact generation, native phase/history and selected scripts.
+            // Preserve declaration/control content here as an independent gate.
+            if (previous == before.metadata.packages.end() || !SamePackageContent(previous->second, metadata.second) ||
+                previous->second.declarationIdentity != metadata.second.declarationIdentity)
                 return Fail(error, "provider_trigger_control_changed");
         } else if (previous == before.metadata.packages.end() || !SameMetadata(previous->second, metadata.second)) {
             // Native dump omits Config-Version once installed/pending. A
@@ -451,11 +460,29 @@ bool TriggerEffectLedger::RefineIncoming(const std::vector<VerifiedArchiveContro
     if (error) error->clear(); return true;
 }
 bool TriggerEffectLedger::PreparePrimary(const std::string &expected, const AuthorizedExecution &batch, std::string *error) {
+    return PreparePrimaryImpl(expected, batch, nullptr, error);
+}
+bool TriggerEffectLedger::PreparePrimaryWithConditional(const std::string &expected, const AuthorizedExecution &batch,
+    const DeconfigurationAllowanceSet &approval, std::string *error) {
+    return PreparePrimaryImpl(expected, batch, &approval, error);
+}
+bool TriggerEffectLedger::PreparePrimaryImpl(const std::string &expected, const AuthorizedExecution &batch,
+    const DeconfigurationAllowanceSet *approval, std::string *error) {
     if (!active_ || primary_.batch || pending_.pass || expected != current_.identity || !batch.batch || batch.actions.empty() ||
         batch.action == ExecutionAction::Deconfigure || !Graph(current_, envelope_, error)) return Reject(error, "provider_trigger_primary_invalid");
     if (std::find(batch.arguments.begin(), batch.arguments.end(), "--no-triggers") == batch.arguments.end() ||
-        std::find(batch.arguments.begin(), batch.arguments.end(), "--auto-deconfigure") != batch.arguments.end())
+        (!approval && std::find(batch.arguments.begin(), batch.arguments.end(), "--auto-deconfigure") != batch.arguments.end()))
         return Reject(error, "provider_dpkg_effects_unknown");
+    if (approval) {
+        std::string approved, reviewed, canonical;
+        if (!EncodeDeconfigurationApproval(*approval, &canonical, error) ||
+            !Encode(approval->primaryReview, &approved) || !Encode(envelope_.primaryReview, &reviewed) || approved != reviewed ||
+            approval->identity != batch.conditionalDeconfigurationIdentity ||
+            approval->initialCheckpoint != envelope_.initialCheckpoint ||
+            approval->nativeAuthorityIdentity != envelope_.nativeAuthorityIdentity ||
+            (batch.action != ExecutionAction::Unpack && std::find(batch.arguments.begin(), batch.arguments.end(), "--auto-deconfigure") != batch.arguments.end()))
+            return Reject(error, "provider_conditional_review_changed");
+    }
     std::set<std::uint64_t> ids; std::set<std::string> targets;
     std::map<std::string, const ReviewedAction *> unpackActions;
     for (const auto id : batch.actions) {
@@ -528,6 +555,38 @@ bool TriggerEffectLedger::Reconcile(const AuthorizedExecution &batch, const Pare
             return Reject(error, "provider_trigger_drain_no_progress");
     } else if (!VerifyDpkgStateTransition(WithoutTriggers(current_.packages), WithoutTriggers(next.packages),
         envelope_.primaryReview, batch, error)) return Reject(error, "provider_trigger_primary_transition_invalid");
+    primaryActions_.insert(batch.actions.begin(), batch.actions.end()); primary_ = AuthorizedExecution(); current_ = next;
+    ++primaryCheckpoint_; checkpointPasses_ = 0; seenGraphs_.clear(); seenGraphs_.insert(GraphIdentity(current_));
+    if (error) error->clear(); return true;
+}
+bool TriggerEffectLedger::ReconcileWithConditional(const AuthorizedExecution &batch, const ParentExecutionReply &reply,
+    const TriggerEffectCheckpoint &next, const DeconfigurationAllowanceSet &approval,
+    const RestorationDebtLedger &prepared, const ConditionalDeconfigurationTransition &transition, std::string *error) {
+    if (!active_ || !primary_.batch || !SameBatch(primary_, batch) || !Successful(reply) ||
+        batch.conditionalDeconfigurationIdentity != approval.identity || transition.child.child.started != reply.started ||
+        transition.child.child.exitCode != reply.exitCode || transition.child.child.signal != reply.signal ||
+        transition.child.child.launchError != reply.launchError || next.identity.empty() ||
+        next.identity != TriggerEffectCheckpointIdentity(next) || !Graph(next, envelope_, error))
+        return Reject(error, "provider_trigger_primary_unsettled");
+    std::set<std::string> slots;
+    if (!ValidateConditionalDeconfigurationTransition(current_.packages, next.packages, envelope_.primaryReview,
+        batch, approval, prepared, transition, &slots, error) ||
+        !VerifyDpkgStateTransitionWithConditionalEffects(current_.packages, next.packages, envelope_.primaryReview,
+            batch, approval, prepared, transition, error))
+        return Reject(error, "provider_trigger_primary_transition_invalid");
+    std::set<std::string> changed, configured;
+    for (auto id : batch.actions) for (const auto &action : envelope_.primaryReview.execution.actions)
+        if (id == action.identifier) {
+            if (action.action == ExecutionAction::Unpack || action.action == ExecutionAction::Remove || action.action == ExecutionAction::Purge)
+                changed.insert(Generation(action.package));
+            if (action.action == ExecutionAction::Configure) configured.insert(Generation(action.package));
+        }
+    const std::map<std::string, TriggerPackageMetadata> noIncoming;
+    if (!UnchangedMetadata(current_, next, changed,
+        batch.action == ExecutionAction::Unpack ? incomingMetadata_ : noIncoming, configured, error, slots))
+        return Reject(error, "provider_trigger_control_changed");
+    // Both complete state and graph gates passed using actual observed phases.
+    // Only now publish action progress and the fresh graph checkpoint.
     primaryActions_.insert(batch.actions.begin(), batch.actions.end()); primary_ = AuthorizedExecution(); current_ = next;
     ++primaryCheckpoint_; checkpointPasses_ = 0; seenGraphs_.clear(); seenGraphs_.insert(GraphIdentity(current_));
     if (error) error->clear(); return true;

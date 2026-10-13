@@ -3,9 +3,11 @@
 #ifndef Cydia_AptProviderReview_HPP
 #define Cydia_AptProviderReview_HPP
 #include "Cydia/AptProviderProtocol.hpp"
+#include <memory>
 
 namespace CydiaAPT { namespace Provider {
 
+struct DeconfigurationAllowanceSet;
 struct ReviewPolicy {
     Environment environment;
     CydiaPackages::ArchiveLayout layout;
@@ -18,6 +20,10 @@ struct ReviewPolicy {
     // exact installed version deconfigured while another archive unpacks).
     std::set<std::uint64_t> additionalActionsReviewed;
     std::set<std::string> unverifiedArchiveWarningsAccepted;
+    // Parent independently rebuilds this exact native approval at Begin.
+    // A decoded DTO, or this pure pointer alone, grants no child permission.
+    // Empty retains the dormant legacy model; opt-in forbids synthetic IDs.
+    std::shared_ptr<const DeconfigurationAllowanceSet> conditionalDeconfiguration;
 };
 
 struct VerifiedArchiveEvidence {
@@ -59,6 +65,9 @@ struct ParentExecutionEvidence {
     std::vector<ExecutionPackage> deconfigurationTargets;
     bool triggerTargetsKnown = false;
     std::vector<ExecutionPackage> triggerTargets;
+    // Set by the parent-only conditional state adapter. This binds provisional
+    // primary routing, not a whole-child native effect admission.
+    std::string conditionalDeconfigurationIdentity;
 };
 
 struct AuthorizedExecution {
@@ -70,6 +79,9 @@ struct AuthorizedExecution {
     // retained for post-Bind child-fd preparation and effective-policy lookup.
     std::size_t optionPrefixSize = 0, statusOptionIndex = 0;
     std::vector<VerifiedArchiveEvidence> archives;
+    // Exact retained Begin approval. No conditional operation IDs are added.
+    // Parent still must validate its opaque per-child admission before spawn.
+    std::string conditionalDeconfigurationIdentity;
 };
 
 /* Pure, dormant authorization model. Accept only after the parent UI has

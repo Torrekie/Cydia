@@ -37,8 +37,11 @@ public:
         const TransactionArchiveStore &, std::vector<RestorationSuccessorProof> *, std::string *,
         const std::function<bool()> &, const TriggerStateSnapshot &);
 };
-// Call after actual successful/reaped Unpack and full independent state/effect
-// verification. This does not mark a child successful or authorize its effects.
+// Call after actual successful/reaped Unpack and complete fresh protected
+// native/physical after capture. Produce read-only successor evidence BEFORE
+// full conditional transition/trigger/debt validation, which consumes this
+// proof; that final validation must precede publishing any ledger updates.
+// This does not mark a child successful, settle IDs or authorize its effects.
 // Uses the actual retained, rehashed TransactionArchiveStore (effect controls
 // must have been captured) and opaque before/after protected captures. It
 // matches exact reviewed successor actions, canonical controls/declarations,

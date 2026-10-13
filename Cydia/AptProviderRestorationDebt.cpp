@@ -119,6 +119,22 @@ bool RestorationDebtLedger::Begin(const DeconfigurationAllowanceSet &approval, c
     if (error) error->clear();
     return true;
 }
+bool RestorationDebtLedger::AuthorizeCheckpoint(const DeconfigurationAllowanceSet &approval,
+    const RestorationCheckpoint &actual, std::string *error) const {
+    if (error) error->clear();
+    std::string expected, observed;
+    if (!initialized_ || !active_ || uncertain_ || !EncodeDeconfigurationApproval(approval_, &expected, error) ||
+        !EncodeDeconfigurationApproval(approval, &observed, error) || expected != observed ||
+        !CheckpointShape(actual, approval_) || actual.identity != current_.identity ||
+        actual.deferredQueueEmpty != current_.deferredQueueEmpty || actual.packages.size() != current_.packages.size())
+        return Fail(error, "provider_restoration_checkpoint_changed");
+    for (const auto &entry : current_.packages) {
+        const auto found = actual.packages.find(entry.first);
+        if (found == actual.packages.end() || !SameObservation(entry.second, found->second))
+            return Fail(error, "provider_restoration_checkpoint_changed");
+    }
+    return true;
+}
 bool RestorationDebtLedger::PreparePrimary(const std::string &expected, const AuthorizedExecution &batch, std::string *error) {
     const auto &actions = approval_.primaryReview.execution.actions;
     if (!active_ || pendingBatch_ || expected != current_.identity || batch.batch != nextBatch_ || batch.actions.empty() ||

@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTransactionLease.hpp"
+#include "Cydia/AptProviderDeconfigurationApproval.hpp"
 #include "Cydia/ExtendedState.hpp"
 #include <algorithm>
 #include <limits>
@@ -86,6 +87,9 @@ bool TransactionLease::Begin(const TransactionLeaseIdentity &identity, const Rev
         !ValidChallenge(identity.nonce) || !Digest(identity.reviewDigest) || !Digest(identity.originIdentity) ||
         !Digest(identity.operatingIdentity) || !Digest(identity.nativeConfigurationIdentity) || !Digest(identity.platformIdentity) ||
         !Digest(identity.extendedStateIdentity) || (!identity.effectIdentity.empty() && !Digest(identity.effectIdentity)) ||
+        (policy.conditionalDeconfiguration ? identity.conditionalDeconfigurationIdentity != policy.conditionalDeconfiguration->identity :
+            !identity.conditionalDeconfigurationIdentity.empty()) ||
+        (!identity.conditionalDeconfigurationIdentity.empty() && !Digest(identity.conditionalDeconfigurationIdentity)) ||
         !Path(identity.stagingDirectory) || !Context(context, error) ||
         context.stateIdentity != review.binding.packageStateIdentity ||
         !authorization_.Accept(review, policy, error) || !Deltas(deltas, &deltas_))

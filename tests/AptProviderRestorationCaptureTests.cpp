@@ -275,7 +275,8 @@ void SuccessorProofs() {
             *before, *after, store, &proofs, &error); };
         Require(verify() && proofs.size() == 1 && proofs[0].unpackAction == 1 && proofs[0].oldGeneration == "sample:all@0" &&
             proofs[0].retainedArchiveIdentity == store.archives().front().source.fileIdentity &&
-            proofs[0].installedScriptContentIdentity == after->observation().packages.at("sample:all").scriptContentIdentity,
+            proofs[0].installedScriptContentIdentity == after->observation().packages.at("sample:all").scriptContentIdentity &&
+            proofs[0].installedMultiArch == "no",
             "successor proof binds real staged archive controls, empty/absent scripts and fresh installed generation");
         if (withScripts) ContendedSnapshotCancellation(f, before, after, store, batch);
         auto wrong = batch; wrong.archives[0].fileIdentity += "changed";

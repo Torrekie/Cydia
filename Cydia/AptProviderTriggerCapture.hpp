@@ -13,6 +13,11 @@ struct InstalledComponentEvidence;
 // hashes exact file generations and metadata; it cannot establish provenance.
 std::string TriggerNativeAuthorityIdentity(const NativeDpkgAuthority &,
     const std::vector<InstalledComponentEvidence> &);
+// Pure generation binding for an independently succession-authorized current
+// component set. The immutable origin remains separately checked by the owner.
+// This does not alter the native declaration or establish file provenance.
+std::string TriggerNativeGenerationIdentity(const NativeDpkgAuthority &,
+    const std::vector<InstalledComponentEvidence> &, const std::string &origin);
 // The caller is existing cydo after authenticating its direct Cydia parent and
 // independently resolving selected. PATH must already be the selected native
 // execution PATH. No provider fields establish authority in these functions.

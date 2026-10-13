@@ -155,9 +155,11 @@ owners, without inferring filesystem types or permission to replace files.
 The native Pre-Depends evaluator keeps current and last configured versions,
 virtual providers, incoming self dependencies and same-child deconfiguration
 queues distinct. These library facts are not an execution route: automatic
-deconfiguration still requires immutable native approval, locked reconstruction,
-complete per-batch effect admission and restoration-aware settlement. The current
-pre-unpack guard remains active until that integration is complete.
+deconfiguration requires immutable native approval, locked reconstruction,
+complete per-batch effect admission and restoration-aware settlement. The
+transaction owner now contains those conditional gates, including exact primary
+dependency checks and restoration-aware trigger scheduling. Its Begin guard
+and ordinary capture selector remain closed pending connected execution acceptance.
 
 Control capture also retains the original record and native dependency-field
 order. Index records, archive controls and installed status each keep their own
@@ -240,10 +242,12 @@ native phases separately from generation content identities. Successor capture
 compares freshly installed controls and selected scripts against rehashed
 retained archive bytes and exact script metadata; it does not infer native
 child success. Versioned NotInstalled selections remain present metadata,
-while genuinely forgotten records remain absent. The single-use bookkeeping
-and protected capture are not yet connected to the transaction owner.
-Integration still requires complete transition checks, restoration-aware Drain/Defer/Refuse decisions,
-trigger quiescence and the existing final state compare-and-swap.
+while genuinely forgotten records remain absent. Conditional owner settlement
+checks complete before/after observations against its private ledger history,
+retains real HalfConfigured and Unpacked phases, and publishes debt and trigger
+changes only after both checks pass. Drain/Defer/Refuse decisions, trigger
+quiescence and the existing final state compare-and-swap are wired behind the
+closed Begin guard; pure lifecycle fixtures do not establish execution acceptance.
 
 Internal transaction-channel version three can bind a protected conffile policy
 to each actual child before spawn. The parent retains the parser's exact option

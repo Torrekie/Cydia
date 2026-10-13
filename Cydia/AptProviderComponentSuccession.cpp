@@ -53,7 +53,8 @@ bool ComponentSuccession::Begin(const ReviewedTransaction &review, const ReviewP
     if (initialized_) { active_ = false; return Fail(error, "provider_component_ledger_reused"); }
     initialized_ = true;
     ReviewAuthorization checked;
-    if (!checked.Accept(review, policy, error) || !Digest(configuration) || !Digest(platform) || initial.empty() ||
+    if (!checked.Accept(review, policy, error) || !Encode(review, &originReviewBytes_) ||
+        originReviewBytes_.size() > MaximumMessageBytes || !Digest(configuration) || !Digest(platform) || initial.empty() ||
         initial.size() > MaximumTransactionComponents || archives.size() > MaximumTransactionComponents)
         return Fail(error, "provider_component_admission_invalid");
     for (const auto &file : initial)
@@ -89,7 +90,7 @@ bool ComponentSuccession::Begin(const ReviewedTransaction &review, const ReviewP
     for (const auto &file : current_) all.insert(file.first);
     for (const auto &file : replacements_) all.insert(file.first);
     if (all.size() > MaximumTransactionComponents) return Fail(error, "provider_component_limit");
-    configuration_ = configuration; platform_ = platform; active_ = true;
+    initial_ = current_; configuration_ = configuration; platform_ = platform; active_ = true;
     if (error) error->clear();
     return true;
 }
@@ -121,6 +122,31 @@ bool ComponentSuccession::Observe(const std::set<std::uint64_t> &completed,
     }
     if (observed.size() != required.size()) return reject("provider_component_missing");
     current_.swap(observed); completed_ = completed;
+    if (error) error->clear();
+    return true;
+}
+bool ComponentSuccession::AuthorizeOrigin(const ReviewedTransaction &review, const std::string &configuration,
+    const std::string &platform, std::vector<InstalledComponentEvidence> *initial, std::string *error) const {
+    if (!initial) return Fail(error, "provider_component_origin_invalid");
+    initial->clear();
+    std::string bytes;
+    if (!active_ || initial_.empty() || configuration != configuration_ || platform != platform_ ||
+        !Encode(review, &bytes) || bytes.size() > MaximumMessageBytes || bytes != originReviewBytes_)
+        return Fail(error, "provider_component_origin_changed");
+    for (const auto &file : initial_) initial->push_back(file.second);
+    if (error) error->clear();
+    return true;
+}
+bool ComponentSuccession::AuthorizeComponents(const std::vector<InstalledComponentEvidence> &installed,
+    std::string *error) const {
+    if (!active_ || installed.size() != current_.size()) return Fail(error, "provider_component_checkpoint_invalid");
+    std::set<std::string> seen;
+    for (const auto &file : installed) {
+        const auto &path = file.file.metadata.path;
+        const auto current = current_.find(path);
+        if (!Installed(file) || current == current_.end() || !seen.insert(path).second ||
+            !SameInstalledComponent(current->second, file)) return Fail(error, "provider_component_state_invalid");
+    }
     if (error) error->clear();
     return true;
 }

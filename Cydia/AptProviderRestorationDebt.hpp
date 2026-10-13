@@ -42,6 +42,10 @@ struct RestorationSuccessorProof {
     // are separate mandatory parent proofs. Public values are not authority.
     std::string installedControlIdentity, installedScriptsIdentity;
     std::string installedContentIdentity, installedScriptContentIdentity;
+    // Actual canonical installed control value, matched to the retained archive
+    // by the producer. Required by conditional full-state successor verification;
+    // empty is unknown, and grants no assumption of native Multi-Arch:no.
+    std::string installedMultiArch;
 };
 struct RestorationChildResult {
     ParentExecutionReply child;
@@ -81,6 +85,13 @@ class RestorationDebtLedger {
     bool Reject(std::string *, const char *, bool uncertain = false);
 public:
     bool Begin(const DeconfigurationAllowanceSet &, const RestorationCheckpoint &, std::string *error);
+    // Read-only equality against this ledger's PRIVATE canonical approval and
+    // exact current complete observation. Caller supplies observation() from
+    // an actual opaque protected checkpoint; digest/shape equality alone is
+    // insufficient. This performs no capture or mutation and grants no native
+    // effect permission. Prepared-but-unstarted primary retains this point.
+    bool AuthorizeCheckpoint(const DeconfigurationAllowanceSet &,
+        const RestorationCheckpoint &actualProtectedObservation, std::string *error) const;
     bool PreparePrimary(const std::string &expectedCheckpoint, const AuthorizedExecution &, std::string *error);
     bool SettlePrimary(std::uint64_t batch, const RestorationChildResult &, const RestorationCheckpoint &,
         const std::vector<RestorationSuccessorProof> &, std::string *error);

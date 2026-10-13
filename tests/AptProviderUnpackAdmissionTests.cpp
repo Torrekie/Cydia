@@ -3,7 +3,8 @@
  * The existing TransactionFiles fixture substitutes Darwin declaration/loader
  * and distributor policy producers. Those doubles are explicitly NOT proof of
  * real distribution policy or whole-child native execution acceptance.
- * No dpkg mutation, host database, device or additional executable is used.
+ * No dpkg mutation, host database, device or new helper program is used;
+ * the native replacement case copies the existing dpkg into disposable storage.
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef CYDIA_TRANSACTION_OWNER_TESTING
 #error Use the existing labelled native producer test seam, never a product build.
@@ -20,14 +21,26 @@ std::string AdmissionRead(const std::string &path) {
     std::ifstream input(path, std::ios::binary); Require(input.good(), "open retained admission fixture");
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
+std::string AdmissionNativeTar(const std::string &absolute, const std::string &bytes) {
+    const auto slash = absolute.rfind('/');
+    Require(slash != std::string::npos && slash > 1 && slash - 1 <= 155, "bounded native fixture ustar prefix");
+    std::string archive = Tar(absolute.substr(slash + 1), bytes, 0755);
+    std::memcpy(&archive[345], absolute.data() + 1, slash - 1);
+    std::memset(&archive[148], ' ', 8);
+    unsigned checksum = 0;
+    for (std::size_t i = 0; i != 512; ++i) checksum += static_cast<unsigned char>(archive[i]);
+    Octal(&archive[148], 7, checksum); archive[155] = ' ';
+    return archive;
+}
 struct AdmissionFixture : Fixture {
     P::BrokerEnvironment selected;
     std::vector<P::InstalledComponentEvidence> components;
     std::string configuration;
     int frontend = -1, statusRead = -1, statusWrite = -1;
-    bool forceBreaks = false, sibling = false;
+    bool forceBreaks = false, sibling = false, nativeUpgrade = false, historical = false;
     AdmissionFixture(const std::string &nativeFields, const std::string &indexFields, bool forced = false,
-        const std::string &victimFields = "", bool multiple = false, bool siblingCase = false) : Fixture(), forceBreaks(forced), sibling(siblingCase) {
+        const std::string &victimFields = "", bool multiple = false, bool siblingCase = false, bool missingDeferred = false, bool deferred = false, bool nativeUpgradeCase = false, bool historyCase = false) :
+        Fixture(), forceBreaks(forced), sibling(siblingCase), nativeUpgrade(nativeUpgradeCase), historical(historyCase) {
         selected.runtime = runtime; auto &environment = selected.environment;
         if (sibling) {
             selected.runtime.registeredArchitectures = selected.runtime.acquisitionArchitectures = {"amd64", "i386"};
@@ -39,6 +52,10 @@ struct AdmissionFixture : Fixture {
             for (auto &action : review.execution.actions) action.package.architecture = "i386";
         }
         environment.dpkg = "/usr/bin/dpkg"; environment.dpkgQuery = "/usr/bin/dpkg-query";
+        if (nativeUpgrade) {
+            std::filesystem::create_directory(root + "/commands");
+            environment.dpkg = root + "/commands/dpkg"; Write(environment.dpkg, AdmissionRead("/usr/bin/dpkg"), 0755);
+        }
         environment.dpkgDeb = "/usr/bin/dpkg-deb"; environment.dpkgRoot = "/";
         environment.dpkgAdmin = root + "/admin"; environment.extendedStates = root + "/extended_states";
         selected.executableSearchPath = selected.archiveDecoderSearchPath = "/usr/bin:/bin";
@@ -50,12 +67,18 @@ struct AdmissionFixture : Fixture {
         std::filesystem::create_directory(environment.dpkgAdmin + "/triggers");
         Write(environment.extendedStates, ""); Write(environment.dpkgAdmin + "/lock-frontend", "", 0600);
         Write(environment.dpkgAdmin + "/triggers/Lock", "", 0600);
-        Write(environment.dpkgAdmin + "/triggers/Unincorp", "");
+        Write(environment.dpkgAdmin + "/triggers/Unincorp", deferred ? "fixture-unregistered -\n" : "");
+        if (missingDeferred) Require(unlink((environment.dpkgAdmin + "/triggers/Unincorp").c_str()) == 0, "missing startup deferred queue fixture");
         Write(environment.dpkgAdmin + "/info/format", "1\n");
         Write(environment.dpkgAdmin + "/status", "Package: victim-a\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n" +
             victimFields + "\nPackage: victim-b\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\n");
         Write(environment.dpkgAdmin + "/info/victim-a.list", "/usr/lib/victim-a-saving-name\n");
         Write(environment.dpkgAdmin + "/info/victim-b.list", "/usr/lib/victim-b-saving-name\n");
+        if (historical) {
+            Write(environment.dpkgAdmin + "/status", "Package: victim-a\nVersion: 1\nArchitecture: amd64\nStatus: install ok triggers-awaited\n"
+                "Config-Version: 0\nTriggers-Awaited: victim-b\n\nPackage: victim-b\nVersion: 1\nArchitecture: amd64\n"
+                "Status: install ok triggers-pending\nTriggers-Pending: fixture-drain\n\n");
+        }
         if (sibling) {
             Write(environment.dpkgAdmin + "/arch", "amd64\ni386\n");
             Write(environment.dpkgAdmin + "/status", "Package: sample\nVersion: 2\nArchitecture: amd64\nStatus: install ok installed\nMulti-Arch: same\n\n");
@@ -102,6 +125,30 @@ struct AdmissionFixture : Fixture {
             const auto package = CydiaAPT::BuildPackageIdentity("sample-two", "amd64", "all", "amd64", CydiaAPT::MultiArchMode::None);
             review.transaction.installs.push_back(package.routingName); review.transaction.packages[package.routingName] = {package, "1", "sample-two"};
         }
+        if (nativeUpgrade) {
+            const auto first = review.execution.archives.front();
+            P::ArchiveManifest successor = first; successor.identifier = "native-fixture";
+            successor.package = {"native-fixture", "1", "all"}; successor.filename = "pool/native-fixture.deb";
+            successor.path = root + "/native-fixture.deb";
+            const std::string bytes = "!<arch>\n" + Ar("debian-binary", "2.0\n") +
+                Ar("control.tar", Tar("control", "Package: native-fixture\nVersion: 1\nArchitecture: all\n")) +
+                Ar("data.tar", AdmissionNativeTar(environment.dpkg, AdmissionRead(environment.dpkg)));
+            successor.size = bytes.size(); successor.hashes = {{"SHA512", Hash(bytes, Hashes::SHA512SUM)}};
+            const std::string recordTwo = "Package: native-fixture\nVersion: 1\nArchitecture: all\nFilename: pool/native-fixture.deb\nSize: " +
+                std::to_string(successor.size) + "\nSHA512: " + successor.hashes["SHA512"] + "\n\n";
+            successor.recordOffset = record.size(); successor.recordSize = recordTwo.size();
+            const std::string index = record + recordTwo; successor.sourceIndexIdentity = "SHA256:" + Hash(index);
+            review.execution.archives.front().sourceIndexIdentity = successor.sourceIndexIdentity;
+            Write(successor.sourceIndexPath, index); Write(successor.path, bytes); review.execution.archives.push_back(successor);
+            P::ReviewedAction unpack; unpack.identifier = 7; unpack.action = P::ExecutionAction::Unpack;
+            unpack.package = successor.package; unpack.archive = successor.identifier;
+            review.execution.actions.insert(review.execution.actions.begin(), unpack);
+            unpack.identifier = 8; unpack.action = P::ExecutionAction::Configure; unpack.archive.clear();
+            review.execution.actions.insert(review.execution.actions.begin() + 1, unpack);
+            const auto package = CydiaAPT::BuildPackageIdentity("native-fixture", "amd64", "all", "amd64", CydiaAPT::MultiArchMode::None);
+            review.transaction.installs.push_back(package.routingName); review.transaction.packages[package.routingName] = {package, "1", "native-fixture"};
+        }
+        policy.environment.paths.dpkg = environment.dpkg;
         policy.environment.paths.dpkgAdmin = environment.dpkgAdmin;
         policy.protectedDpkgOptions = selected.runtime.dpkgOptions;
         configuration = root + "/native-fixture-input"; Write(configuration, "labelled policy producer fixture input\n");
@@ -110,6 +157,7 @@ struct AdmissionFixture : Fixture {
         fixtureAuthority.dpkgRoot = environment.dpkgRoot; fixtureAuthority.dpkgAdmin = environment.dpkgAdmin;
         fixtureAuthority.executableSearchPath = selected.executableSearchPath;
         fixtureAuthority.componentPaths = {environment.dpkg, environment.dpkgQuery};
+        if (nativeUpgrade) fixtureAuthority.successorPaths = {{"native-fixture", {environment.dpkg}}};
         fixtureAuthority.effectRecordState = P::NativeEffectRecordState::Parsed;
         Require(CydiaRuntime::NativeLaunchEnvironment::FromEntries({"PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C", "DPKG_FRONTEND_LOCKED=1"},
             &fixtureAuthority.launchEnvironment), "owned query/launch environment");
@@ -150,7 +198,7 @@ struct AdmissionFixture : Fixture {
         fixturePolicyProducer = FixturePolicyProducer();
     }
 };
-enum class AdmissionCheck { Ready, Blocked, EarlyBlocked, TwoGroups, Forced, Boundary, SiblingBlocked, StaleSource, StaleNative, StaleOwnership, StaleScript, WrongLaunch, WrongPrivatePath, WrongBatchAction, Cancelled };
+enum class AdmissionCheck { Ready, Blocked, EarlyBlocked, TwoGroups, Forced, Boundary, SiblingBlocked, StaleSource, StaleNative, StaleOwnership, StaleScript, WrongLaunch, WrongPrivatePath, WrongBatchAction, WrongOriginLedger, WrongCurrentSet, MissingDeferredQueue, DeferredActivations, NativeUpgrade, AuthorizedHistory, WrongRestorationLedger, UnknownHistory, LateCaptureArchiveMutation, LateRevalidateArchiveMutation, Cancelled };
 void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     close(fixture.frontend); fixture.frontend = -1;
     std::string error; std::shared_ptr<const P::ProtectedDeconfigurationReview> approved;
@@ -158,7 +206,12 @@ void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
         &approved, &error), error.c_str());
     P::TransactionArchiveStore store;
     Require(store.Begin(fixture.root + "/private", fixture.selected.runtime, fixture.review, fixture.policy,
-        fixture.selected.archiveDecoderSearchPath, {}, &error, {}, true), error.c_str());
+        fixture.selected.archiveDecoderSearchPath, fixtureAuthority.successorPaths, &error, {}, true), error.c_str());
+    P::ComponentSuccession succession;
+    auto ledgerReview = fixture.review;
+    if (check == AdmissionCheck::WrongOriginLedger) ledgerReview.binding.review = "unrelated-ledger-scope";
+    Require(succession.Begin(ledgerReview, fixture.policy, fixture.components, store.successors(),
+        fixtureAuthority.configurationIdentity, fixtureAuthority.platformIdentity, &error), error.c_str());
     P::AuthorizedExecution batch; batch.batch = 1; batch.action = P::ExecutionAction::Unpack; batch.actions = {1};
     batch.arguments = {"--root=/", "--admindir=" + fixture.selected.environment.dpkgAdmin,
         "--status-fd=" + std::to_string(fixture.statusWrite), "--no-triggers", "--auto-deconfigure", "--unpack",
@@ -186,20 +239,111 @@ void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     if (fixture.forceBreaks) record.settings.forces = {N::Force::Breaks};
     fixtureAuthority.effectRecords = {record};
     P::TriggerCaptureLock lock; lock.parent = getppid();
+    std::shared_ptr<const P::ProtectedRestorationCheckpoint> currentPoint;
+    Require(P::ProtectedRestorationCheckpoint::Capture(fixture.selected.environment, approved->checkpoint.packages,
+        lock, approved->allowances, &currentPoint, &error), error.c_str());
+    P::RestorationDebtLedger restoration;
+    Require(restoration.Begin(approved->allowances, currentPoint->observation(), &error), error.c_str());
+    if (check == AdmissionCheck::WrongRestorationLedger) restoration.Invalidate();
+    if (check == AdmissionCheck::AuthorizedHistory || check == AdmissionCheck::UnknownHistory) {
+        const auto beforeIdentity = currentPoint->observation().identity;
+        Write(fixture.selected.environment.dpkgAdmin + "/status", "Package: victim-a\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\n"
+            "Package: victim-b\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\n");
+        P::DpkgState actual;
+        Require(P::CaptureEffectAwareDpkgState(CydiaRuntime::PackageDatabasePaths::Current(), fixture.selected, &actual, &error) &&
+            P::ProtectedRestorationCheckpoint::Capture(fixture.selected.environment, actual, lock, approved->allowances, &currentPoint, &error), error.c_str());
+        if (check == AdmissionCheck::AuthorizedHistory) {
+            // Labelled prior verified native drain input, not proof of a real
+            // child. The production Owner separately proves full settlement.
+            P::RestorationChildResult success; success.child.started = true; success.child.exitCode = 0;
+            Require(restoration.ObserveEffects(beforeIdentity, success, currentPoint->observation(), &error) &&
+                approved->installedScripts.packages.at("victim-a:amd64").configVersion == "0" &&
+                currentPoint->scripts().packages.at("victim-a:amd64").configVersion == "1",
+                "only an accepted exact prior observation authorizes history normalization");
+        }
+    }
     std::shared_ptr<const P::ProtectedUnpackAdmission> facts;
     const auto cancelled = check == AdmissionCheck::Cancelled ? std::function<bool()>([] { return true; }) : std::function<bool()>();
     if (check == AdmissionCheck::WrongLaunch) final.push_back("unreviewed-operand");
-    const bool captured = P::ProtectedUnpackAdmission::Capture(fixture.selected, fixtureAuthority, fixture.components,
-        store, *approved, batch, final, fixture.statusWrite, lock, &facts, &error, cancelled);
+    auto current = fixture.components;
+    if (check == AdmissionCheck::WrongCurrentSet) current.pop_back();
+    if (check == AdmissionCheck::NativeUpgrade) {
+        // Labelled successful-unpack observation input, not proof of a real
+        // native child: exact archived bytes replace only disposable dpkg.
+        const auto path = fixture.selected.environment.dpkg;
+        const auto oldIdentity = P::TriggerNativeAuthorityIdentity(fixtureAuthority, current);
+        Write(path + ".new", AdmissionRead(path), 0755);
+        Require(rename((path + ".new").c_str(), path.c_str()) == 0, "disposable exact native inode replacement");
+        for (auto &file : current) if (file.file.metadata.path == path)
+            Require(P::CaptureTransactionComponent(path, &file, &error), error.c_str());
+        Require(P::TriggerNativeAuthorityIdentity(fixtureAuthority, current) != oldIdentity &&
+            oldIdentity == approved->allowances.nativeAuthorityIdentity && succession.Observe({7}, current, &error),
+            "reviewed earlier unpack advances actual exact native bytes without rewriting approval identity");
+    }
+    const bool captured = P::ProtectedUnpackAdmission::Capture(fixture.selected, fixtureAuthority, current,
+        succession, store, *approved, restoration, *currentPoint, batch, final, fixture.statusWrite, lock, &facts, &error, cancelled);
     if (check == AdmissionCheck::WrongLaunch || check == AdmissionCheck::WrongPrivatePath ||
-        check == AdmissionCheck::WrongBatchAction || check == AdmissionCheck::Cancelled) {
+        check == AdmissionCheck::WrongBatchAction || check == AdmissionCheck::WrongOriginLedger ||
+        check == AdmissionCheck::WrongCurrentSet || check == AdmissionCheck::WrongRestorationLedger ||
+        check == AdmissionCheck::UnknownHistory || check == AdmissionCheck::Cancelled) {
         Require(!captured && !facts, "wrong launch/private copy/primary action/cancellation cannot publish opaque facts"); return;
     }
     Require(captured && facts && !facts->identity().empty(), error.c_str());
+    if (check == AdmissionCheck::LateCaptureArchiveMutation || check == AdmissionCheck::LateRevalidateArchiveMutation) {
+        unsigned calls = 0;
+        const P::TriggerStateSnapshot counted = [&](std::string *value, std::string *failure) {
+            ++calls; V::Error reason;
+            const bool read = V::RuntimeSnapshot(fixture.selected.environment, value, &reason);
+            if (!read && failure) *failure = reason.code;
+            return read;
+        };
+        std::shared_ptr<const P::ProtectedUnpackAdmission> countedFacts;
+        if (check == AdmissionCheck::LateCaptureArchiveMutation)
+            Require(P::ProtectedUnpackAdmission::Capture(fixture.selected, fixtureAuthority, current, succession, store, *approved,
+                restoration, *currentPoint, batch, final, fixture.statusWrite, lock, &countedFacts, &error, {}, counted), error.c_str());
+        else Require(facts->Revalidate(fixture.selected, fixtureAuthority, current, succession, store, restoration, *currentPoint,
+            final, lock, &error, {}, counted), error.c_str());
+        Require(calls > 0, "actual final snapshot callback boundary located");
+        const auto last = calls; calls = 0; bool mutated = false;
+        const P::TriggerStateSnapshot late = [&](std::string *value, std::string *failure) {
+            if (calls + 1 == last) {
+                Write(store.archives().front().copy.identity.file.metadata.path, "late changed private archive\n", 0600); mutated = true;
+            }
+            return counted(value, failure);
+        };
+        std::shared_ptr<const P::ProtectedUnpackAdmission> refused;
+        const bool reused = check == AdmissionCheck::LateCaptureArchiveMutation ?
+            P::ProtectedUnpackAdmission::Capture(fixture.selected, fixtureAuthority, current, succession, store, *approved,
+                restoration, *currentPoint, batch, final, fixture.statusWrite, lock, &refused, &error, {}, late) :
+            facts->Revalidate(fixture.selected, fixtureAuthority, current, succession, store, restoration, *currentPoint,
+                final, lock, &error, {}, late);
+        Require(mutated && !reused && !refused, "late snapshot mutation is caught by final retained-store rehash before publish/reuse");
+        return;
+    }
     const bool blocked = check == AdmissionCheck::Blocked || check == AdmissionCheck::EarlyBlocked || check == AdmissionCheck::SiblingBlocked;
     Require(facts->readiness() == (blocked ? P::UnpackAdmissionReadiness::Blocked : check == AdmissionCheck::Boundary ?
         P::UnpackAdmissionReadiness::RequiresFreshBoundary : P::UnpackAdmissionReadiness::FactsVerified),
         "actual archive ordering decides queued native Pre-Depends eligibility");
+    const bool narrow = !blocked && check != AdmissionCheck::Boundary && check != AdmissionCheck::MissingDeferredQueue &&
+        check != AdmissionCheck::DeferredActivations;
+    Require(facts->singleArchiveNativeChecksReady() == narrow,
+        "only complete single native checks with quiescent deferred startup can prove no Pre-Depends inline processing");
+    for (const auto &row : facts->orderedPreDepends()) {
+        const auto &actual = store.effectControls().front().control;
+        Require(row.unpackAction == 1 && row.archive == store.effectControls().front().archive.archive.identifier && row.field < actual.dependencyOrder.size() &&
+            actual.dependencyOrder[row.field] == "pre-depends" && !row.canonicalGroup.empty() && row.result.groups.size() == 1 &&
+            row.result.packageStateIdentity == facts->checkpoint().packages.packageStateIdentity,
+            "retained result binds actual archive field/group position and exact captured state");
+    }
+    if (check == AdmissionCheck::Blocked || check == AdmissionCheck::SiblingBlocked) {
+        Require(facts->orderedPreDepends().size() == 1, "one actual blocked Pre-Depends node retained");
+        const auto &row = facts->orderedPreDepends().front();
+        Require(row.field == (check == AdmissionCheck::Blocked ? 1u : 0u) && row.group == 0 &&
+            row.result.readiness == P::PreDependsEvidence::Readiness::Blocked && row.result.groups.front().witnesses.empty() &&
+            !row.result.groups.front().blockers.empty() &&
+            row.result.groups.front().blockers.front().reason == P::PreDependsEvidence::Reason::QueuedDeconfiguration,
+            "earlier actual queued effect is retained as the later native Pre-Depends blocker");
+    }
     const auto expected = check == AdmissionCheck::Forced || check == AdmissionCheck::EarlyBlocked ? 0u :
         check == AdmissionCheck::TwoGroups ? 2u : 1u;
     Require(facts->causes().size() == expected, "unused/future allowances do not invent queued deconfiguration causes");
@@ -214,11 +358,11 @@ void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     Require(fixture.components.size() == 2 && AdmissionRead(store.archives().front().copy.identity.file.metadata.path) == fixture.deb,
         "readiness used actual unchanged private archive copies and native executor identities");
     if (blocked || check == AdmissionCheck::Boundary) {
-        Require(!facts->Revalidate(fixture.selected, fixtureAuthority, fixture.components, store, final, lock, &error),
+        Require(!facts->Revalidate(fixture.selected, fixtureAuthority, current, succession, store, restoration, *currentPoint, final, lock, &error),
             "blocked facts or unavailable multiarchive continuity cannot become a reusable admission");
         return;
     }
-    Require(facts->Revalidate(fixture.selected, fixtureAuthority, fixture.components, store, final, lock, &error), error.c_str());
+    Require(facts->Revalidate(fixture.selected, fixtureAuthority, current, succession, store, restoration, *currentPoint, final, lock, &error), error.c_str());
     if (check == AdmissionCheck::StaleSource)
         Write(fixture.review.execution.archives.front().sourceIndexPath, "changed selected record\n");
     else if (check == AdmissionCheck::StaleNative) Write(fixture.configuration, "changed native graph\n");
@@ -227,12 +371,14 @@ void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     else if (check == AdmissionCheck::StaleScript)
         Write(fixture.selected.environment.dpkgAdmin + "/info/victim-a.prerm", "#!/bin/sh\nexit 0\n", 0755);
     else return;
-    Require(!facts->Revalidate(fixture.selected, fixtureAuthority, fixture.components, store, final, lock, &error),
+    Require(!facts->Revalidate(fixture.selected, fixtureAuthority, current, succession, store, restoration, *currentPoint, final, lock, &error),
         "changed actual source/native/list/script evidence cannot reuse captured facts");
 }
 void CheckAdmission(const std::string &nativeFields, const std::string &indexFields, AdmissionCheck check,
     bool forced = false, const std::string &victimFields = "") {
-    AdmissionFixture fixture(nativeFields, indexFields, forced, victimFields, check == AdmissionCheck::Boundary, check == AdmissionCheck::SiblingBlocked);
+    AdmissionFixture fixture(nativeFields, indexFields, forced, victimFields, check == AdmissionCheck::Boundary,
+        check == AdmissionCheck::SiblingBlocked, check == AdmissionCheck::MissingDeferredQueue, check == AdmissionCheck::DeferredActivations,
+        check == AdmissionCheck::NativeUpgrade, check == AdmissionCheck::AuthorizedHistory || check == AdmissionCheck::UnknownHistory);
     const pid_t child = fork(); Require(child >= 0, "fork isolated authenticated parent-capture fixture");
     if (child == 0) { AdmissionChild(fixture, check); _exit(0); }
     int status; Require(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
@@ -259,9 +405,17 @@ int main() {
     CheckAdmission("Provides: unrelated-virtual\nBreaks: victim-a (<< 2)\n",
         "Breaks: victim-a (<< 2)\nProvides: unrelated-virtual\n", AdmissionCheck::Ready, false, "Conflicts: sample\n");
     CheckAdmission(early, late, AdmissionCheck::Boundary);
+    CheckAdmission(early, late, AdmissionCheck::MissingDeferredQueue);
+    CheckAdmission(early, late, AdmissionCheck::DeferredActivations);
+    CheckAdmission(early, late, AdmissionCheck::NativeUpgrade);
+    CheckAdmission(early, late, AdmissionCheck::AuthorizedHistory);
+    CheckAdmission(early, late, AdmissionCheck::UnknownHistory);
+    CheckAdmission(early, late, AdmissionCheck::WrongRestorationLedger);
+    CheckAdmission(early, late, AdmissionCheck::LateCaptureArchiveMutation);
+    CheckAdmission(early, late, AdmissionCheck::LateRevalidateArchiveMutation);
     CheckAdmission("Pre-Depends: sample:amd64\n", "Pre-Depends: sample:amd64\n", AdmissionCheck::SiblingBlocked);
     for (const auto check : {AdmissionCheck::StaleSource, AdmissionCheck::StaleNative, AdmissionCheck::StaleOwnership,
         AdmissionCheck::StaleScript, AdmissionCheck::WrongLaunch, AdmissionCheck::WrongPrivatePath,
-        AdmissionCheck::WrongBatchAction, AdmissionCheck::Cancelled}) CheckAdmission(early, late, check);
+        AdmissionCheck::WrongBatchAction, AdmissionCheck::WrongOriginLedger, AdmissionCheck::WrongCurrentSet, AdmissionCheck::Cancelled}) CheckAdmission(early, late, check);
     alarm(0); std::cout << "[protected-unpack-facts] native ordered read-only gate fixtures passed\n";
 }

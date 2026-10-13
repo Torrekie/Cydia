@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderReview.hpp"
+#include "Cydia/AptProviderDeconfigurationApproval.hpp"
 #include <algorithm>
 #include <limits>
 
@@ -193,6 +194,12 @@ bool ReviewAuthorization::Accept(const ReviewedTransaction &review, const Review
         !ProtectedOptions(policy.protectedDpkgOptions) || review.execution.actions.empty() ||
         review.execution.actions.size() > MaximumCollectionItems ||
         review.execution.archives.size() > MaximumCollectionItems) return Fail(error, "provider_invalid_execution_review");
+    if (policy.conditionalDeconfiguration) {
+        std::string approval;
+        if (!EncodeDeconfigurationApproval(*policy.conditionalDeconfiguration, &approval, error) ||
+            !Equal(policy.conditionalDeconfiguration->primaryReview, review))
+            return Fail(error, "provider_conditional_review_changed");
+    }
     std::map<std::string, ExecutionAction> plan;
     std::set<std::string> routes;
     const auto add = [&](const std::vector<std::string> &names, ExecutionAction action) {
@@ -227,7 +234,9 @@ bool ReviewAuthorization::Accept(const ReviewedTransaction &review, const Review
     for (const auto &action : review.execution.actions) {
         if (!action.identifier || !Package(action.package) ||
             static_cast<unsigned>(action.action) > static_cast<unsigned>(ExecutionAction::Deconfigure) ||
-            !actions.emplace(action.identifier, action).second) return Fail(error, "provider_invalid_action_manifest");
+            !actions.emplace(action.identifier, action).second ||
+            (policy.conditionalDeconfiguration && action.action == ExecutionAction::Deconfigure))
+            return Fail(error, "provider_invalid_action_manifest");
         if (action.action != ExecutionAction::Triggers &&
             !uniqueActions.insert(std::to_string(static_cast<unsigned>(action.action)) + Key(action.package)).second)
             return Fail(error, "provider_duplicate_review_action");
@@ -293,7 +302,12 @@ bool ReviewAuthorization::Authorize(const ParentExecutionRequest &request, const
     ParsedBatch parsed;
     if (!ParseBatch(request, policy_, evidence.statusDescriptor, &parsed))
         return Fail(error, "provider_unsupported_dpkg_batch");
+    if (policy_.conditionalDeconfiguration) {
+        if (evidence.conditionalDeconfigurationIdentity != policy_.conditionalDeconfiguration->identity || !parsed.noTriggers ||
+            !evidence.deconfigurationTargets.empty()) return Fail(error, "provider_conditional_admission_missing");
+    } else if (!evidence.conditionalDeconfigurationIdentity.empty()) return Fail(error, "provider_conditional_admission_unexpected");
     AuthorizedExecution result; result.batch = request.batch; result.action = request.action;
+    if (policy_.conditionalDeconfiguration) result.conditionalDeconfigurationIdentity = policy_.conditionalDeconfiguration->identity;
     result.arguments = parsed.arguments;
     result.optionPrefixSize = parsed.optionPrefixSize; result.statusOptionIndex = parsed.statusOptionIndex;
     std::set<std::uint64_t> selected;
@@ -332,7 +346,7 @@ bool ReviewAuthorization::Authorize(const ParentExecutionRequest &request, const
         return 0;
     };
     std::set<std::string> effects;
-    if (parsed.autoDeconfigure) {
+    if (parsed.autoDeconfigure && !policy_.conditionalDeconfiguration) {
         if (!evidence.deconfigurationTargetsKnown || !PackageSet(evidence.deconfigurationTargets, &effects))
             return Fail(error, "provider_deconfiguration_unknown");
         for (const auto &package : evidence.deconfigurationTargets)

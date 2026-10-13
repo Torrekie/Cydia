@@ -6,6 +6,8 @@
 #include <functional>
 
 namespace CydiaAPT { namespace Provider {
+struct ConditionalDeconfigurationTransition;
+class RestorationDebtLedger;
 
 enum class DpkgSelection { Unknown, Install, Hold, Deinstall, Purge };
 enum class DpkgPackageStatus {
@@ -68,6 +70,15 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
                             const ParentExecutionRequest &request,
                             ParentExecutionEvidence *evidence, std::string *error);
 
+// Provisional primary routing for the independently rebuilt opt-in approval.
+// This allows only exact approved sibling possibilities and binds its identity;
+// it is NOT whole-child effect permission. Owner must subsequently validate its
+// opaque ordered native admission/actual causes before spawn. The default API
+// above keeps every unsupported-state preguard unchanged.
+bool ApplyDpkgStateEvidenceWithConditional(const DpkgState &, const ReviewedTransaction &,
+    const ParentExecutionRequest &, const DeconfigurationAllowanceSet &,
+    ParentExecutionEvidence *, std::string *error);
+
 // Observe only after a successful parent dpkg child exit. Verifies exact
 // identities and permitted end states for the already authorized action IDs;
 // unrelated selection/version/state/trigger changes reject. It does not prove
@@ -79,6 +90,25 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
 bool VerifyDpkgStateTransition(const DpkgState &before, const DpkgState &after,
                               const ReviewedTransaction &review,
                               const AuthorizedExecution &batch, std::string *error);
+
+// Exact full state comparison with actual protected restoration observations.
+// Validates settlement on a COPY of the prepared debt ledger; success consumes
+// no caller action IDs. Real ledger settlement and trigger graph/native policy
+// gates remain mandatory. No HalfConfigured/Unpacked state is normalized.
+// The ordinary primary state rules remain conservative for non-allowance slots.
+bool VerifyDpkgStateTransitionWithConditional(const DpkgState &, const DpkgState &,
+    const ReviewedTransaction &, const AuthorizedExecution &, const DeconfigurationAllowanceSet &,
+    const RestorationDebtLedger &prepared, const ConditionalDeconfigurationTransition &, std::string *error);
+
+// Paired trigger/debt route: actual trigger lists/statuses are retained. Owner
+// must additionally prove the complete protected TriggerEffectLedger graph and
+// unchanged native metadata before accepting this result. Unrelated records
+// can change only within Installed/Pending/Awaited with exact base identity;
+// Unpack remains genuinely Unpacked, and Configure must start Unpacked or
+// HalfConfigured. Neither success here nor public projections prove effects.
+bool VerifyDpkgStateTransitionWithConditionalEffects(const DpkgState &, const DpkgState &,
+    const ReviewedTransaction &, const AuthorizedExecution &, const DeconfigurationAllowanceSet &,
+    const RestorationDebtLedger &prepared, const ConditionalDeconfigurationTransition &, std::string *error);
 
 }} // namespace CydiaAPT::Provider
 #endif

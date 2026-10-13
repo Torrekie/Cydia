@@ -219,8 +219,10 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderTransactionResult.cpp \
 		Cydia/AptProviderTransactionRequestDigest.cpp \
 		Cydia/AptProviderTransactionFiles.cpp Cydia/AptProviderTransactionLease.cpp \
+		Cydia/AptProviderPrimaryReadiness.cpp Cydia/AptProviderRestorationTriggerDecision.cpp \
+		Cydia/AptProviderRestorationCapture.cpp Cydia/AptProviderUnpackAdmission.cpp \
 		Cydia/AptProviderTransactionOwner.cpp Cydia/AptProviderTransactionService.cpp \
-		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderNativeDpkgAuthority.hpp Cydia/AptProviderReview.cpp Cydia/AptProviderArchiveEvidence.cpp \
+		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderNativeDpkgAuthority.hpp Cydia/AptProviderReview.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderArchiveEvidence.cpp \
 		Cydia/AptProviderNativeEffectPolicy.cpp Cydia/AptProviderNativeEffectPolicy.hpp \
 		Cydia/AptProviderConffilePolicy.cpp Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp \
 		Cydia/AptProviderTriggerEffects.cpp Cydia/AptProviderTriggerMetadata.cpp \
@@ -235,7 +237,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderTriggerCapture.cpp Cydia/AptProviderTriggerApproval.cpp \
 		Cydia/AptProviderTriggerEvidence.cpp Cydia/AptProviderTriggerEvidenceProtected.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptRuntimeDescriptor.cpp \
-		Cydia/AptProviderDpkgState.cpp Cydia/AptProviderDpkgStateCapture.cpp Cydia/PackageIdentity.cpp \
+		Cydia/AptProviderDpkgState.cpp Cydia/AptProviderConditionalDeconfiguration.cpp Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderDpkgStateCapture.cpp Cydia/PackageIdentity.cpp \
 		Cydia/PackageArchivePolicy.cpp Cydia/PackageArchiveReader.cpp Cydia/AptProviderArchiveDecoders.cpp \
 		Cydia/RepositorySecurityPolicy.cpp \
 		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/PrivilegedRuntime.hpp Cydia/ApplicationIdentity.hpp Cydia/ApplicationSession.hpp \

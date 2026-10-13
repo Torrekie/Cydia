@@ -2,6 +2,10 @@
  * do not establish filesystem capture, dyld closure or device execution.
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTransactionLease.hpp"
+#if defined(CYDIA_NATIVE_GENERATION_TESTING)
+#include "Cydia/AptProviderNativeDpkgAuthority.hpp"
+#include "Cydia/AptProviderTriggerCapture.hpp"
+#endif
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -149,14 +153,49 @@ P::ParentExecutionReply Success() { P::ParentExecutionReply result; result.start
 void ComponentGenerations() {
     Fixture fixture; std::string error; P::ComponentSuccession components;
     Require(fixture.Components(components, &error), "initial component evidence refused");
+    std::vector<P::InstalledComponentEvidence> origin;
+    Require(components.AuthorizeOrigin(fixture.review, fixture.identity.nativeConfigurationIdentity,
+        fixture.identity.platformIdentity, &origin, &error) && origin.size() == fixture.before.components.size(),
+        "exact initial review returns the retained native origin");
+    const auto retainedOrigin = origin;
+    Require(components.AuthorizeComponents(fixture.before.components, &error), "whole initial native set authorized");
+    Require(!components.AuthorizeComponents(fixture.after.components, &error) && components.active(),
+        "declared successors cannot be selected before their observed approved unpack");
+    for (unsigned variant = 0; variant != 3; ++variant) {
+        auto wrongReview = fixture.review;
+        auto configuration = fixture.identity.nativeConfigurationIdentity, platform = fixture.identity.platformIdentity;
+        if (variant == 0) wrongReview.binding.review = "different-approved-scope";
+        if (variant == 1) configuration[0] = '0';
+        if (variant == 2) platform[0] = '0';
+        Require(!components.AuthorizeOrigin(wrongReview, configuration, platform, &origin, &error) &&
+            origin.empty() && components.active(), "different scope/config/platform cannot borrow the initial origin");
+    }
     Require(components.AuthorizeLaunch(fixture.Closure(fixture.before), &error), "initial exact closure refused");
     Require(components.Observe({1}, fixture.after.components, &error), "approved exact successor set refused");
+    Require(components.AuthorizeOrigin(fixture.review, fixture.identity.nativeConfigurationIdentity,
+        fixture.identity.platformIdentity, &origin, &error) && origin.size() == retainedOrigin.size(),
+        "approved replacement and added dependency retain the initial approval scope");
+    for (std::size_t i = 0; i < origin.size(); ++i)
+        Require(P::SameInstalledComponent(origin[i], retainedOrigin[i]), "initial identity is not rewritten to new native generations");
+    Require(components.AuthorizeComponents(fixture.after.components, &error) &&
+        !components.AuthorizeComponents(fixture.before.components, &error), "current whole-set authority advances only to exact successors");
+    for (unsigned variant = 0; variant != 3; ++variant) {
+        auto wrong = fixture.after.components;
+        if (variant == 0) ++wrong.front().inode;
+        if (variant == 1) wrong.pop_back();
+        if (variant == 2) wrong.back() = wrong.front();
+        Require(!components.AuthorizeComponents(wrong, &error) && components.active(),
+            "changed/missing/duplicated current evidence cannot pass a read-only continuity check");
+    }
     Require(!components.AuthorizeLaunch(fixture.Closure(fixture.before), &error), "stale old closure accepted after replacement");
     Require(components.AuthorizeLaunch(fixture.Closure(fixture.after), &error), "new exact closure refused");
     Require(components.Observe({1}, fixture.after.components, &error), "unchanged successor generation refused");
     auto changed = fixture.after.components; ++changed[0].inode;
     Require(!components.Observe({1}, changed, &error) && !components.active(), "old unpack permission reused for later replacement");
     Require(!components.Observe({1}, fixture.after.components, &error), "invalidated component ledger revived");
+    Require(!components.AuthorizeOrigin(fixture.review, fixture.identity.nativeConfigurationIdentity,
+        fixture.identity.platformIdentity, &origin, &error) && origin.empty() &&
+        !components.AuthorizeComponents(fixture.after.components, &error), "invalidated lineage publishes no usable origin/current set");
     for (unsigned variant = 0; variant != 10; ++variant) {
         P::ComponentSuccession trial; Require(fixture.Components(trial, &error), "component fixture refused");
         auto observed = fixture.after.components; std::set<std::uint64_t> actions{1};
@@ -194,6 +233,64 @@ void ComponentGenerations() {
     Require(!ambiguous.Begin(fixture.review, fixture.policy, fixture.before.components, duplicated,
         fixture.identity.nativeConfigurationIdentity, fixture.identity.platformIdentity, &error), "duplicate successor archive accepted");
 }
+#if defined(CYDIA_NATIVE_GENERATION_TESTING)
+void CurrentNativeGenerationWithNewDependency() {
+    Fixture fixture; std::string error; P::ComponentSuccession succession;
+    Require(fixture.Components(succession, &error), "begin exact native origin for generation fixture");
+    P::NativeDpkgAuthority native; native.configurationIdentity = fixture.identity.nativeConfigurationIdentity;
+    native.platformIdentity = fixture.identity.platformIdentity;
+    Require(CydiaRuntime::NativeLaunchEnvironment::FromEntries({"PATH=/usr/bin:/bin", "DPKG_FRONTEND_LOCKED=1"},
+        &native.launchEnvironment), "explicit synthetic native launch snapshot");
+    for (const auto &file : fixture.before.components) native.componentPaths.push_back(file.file.metadata.path);
+    native.executorGenerations["/usr/bin/dpkg"] = {fixture.before.components.front().file.sha256, fixture.after.components.front().file.sha256};
+    const auto declarationPaths = native.componentPaths;
+    const auto declarationExecutors = native.executorGenerations;
+    std::vector<P::InstalledComponentEvidence> initial;
+    Require(succession.AuthorizeOrigin(fixture.review, native.configurationIdentity, native.platformIdentity, &initial, &error),
+        "initial native approval retains the exact authenticated review");
+    const auto immutableOrigin = P::TriggerNativeAuthorityIdentity(native, initial);
+    Require(immutableOrigin.size() == 64, "immutable initial native approval identity");
+    // This is the owner's authorization composition, not an assertion that a
+    // public current-set hash establishes provenance or permits a launch.
+    const auto scopedGeneration = [&](const std::vector<P::InstalledComponentEvidence> &current) {
+        std::vector<P::InstalledComponentEvidence> origin;
+        if (!succession.AuthorizeOrigin(fixture.review, native.configurationIdentity, native.platformIdentity, &origin, &error) ||
+            !succession.AuthorizeComponents(current, &error)) return std::string();
+        return P::TriggerNativeGenerationIdentity(native, current, P::TriggerNativeAuthorityIdentity(native, origin));
+    };
+    const auto oldGeneration = scopedGeneration(fixture.before.components);
+    Require(oldGeneration.size() == 64 && scopedGeneration(fixture.after.components).empty(),
+        "future native replacement and new dependency are not authorized before observed approved unpack");
+    Require(succession.Observe({1}, fixture.after.components, &error) &&
+        succession.AuthorizeLaunch(fixture.Closure(fixture.after), &error), "approve actual successor set and its complete closure");
+    Require(P::TriggerNativeAuthorityIdentity(native, fixture.after.components).empty(),
+        "regression trigger: initial-path identity cannot represent the newly approved dependency");
+    const auto currentGeneration = scopedGeneration(fixture.after.components);
+    Require(currentGeneration.size() == 64 && currentGeneration != oldGeneration &&
+        native.componentPaths == declarationPaths && native.executorGenerations == declarationExecutors,
+        "shared current-generation helper accepts added dependency without rewriting the public native declaration");
+    Require(succession.AuthorizeOrigin(fixture.review, native.configurationIdentity, native.platformIdentity, &initial, &error) &&
+        P::TriggerNativeAuthorityIdentity(native, initial) == immutableOrigin, "current generation does not rewrite initial approval");
+    auto reordered = fixture.after.components; std::reverse(reordered.begin(), reordered.end());
+    Require(scopedGeneration(reordered) == currentGeneration, "same authorized current set has order-independent generation identity");
+    for (unsigned variant = 0; variant != 6; ++variant) {
+        auto wrong = fixture.after.components;
+        if (variant == 0) wrong.push_back(File("/usr/lib/rogue.dylib", 'e', 0644, 140));
+        if (variant == 1) wrong.pop_back();
+        if (variant == 2) wrong.front().file.sha256[0] = '0';
+        if (variant == 3) ++wrong.front().inode;
+        if (variant == 4) wrong.back().parentsIdentity[0] = '0';
+        if (variant == 5) wrong.back() = wrong.front();
+        Require(scopedGeneration(wrong).empty() && succession.active(),
+            "rogue/missing/tampered/duplicated current components cannot obtain owner-scoped generation identity");
+    }
+    Require(scopedGeneration(fixture.before.components).empty(), "stale native generation cannot borrow current approval");
+    Require(P::TriggerNativeGenerationIdentity(native, fixture.after.components, "invalid-origin").empty(),
+        "shared helper refuses an invalid origin digest rather than treating it as authorization");
+    succession.Invalidate();
+    Require(scopedGeneration(fixture.after.components).empty(), "retired lineage cannot resurrect a valid current digest");
+}
+#endif
 void CompleteLease(const std::string &bucket, const std::string &versionArchitecture, bool sha512Only = false) {
     Fixture fixture(bucket, versionArchitecture, sha512Only); P::TransactionLease lease; P::AuthorizedExecution batch; std::string error;
     Require(fixture.Begin(lease, &error), "lease admission refused");
@@ -383,7 +480,11 @@ void SeparateEffectPasses() {
 }
 }
 int main() {
-    ComponentGenerations(); CompleteLease("amd64", "amd64"); CompleteLease("i386", "i386");
+    ComponentGenerations();
+#if defined(CYDIA_NATIVE_GENERATION_TESTING)
+    CurrentNativeGenerationWithNewDependency();
+#endif
+    CompleteLease("amd64", "amd64"); CompleteLease("i386", "i386");
     CompleteLease("amd64", "all"); CompleteLease("amd64", "amd64", true);
     AdmissionAndRequestFailures(); StagedHashEvidence(); InterruptedChildren(); SeparateEffectPasses();
     std::cout << "[apt-provider-transaction-lease][ ok ] retained review, generations, staged archives, replay and settlement\n";

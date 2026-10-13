@@ -217,6 +217,22 @@ verify: verify-apt-transaction-begin
 verify-apt-transaction-begin: $(APT_TRANSACTION_BEGIN_TEST)
 	@$<
 
+APT_CONDITIONAL_DECONFIGURATION_TEST := $(BUILD_DIR)/tests/AptProviderConditionalDeconfigurationTests
+apt_conditional_deconfiguration_test_sources := tests/AptProviderConditionalDeconfigurationTests.cpp \
+	Cydia/AptProviderReview.cpp Cydia/AptProviderDpkgState.cpp Cydia/AptProviderConditionalDeconfiguration.cpp \
+	Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
+	Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
+	Cydia/RepositorySecurityPolicy.cpp Cydia/ExtendedState.cpp
+$(APT_CONDITIONAL_DECONFIGURATION_TEST): $(apt_conditional_deconfiguration_test_sources) \
+		Cydia/AptProviderConditionalDeconfiguration.hpp Cydia/AptProviderRestorationDebt.hpp \
+		Cydia/AptProviderDeconfigurationApproval.hpp Cydia/AptProviderReview.hpp Cydia/AptProviderDpkgState.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(apt_conditional_deconfiguration_test_sources) -o $@
+.PHONY: verify-apt-conditional-deconfiguration
+verify: verify-apt-conditional-deconfiguration
+verify-apt-conditional-deconfiguration: $(APT_CONDITIONAL_DECONFIGURATION_TEST)
+	@$<
+
 APT_RESTORATION_DEBT_TEST := $(BUILD_DIR)/tests/AptProviderRestorationDebtTests
 apt_restoration_debt_test_sources := tests/AptProviderRestorationDebtTests.cpp \
 	Cydia/AptProviderRestorationDebt.cpp $(filter-out tests/AptProviderDeconfigurationApprovalTests.cpp,$(apt_deconfiguration_approval_test_sources))
@@ -337,8 +353,8 @@ apt_provider_broker_authorization_sources := tests/AptProviderBrokerAuthorizatio
 	Cydia/AptProviderEffectReviewBundle.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 	Cydia/AptProviderTransactionRequest.cpp \
 	Cydia/AptProviderTransactionResult.cpp \
-	Cydia/AptProviderBroker.cpp Cydia/AptProviderBrokerValues.cpp Cydia/AptProviderReview.cpp \
-	Cydia/AptProviderDpkgState.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptRuntimeDescriptor.cpp \
+	Cydia/AptProviderBroker.cpp Cydia/AptProviderBrokerValues.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
+	Cydia/AptProviderDpkgState.cpp Cydia/AptProviderConditionalDeconfiguration.cpp Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 	Cydia/ExtendedState.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
 	Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp Cydia/RepositorySecurityPolicy.cpp \
 	Cydia/PackageIdentity.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/AptRecoverySnapshot.cpp
@@ -346,7 +362,7 @@ $(APT_PROVIDER_BROKER_AUTHORIZATION_TEST): $(apt_provider_broker_authorization_s
 		Cydia/AptProviderBroker.hpp Cydia/AptProviderProtocol.hpp Cydia/AptProviderReview.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
-		$(apt_provider_broker_authorization_sources) -o $@
+		$(sort $(apt_provider_broker_authorization_sources)) -o $@
 $(APT_BACKEND_FACADE_TEST): tests/AptBackendFacadeTests.cpp Cydia/AptBackendFacade.cpp Cydia/RuntimeProviderAdmission.hpp \
 		Cydia/AptRemoteBackend.cpp Cydia/AptBackendImplementation.hpp Cydia/AptBackend.hpp \
 		Cydia/AptProviderSession.cpp Cydia/AptProviderSession.hpp Cydia/AptProviderProtocol.cpp \
@@ -359,17 +375,17 @@ $(APT_BACKEND_FACADE_TEST): tests/AptBackendFacadeTests.cpp Cydia/AptBackendFaca
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp \
 		Cydia/RepositorySecurityPolicy.cpp Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp \
 		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation,-pthread) -o $@
-$(APT_PROVIDER_REVIEW_TEST): tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp \
+$(APT_PROVIDER_REVIEW_TEST): tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		Cydia/AptProviderReview.hpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \
 		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
-		tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderProtocol.cpp \
+		tests/AptProviderReviewTests.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderProtocol.cpp \
 		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp -o $@
 $(APT_TRANSACTION_LEASE_TEST): tests/AptProviderTransactionLeaseTests.cpp \
 		Cydia/AptProviderTransactionLease.cpp Cydia/AptProviderTransactionLease.hpp \
 		Cydia/AptProviderComponentSuccession.cpp Cydia/AptProviderComponentSuccession.hpp \
-		Cydia/AptProviderReview.cpp Cydia/AptProviderReview.hpp Cydia/AptProviderProtocol.cpp \
+		Cydia/AptProviderReview.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp Cydia/AptProviderReview.hpp Cydia/AptProviderProtocol.cpp \
 		Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp \
 		Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp Cydia/ExtendedState.cpp \
 		Cydia/ApplicationSession.hpp Cydia/PackageArchiveReader.hpp
@@ -378,12 +394,12 @@ $(APT_TRANSACTION_LEASE_TEST): tests/AptProviderTransactionLeaseTests.cpp \
 $(PROVIDER_PROGRESS_TEST): tests/ProviderProgressPolicyTests.cpp Cydia/ProviderProgressPolicy.hpp Cydia/SourceFetchActivity.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $< -o $@
-$(APT_PROVIDER_DPKG_STATE_TEST): tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp \
+$(APT_PROVIDER_DPKG_STATE_TEST): tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp Cydia/AptProviderConditionalDeconfiguration.cpp Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		Cydia/AptProviderDpkgState.hpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderProtocol.hpp \
 		Cydia/ExtendedState.cpp Cydia/ExtendedState.hpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
-		tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp \
+		tests/AptProviderDpkgStateTests.cpp Cydia/AptProviderDpkgState.cpp Cydia/AptProviderConditionalDeconfiguration.cpp Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		Cydia/AptProviderProtocol.cpp Cydia/ExtendedState.cpp Cydia/AptProviderValues.cpp Cydia/PackageIdentity.cpp -o $@
 verify-apt-provider: $(APT_PROVIDER_TEST) $(APT_RECOVERY_MACHO_TEST) $(APT_RECOVERY_SNAPSHOT_TEST) $(APT_PROVIDER_LAUNCH_TEST) $(APT_PROVIDER_SESSION_TEST) $(APT_PROVIDER_SERVER_TEST) $(APT_PROVIDER_TRANSPORT_TEST) $(APT_PROVIDER_AUTHORIZATION_TEST) $(APT_PROVIDER_BROKER_AUTHORIZATION_TEST) $(APT_BACKEND_FACADE_TEST) $(APT_PROVIDER_REVIEW_TEST) $(APT_TRANSACTION_LEASE_TEST) $(APT_PROVIDER_DPKG_STATE_TEST) $(PROVIDER_PROGRESS_TEST)
 	@$<
@@ -661,7 +677,7 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/PrivilegedClient.h Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedRuntime.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptProviderBrokerValues.cpp \
-		Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderDpkgState.cpp Cydia/ExtendedState.cpp \
+		Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderDpkgState.cpp Cydia/AptProviderConditionalDeconfiguration.cpp Cydia/AptProviderRestorationDebt.cpp Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp Cydia/ExtendedState.cpp \
 		Cydia/AptRecoverySnapshot.cpp Cydia/AptRecoverySnapshot.hpp \
 		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp \
 		Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp \

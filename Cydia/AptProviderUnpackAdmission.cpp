@@ -42,20 +42,40 @@ bool AdmissionSnapshot(const P::Environment &environment, const TriggerStateSnap
     } catch (...) { return Fail(error, "provider_dpkg_state_unavailable"); }
 }
 bool Fresh(const BrokerEnvironment &selected, const NativeDpkgAuthority &native,
-    const std::vector<InstalledComponentEvidence> &components, const TriggerCaptureLock &lock,
+    const std::vector<InstalledComponentEvidence> &components, const ComponentSuccession &succession, const TriggerCaptureLock &lock,
     const std::function<bool()> &cancelled, std::string *error) {
     if ((cancelled && cancelled()) || geteuid() != 0 || !TriggerCaptureLockHeld(selected.environment, lock) ||
         selected.environment.dpkgRoot != native.dpkgRoot || selected.environment.dpkgAdmin != native.dpkgAdmin ||
         selected.executableSearchPath != native.executableSearchPath ||
-        !RevalidateNativeDpkgAuthority(native, components, error)) return Fail(error, "provider_unpack_authority_changed");
+        !RevalidateNativeDpkgAuthority(native, components, error) ||
+        !succession.AuthorizeComponents(components, error)) return Fail(error, "provider_unpack_authority_changed");
     for (const auto &expected : components) {
         InstalledComponentEvidence actual;
         if (!CaptureTransactionComponent(expected.file.metadata.path, &actual, error, cancelled) ||
             !SameInstalledComponent(expected, actual)) return Fail(error, "provider_unpack_authority_changed");
     }
-    ComponentClosureEvidence closure;
-    return CaptureNativeDpkgClosure(native, selected.environment.dpkg, components, &closure, error, cancelled) &&
-        CaptureNativeDpkgClosure(native, selected.environment.dpkgQuery, components, &closure, error, cancelled);
+    std::set<std::string> executables(native.commands.begin(), native.commands.end());
+    executables.insert(selected.environment.dpkg); executables.insert(selected.environment.dpkgQuery);
+    for (const auto &path : executables) {
+        ComponentClosureEvidence closure;
+        if (!CaptureNativeDpkgClosure(native, path, components, &closure, error, cancelled) ||
+            !succession.AuthorizeLaunch(closure, error)) return Fail(error, "provider_unpack_authority_changed");
+    }
+    return true;
+}
+bool AdmissionOrigin(const NativeDpkgAuthority &native, const ComponentSuccession &succession,
+    const ReviewedTransaction &review, const std::string &expected, std::string *error) {
+    std::vector<InstalledComponentEvidence> initial;
+    return !expected.empty() && succession.AuthorizeOrigin(review, native.configurationIdentity, native.platformIdentity,
+        &initial, error) && TriggerNativeAuthorityIdentity(native, initial) == expected ? true :
+        Fail(error, "provider_unpack_origin_changed");
+}
+std::string AdmissionNativeGeneration(const NativeDpkgAuthority &native,
+    const std::vector<InstalledComponentEvidence> &components, const std::string &origin) {
+    // Identity-only view covers the physically recaptured current set, including
+    // ledger-approved new dependency paths. It never changes the retained native
+    // declaration, its componentPaths, producer inputs or initial approval.
+    return TriggerNativeGenerationIdentity(native, components, origin);
 }
 bool EmptyStatus(const P::Environment &environment) {
     P::Evidence status; P::Error ignored;
@@ -66,7 +86,8 @@ bool MatchLaunch(const BrokerEnvironment &selected, const NativeDpkgAuthority &n
     const std::vector<InstalledComponentEvidence> &components, const std::vector<std::string> &arguments,
     std::size_t prefixSize, N::Match *match, std::string *launch, std::string *error,
     const std::function<bool()> &cancelled) {
-    if (prefixSize > arguments.size()) return Fail(error, "provider_unpack_launch_invalid");
+    if (prefixSize > arguments.size() || !N::SupportedProfile("dpkg-1.23.7-effects-1"))
+        return Fail(error, "provider_unpack_launch_invalid");
     N::Inputs inputs;
     if (!BuildNativeEffectPolicyInputs(native, selected.environment.dpkg, components, "dpkg-1.23.7-effects-1",
         N::Role::Unpack, {arguments.begin(), arguments.begin() + prefixSize}, &inputs, error, cancelled)) return false;
@@ -144,10 +165,89 @@ bool SameCause(const DeconfigurationCause &a, const DeconfigurationCause &b) {
 bool SameScript(const P::Evidence &a, const P::Evidence &b) {
     return P::SerializeSnapshotEvidence(a) == P::SerializeSnapshotEvidence(b);
 }
+bool AdmissionRestorationPoint(const P::Environment &environment, const RestorationDebtLedger &debt,
+    const ProtectedRestorationCheckpoint &current, const DeconfigurationAllowanceSet &approval,
+    const TriggerEffectCheckpoint &actual, std::string *error, const std::function<bool()> &cancelled) {
+    P::Error ignored;
+    return debt.AuthorizeCheckpoint(approval, current.observation(), error) &&
+        current.observation().identity == actual.identity && current.trigger().identity == actual.identity &&
+        current.trigger().packages.packageStateIdentity == actual.packages.packageStateIdentity &&
+        P::RecheckEvidence(current.trigger().metadata.files, &ignored) && P::RecheckEvidence(current.scripts().files, &ignored) &&
+        RecheckProtectedTriggerEvidence(environment, current.trigger().registry, error, cancelled) ? true :
+        Fail(error, "provider_unpack_restoration_changed");
+}
+bool AdmissionSealArchives(const TransactionArchiveStore &store, const std::vector<StagedArchiveEvidence> &expected,
+    std::string *error, const std::function<bool()> &cancelled) {
+    std::vector<StagedArchiveEvidence> sealed;
+    if (!store.Capture(&sealed, error, cancelled) || sealed.size() != expected.size()) return Fail(error, "provider_unpack_archive_changed");
+    for (std::size_t i = 0; i < sealed.size(); ++i)
+        if (!SameInstalledComponent(sealed[i].identity, expected[i].identity) || sealed[i].hashes != expected[i].hashes)
+            return Fail(error, "provider_unpack_archive_changed");
+    return true;
+}
+class AdmissionResultWriter {
+    std::string bytes_ = "CYDIA-UNPACK-ORDERED-PREDEPENDS-1";
+public:
+    bool Field(const std::string &value) {
+        const std::string size = std::to_string(value.size());
+        if (size.size() + 2 > MaximumDeconfigurationOutputBytes - bytes_.size() ||
+            value.size() > MaximumDeconfigurationOutputBytes - bytes_.size() - size.size() - 2) return false;
+        bytes_ += size + ':' + value + ',';
+        return true;
+    }
+    bool Number(std::uint64_t value) { return Field(std::to_string(value)); }
+    bool Candidate(const PreDependsEvidence::CandidateEvidence &candidate) {
+        const auto &match = candidate.match;
+        return Number(match.group) && Number(match.alternative) && Number(match.candidate) && Number(match.provide) &&
+            Field(match.package) && Field(match.version) && Field(match.architecture) && Field(match.comparedVersion) &&
+            Number(static_cast<unsigned>(candidate.origin)) && Number(static_cast<unsigned>(candidate.queryStatus)) &&
+            Number(static_cast<unsigned>(candidate.diskStatus)) && Field(candidate.configVersion) && Field(candidate.metadataIdentity);
+    }
+    std::string Identity() const { return Hash(bytes_); }
+};
+bool AdmissionResultBytes(const OrderedPreDependsEvidence &row, std::size_t *retained) {
+    const auto add = [&](std::size_t amount) {
+        if (amount > MaximumDeconfigurationOutputBytes - *retained) return false;
+        *retained += amount; return true;
+    };
+    const auto candidate = [&](const PreDependsEvidence::CandidateEvidence &value) {
+        return add(value.match.package.size()) && add(value.match.version.size()) && add(value.match.architecture.size()) &&
+            add(value.match.comparedVersion.size()) && add(value.configVersion.size()) && add(value.metadataIdentity.size());
+    };
+    if (!add(sizeof(row)) || !add(row.archive.size()) || !add(row.canonicalGroup.size()) || !add(row.result.packageStateIdentity.size())) return false;
+    for (const auto &group : row.result.groups) {
+        if (!add(sizeof(group))) return false;
+        for (const auto &witness : group.witnesses) if (!add(sizeof(witness)) || !candidate(witness.candidate)) return false;
+        for (const auto &blocker : group.blockers) if (!add(sizeof(blocker)) || !candidate(blocker.candidate)) return false;
+    }
+    return true;
+}
+bool AdmissionResultsIdentity(const std::vector<OrderedPreDependsEvidence> &rows, std::string *identity) {
+    AdmissionResultWriter writer;
+    if (!writer.Number(rows.size())) return false;
+    for (const auto &row : rows) {
+        if (!writer.Number(row.unpackAction) || !writer.Field(row.archive) || !writer.Field(row.canonicalGroup) ||
+            !writer.Number(row.field) || !writer.Number(row.group) || !writer.Number(static_cast<unsigned>(row.result.readiness)) ||
+            !writer.Number(static_cast<unsigned>(row.result.error.code)) || !writer.Number(row.result.error.offset) ||
+            !writer.Field(row.result.packageStateIdentity) || !writer.Number(row.result.groups.size())) return false;
+        for (const auto &group : row.result.groups) {
+            if (!writer.Number(group.witnesses.size()) || !writer.Number(group.blockers.size())) return false;
+            for (const auto &witness : group.witnesses)
+                if (!writer.Candidate(witness.candidate) || !writer.Number(witness.historicalVersionRequired)) return false;
+            for (const auto &blocker : group.blockers)
+                if (!writer.Number(blocker.group) || !writer.Number(blocker.alternative) || !writer.Number(static_cast<unsigned>(blocker.reason)) ||
+                    !writer.Number(blocker.hasCandidate) || !writer.Candidate(blocker.candidate)) return false;
+        }
+    }
+    *identity = writer.Identity(); return !identity->empty();
+}
 }
 struct ProtectedUnpackAdmission::Data {
     UnpackAdmissionReadiness readiness = UnpackAdmissionReadiness::Unsupported;
-    std::string identity, nativeIdentity, launchIdentity, approvalBytes;
+    std::string identity, nativeIdentity, initialNativeIdentity, launchIdentity, approvalBytes;
+    const ComponentSuccession *succession = nullptr;
+    const RestorationDebtLedger *restoration = nullptr;
+    DeconfigurationAllowanceSet approvalScope;
     N::Match policy;
     std::vector<std::string> arguments;
     std::size_t prefixSize = 0;
@@ -159,6 +259,9 @@ struct ProtectedUnpackAdmission::Data {
     std::shared_ptr<const ArchiveEvidenceSnapshot> sourceSnapshot;
     std::vector<VerifiedIndexControlEvidence> indexControls;
     std::vector<AdmittedDeconfigurationCause> causes;
+    std::vector<OrderedPreDependsEvidence> orderedPreDepends;
+    std::string orderedPreDependsIdentity;
+    bool singleArchive = false, orderedChecksComplete = false;
     UnpackOwnershipResult ownership;
 };
 ProtectedUnpackAdmission::ProtectedUnpackAdmission(std::shared_ptr<const Data> data) : data_(std::move(data)) {}
@@ -167,10 +270,21 @@ const std::string &ProtectedUnpackAdmission::identity() const { return data_->id
 const TriggerEffectCheckpoint &ProtectedUnpackAdmission::checkpoint() const { return data_->checkpoint; }
 const std::vector<AdmittedDeconfigurationCause> &ProtectedUnpackAdmission::causes() const { return data_->causes; }
 const UnpackOwnershipResult &ProtectedUnpackAdmission::ownership() const { return data_->ownership; }
+const std::vector<OrderedPreDependsEvidence> &ProtectedUnpackAdmission::orderedPreDepends() const { return data_->orderedPreDepends; }
+bool ProtectedUnpackAdmission::singleArchiveNativeChecksReady() const {
+    return data_ && data_->readiness == UnpackAdmissionReadiness::FactsVerified && data_->singleArchive &&
+        data_->orderedChecksComplete && !data_->orderedPreDependsIdentity.empty() && data_->checkpoint.registry.synchronized &&
+        data_->checkpoint.registry.state.deferredPresent && data_->checkpoint.registry.state.deferred.empty() &&
+        data_->policy.status == N::Status::Matched && data_->policy.settings && Modeled(*data_->policy.settings) &&
+        std::all_of(data_->orderedPreDepends.begin(), data_->orderedPreDepends.end(), [](const OrderedPreDependsEvidence &row) {
+            return row.result.readiness == PreDependsEvidence::Readiness::Ready;
+        });
+}
 
 bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const NativeDpkgAuthority &native,
-    const std::vector<InstalledComponentEvidence> &components, const TransactionArchiveStore &store,
-    const ProtectedDeconfigurationReview &approved, const AuthorizedExecution &batch,
+    const std::vector<InstalledComponentEvidence> &components, const ComponentSuccession &succession, const TransactionArchiveStore &store,
+    const ProtectedDeconfigurationReview &approved, const RestorationDebtLedger &restoration,
+    const ProtectedRestorationCheckpoint &currentPoint, const AuthorizedExecution &batch,
     const std::vector<std::string> &arguments, int receivedStatus, const TriggerCaptureLock &lock,
     std::shared_ptr<const ProtectedUnpackAdmission> *output, std::string *error,
     const std::function<bool()> &cancelled, const TriggerStateSnapshot &snapshot) {
@@ -190,11 +304,14 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
         batch.optionPrefixSize > batch.arguments.size() || batch.statusOptionIndex >= batch.optionPrefixSize ||
         !approved.sourceSnapshot || !EncodeDeconfigurationApproval(approved.allowances, &data->approvalBytes, error) ||
         approved.allowances.initialCheckpoint != approved.checkpoint.identity ||
-        !Fresh(selected, native, components, lock, cancel, error)) return Fail(error, "provider_unpack_input_invalid");
-    data->sourceSnapshot = approved.sourceSnapshot;
-    data->nativeIdentity = TriggerNativeAuthorityIdentity(native, components);
-    if (approved.allowances.nativeAuthorityIdentity != data->nativeIdentity)
-        return Fail(error, "provider_unpack_authority_changed");
+        !Fresh(selected, native, components, succession, lock, cancel, error)) return Fail(error, "provider_unpack_input_invalid");
+    data->sourceSnapshot = approved.sourceSnapshot; data->succession = &succession;
+    data->singleArchive = batch.archives.size() == 1;
+    data->approvalScope = approved.allowances; data->restoration = &restoration;
+    data->initialNativeIdentity = approved.allowances.nativeAuthorityIdentity;
+    if (!AdmissionOrigin(native, succession, data->approvalScope.primaryReview, data->initialNativeIdentity, error)) return false;
+    data->nativeIdentity = AdmissionNativeGeneration(native, components, data->initialNativeIdentity);
+    if (data->nativeIdentity.empty()) return Fail(error, "provider_unpack_authority_changed");
     // Reproduce the exact native child argument preparation from retained
     // parser offsets. No searching for options among opaque operand/hook text.
     std::vector<std::string> bound, prefix, head, finalized;
@@ -214,7 +331,8 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
     if (!AdmissionSnapshot(selected.environment, snapshot, cancel, &frozen, error)) return false;
     const auto stable = [&]() {
         std::string current;
-        return Fresh(selected, native, components, lock, cancel, error) &&
+        return Fresh(selected, native, components, succession, lock, cancel, error) &&
+            AdmissionOrigin(native, succession, data->approvalScope.primaryReview, data->initialNativeIdentity, error) &&
             AdmissionSnapshot(selected.environment, snapshot, cancel, &current, error) && current == frozen;
     };
     const auto query = [&](const std::string &tool, const std::vector<std::string> &argv,
@@ -238,6 +356,7 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
         state.nativeArchitecture != selected.runtime.architecture || state.registeredArchitectures != selected.runtime.registeredArchitectures ||
         !CaptureTriggerEffectCheckpoint(environment, state, lock, &data->checkpoint, error, cancel, effectiveSnapshot))
         return Fail(error, "provider_unpack_state_unavailable");
+    if (!AdmissionRestorationPoint(environment, restoration, currentPoint, approved.allowances, data->checkpoint, error, cancel)) return false;
     InstalledOwnershipError ownershipError;
     if (!CaptureInstalledOwnership(environment, state, lock, &data->installedOwnership, &ownershipError, cancel, effectiveSnapshot) ||
         !store.Capture(&data->archives, error, cancel) || !stable()) return Fail(error, "provider_unpack_evidence_changed");
@@ -289,7 +408,7 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
     std::set<std::uint64_t> actions; std::set<std::string> requested, victims;
     const bool forceBreaks = std::find(data->policy.settings->forces.begin(), data->policy.settings->forces.end(),
         N::Force::Breaks) != data->policy.settings->forces.end();
-    bool blocked = false; std::size_t inventoryBytes = 0, causeBytes = 0, relationshipSteps = 0;
+    bool blocked = false; std::size_t inventoryBytes = 0, causeBytes = 0, relationshipSteps = 0, preDependsBytes = 0;
     const auto charge = [&](std::size_t amount) {
         if (amount > MaximumDeconfigurationSteps - relationshipSteps) return false;
         relationshipSteps += amount; return true;
@@ -408,7 +527,8 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
         // pkg_check_depcon walks each dependency node in actual archive field
         // encounter order. Groups are appended in textual comma order. Never
         // substitute index order, canonical-map order or status writer order.
-        for (const auto &fieldName : control->control.dependencyOrder) {
+        for (std::size_t fieldPosition = 0; fieldPosition < control->control.dependencyOrder.size(); ++fieldPosition) {
+            const auto &fieldName = control->control.dependencyOrder[fieldPosition];
             const auto kind = AdmissionFieldKind(fieldName);
             const auto &fullField = *fields.at(kind);
             for (std::size_t groupIndex = 0; groupIndex < fullField.groups.size(); ++groupIndex) {
@@ -444,10 +564,15 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
                     // Native INSTALLNEW self-dependencies consult the whole
                     // already-parsed available Provides value. The current
                     // queue, however, includes only earlier native nodes.
-                    const auto readiness = PreDependsEvidence::Evaluate(*group, *incoming, state,
-                        data->checkpoint.metadata, state.nativeArchitecture, compare, queued).readiness;
+                    OrderedPreDependsEvidence row; row.unpackAction = action->identifier; row.archive = action->archive;
+                    row.field = fieldPosition; row.group = groupIndex; row.canonicalGroup = group->canonical;
+                    row.result = PreDependsEvidence::Evaluate(*group, *incoming, state,
+                        data->checkpoint.metadata, state.nativeArchitecture, compare, queued);
+                    const auto readiness = row.result.readiness;
                     if (readiness == PreDependsEvidence::Readiness::Unsupported || readiness == PreDependsEvidence::Readiness::ComparisonFailed)
                         return Fail(error, "provider_unpack_predepends_unavailable");
+                    if (!AdmissionResultBytes(row, &preDependsBytes)) return Fail(error, "provider_unpack_predepends_limit");
+                    data->orderedPreDepends.push_back(std::move(row));
                     blocked = readiness != PreDependsEvidence::Readiness::Ready;
                 } else if (kind == B::Kind::Provides) {
                     // Native checks reverse Conflicts for this provided group
@@ -475,7 +600,10 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
         // Multi-archive success/failure list continuity is not proven here.
         // A blocked first archive must not manufacture effects of a later one.
         if (blocked) break;
+        data->orderedChecksComplete = true;
     }
+    if (!AdmissionResultsIdentity(data->orderedPreDepends, &data->orderedPreDependsIdentity))
+        return Fail(error, "provider_unpack_predepends_limit");
     std::vector<ExecutionPackage> scriptTargets;
     for (const auto &key : victims) scriptTargets.push_back(state.packages.at(key).package);
     if (!CaptureInstalledScripts(environment, state, lock, scriptTargets, &data->scripts, error, cancel, effectiveSnapshot)) return false;
@@ -484,9 +612,20 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
         const auto fresh = data->scripts.packages.find(key);
         const auto originalControl = approved.checkpoint.metadata.packages.find(key);
         const auto freshControl = data->checkpoint.metadata.packages.find(key);
+        const auto currentScript = currentPoint.scripts().packages.find(key);
+        const auto currentControl = currentPoint.trigger().metadata.packages.find(key);
+        const auto observed = currentPoint.observation().packages.find(key);
         if (original == approved.installedScripts.packages.end() || fresh == data->scripts.packages.end() ||
             originalControl == approved.checkpoint.metadata.packages.end() || freshControl == data->checkpoint.metadata.packages.end() ||
-            !Same(original->second.package, fresh->second.package) || original->second.configVersion != fresh->second.configVersion ||
+            currentScript == currentPoint.scripts().packages.end() || currentControl == currentPoint.trigger().metadata.packages.end() ||
+            observed == currentPoint.observation().packages.end() || !observed->second.present ||
+            !Same(original->second.package, fresh->second.package) || !Same(currentScript->second.package, fresh->second.package) ||
+            !Same(observed->second.package, fresh->second.package) ||
+            currentScript->second.configVersion != fresh->second.configVersion || observed->second.configVersion != fresh->second.configVersion ||
+            currentScript->second.diskStatus != fresh->second.diskStatus || observed->second.diskStatus != fresh->second.diskStatus ||
+            currentControl->second.evidenceIdentity != freshControl->second.evidenceIdentity ||
+            currentScript->second.evidenceIdentity != fresh->second.evidenceIdentity ||
+            !SameScript(currentScript->second.prerm, fresh->second.prerm) || !SameScript(currentScript->second.postinst, fresh->second.postinst) ||
             !SameScript(original->second.prerm, fresh->second.prerm) || !SameScript(original->second.postinst, fresh->second.postinst) ||
             originalControl->second.controls != freshControl->second.controls)
             return Fail(error, "provider_unpack_old_generation_changed");
@@ -521,18 +660,28 @@ bool ProtectedUnpackAdmission::Capture(const BrokerEnvironment &selected, const 
             return Fail(error, "provider_unpack_archive_changed");
     if (!stable() || !P::RecheckEvidence(data->installedOwnership.files, &ignored) ||
         !P::RecheckEvidence(data->scripts.files, &ignored) || !P::RecheckEvidence(data->checkpoint.metadata.files, &ignored) ||
-        !RecheckProtectedTriggerEvidence(environment, data->checkpoint.registry, error, cancel))
+        !RecheckProtectedTriggerEvidence(environment, data->checkpoint.registry, error, cancel) ||
+        !AdmissionRestorationPoint(environment, restoration, currentPoint, approved.allowances, data->checkpoint, error, cancel))
         return Fail(error, "provider_unpack_evidence_changed");
     data->identity = Hash("CYDIA-PROTECTED-UNPACK-1" + P::SerializeFields({data->nativeIdentity, data->launchIdentity,
         data->policy.inputIdentity, data->policy.recordIdentity, data->checkpoint.identity, data->installedOwnership.evidenceIdentity,
-        data->scripts.evidenceIdentity, Hash(data->approvalBytes), std::to_string(batch.batch)}));
-    if (data->identity.empty() || cancel()) return Fail(error, "provider_unpack_evidence_changed");
+        data->scripts.evidenceIdentity, Hash(data->approvalBytes), data->orderedPreDependsIdentity,
+        data->singleArchive ? "single" : "multiple", data->orderedChecksComplete ? "checked" : "incomplete", std::to_string(batch.batch)}));
+    if (data->identity.empty() || cancel() || !Fresh(selected, native, components, succession, lock, cancel, error) ||
+        !AdmissionOrigin(native, succession, data->approvalScope.primaryReview, data->initialNativeIdentity, error) ||
+        !MatchLaunch(selected, native, components, arguments, data->prefixSize, &finalPolicy, &finalLaunch, error, cancel) ||
+        finalPolicy.inputIdentity != data->policy.inputIdentity || finalPolicy.recordIdentity != data->policy.recordIdentity ||
+        finalLaunch != data->launchIdentity) return Fail(error, "provider_unpack_evidence_changed");
+    // No index/state/restoration callback runs after this final private-copy
+    // rehash. Earlier Store captures cannot seal a later callback boundary.
+    if (!AdmissionSealArchives(store, data->archives, error, cancel)) return false;
     *output = std::shared_ptr<const ProtectedUnpackAdmission>(new ProtectedUnpackAdmission(std::move(data)));
     if (error) error->clear();
     return true;
 }
 bool ProtectedUnpackAdmission::Revalidate(const BrokerEnvironment &selected, const NativeDpkgAuthority &native,
-    const std::vector<InstalledComponentEvidence> &components, const TransactionArchiveStore &store,
+    const std::vector<InstalledComponentEvidence> &components, const ComponentSuccession &succession, const TransactionArchiveStore &store,
+    const RestorationDebtLedger &restoration, const ProtectedRestorationCheckpoint &currentPoint,
     const std::vector<std::string> &arguments, const TriggerCaptureLock &lock, std::string *error,
     const std::function<bool()> &cancelled, const TriggerStateSnapshot &snapshot) const {
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(30000);
@@ -541,9 +690,11 @@ bool ProtectedUnpackAdmission::Revalidate(const BrokerEnvironment &selected, con
         catch (...) { return true; }
     };
     P::Error ignored; std::string state, launch; N::Match policy; std::vector<StagedArchiveEvidence> archives;
-    if (!data_ || data_->readiness != UnpackAdmissionReadiness::FactsVerified || arguments != data_->arguments ||
-        !Fresh(selected, native, components, lock, cancel, error) ||
-        TriggerNativeAuthorityIdentity(native, components) != data_->nativeIdentity ||
+    if (!data_ || data_->succession != &succession || data_->restoration != &restoration || data_->readiness != UnpackAdmissionReadiness::FactsVerified || arguments != data_->arguments ||
+        !Fresh(selected, native, components, succession, lock, cancel, error) ||
+        !AdmissionOrigin(native, succession, data_->approvalScope.primaryReview, data_->initialNativeIdentity, error) ||
+        AdmissionNativeGeneration(native, components, data_->initialNativeIdentity) != data_->nativeIdentity ||
+        !AdmissionRestorationPoint(selected.environment, restoration, currentPoint, data_->approvalScope, data_->checkpoint, error, cancel) ||
         !AdmissionSnapshot(selected.environment, snapshot, cancel, &state, error) || state != data_->checkpoint.packages.packageStateIdentity ||
         !P::RecheckEvidence(data_->installedOwnership.files, &ignored) || !P::RecheckEvidence(data_->scripts.files, &ignored) ||
         !P::RecheckEvidence(data_->checkpoint.metadata.files, &ignored) ||
@@ -567,12 +718,21 @@ bool ProtectedUnpackAdmission::Revalidate(const BrokerEnvironment &selected, con
         if (!SameInstalledComponent(archives[i].identity, data_->archives[i].identity) || archives[i].hashes != data_->archives[i].hashes)
             return Fail(error, "provider_unpack_archive_changed");
     std::string finalState;
-    if (!Fresh(selected, native, components, lock, cancel, error) ||
+    if (!Fresh(selected, native, components, succession, lock, cancel, error) ||
+        !AdmissionOrigin(native, succession, data_->approvalScope.primaryReview, data_->initialNativeIdentity, error) ||
+        AdmissionNativeGeneration(native, components, data_->initialNativeIdentity) != data_->nativeIdentity ||
+        !AdmissionRestorationPoint(selected.environment, restoration, currentPoint, data_->approvalScope, data_->checkpoint, error, cancel) ||
         !AdmissionSnapshot(selected.environment, snapshot, cancel, &finalState, error) || finalState != state ||
         !P::RecheckEvidence(data_->installedOwnership.files, &ignored) || !P::RecheckEvidence(data_->scripts.files, &ignored) ||
         !P::RecheckEvidence(data_->checkpoint.metadata.files, &ignored) ||
         !RecheckProtectedTriggerEvidence(selected.environment, data_->checkpoint.registry, error, cancel) || cancel())
         return Fail(error, "provider_unpack_admission_changed");
+    if (!Fresh(selected, native, components, succession, lock, cancel, error) ||
+        !AdmissionOrigin(native, succession, data_->approvalScope.primaryReview, data_->initialNativeIdentity, error) ||
+        !MatchLaunch(selected, native, components, arguments, data_->prefixSize, &policy, &launch, error, cancel) ||
+        policy.inputIdentity != data_->policy.inputIdentity || policy.recordIdentity != data_->policy.recordIdentity || launch != data_->launchIdentity)
+        return Fail(error, "provider_unpack_admission_changed");
+    if (!AdmissionSealArchives(store, data_->archives, error, cancel)) return false;
     if (error) error->clear();
     return true;
 }

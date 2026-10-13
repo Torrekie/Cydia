@@ -20,6 +20,8 @@ struct TransactionLeaseIdentity {
     // Empty preserves the legacy primary-only route. Otherwise fixed at Begin
     // to the digest independently recomputed from native-approved recipients.
     std::string effectIdentity;
+    // Exact parent-rebuilt conditional approval; empty preserves ordinary leases.
+    std::string conditionalDeconfigurationIdentity;
 };
 struct StagedArchiveEvidence {
     InstalledComponentEvidence identity;

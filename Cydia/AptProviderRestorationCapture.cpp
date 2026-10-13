@@ -369,6 +369,7 @@ bool VerifyRestorationSuccessors(const P::Environment &environment, const Trigge
         proof.retainedArchiveIdentity = selected.at(proof.archive)->fileIdentity;
         proof.beforeCheckpoint = before.observation().identity; proof.afterCheckpoint = after.observation().identity;
         proof.installedControlIdentity = now.controlIdentity; proof.installedScriptsIdentity = now.scriptsIdentity;
+        proof.installedMultiArch = metadata.controls.at("multi-arch");
         proof.installedContentIdentity = now.contentIdentity; proof.installedScriptContentIdentity = now.scriptContentIdentity;
         for (const auto *value : {&proof.oldGeneration, &proof.archive, &proof.retainedArchiveIdentity})
             if (!budget.Add(value->size() + 256)) return Fail(error, "provider_restoration_capture_limit");

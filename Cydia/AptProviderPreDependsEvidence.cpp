@@ -150,7 +150,11 @@ Result Evaluate(const B::Field &field, const B::Package &incoming, const DpkgSta
             static_cast<unsigned>(record.selection) > static_cast<unsigned>(DpkgSelection::Purge))
             return Failure(B::ErrorCode::InvalidInput);
         if (record.package.version.empty() && record.package.architecture.empty()) {
-            if (record.status != DpkgPackageStatus::NotInstalled || record.reinstallRequired || !record.multiArch.empty() ||
+            // dpkg-query may spell the unset binary Multi-Arch value as "no"
+            // for names created only by dependency/provider references. These
+            // remain metadata-free non-candidates; no phase is normalized.
+            if (record.status != DpkgPackageStatus::NotInstalled || record.reinstallRequired ||
+                (!record.multiArch.empty() && record.multiArch != "no") ||
                 !record.triggersPending.empty() || !record.triggersAwaited.empty()) return Failure(B::ErrorCode::InvalidInput);
             continue;
         }

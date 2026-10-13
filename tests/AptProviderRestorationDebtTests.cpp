@@ -308,8 +308,67 @@ void AtomicMultiRecipientAndImmediateConfigure() {
     Require(restored.debts().empty() && restored.completedActions() == 2 && !restored.complete(), "actual Configure with settled obligations clears exact debt immediately");
     configured.identity = Hash('3'); Execute(restored, direct, 3, {50}, configured); Require(restored.complete(), "direct restoration completes remaining review");
 }
+void ExactReadOnlyCheckpointAuthorization() {
+    auto approval = Approval(false); auto awaited = Initial(); awaited.deferredQueueEmpty = false;
+    auto &old = awaited.packages.at(Slot); old.status = old.diskStatus = Phase::TriggersAwaited;
+    old.configVersion = "0"; old.triggersAwaited = {"recipient:amd64"};
+    auto &allowance = approval.allowances.at(Old); allowance.initialStatus = allowance.diskStatus = Phase::TriggersAwaited;
+    allowance.configVersion = "0";
+    P::RestorationDebtLedger ledger; std::string error;
+    Require(!ledger.AuthorizeCheckpoint(approval, awaited, &error) && !ledger.active(), "uninitialized ledger authorizes no current checkpoint");
+    Require(ledger.Begin(approval, awaited, &error) && ledger.AuthorizeCheckpoint(approval, awaited, &error), "exact private initial approval and complete actual observation compare");
+    for (unsigned mode = 0; mode != 5; ++mode) {
+        auto changed = approval;
+        if (mode == 0) changed.identity = Hash('9');
+        if (mode == 1) ++changed.primaryReview.binding.cacheEpoch;
+        if (mode == 2) changed.nativeAuthorityIdentity = Hash('8');
+        if (mode == 3) changed.allowances.at(Old).installedScriptsIdentity = Hash('7');
+        if (mode == 4) changed.allowances.at(Old).causes.front().canonicalRelation = "victim (<< 3)";
+        Require(!ledger.AuthorizeCheckpoint(changed, awaited, &error) && ledger.active() && ledger.completedActions() == 0 && ledger.debts().empty(),
+            "wrong full canonical approval refuses without mutation or new authority");
+    }
+    for (unsigned mode = 0; mode != 16; ++mode) {
+        auto changed = awaited; auto &observation = changed.packages.at(Slot);
+        if (mode == 0) observation.configVersion = "0.5";
+        if (mode == 1) observation.controlIdentity = Hash('9');
+        if (mode == 2) observation.scriptsIdentity = Hash('8');
+        if (mode == 3) observation.contentIdentity = Hash('7');
+        if (mode == 4) observation.scriptContentIdentity = Hash('6');
+        if (mode == 5) observation.selection = P::DpkgSelection::Install;
+        if (mode == 6) observation.status = Phase::HalfConfigured;
+        if (mode == 7) observation.diskStatus = Phase::HalfConfigured;
+        if (mode == 8) observation.triggersAwaited = {"recipient:i386"};
+        if (mode == 9) observation.triggersPending = {"changed-trigger"};
+        if (mode == 10) observation.package.version = "2";
+        if (mode == 11) observation = P::RestorationObservation();
+        if (mode == 12) changed.deferredQueueEmpty = true;
+        if (mode == 13) changed.packages.clear();
+        if (mode == 14) changed.identity = Hash('5');
+        if (mode == 15) observation.reinstallRequired = true;
+        Require(!ledger.AuthorizeCheckpoint(approval, changed, &error) && ledger.active() && ledger.stateIdentity() == awaited.identity &&
+            ledger.completedActions() == 0 && ledger.debts().empty(), "digest/shape or forged same identity cannot authorize changed private observation values");
+    }
+    auto pending = Changed(awaited, '2', Phase::TriggersPending); pending.deferredQueueEmpty = true;
+    Require(ledger.ObserveEffects(awaited.identity, Success(), pending, &error) &&
+        ledger.AuthorizeCheckpoint(approval, pending, &error) && pending.packages.at(Slot).configVersion == "1",
+        "known observed trigger transition updates exact current phase/history without changing immutable approved scope");
+    Require(!ledger.AuthorizeCheckpoint(approval, awaited, &error), "stale prior current point refuses after verified ObserveEffects");
+    auto forged = awaited; forged.identity = pending.identity;
+    Require(!ledger.AuthorizeCheckpoint(approval, forged, &error), "forged new identity on stale historical fields cannot authorize current history");
+    auto current = pending; current.packages.at(Slot).scriptContentIdentity = Hash('3');
+    Require(!ledger.AuthorizeCheckpoint(approval, current, &error), "changed content remains refused even after a known history transition");
+    Require(ledger.PreparePrimary(pending.identity, Batch(approval, 1, {10}), &error) &&
+        ledger.AuthorizeCheckpoint(approval, pending, &error) && ledger.completedActions() == 0,
+        "prepared but unstarted primary retains exact current observation without completing IDs");
+    auto retired = ledger; retired.Invalidate(true);
+    Require(!retired.AuthorizeCheckpoint(approval, pending, &error) && !retired.active() && retired.indeterminate(),
+        "inactive or uncertain ledger authorizes no protected checkpoint");
+    Require(ledger.AuthorizeCheckpoint(approval, pending, &error) && ledger.active(), "all failed read-only comparisons preserve actual current state");
+}
+
 }
 int main() {
+    ExactReadOnlyCheckpointAuthorization();
     SuccessorAndDelayedRestoration(); RemovalDoesNotCompletePurge(); PurgeAndEffectBudget(); FailuresAreAtomic(); UnusedAllowanceConfigure(); PrimaryDeferredSettlementAndUnconfiguredNoOp(); NoInventedRestorationOrDebt();
     EmptyAllowanceAndBounds(); SuccessorTriggerPhase(); AtomicMultiRecipientAndImmediateConfigure();
     std::cout << "[restoration-debt] PASS: bounded exact primary debt, successor and terminal settlement\n";

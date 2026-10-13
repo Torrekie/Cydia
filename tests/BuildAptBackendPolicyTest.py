@@ -63,7 +63,19 @@ def main():
                     driver_sources.append(source)
         if "Cydia/AptProviderTransactionOwner.cpp" in driver_sources:
             for source in ["Cydia/AptProviderTriggerCapture.cpp", "Cydia/AptProviderNativeVersionComparison.cpp",
-                           "Cydia/AptProviderDeconfigurationEffects.cpp", "Cydia/AptProviderInstalledScripts.cpp"]:
+                           "Cydia/AptProviderDeconfigurationEffects.cpp", "Cydia/AptProviderInstalledScripts.cpp",
+                           "Cydia/AptProviderRestorationCapture.cpp", "Cydia/AptProviderRestorationDebt.cpp",
+                           "Cydia/AptProviderUnpackAdmission.cpp", "Cydia/AptProviderInstalledOwnership.cpp",
+                           "Cydia/AptProviderUnpackOwnership.cpp", "Cydia/AptProviderPreDependsEvidence.cpp",
+                           "Cydia/AptProviderPrimaryReadiness.cpp", "Cydia/AptProviderRestorationTriggerDecision.cpp"]:
+                if source not in driver_sources:
+                    driver_sources.append(source)
+        if any(source in driver_sources for source in ["Cydia/AptProviderReview.cpp", "Cydia/AptProviderDpkgState.cpp"]):
+            for source in ["Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp"]:
+                if source not in driver_sources:
+                    driver_sources.append(source)
+        if "Cydia/AptProviderDpkgState.cpp" in driver_sources:
+            for source in ["Cydia/AptProviderConditionalDeconfiguration.cpp", "Cydia/AptProviderRestorationDebt.cpp"]:
                 if source not in driver_sources:
                     driver_sources.append(source)
         command = shlex.split(os.environ.get("CXX", "c++")) + ["-std=c++17", "-g"]
@@ -183,6 +195,12 @@ def main():
     transaction_owner_sources = transaction_files_sources[1:] + transaction_effect_sources + ["Cydia/AptProviderTransactionOwner.cpp",
         "Cydia/AptProviderTransactionLease.cpp", "Cydia/AptProviderDpkgState.cpp", "Cydia/DpkgRunner.cpp",
         "Cydia/RuntimeState.cpp", "Cydia/RuntimeSnapshotInputs.cpp", "Cydia/SourceDocumentCommit.cpp"]
+    compile_driver(["tests/AptProviderTransactionLeaseTests.cpp", "Cydia/AptProviderTransactionLease.cpp",
+        "Cydia/AptProviderComponentSuccession.cpp", "Cydia/AptProviderTriggerApproval.cpp", "Cydia/AptProviderReview.cpp",
+        "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
+        "Cydia/RepositorySecurityPolicy.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
+        "Cydia/ExtendedState.cpp"], "cydia-provider-native-generation", sanitize=True,
+        extra_compile_flags=["-DCYDIA_NATIVE_GENERATION_TESTING=1"])
     compile_driver(["tests/AptProviderTransactionServiceTests.cpp"] + transaction_owner_sources + [
         "Cydia/AptProviderTransactionService.cpp", "Cydia/AptProviderTransactionChannel.cpp",
         "Cydia/AptProviderTransactionRequest.cpp", "Cydia/AptProviderTransactionRequestDigest.cpp",
@@ -194,8 +212,10 @@ def main():
     compile_driver(["tests/AptProviderUnpackAdmissionTests.cpp"] + transaction_owner_sources + [
         "Cydia/AptProviderTransactionChannel.cpp", "Cydia/AptProviderUnpackAdmission.cpp",
         "Cydia/AptProviderInstalledOwnership.cpp", "Cydia/AptProviderUnpackOwnership.cpp",
-        "Cydia/AptProviderPreDependsEvidence.cpp"], "cydia-provider-unpack-admission", extra_link_flags=["-lz"],
+        "Cydia/AptProviderPreDependsEvidence.cpp", "Cydia/AptProviderRestorationCapture.cpp",
+        "Cydia/AptProviderRestorationDebt.cpp"], "cydia-provider-unpack-admission", extra_link_flags=["-lz"],
         extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1"])
+    # The admission driver also retains actual restoration captures.
     compile_driver(["tests/AptProviderNativeDpkgAuthorityTests.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
         "Cydia/AptRecoveryDependencyInspector.cpp", "Cydia/AptRecoveryMachO.cpp", "Cydia/RepositorySecurityPolicy.cpp",
         "Cydia/ExtendedState.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",
@@ -217,6 +237,11 @@ def main():
         "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp", "Cydia/RuntimeSnapshotInputs.cpp",
         "Cydia/RuntimeState.cpp", "Cydia/DpkgRunner.cpp", "Cydia/ExtendedState.cpp", "Cydia/SourceDocument.cpp",
         "Cydia/SourceDocumentStore.cpp", "Cydia/SourceDocumentCommit.cpp", "Cydia/RepositorySecurityPolicy.cpp"]
+    compile_driver(["tests/AptProviderPrimaryReadinessTests.cpp", "Cydia/AptProviderPrimaryReadiness.cpp",
+        "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-primary-readiness", sanitize=True)
+    compile_driver(["tests/AptProviderConditionalLifecycleTests.cpp", "Cydia/AptProviderRestorationTriggerDecision.cpp",
+        "Cydia/AptProviderReview.cpp", "Cydia/AptProviderTriggerApproval.cpp"] + trigger_effect_sources,
+        "cydia-provider-conditional-lifecycle", sanitize=True)
     compile_driver(["tests/AptProviderTriggerEffectsTests.cpp", "Cydia/AptProviderReview.cpp"] + trigger_effect_sources,
         "cydia-provider-trigger-effects", sanitize=True)
     compile_driver(["tests/AptProviderTriggerMetadataTests.cpp"] + trigger_effect_sources, "cydia-provider-trigger-metadata")
@@ -242,6 +267,10 @@ def main():
         "Cydia/AptProviderTransactionRequestDigest.cpp", "Cydia/ExtendedState.cpp", "Cydia/AptProviderProtocol.cpp",
         "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp", "Cydia/RepositorySecurityPolicy.cpp"],
         "cydia-provider-transaction-begin", sanitize=True, extra_compile_flags=["-DCYDIA_BEGIN_NATIVE_APT"])
+    compile_driver(["tests/AptProviderConditionalDeconfigurationTests.cpp", "Cydia/AptProviderReview.cpp",
+        "Cydia/AptProviderDpkgState.cpp", "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp",
+        "Cydia/PackageIdentity.cpp", "Cydia/RepositorySecurityPolicy.cpp", "Cydia/ExtendedState.cpp"],
+        "cydia-provider-conditional-deconfiguration", sanitize=True)
     compile_driver(["tests/AptProviderRestorationDebtTests.cpp", "Cydia/AptProviderRestorationDebt.cpp",
         "Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
         "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
