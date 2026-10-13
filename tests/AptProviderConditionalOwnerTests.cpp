@@ -242,7 +242,8 @@ struct ConditionalFixture : Fixture {
             std::filesystem::create_directory(environment.dpkgRoot + "/usr/lib/fixture");
             Write(environment.dpkgRoot + "/usr/lib/fixture/keep", "native directory replacement must fail");
         }
-        options.selected.executableSearchPath = options.selected.archiveDecoderSearchPath = "/usr/bin:/bin";
+        options.selected.executableSearchPath = "/usr/bin:/bin:/sbin:/usr/sbin";
+        options.selected.archiveDecoderSearchPath = "/usr/bin:/bin";
         options.selected.runtime.dpkgOptions = {"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin};
         options.selected.runtime.packageInstallPrefix = "/";
         options.selected.runtime.dpkgExecutablePath = environment.dpkg;
@@ -306,7 +307,7 @@ struct ConditionalFixture : Fixture {
         fixtureAuthority.platformIdentity = Hash("labelled-linux-conditional-owner-fixture");
         fixtureAuthority.componentPaths = {environment.dpkg, environment.dpkgQuery};
         fixtureAuthority.effectRecordState = P::NativeEffectRecordState::Parsed;
-        std::vector<std::string> launchEntries{"PATH=/usr/bin:/bin", "LANG=C", "LC_ALL=C",
+        std::vector<std::string> launchEntries{"PATH=" + options.selected.executableSearchPath, "LANG=C", "LC_ALL=C",
             "HOME=" + root + "/home", "DPKG_FRONTEND_LOCKED=1"};
         // Preserve only the already-active test harness interposition, once,
         // inside the retained snapshot. Native children never merge ambient
@@ -564,6 +565,8 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
             Require(!actual.Execute(Envelope(sequence), request, -1, -1, &reply, after, &error) && executions == 1,
                 "failed conditional primary cannot replay a started child");
         }
+        if (scenario == ConditionalCase::Complete || scenario == ConditionalCase::CommitCAS)
+            Require(accepted, ("conditional native execution " + std::to_string(sequence) + ": " + error).c_str());
         return accepted;
     };
     P::DpkgState after;
