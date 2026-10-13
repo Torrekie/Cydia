@@ -4,6 +4,7 @@
 #include "Cydia/DpkgConffile.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderTransactionRequest.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include <apt-pkg/fileutl.h>
 #include <cerrno>
 #include <chrono>
@@ -45,6 +46,24 @@ bool WriteAll(int fd, const std::string &bytes) {
         offset += static_cast<std::size_t>(count);
     }
     return true;
+}
+CydiaAPT::Provider::EffectReviewBundle CaptureBundleFixture() {
+    namespace P = CydiaAPT::Provider;
+    P::EffectReviewBundle bundle; bundle.methodsIdentity = "methods:fixture";
+    auto &review = bundle.deconfiguration.primaryReview;
+    review.binding.providerIdentifier = "fixture"; review.binding.session.assign(64, 'a');
+    review.binding.configurationIdentity = "configuration"; review.binding.policyIdentity = "policy";
+    review.binding.packageStateIdentity = "state"; review.binding.review = "review";
+    review.binding.cacheEpoch = review.binding.selectionRevision = 1;
+    review.transaction.registeredArchitectures = {"amd64"};
+    P::ReviewedAction action; action.identifier = 1; action.action = P::ExecutionAction::Configure;
+    action.package = {"sample", "1", "amd64"}; review.execution.actions = {action};
+    bundle.deconfiguration.identity.assign(64, 'b'); bundle.deconfiguration.initialCheckpoint.assign(64, 'c');
+    bundle.deconfiguration.nativeAuthorityIdentity.assign(64, 'd');
+    bundle.triggers.identity.assign(64, 'e'); bundle.triggers.primaryReview = review;
+    bundle.triggers.initialCheckpoint = bundle.deconfiguration.initialCheckpoint;
+    bundle.triggers.nativeAuthorityIdentity = bundle.deconfiguration.nativeAuthorityIdentity;
+    return bundle;
 }
 int ScopedChildren(CydiaAPT::Provider::TransactionChannel::Channel &channel,
     const CydiaAPT::Provider::TransactionChannel::Frame &request, const std::string &mode,
@@ -223,7 +242,9 @@ int TransactionHelper(int socket) {
     }
 }
 int Helper(int argc, char **argv) {
-    if (argc > 1 && std::strncmp(argv[argc - 1], "--cydia-deadline-ms=", 20) == 0) --argc;
+    std::string diagnosticDeadline;
+    if (argc > 1 && std::strncmp(argv[argc - 1], "--cydia-deadline-ms=", 20) == 0)
+        diagnosticDeadline = argv[--argc];
     const std::string command(argv[1]);
     if (command == "--cydia-provider-transaction" && argc == 3) return TransactionHelper(std::atoi(argv[2]));
     if (command == "--cydia-provider-direct" && argc == 3) {
@@ -269,6 +290,23 @@ int Helper(int argc, char **argv) {
     CydiaRuntime::Privileged::Request request;
     CydiaRuntime::Privileged::Error error;
     if (!CydiaRuntime::Privileged::ReadRequest(STDIN_FILENO, &request, &error)) return 21;
+    if (command == "--cydia-provider-review-deconfiguration") {
+        namespace P = CydiaAPT::Provider;
+        std::vector<std::string> fields; P::EffectReviewCaptureRequest capture;
+        if (!P::Decode(request.payload, &fields) || fields.size() != 3) return 71;
+        if (!P::DecodeEffectReviewCaptureRequest(fields[2], &capture)) return 72;
+        if (argc != 2 || diagnosticDeadline != "--cydia-deadline-ms=35000") return 73;
+        // Transport-only peer: no authentication or native capture is asserted.
+        auto bundle = CaptureBundleFixture(); std::string bytes;
+        if (request.expected.sourceList == "wrong-method") bundle.methodsIdentity = "methods:other";
+        if (request.expected.sourceList == "wrong-session") {
+            bundle.deconfiguration.primaryReview.binding.session.assign(64, 'f');
+            bundle.triggers.primaryReview = bundle.deconfiguration.primaryReview;
+        }
+        if (!P::EncodeEffectReviewBundle(bundle, &bytes)) return 38;
+        if (request.expected.sourceList == "truncated") bytes.pop_back();
+        return WriteAll(STDOUT_FILENO, bytes) ? 0 : 39;
+    }
     if (command == "--cydia-provider-snapshot")
         return WriteAll(STDOUT_FILENO, CydiaRuntime::Privileged::SerializeFields(
             {"CYDIA-PROVIDER-SNAPSHOT-1", "provider_registration_missing", "localized diagnostic", ""})) ? 0 : 36;
@@ -448,6 +486,37 @@ int main(int argc, char **argv) {
     Provider::RegisteredProviderSnapshot snapshot;
     Expect(!PrivilegedClient::ReadProviderSnapshot(executable, "/missing", nullptr, &snapshot, &error) &&
         error.code == "provider_registration_missing", "read exact provider error code without matching diagnostics");
+    const auto captureFixture = CaptureBundleFixture();
+    std::string captureFixtureBytes;
+    Expect(Provider::EncodeEffectReviewBundle(captureFixture, &captureFixtureBytes), "transport peer fixture is a canonical paired approval");
+    Provider::EffectReviewCaptureRequest captureRequest;
+    captureRequest.review = captureFixture.deconfiguration.primaryReview; captureRequest.methodsIdentity = captureFixture.methodsIdentity;
+    std::string captureBytes;
+    Expect(Provider::EncodeEffectReviewCaptureRequest(captureRequest, &captureBytes), "encode exact capture request");
+    Privileged::Request captureWrapped;
+    Expect(Provider::Encode(std::vector<std::string>{"CYDIA-BROKER-1", "transport-only-authority", captureBytes}, &captureWrapped.payload),
+        "wrap capture request for transport peer");
+    std::shared_ptr<const Provider::EffectReviewBundle> captured;
+    Expect(PrivilegedClient::CaptureProviderDeconfigurationReview(executable, captureWrapped, captureRequest.review,
+        captureRequest.methodsIdentity, &captured, &error, 1) && captured &&
+        captured->deconfiguration.identity == captureFixture.deconfiguration.identity,
+        "actual bounded helper transport returns immutable paired approval and minimum deadline");
+    for (const char *mode : {"wrong-method", "wrong-session", "truncated"}) {
+        captureWrapped.expected.sourceList = mode;
+        Expect(!PrivilegedClient::CaptureProviderDeconfigurationReview(executable, captureWrapped, captureRequest.review,
+            captureRequest.methodsIdentity, &captured, &error, 1) && !captured,
+            "unmatched or partial peer reply clears approval");
+    }
+    captureWrapped.expected.sourceList.clear();
+    unsigned cancellationChecks = 0;
+    Expect(!PrivilegedClient::CaptureProviderDeconfigurationReview(executable, captureWrapped, captureRequest.review,
+        captureRequest.methodsIdentity, &captured, &error, 1, [&] { return ++cancellationChecks == 2; }) &&
+        !captured && cancellationChecks == 2 && error.code == "provider_cancelled",
+        "post-capture cancellation clears an otherwise valid paired reply");
+    auto otherReview = captureRequest.review; otherReview.binding.session.assign(64, 'f');
+    Expect(!PrivilegedClient::CaptureProviderDeconfigurationReview("/nonexistent-cydia-helper", captureWrapped, otherReview,
+        captureRequest.methodsIdentity, &captured, &error, 1) && !captured && error.code == "provider_effect_review_changed",
+        "mismatched wrapped review is rejected before helper launch");
     request = Privileged::Request(); request.payload = "started";
     auto execution = PrivilegedClient::RunProviderDpkg(executable, "--cydia-provider-direct", request, -1);
     Expect(execution.result.succeeded() && execution.started && !execution.indeterminate,

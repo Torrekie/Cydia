@@ -215,6 +215,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptRecoveryDependencyInspector.cpp Cydia/AptRecoveryMachO.cpp \
 		Cydia/AptProviderComponentCapture.cpp Cydia/AptProviderComponentSuccession.cpp \
 		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionRequest.cpp \
+		Cydia/AptProviderEffectReviewBundle.cpp Cydia/AptProviderEffectReviewBundle.hpp \
 		Cydia/AptProviderTransactionResult.cpp \
 		Cydia/AptProviderTransactionRequestDigest.cpp \
 		Cydia/AptProviderTransactionFiles.cpp Cydia/AptProviderTransactionLease.cpp \

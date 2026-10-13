@@ -8,6 +8,7 @@
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderTransactionRequest.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include <apt-pkg/fileutl.h>
 #include <algorithm>
 #include <cerrno>
@@ -398,6 +399,35 @@ void ConfigureRecoveryAuthority(const std::string &helperPath,
     providerAuthority.expected = expected; providerAuthority.recovery = true; providerAuthority.active = true;
 }
 void ClearProviderAuthority() { providerAuthority = ProviderAuthorityContext(); }
+bool CaptureProviderDeconfigurationReview(const std::string &helperPath,
+    const Privileged::Request &wrappedRequest, const CydiaAPT::Provider::ReviewedTransaction &expectedReview,
+    const std::string &expectedMethodsIdentity, std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> *bundle,
+    Privileged::Error *error, unsigned timeoutMilliseconds, const std::function<bool()> &cancelled) {
+    namespace Provider = CydiaAPT::Provider;
+    if (error) { error->code.clear(); error->message.clear(); }
+    const auto fail = [&](const char *code) { if (error) error->code = code; return false; };
+    if (!bundle) return fail("provider_effect_review_invalid");
+    bundle->reset();
+    if (cancelled && cancelled()) return fail("provider_cancelled");
+    std::vector<std::string> fields; Provider::EffectReviewCaptureRequest requested;
+    std::string wanted, sent;
+    if (!Provider::Decode(wrappedRequest.payload, &fields) || fields.size() != 3 ||
+        (fields[0] != "CYDIA-BROKER-1" && fields[0] != "CYDIA-RECOVERY-BROKER-1") ||
+        !Provider::DecodeEffectReviewCaptureRequest(fields[2], &requested) || requested.methodsIdentity != expectedMethodsIdentity ||
+        !Provider::Encode(expectedReview, &wanted) || !Provider::Encode(requested.review, &sent) || wanted != sent)
+        return fail("provider_effect_review_changed");
+    const unsigned timeout = std::max(Provider::MinimumEffectReviewCaptureMilliseconds,
+        std::min(timeoutMilliseconds ? timeoutMilliseconds : Provider::MaximumEffectReviewCaptureMilliseconds,
+            Provider::MaximumEffectReviewCaptureMilliseconds));
+    const auto result = Run(helperPath, "--cydia-provider-review-deconfiguration", wrappedRequest,
+        Provider::MaximumEffectReviewBundleBytes, timeout);
+    if (cancelled && cancelled()) return fail("provider_cancelled");
+    auto captured = std::make_shared<Provider::EffectReviewBundle>();
+    if (!result.succeeded() || !Provider::DecodeEffectReviewBundle(result.output, captured.get()) ||
+        !Provider::EffectReviewBundleMatches(*captured, expectedReview, expectedMethodsIdentity))
+        return fail("provider_effect_review_unavailable");
+    *bundle = std::move(captured); return true;
+}
 bool ReadProviderSnapshot(const std::string &helperPath, const std::string &registrationPath,
     const CydiaAPT::Provider::RegistrationIdentity *expected,
     CydiaAPT::Provider::RegisteredProviderSnapshot *snapshot, Privileged::Error *error,

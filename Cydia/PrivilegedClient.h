@@ -10,7 +10,8 @@
 #include <cstddef>
 #include <string>
 
-namespace CydiaAPT { namespace Provider { struct RegistrationIdentity; struct RegisteredProviderSnapshot; } }
+namespace CydiaAPT { namespace Provider { struct RegistrationIdentity; struct RegisteredProviderSnapshot;
+    struct ReviewedTransaction; struct EffectReviewBundle; } }
 namespace CydiaAPT { namespace Recovery { struct Preferences; struct Identity; struct RequestAuthority; struct Snapshot; } }
 
 namespace CydiaRuntime {
@@ -78,6 +79,16 @@ bool ReadRecoverySnapshot(const std::string &helperPath, const CydiaAPT::Recover
     const CydiaAPT::Recovery::Identity *expected, CydiaAPT::Recovery::Snapshot *snapshot,
     Privileged::Error *error, unsigned timeoutMilliseconds = 4000,
     const std::function<bool()> &cancelled = std::function<bool()>());
+// Read-only direct authenticated cydo capture. wrappedRequest must contain a
+// canonical EffectReviewCaptureRequest for this exact review/method identity.
+// The result is immutable approval transport, never native execution authority.
+// Cancellation is checked before/after the bounded helper invocation; no UI
+// approval, capability negotiation, Begin integration or retry occurs here.
+bool CaptureProviderDeconfigurationReview(const std::string &helperPath,
+    const Privileged::Request &wrappedRequest, const CydiaAPT::Provider::ReviewedTransaction &expectedReview,
+    const std::string &expectedMethodsIdentity, std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> *bundle,
+    Privileged::Error *error, unsigned timeoutMilliseconds = 45000,
+    const std::function<bool()> &cancelled = {});
 int OpenProviderLock(const std::string &helperPath, const Privileged::Request &wrappedRequest,
     Privileged::Error *error, unsigned timeoutMilliseconds = 0);
 struct DpkgExecutionResult {

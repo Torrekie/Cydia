@@ -193,8 +193,13 @@ the owned decoder process group. Complete-state queries use a literal wildcard
 to retain native Install/Hold selections on packages which are not installed.
 Only genuinely metadata-empty, unselected dependency references are excluded
 from package-effect/progress comparisons; protected raw state remains bound.
-The cydo confirmation route, native presentation and independent Begin rebuilding
-remain prerequisites to activation.
+An authenticated read-only cydo route returns trigger and deconfiguration
+approvals from that same protected checkpoint. Its canonical bundle binds the
+exact review and acquisition methods, with one combined 8 MiB limit. The client
+retains immutable approval values and refuses mismatched or cancelled replies.
+A soft stop reserves child-cleanup time before the helper's hard deadline.
+Native presentation and independent Begin rebuilding remain prerequisites to
+activation; this capture route advertises no execution capability.
 
 A bounded restoration ledger records only observed, approved old-generation
 deconfiguration after a successful child. It transfers debt only through the

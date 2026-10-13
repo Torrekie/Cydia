@@ -191,6 +191,20 @@ verify: verify-apt-deconfiguration-approval
 verify-apt-deconfiguration-approval: $(APT_DECONFIGURATION_APPROVAL_TEST)
 	@$<
 
+APT_EFFECT_REVIEW_BUNDLE_TEST := $(BUILD_DIR)/tests/AptProviderEffectReviewBundleTests
+apt_effect_review_bundle_test_sources := tests/AptProviderEffectReviewBundleTests.cpp \
+	Cydia/AptProviderEffectReviewBundle.cpp Cydia/AptProviderTransactionRequest.cpp Cydia/ExtendedState.cpp \
+	$(filter-out tests/AptProviderDeconfigurationApprovalTests.cpp,$(apt_deconfiguration_approval_test_sources))
+$(APT_EFFECT_REVIEW_BUNDLE_TEST): $(apt_effect_review_bundle_test_sources) \
+		Cydia/AptProviderEffectReviewBundle.hpp Cydia/AptProviderTransactionRequest.hpp \
+		Cydia/AptProviderDeconfigurationApproval.hpp Cydia/AptProviderTriggerEffects.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(apt_effect_review_bundle_test_sources) -o $@
+.PHONY: verify-apt-effect-review-bundle
+verify: verify-apt-effect-review-bundle
+verify-apt-effect-review-bundle: $(APT_EFFECT_REVIEW_BUNDLE_TEST)
+	@$<
+
 APT_RESTORATION_DEBT_TEST := $(BUILD_DIR)/tests/AptProviderRestorationDebtTests
 apt_restoration_debt_test_sources := tests/AptProviderRestorationDebtTests.cpp \
 	Cydia/AptProviderRestorationDebt.cpp $(filter-out tests/AptProviderDeconfigurationApprovalTests.cpp,$(apt_deconfiguration_approval_test_sources))
@@ -641,6 +655,8 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/AptProviderConffilePolicyValues.cpp Cydia/AptProviderConffilePolicy.hpp \
 		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp \
 		Cydia/AptProviderTransactionRequest.cpp Cydia/AptProviderTransactionRequest.hpp \
+		Cydia/AptProviderEffectReviewBundle.cpp Cydia/AptProviderEffectReviewBundle.hpp \
+		Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		tests/apt-stubs/apt-pkg/fileutl.h
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -Itests/apt-stubs -I. \

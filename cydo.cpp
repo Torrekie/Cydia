@@ -33,6 +33,7 @@
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderTransactionService.hpp"
 #include "Cydia/AptProviderTriggerCapture.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include <locale.h>
 #include <set>
 
@@ -178,6 +179,7 @@ static bool CopyExecutable(const std::string &source, const std::string &destina
 }
 
 static unsigned DiagnosticDeadlineMilliseconds_ = 0;
+static uint64_t EffectReviewStopMilliseconds_ = 0;
 static void DiagnosticDeadlineExpired(int) {
     // The client creates a private process group whose leader is this helper.
     // Elevated children cannot outlive an explicitly bounded read-only check.
@@ -196,7 +198,7 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
         command != "--cydia-extended-state-read" && command != "--cydia-open-lock" &&
         command != "--cydia-provider-lock" && command != "--cydia-provider-state" &&
         command != "--cydia-provider-effect-ready" && command != "--cydia-provider-state-effects" &&
-        command != "--cydia-provider-review-effects" &&
+        command != "--cydia-provider-review-effects" && command != "--cydia-provider-review-deconfiguration" &&
         command != "--cydia-provider-snapshot" && command != "--cydia-recovery-snapshot" && command != "--cydia-provider-extended-read" &&
         command != "--cydia-provider-route") return false;
     if (command == "--cydia-provider-route") {
@@ -205,14 +207,26 @@ static bool ReadDiagnosticDeadline(int *argc, char **argv) {
             routed != "--cydia-extended-state-read" && routed != "--cydia-key-package-files" &&
             routed != "--cydia-key-package-read") return false;
     }
+    // Only the new bounded read-only capture needs time beyond the existing
+    // diagnostic ceiling; this does not extend any mutation/setup route.
+    const unsigned maximum = command == "--cydia-provider-review-deconfiguration" ?
+        CydiaAPT::Provider::MaximumEffectReviewCaptureMilliseconds : 10000;
     const char *value(argv[*argc - 1] + sizeof(prefix) - 1);
     if (*value == '\0' || strlen(value) > 5) return false;
     unsigned milliseconds(0);
     for (const char *digit = value; *digit != '\0'; ++digit) {
-        if (*digit < '0' || *digit > '9' || milliseconds > 10000) return false;
+        if (*digit < '0' || *digit > '9' || milliseconds > maximum / 10) return false;
         milliseconds = milliseconds * 10 + static_cast<unsigned>(*digit - '0');
     }
-    if (milliseconds == 0 || milliseconds > 10000) return false;
+    if (milliseconds == 0 || milliseconds > maximum) return false;
+    if (command == "--cydia-provider-review-deconfiguration") {
+        const uint64_t now(ApplicationSessionClock());
+        // The producer shares this soft stop with snapshots and decoders.
+        // Leave time to kill/reap its owned child groups before SIGALRM.
+        if (milliseconds < CydiaAPT::Provider::MinimumEffectReviewCaptureMilliseconds ||
+            now == 0 || now > UINT64_MAX - milliseconds) return false;
+        EffectReviewStopMilliseconds_ = now + milliseconds - 3000;
+    }
     struct sigaction action = {};
     action.sa_handler = DiagnosticDeadlineExpired;
     sigemptyset(&action.sa_mask);
@@ -595,7 +609,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
     const bool providerDirect = command == "--cydia-provider-direct";
     const bool providerState = command == "--cydia-provider-state";
     const bool providerEffects = command == "--cydia-provider-effect-ready" || command == "--cydia-provider-state-effects" ||
-        command == "--cydia-provider-review-effects";
+        command == "--cydia-provider-review-effects" || command == "--cydia-provider-review-deconfiguration";
     const bool provider = providerSnapshot || recoverySnapshot || providerDpkg || providerDirect || providerState || providerEffects ||
         command == "--cydia-provider-lock" || command == "--cydia-provider-route" ||
         command == "--cydia-provider-extended-read" || command == "--cydia-provider-extended-commit";
@@ -755,6 +769,46 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
                 Provider::DpkgState state;
                 captured = request.payload.empty() && Provider::CaptureEffectAwareDpkgState(paths, brokerEnvironment, &state, &reason) &&
                     Provider::EncodeBrokerState(state, &output);
+            } else if (command == "--cydia-provider-review-deconfiguration") {
+                Provider::EffectReviewCaptureRequest requested; Provider::EffectReviewBundle bundle;
+                std::shared_ptr<const Provider::ProtectedDeconfigurationReview> proof;
+                Privileged::Error failure; pid_t owner = 0; std::string state;
+                const auto cancelled = [] {
+                    const uint64_t now(ApplicationSessionClock());
+                    return EffectReviewStopMilliseconds_ == 0 || now == 0 || now >= EffectReviewStopMilliseconds_;
+                };
+                // ResolveBrokerRequest already reread and compared protected
+                // registration/recovery authority, including the method graph.
+                // The review is direct authenticated app data, not worker path
+                // authority. Validate every independent identity before binding
+                // its session; the resolver intentionally has no session nonce.
+                const auto &binding = brokerEnvironment.runtime.binding;
+                captured = !cancelled() && Provider::DecodeEffectReviewCaptureRequest(request.payload, &requested, &reason) &&
+                    requested.review.binding.providerIdentifier == binding.providerIdentifier &&
+                    requested.review.binding.configurationIdentity == binding.configurationIdentity &&
+                    requested.review.binding.policyIdentity == binding.policyIdentity &&
+                    requested.methodsIdentity == binding.methodsIdentity &&
+                    requested.review.transaction.registeredArchitectures == brokerEnvironment.runtime.registeredArchitectures &&
+                    Privileged::FrontendLockOwner(environment.dpkgAdmin, &owner, &failure) && owner == parent &&
+                    Privileged::RecheckEvidence(environment.evidence, &failure) &&
+                    Privileged::RuntimeSnapshot(environment, &state, &failure, cancelled) &&
+                    state == requested.review.binding.packageStateIdentity;
+                if (captured) {
+                    brokerEnvironment.runtime.binding.packageStateIdentity = state;
+                    brokerEnvironment.runtime.binding.session = requested.review.binding.session;
+                    captured = Provider::CaptureReviewedDeconfiguration(paths, brokerEnvironment, requested.review, &proof, &reason, cancelled);
+                }
+                if (captured) {
+                    bundle.methodsIdentity = requested.methodsIdentity;
+                    bundle.deconfiguration = proof->allowances;
+                    // One protected checkpoint produces both approval DTOs.
+                    // No second query/capture or independently asserted pool.
+                    captured = !cancelled() && Provider::BuildTriggerEffectEnvelope(requested.review, proof->checkpoint, &bundle.triggers,
+                        &reason, proof->allowances.nativeAuthorityIdentity) &&
+                        Provider::EncodeEffectReviewBundle(bundle, &output, &reason) && !cancelled();
+                }
+                if (!captured && reason.empty()) reason = failure.code.empty() ?
+                    "provider_effect_review_changed" : failure.code;
             } else {
                 Provider::ReviewedTransaction review; Provider::TriggerEffectEnvelope effects;
                 captured = Provider::Decode(request.payload, &review) &&

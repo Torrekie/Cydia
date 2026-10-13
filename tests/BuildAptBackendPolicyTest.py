@@ -218,6 +218,11 @@ def main():
     compile_driver(["tests/AptProviderDeconfigurationApprovalTests.cpp", "Cydia/AptProviderDeconfigurationApproval.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp", "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp",
         "Cydia/PackageIdentity.cpp", "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-deconfiguration-approval", sanitize=True)
+    compile_driver(["tests/AptProviderEffectReviewBundleTests.cpp", "Cydia/AptProviderEffectReviewBundle.cpp",
+        "Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
+        "Cydia/AptProviderTransactionRequest.cpp", "Cydia/ExtendedState.cpp",
+        "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
+        "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-effect-review-bundle", sanitize=True)
     compile_driver(["tests/AptProviderRestorationDebtTests.cpp", "Cydia/AptProviderRestorationDebt.cpp",
         "Cydia/AptProviderDeconfigurationApproval.cpp", "Cydia/AptProviderBinaryRelationships.cpp",
         "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp", "Cydia/PackageIdentity.cpp",
