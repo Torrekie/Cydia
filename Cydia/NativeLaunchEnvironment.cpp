@@ -95,7 +95,9 @@ bool NativeLaunchEnvironment::FromEntries(const std::vector<std::string> &input,
     Error reason = Error::None; std::size_t total = 0; Entries parsed;
     if (!VectorEntries(input, true, &parsed, &total, &reason)) return Fail(output, error, reason);
     std::shared_ptr<Storage> storage(new Storage()); storage->entries = Copy(parsed, input.size());
-    output->storage_ = std::move(storage); if (error) *error = Error::None; return true;
+    output->storage_ = std::move(storage);
+    if (error) *error = Error::None;
+    return true;
 }
 bool NativeLaunchEnvironment::CaptureProcess(NativeLaunchEnvironment *output, Error *error) {
     if (!output) return Fail(output, error, Error::InvalidOutput);
@@ -112,7 +114,9 @@ bool NativeLaunchEnvironment::CaptureProcess(NativeLaunchEnvironment *output, Er
         if (!Shape(&parsed[i], true, &reason)) return Fail(output, error, reason);
     if (!Canonical(&parsed, count, &reason)) return Fail(output, error, reason);
     std::shared_ptr<Storage> storage(new Storage()); storage->entries = Copy(parsed, count);
-    output->storage_ = std::move(storage); if (error) *error = Error::None; return true;
+    output->storage_ = std::move(storage);
+    if (error) *error = Error::None;
+    return true;
 }
 bool NativeLaunchEnvironment::Overlay(const std::vector<std::string> &setEntries,
     const std::vector<std::string> &unsetNames, NativeLaunchEnvironment *output, Error *error) const {
@@ -140,7 +144,9 @@ bool NativeLaunchEnvironment::Overlay(const std::vector<std::string> &setEntries
     }
     if (!Canonical(&result, count, &reason)) return Fail(output, error, reason);
     std::shared_ptr<Storage> storage(new Storage()); storage->entries = Copy(result, count);
-    output->storage_ = std::move(storage); if (error) *error = Error::None; return true;
+    output->storage_ = std::move(storage);
+    if (error) *error = Error::None;
+    return true;
 }
 bool NativeLaunchEnvironment::BuildEnvp(Envp *output, Error *error) const {
     if (!output) { if (error) *error = Error::InvalidOutput; return false; }
@@ -148,6 +154,7 @@ bool NativeLaunchEnvironment::BuildEnvp(Envp *output, Error *error) const {
     Envp result; result.storage_ = storage_; result.pointers_.reserve(storage_->entries.size() + 1);
     for (const auto &entry : storage_->entries) result.pointers_.push_back(const_cast<char *>(entry.c_str()));
     result.pointers_.push_back(nullptr); *output = std::move(result);
-    if (error) *error = Error::None; return true;
+    if (error) *error = Error::None;
+    return true;
 }
 }
