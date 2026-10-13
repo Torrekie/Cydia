@@ -85,6 +85,17 @@ payload. Protected native configuration and actual Mach-O dependency closure
 are checked before every native tool launch. Later batches use retained proof;
 they do not renew mutable source/index authority after a maintainer script.
 
+Retained native queries and primary/trigger children use one owned, immutable
+environment snapshot. It binds the selected distribution search path, converted
+locale values and frontend-lock marker into local configuration and approval
+identities. An explicit empty environment remains empty; invalid snapshots
+refuse launch instead of using ambient process values. The parent rechecks the
+snapshot and passes those exact bytes to each child. Legacy one-shot calls keep
+their existing environment handling. Native argument binding removes only
+validated path options from the option phase and supplies root before the
+selected admin directory, so a later root option cannot reset a custom database.
+Opaque option values and operands retain their original bytes and order.
+
 This path requires a complete protected native dpkg declaration, described
 below. Its absence retains the existing restricted executor before any mutation;
 an invalid declaration or failed retained transaction cannot fall through.
@@ -344,6 +355,10 @@ hooks/filters and complete native policy still need independently supported,
 input-bound evidence before automatic deconfiguration can be enabled. Absence of
 a command-line switch cannot establish that policy, and the existing restricted
 legacy path does not acquire complete native-policy parity from this check.
+The retained environment binding fixes native launch inputs; it does not attest
+to compiled defaults or interpret them as complete effect policy. Supported
+native option arities and short clusters are used for database-path binding;
+unknown option arities and abbreviated privileged options are refused.
 
 Declaration and graph sizes, component/dependency counts, archive reads and
 nonmutating admission are bounded. All archive copies are retained in private

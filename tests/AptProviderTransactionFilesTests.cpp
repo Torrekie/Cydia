@@ -245,7 +245,16 @@ void OwnerChild(Fixture &fixture, const P::TransactionOwnerOptions &provided, un
         return true;
     };
     options.execute = [&](const std::string &, const std::vector<std::string> &arguments, int, int,
-        const std::function<void()> &started) {
+        const std::function<void()> &started, const CydiaRuntime::NativeLaunchEnvironment &launchEnvironment) {
+        Require(launchEnvironment.initialized() &&
+            std::find(launchEnvironment.entries().begin(), launchEnvironment.entries().end(), "DPKG_FRONTEND_LOCKED=1") != launchEnvironment.entries().end(),
+            "owner supplies its retained explicit launch environment");
+        const auto rootOption = "--root=" + options.selected.environment.dpkgRoot;
+        const auto adminOption = "--admindir=" + options.selected.environment.dpkgAdmin;
+        Require(arguments.size() > 1 && arguments[0] == rootOption && arguments[1] == adminOption &&
+            std::count(arguments.begin(), arguments.end(), rootOption) == 1 &&
+            std::count(arguments.begin(), arguments.end(), adminOption) == 1,
+            "selected database binding normalizes protected root resets for primary and drain children");
         ++executions;
         const bool configure = std::find(arguments.begin(), arguments.end(), "--configure") != arguments.end();
         const bool drain = std::find(arguments.begin(), arguments.end(), "--triggers-only") != arguments.end();
@@ -348,7 +357,7 @@ void OwnerTransactions() {
         environment.dpkgDeb = "/usr/bin/dpkg-deb"; environment.dpkgRoot = "/"; environment.dpkgAdmin = admin;
         environment.sourceList = fixture.runtime.sourceListPath; environment.extendedStates = fixture.root + "/extended_states";
         options.selected.executableSearchPath = options.selected.archiveDecoderSearchPath = "/usr/bin:/bin";
-        options.selected.runtime.dpkgOptions = {"--root=/", "--admindir=" + admin};
+        options.selected.runtime.dpkgOptions = {"--admindir=" + admin, "--root=/"};
         options.selected.runtime.packageInstallPrefix = "/";
         options.privateStateDirectory = fixture.root + "/private";
         options.application = {std::to_string(getpid()), "10.1", "20.2", std::string(40, 'a')}; options.applicationUID = getuid();
@@ -365,6 +374,9 @@ void OwnerTransactions() {
         options.selected.runtime.binding.packageStateIdentity = options.review.binding.packageStateIdentity;
         options.policy.environment.packageStateIdentity = options.review.binding.packageStateIdentity;
         fixtureAuthority = P::NativeDpkgAuthority(); fixtureAuthorityAvailable = true;
+        Require(CydiaRuntime::NativeLaunchEnvironment::FromEntries({"PATH=/usr/bin:/bin", "DPKG_FRONTEND_LOCKED=1"},
+            &fixtureAuthority.launchEnvironment), "construct explicit fixture native launch snapshot");
+        fixtureAuthority.launchEnvironmentBytes = CydiaRuntime::Privileged::SerializeFields(fixtureAuthority.launchEnvironment.entries());
         fixtureAuthority.configurationIdentity = Hash("fixture native graph\n"); fixtureAuthority.platformIdentity = std::string(64, 'a');
         CydiaRuntime::Privileged::Evidence config;
         Require(CydiaRuntime::Privileged::CaptureEvidence(fixture.root + "/native.conf", false, false, &config, &ignored), "capture fixture declaration");

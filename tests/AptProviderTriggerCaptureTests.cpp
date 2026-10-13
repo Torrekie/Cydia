@@ -101,15 +101,19 @@ struct Fixture {
         Write(environment.dpkgAdmin + "/triggers/cache-refresh", variant == 5 ? "unknown:any\n" : "cache\n");
         Write(deferred, "cache-refresh -\n"); Write(environment.dpkgAdmin + "/triggers/Lock", "", 0600);
         Write(environment.dpkgAdmin + "/lock-frontend", "", 0600);
-        std::string manager = "#!/bin/sh\nprintf 'query\\n' >> " + Quote(calls) + "\n";
+        const std::string checkEnvironment = "[ \"$CYDIA_NATIVE_ENV_TEST\" = frozen ] || exit 1\n";
+        std::string manager = "#!/bin/sh\n" + checkEnvironment + "printf 'query\\n' >> " + Quote(calls) + "\n";
         if (variant == 2) manager += "printf 'changed\\n' > " + Quote(configuration) + "\n";
         if (variant == 3) manager += "printf 'other-trigger -\\n' > " + Quote(deferred) + "\n";
         manager += "for value do case $value in --print-architecture) printf 'amd64\\n';; esac; done\n";
-        const std::string query = "#!/bin/sh\nprintf 'query\\n' >> " + Quote(calls) +
+        const std::string query = "#!/bin/sh\n" + checkEnvironment + "printf 'query\\n' >> " + Quote(calls) +
             "\nprintf 'cache\\t1\\tamd64\\tinstall ok triggers-pending\\tno\\tcache-refresh\\t\\n'\n";
         Write(environment.dpkg, manager, 0755); Write(environment.dpkgQuery, query, 0755);
         authority = A::NativeDpkgAuthority(); authority.configurationIdentity = Hash("native-config");
         authority.platformIdentity = Hash("fixture-platform");
+        Require(CydiaRuntime::NativeLaunchEnvironment::FromEntries({"PATH=/usr/bin:/bin", "DPKG_FRONTEND_LOCKED=1", "CYDIA_NATIVE_ENV_TEST=frozen"},
+            &authority.launchEnvironment), "explicit fixture launch snapshot");
+        authority.launchEnvironmentBytes = P::SerializeFields(authority.launchEnvironment.entries());
         P::Evidence evidence; P::Error failure;
         Require(P::CaptureEvidence(configuration, false, false, &evidence, &failure), "capture protected configuration");
         authority.configurationEvidence.push_back(evidence);
@@ -139,7 +143,7 @@ void Run(unsigned variant) {
     Require(nativeIdentity.size() == 64, "complete native authority has a canonical approval identity");
     std::reverse(files.begin(), files.end());
     Require(A::TriggerNativeAuthorityIdentity(authority, files) == nativeIdentity, "component enumeration order does not change native approval");
-    for (unsigned change = 0; change != 7; ++change) {
+    for (unsigned change = 0; change != 8; ++change) {
         auto changed = files; auto native = authority;
         if (change == 0) ++changed[0].inode;
         if (change == 1) ++changed[0].file.metadata.gid;
@@ -148,6 +152,8 @@ void Run(unsigned variant) {
         if (change == 4) native.configurationIdentity = Hash("different configuration");
         if (change == 5) native.platformIdentity = Hash("different platform");
         if (change == 6) changed[0] = changed[1];
+        if (change == 7) Require(native.launchEnvironment.Overlay({"CYDIA_NATIVE_ENV_TEST=changed"}, {}, &native.launchEnvironment),
+            "change fixture environment without changing asserted native identities");
         Require(A::TriggerNativeAuthorityIdentity(native, changed) != nativeIdentity,
             "native approval binds metadata, generations, parent chains, configuration/platform and unique membership");
     }

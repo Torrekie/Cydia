@@ -5,7 +5,7 @@ recovery_worker_sources := \
     Cydia/AptNativeBackend.cpp Cydia/AptBackend.cpp Cydia/AptBackendOperations.cpp \
     Cydia/AptBackendRecovery.cpp Cydia/AptRecoveryPackageManager.cpp Cydia/AptAuthorizedArchives.cpp \
     Cydia/RepositoryArchiveAuthorization.cpp Cydia/AptCompatibility.cpp Cydia/AptVersionPolicy.cpp \
-    Cydia/AptRuntime.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp \
+    Cydia/AptRuntime.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/PackageDatabasePaths.cpp \
     Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedConfig.cpp Cydia/RuntimeSnapshotInputs.cpp Cydia/APTMemoryCompat.cpp Cydia/APTSrvCompat.cpp \
     Cydia/AptProviderTriggerEvidenceCapture.cpp \
     Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptProviderServer.cpp \

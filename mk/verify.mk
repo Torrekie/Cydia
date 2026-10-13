@@ -191,6 +191,15 @@ verify: verify-apt-deconfiguration-approval
 verify-apt-deconfiguration-approval: $(APT_DECONFIGURATION_APPROVAL_TEST)
 	@$<
 
+NATIVE_LAUNCH_ENVIRONMENT_TEST := $(BUILD_DIR)/tests/NativeLaunchEnvironmentTests
+$(NATIVE_LAUNCH_ENVIRONMENT_TEST): tests/NativeLaunchEnvironmentTests.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/NativeLaunchEnvironment.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
+.PHONY: verify-native-launch-environment
+verify: verify-native-launch-environment
+verify-native-launch-environment: $(NATIVE_LAUNCH_ENVIRONMENT_TEST)
+	@$<
+
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 
@@ -280,7 +289,7 @@ apt_provider_broker_authorization_sources := tests/AptProviderBrokerAuthorizatio
 	Cydia/AptProviderDpkgState.cpp Cydia/AptProviderSelectionValues.cpp Cydia/AptRuntimeDescriptor.cpp \
 	Cydia/ExtendedState.cpp Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
 	Cydia/PrivilegedRuntime.cpp Cydia/PackageDatabasePaths.cpp Cydia/RepositorySecurityPolicy.cpp \
-	Cydia/PackageIdentity.cpp Cydia/DpkgRunner.cpp Cydia/AptRecoverySnapshot.cpp
+	Cydia/PackageIdentity.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/AptRecoverySnapshot.cpp
 $(APT_PROVIDER_BROKER_AUTHORIZATION_TEST): $(apt_provider_broker_authorization_sources) \
 		Cydia/AptProviderBroker.hpp Cydia/AptProviderProtocol.hpp Cydia/AptProviderReview.hpp
 	@mkdir -p $(dir $@)
@@ -515,7 +524,7 @@ $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRun
         apt-extra/gnutls/gnutls.h \
 		Cydia/RepositorySecurityPolicy.cpp Cydia/RepositorySecurityPolicy.hpp \
 		Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp \
-		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
+		Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/DpkgRunner.h \
 		Cydia/PrivilegedRuntime.cpp Cydia/PrivilegedRuntime.hpp \
 		tests/apt-stubs/apt-pkg/aptconfiguration.h \
 		tests/apt-stubs/apt-pkg/configuration.h tests/apt-stubs/apt-pkg/init.h \
@@ -523,7 +532,7 @@ $(APT_RUNTIME_TEST): tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRun
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Itests/apt-stubs -I. \
 		tests/AptRuntimeTests.cpp Cydia/AptRuntime.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp \
-		Cydia/PackageDatabasePaths.cpp Cydia/DpkgRunner.cpp Cydia/PrivilegedRuntime.cpp \
+		Cydia/PackageDatabasePaths.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/PrivilegedRuntime.cpp \
 		$(if $(filter Darwin,$(HOST_OS)),-framework Security -framework CoreFoundation) -o $@
 
 verify-apt-runtime: $(APT_RUNTIME_TEST)
@@ -602,7 +611,7 @@ $(PRIVILEGED_CLIENT_TEST): tests/PrivilegedClientTests.cpp Cydia/PrivilegedClien
 		Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp Cydia/AptProviderBrokerValues.cpp \
 		Cydia/AptProviderSelectionValues.cpp Cydia/AptProviderDpkgState.cpp Cydia/ExtendedState.cpp \
 		Cydia/AptRecoverySnapshot.cpp Cydia/AptRecoverySnapshot.hpp \
-		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp \
+		Cydia/PackageIdentity.cpp Cydia/AptRuntimeDescriptor.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp \
 		Cydia/DpkgConffile.cpp Cydia/DpkgConffile.hpp Cydia/DpkgStatusParser.cpp Cydia/DpkgStatusParser.hpp \
 		Cydia/AptProviderTransactionChannel.cpp Cydia/AptProviderTransactionChannel.hpp \
 		Cydia/AptProviderTransactionRequest.cpp Cydia/AptProviderTransactionRequest.hpp \
@@ -650,10 +659,10 @@ verify-application-identity: $(APPLICATION_IDENTITY_TEST)
 
 TRANSACTION_OUTCOME_POLICY_TEST := $(BUILD_DIR)/tests/TransactionOutcomePolicyTests
 $(TRANSACTION_OUTCOME_POLICY_TEST): tests/TransactionOutcomePolicyTests.cpp Cydia/TransactionOutcomePolicy.hpp \
-		Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp Cydia/TransactionResult.hpp
+		Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/PackageDatabasePaths.cpp Cydia/TransactionResult.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
-		tests/TransactionOutcomePolicyTests.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp -o $@
+		tests/TransactionOutcomePolicyTests.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/PackageDatabasePaths.cpp -o $@
 .PHONY: verify-transaction-outcome-policy
 verify: verify-transaction-outcome-policy
 verify-transaction-outcome-policy: $(TRANSACTION_OUTCOME_POLICY_TEST)
@@ -672,7 +681,7 @@ verify-capabilities: $(CAPABILITY_PREVIEW_TEST)
 	@python3 tests/FirmwareDiscoveryCoverageTests.py
 SHARED_CONFIG_HANDOFF_TEST := $(BUILD_DIR)/tests/SharedConfigHandoffTests
 $(SHARED_CONFIG_HANDOFF_TEST): tests/SharedConfigHandoffTests.cpp Cydia/SharedConfigHandoff.hpp \
-		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+		Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. \
 		$(filter %.cpp,$^) -o $@
@@ -783,10 +792,10 @@ verify-apt-sourcelist-mtime: $(APT_SOURCE_LIST_MTIME_CONTRACT_SCRIPT) \
 		apt64/apt-pkg/sourcelist.cc apt64/test/libapt/sourcelist_test.cc
 	@$(APT_SOURCE_LIST_MTIME_CONTRACT_SCRIPT)
 
-$(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
+$(DPKG_RUNNER_TEST): tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -I. \
-		tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/PackageDatabasePaths.cpp -o $@
+		tests/DpkgRunnerTests.cpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/PackageDatabasePaths.cpp -o $@
 
 verify-dpkg-runner: $(DPKG_RUNNER_TEST)
 	@$<
@@ -1811,3 +1820,7 @@ verify-native-error-simulator: $(NATIVE_ERROR_SIMULATOR_VERIFY_SCRIPT)
 # Every host boundary consuming this policy rebuilds when it changes.
 $(APT_RUNTIME_TEST) $(PRIVILEGED_RUNTIME_TEST) $(PRIVILEGED_CLIENT_TEST) $(APPLICATION_IDENTITY_TEST) \
 $(SOURCE_DOCUMENT_TEST) $(SOURCE_COMMIT_TEST) $(RUNTIME_SNAPSHOT_TEST) $(KEYRING_IMPORT_TEST) $(RECOVERY_PRIVILEGED_TEST): Cydia/SharedStateFile.hpp Cydia/ReadOnlySourceAlias.hpp Cydia/SourceReaderGroups.hpp Cydia/DpkgAdminAccess.hpp
+
+# Direct-link fixtures also depend on the immutable environment API and bounds.
+$(APT_PROVIDER_BROKER_AUTHORIZATION_TEST) $(APT_RUNTIME_TEST) $(PRIVILEGED_CLIENT_TEST) \
+$(TRANSACTION_OUTCOME_POLICY_TEST) $(SHARED_CONFIG_HANDOFF_TEST) $(DPKG_RUNNER_TEST): Cydia/NativeLaunchEnvironment.hpp

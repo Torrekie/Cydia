@@ -5,6 +5,7 @@
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderTransactionFiles.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
+#include "Cydia/NativeLaunchEnvironment.hpp"
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
@@ -41,9 +42,10 @@ struct TransactionOwnerOptions {
     // stdin/status descriptors. started must run immediately after spawn, and
     // the callback must wait/reap the actual child even if the channel closes.
     // It must not throw, and must never return with a live child. cydo installs
-    // selected.executableSearchPath as the native execution PATH beforehand.
+    // selected.executableSearchPath beforehand. The final argument is the exact
+    // parent-retained envp; an executor must never substitute ambient environ.
     std::function<ParentExecutionReply(const std::string &, const std::vector<std::string> &,
-        int inputDescriptor, int statusDescriptor, const std::function<void()> &started)> execute;
+        int inputDescriptor, int statusDescriptor, const std::function<void()> &started, const CydiaRuntime::NativeLaunchEnvironment &)> execute;
 };
 class TransactionOwner {
     class Implementation;

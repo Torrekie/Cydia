@@ -152,6 +152,11 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
     for (const auto &tool : {selected.environment.dpkg, selected.environment.dpkgQuery})
         if (!parsed.executors.count(tool) || std::find(parsed.components.begin(), parsed.components.end(), tool) == parsed.components.end())
             return Fail(error, "provider_native_executor_undeclared");
+    CydiaRuntime::NativeLaunchEnvironment captured;
+    if (!CydiaRuntime::NativeLaunchEnvironment::CaptureProcess(&captured) ||
+        !captured.Overlay({"PATH=" + selected.executableSearchPath, "DPKG_FRONTEND_LOCKED=1"}, {}, &value.launchEnvironment))
+        return Fail(error, "provider_native_launch_environment_invalid");
+    value.launchEnvironmentBytes = P::SerializeFields(value.launchEnvironment.entries());
     Graph graph; graph.cancelled = cancelled; graph.inputs.push_back(declaration);
     for (const auto &path : parsed.files) if (!graph.Add(path, false, false, error)) return false;
     for (const auto &path : parsed.directories) if (!graph.Add(path, true, false, error)) return false;
@@ -166,8 +171,8 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
         const auto match = parsed.successors.find(archive.package.package+':'+archive.package.architecture);
         if (match != parsed.successors.end()) value.successorPaths.emplace(archive.identifier, match->second);
     }
-    std::vector<std::string> fields{"CYDIA-NATIVE-DPKG-CONFIGURATION-1", selected.executableSearchPath,
-        selected.environment.dpkgRoot, selected.environment.dpkgAdmin};
+    std::vector<std::string> fields{"CYDIA-NATIVE-DPKG-CONFIGURATION-2", selected.executableSearchPath,
+        selected.environment.dpkgRoot, selected.environment.dpkgAdmin, value.launchEnvironmentBytes};
     for (const auto &input : graph.inputs) fields.push_back(P::SerializeSnapshotEvidence(input));
     const auto bytes = P::SerializeFields(fields); Hashes hash(Hashes::SHA256SUM);
     if (!hash.Add(bytes.data(), bytes.size()) || !P::RecheckEvidence(graph.inputs, &ignored))
@@ -187,6 +192,9 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
 bool RevalidateNativeDpkgAuthority(const NativeDpkgAuthority &authority,
     const std::vector<InstalledComponentEvidence> &components, std::string *error) {
     P::Error ignored;
+    if (!authority.launchEnvironment.initialized() ||
+        P::SerializeFields(authority.launchEnvironment.entries()) != authority.launchEnvironmentBytes)
+        return Fail(error, "provider_native_launch_environment_changed");
     if (!Digest(authority.configurationIdentity) || !Digest(authority.platformIdentity) ||
         authority.configurationEvidence.empty() || !P::RecheckEvidence(authority.configurationEvidence, &ignored))
         return Fail(error, "provider_native_configuration_changed");

@@ -14,7 +14,7 @@ struct TransactionServiceOptions {
     std::function<bool(CydiaRuntime::Privileged::ApplicationProcessIdentity *, uid_t *, std::string *)> authenticate;
     std::function<bool(BrokerEnvironment *, std::string *)> prepareEnvironment;
     std::function<ParentExecutionReply(const std::string &, const std::vector<std::string> &,
-        int, int, const std::function<void()> &)> execute;
+        int, int, const std::function<void()> &, const CydiaRuntime::NativeLaunchEnvironment &)> execute;
     unsigned nonmutatingMilliseconds = 30000;
 };
 // Consumes connectedSocket. Begin payload is Privileged::SerializeRequest of

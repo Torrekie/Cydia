@@ -79,7 +79,7 @@ public:
         std::string *bytes, std::string *error) {
         if (!Parent(selected_, error) || !Closure(path, error)) return false;
         CydiaRuntime::Dpkg::Runner runner(path);
-        if (!runner.RunAndCaptureBounded(arguments, bytes, maximum, 3000, cancelled_).succeeded())
+        if (!runner.RunAndCaptureBounded(arguments, authority_.launchEnvironment, bytes, maximum, 3000, cancelled_).succeeded())
             return Fail(error, cancelled_ && cancelled_() ? "provider_cancelled" : "provider_dpkg_state_query_failed");
         return Parent(selected_, error) && Components(error);
     }

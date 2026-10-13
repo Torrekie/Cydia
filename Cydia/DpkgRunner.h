@@ -16,6 +16,7 @@
 #include <vector>
 
 namespace CydiaRuntime {
+class NativeLaunchEnvironment;
 namespace Dpkg {
 
 /* The wrapper used by Cydia can launch either the privileged cydo shim or the
@@ -93,6 +94,35 @@ class Runner {
                                std::size_t maxBytes, unsigned timeoutMilliseconds,
                                const std::function<bool()> &cancelled = std::function<bool()>()) const;
 
+    /* Explicit frozen-environment variants. A default/uninitialized snapshot
+     * refuses before any descriptors or child are created; a valid empty
+     * snapshot passes an empty envp. No ambient entries are merged or used as
+     * fallback. The caller retains responsibility for native authority and
+     * generation checks; these overloads only enforce exact process input.
+     * Existing overloads above retain their ambient-environment behavior. */
+    Result Run(const std::vector<std::string> &arguments,
+               const NativeLaunchEnvironment &environment, int statusFd = -1) const;
+    Result RunWithInput(const std::vector<std::string> &arguments,
+                        const NativeLaunchEnvironment &environment,
+                        const std::string &input, int statusFd = -1) const;
+    Result RunToFile(const std::vector<std::string> &arguments,
+                     const NativeLaunchEnvironment &environment,
+                     const std::string &outputPath, int statusFd = -1) const;
+    Result RunAndCapture(const std::vector<std::string> &arguments,
+                         const NativeLaunchEnvironment &environment,
+                         std::string *output, std::size_t maxBytes = 4 * 1024 * 1024,
+                         int statusFd = -1) const;
+    Result RunAndCaptureBounded(const std::vector<std::string> &arguments,
+                               const NativeLaunchEnvironment &environment,
+                               std::string *output, std::size_t maxBytes,
+                               unsigned timeoutMilliseconds,
+                               const std::function<bool()> &cancelled = std::function<bool()>()) const;
+    Result RunWithInputAndCaptureBounded(const std::vector<std::string> &arguments,
+                               const NativeLaunchEnvironment &environment,
+                               const std::string &input, std::string *output,
+                               std::size_t maxBytes, unsigned timeoutMilliseconds,
+                               const std::function<bool()> &cancelled = std::function<bool()>()) const;
+
     static std::string DefaultPath(Executable executable);
 
   private:
@@ -103,7 +133,8 @@ class Runner {
                        std::string *capturedOutput,
                        std::size_t maxCapturedBytes,
                        unsigned timeoutMilliseconds = 0,
-                       const std::function<bool()> &cancelled = std::function<bool()>()) const;
+                       const std::function<bool()> &cancelled = std::function<bool()>(),
+                       const NativeLaunchEnvironment *environment = nullptr) const;
 };
 
 } // namespace Dpkg

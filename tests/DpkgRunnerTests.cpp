@@ -3,6 +3,7 @@
  */
 
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/NativeLaunchEnvironment.hpp"
 
 #include <cerrno>
 #include <climits>
@@ -17,11 +18,37 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+extern char **environ;
+
 namespace {
 
 const char kArgument[] = "argument with spaces;$(not-a-shell)";
 const char kInput[] = "selection one install\nselection two deinstall\n";
 const char kOutput[] = "dpkg runner output\n";
+const char kFrozenName[] = "CYDIA_RUNNER_FIXTURE_VALUE";
+const char kEmptyName[] = "CYDIA_RUNNER_FIXTURE_EMPTY";
+const char kAbsentName[] = "CYDIA_RUNNER_FIXTURE_ABSENT";
+const char kParentName[] = "CYDIA_RUNNER_FIXTURE_PARENT_ONLY";
+
+std::string EnvironmentReport() {
+    std::string result;
+    for (const char *name : {kFrozenName, kEmptyName, kAbsentName, kParentName}) {
+        const char *value(getenv(name));
+        result += std::string(name) + '=' + (value == NULL ? "<absent>" : value) + '\n';
+    }
+    return result;
+}
+
+std::string FrozenReport() {
+    return std::string(kFrozenName) + "=frozen value\n" + kEmptyName + "=\n" +
+        kAbsentName + "=<absent>\n" + kParentName + "=<absent>\n";
+}
+
+std::vector<std::string> ParentEnvironment() {
+    std::vector<std::string> entries;
+    if (environ != NULL) for (char **entry = environ; *entry != NULL; ++entry) entries.push_back(*entry);
+    return entries;
+}
 
 void Expect(bool condition, const char *message) {
     if (condition)
@@ -89,6 +116,20 @@ int RunFixture(int argc, char *argv[]) {
         std::cout << kOutput;
         return 0;
     }
+    if (strcmp(argv[2], "environment") == 0) {
+        std::cout << EnvironmentReport(); return 0;
+    }
+    if (strcmp(argv[2], "environment-check") == 0)
+        return EnvironmentReport() == FrozenReport() ? 0 : 97;
+    if (strcmp(argv[2], "environment-input") == 0 || strcmp(argv[2], "environment-input-check") == 0) {
+        if (ReadStandardInput() != kInput || EnvironmentReport() != FrozenReport()) return 98;
+        if (strcmp(argv[2], "environment-input") == 0) std::cout << EnvironmentReport();
+        return 0;
+    }
+    if (strcmp(argv[2], "environment-count") == 0) {
+        std::size_t count = 0; if (environ != NULL) while (environ[count] != NULL) ++count;
+        std::cout << count << '\n'; return 0;
+    }
     if (strcmp(argv[2], "duplex") == 0) {
         std::cout << std::string(256 * 1024, 'p') << std::flush;
         if (ReadStandardInput() != std::string(1024 * 1024, 'q')) return 94;
@@ -142,7 +183,8 @@ std::string ReadFile(const std::string &path) {
     return std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
 }
 
-void VerifyStatusDescriptor(const CydiaRuntime::Dpkg::Runner &runner, bool explicitArgument) {
+void VerifyStatusDescriptor(const CydiaRuntime::Dpkg::Runner &runner, bool explicitArgument,
+    const CydiaRuntime::NativeLaunchEnvironment *environment = nullptr) {
     int descriptors[2];
     Expect(pipe(descriptors) == 0, "create status pipe");
     Expect(fcntl(descriptors[1], F_SETFD, FD_CLOEXEC) == 0, "mark status descriptor close-on-exec");
@@ -153,12 +195,109 @@ void VerifyStatusDescriptor(const CydiaRuntime::Dpkg::Runner &runner, bool expli
     if (explicitArgument)
         arguments.push_back("--status-fd=" + std::to_string(descriptors[1]));
 
-    const CydiaRuntime::Dpkg::Result result(runner.Run(arguments, descriptors[1]));
+    const CydiaRuntime::Dpkg::Result result(environment == NULL ? runner.Run(arguments, descriptors[1]) :
+        runner.Run(arguments, *environment, descriptors[1]));
     Expect(close(descriptors[1]) == 0, "close status writer");
     const std::string payload(ReadDescriptor(descriptors[0]));
     Expect(close(descriptors[0]) == 0, "close status reader");
     Expect(result.succeeded(), explicitArgument ? "preserve explicit status-fd" : "append status-fd");
     Expect(payload == "status: ok\n", "inherit close-on-exec status descriptor");
+}
+
+class SavedVariable {
+    const char *name_;
+    bool present_;
+    std::string value_;
+public:
+    explicit SavedVariable(const char *name) : name_(name), present_(getenv(name) != NULL),
+        value_(present_ ? getenv(name) : "") {}
+    ~SavedVariable() {
+        if (present_) (void) setenv(name_, value_.c_str(), 1);
+        else (void) unsetenv(name_);
+    }
+};
+
+void VerifyFrozenEnvironment(const CydiaRuntime::Dpkg::Runner &runner) {
+    using CydiaRuntime::NativeLaunchEnvironment;
+    using CydiaRuntime::Dpkg::ResultKind;
+    SavedVariable savedValue(kFrozenName), savedEmpty(kEmptyName), savedAbsent(kAbsentName), savedParent(kParentName);
+    Expect(setenv(kFrozenName, "frozen value", 1) == 0 && setenv(kEmptyName, "", 1) == 0 &&
+        unsetenv(kAbsentName) == 0 && unsetenv(kParentName) == 0, "prepare parent environment for capture");
+    NativeLaunchEnvironment captured, exact, empty;
+    // Capture the controlled entries only. Runner correctness must not depend
+    // on unrelated CI variables satisfying the native authority's admission.
+    std::vector<std::string> captureEntries;
+    for (const char *name : {kFrozenName, kEmptyName, kAbsentName, kParentName}) {
+        const char *value(getenv(name)); if (value != NULL) captureEntries.push_back(std::string(name) + '=' + value);
+    }
+    Expect(NativeLaunchEnvironment::FromEntries(captureEntries, &captured), "capture initialized fixture environment");
+    Expect(NativeLaunchEnvironment::FromEntries({std::string(kFrozenName) + "=frozen value", std::string(kEmptyName) + '='}, &exact),
+        "construct explicit frozen environment");
+    Expect(NativeLaunchEnvironment::FromEntries({}, &empty) && empty.initialized(), "construct valid empty environment");
+    Expect(setenv(kFrozenName, "later parent", 1) == 0 && setenv(kEmptyName, "later nonempty", 1) == 0 &&
+        setenv(kAbsentName, "now present", 1) == 0 && setenv(kParentName, "ambient only", 1) == 0,
+        "change parent after capture");
+    const auto before = ParentEnvironment();
+    const std::string ambient(EnvironmentReport()); std::string output;
+    auto result = runner.RunAndCaptureBounded({"--fixture", "environment"}, captured, &output, 4096, 2000);
+    Expect(result.succeeded() && output == FrozenReport(), "child sees captured values after ambient environment changes");
+    result = runner.RunAndCapture({"--fixture", "environment"}, &output);
+    Expect(result.succeeded() && output == ambient, "existing overload still uses ambient environment");
+    result = runner.RunAndCapture({"--fixture", "environment"}, exact, &output);
+    Expect(result.succeeded() && output == FrozenReport(), "explicit capture distinguishes absent and empty values");
+    result = runner.RunAndCaptureBounded({"--fixture", "environment-count"}, exact, &output, 4096, 2000);
+    Expect(result.succeeded() && output == "2\n", "explicit environment is not merged with ambient entries");
+    result = runner.RunAndCaptureBounded({"--fixture", "environment-count"}, empty, &output, 4096, 2000);
+    Expect(result.succeeded() && output == "0\n", "initialized empty environment launches with a nonnull empty envp");
+    result = runner.Run({"--fixture", "environment-check"}, exact);
+    Expect(result.succeeded(), "ordinary run uses explicit snapshot");
+    result = runner.RunWithInput({"--fixture", "environment-input-check"}, exact, kInput);
+    Expect(result.succeeded(), "ordinary input run uses explicit snapshot");
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "environment-input"}, exact, kInput, &output, 4096, 2000);
+    Expect(result.succeeded() && output == FrozenReport(), "bounded duplex uses explicit snapshot and preserves input");
+    NativeLaunchEnvironment replaced(captured); bool replacedBeforeSpawn = false;
+    result = runner.RunAndCaptureBounded({"--fixture", "environment"}, replaced, &output, 4096, 2000, [&]() {
+        if (!replacedBeforeSpawn) { replaced = empty; replacedBeforeSpawn = true; }
+        return false;
+    });
+    Expect(result.succeeded() && output == FrozenReport() && replacedBeforeSpawn && replaced.entries().empty(),
+        "owned envp retains original frozen values if caller reassigns its snapshot before spawn");
+    const std::string path(TemporaryOutputPath());
+    result = runner.RunToFile({"--fixture", "environment"}, exact, path);
+    Expect(result.succeeded() && ReadFile(path) == FrozenReport(), "file redirection uses explicit snapshot");
+    VerifyStatusDescriptor(runner, false, &exact); VerifyStatusDescriptor(runner, true, &exact);
+
+    NativeLaunchEnvironment invalid;
+    Expect(!invalid.initialized(), "default snapshot is not a valid empty environment");
+    result = runner.RunToFile({"--fixture", "output"}, invalid, path);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL && ReadFile(path) == FrozenReport(),
+        "uninitialized snapshot refuses before redirecting output or spawning");
+    unsigned callbacks = 0; output = "stale";
+    result = runner.RunAndCaptureBounded({"--fixture", "environment"}, invalid, &output, 4096, 2000,
+        [&]() { ++callbacks; return false; });
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL && output.empty() && callbacks == 0,
+        "uninitialized snapshot refuses before cancellation callbacks and clears capture");
+    Expect(!NativeLaunchEnvironment::FromEntries({"malformed entry"}, &invalid) && !invalid.initialized(),
+        "malformed environment cannot initialize a snapshot");
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "environment-input"}, invalid, kInput, &output, 4096, 2000);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL && output.empty(),
+        "failed environment construction never falls back to ambient values");
+    result = runner.Run({"--fixture", "exit", "0"}, invalid);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL, "ordinary run refuses invalid snapshot");
+    result = runner.RunWithInput({"--fixture", "input", kArgument}, invalid, kInput);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL, "ordinary input run refuses invalid snapshot");
+    output = "stale"; result = runner.RunAndCapture({"--fixture", "environment"}, invalid, &output);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == EINVAL && output.empty(), "ordinary capture refuses invalid snapshot");
+    Expect(unlink(path.c_str()) == 0, "remove frozen-environment output fixture");
+
+    result = runner.RunAndCaptureBounded({"--fixture", "close-output-wait"}, exact, &output, 4096, 100);
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == ETIMEDOUT, "frozen capture retains deadline behavior");
+    callbacks = 0;
+    result = runner.RunWithInputAndCaptureBounded({"--fixture", "wait"}, exact, std::string(1024 * 1024, 'q'), &output, 4096, 2000,
+        [&]() { return ++callbacks > 4; });
+    Expect(result.kind == ResultKind::LaunchFailed && result.error == ECANCELED, "frozen duplex retains blocked-writer cancellation");
+    Expect(before == ParentEnvironment() && EnvironmentReport() == ambient,
+        "explicit launches do not mutate any parent environment entry");
 }
 
 } // namespace
@@ -253,6 +392,8 @@ int main(int argc, char *argv[]) {
     result = missing.Run({"--version"});
     Expect(result.kind == ResultKind::LaunchFailed && result.error == ENOENT,
            "report executable launch failure");
+
+    VerifyFrozenEnvironment(runner);
 
     std::cout << "[verify-dpkg-runner][ ok ] shell-free dpkg process contract" << std::endl;
     return 0;

@@ -474,57 +474,183 @@ bool WriteExecutableOverride(const PackageDatabasePaths &paths,
     return success || Fail(error, "write_failed", "Could not synchronize executable configuration.");
 }
 
-bool ValidateDpkgArguments(const Environment &environment,
-                           const std::vector<std::string> &arguments, Error *error) {
+namespace {
+const std::size_t maximumDpkgArguments = 100000;
+enum class DpkgOptionKind { Ordinary, Root, Admin, Hook, Indirect };
+struct DpkgOption {
+    const char *name;
+    unsigned arity; // Native takesvalue: 0, standard value 1, continued -value 2.
+    DpkgOptionKind kind;
+};
+// Only the main dpkg 1.21/1.23 option phase is supported here. This table
+// establishes token boundaries, not effective defaults or configuration policy.
+const DpkgOption dpkgOptions[] = {
+    {"install", 0, DpkgOptionKind::Ordinary}, {"unpack", 0, DpkgOptionKind::Ordinary},
+    {"record-avail", 0, DpkgOptionKind::Ordinary}, {"configure", 0, DpkgOptionKind::Ordinary},
+    {"remove", 0, DpkgOptionKind::Ordinary}, {"purge", 0, DpkgOptionKind::Ordinary},
+    {"triggers-only", 0, DpkgOptionKind::Ordinary}, {"verify", 0, DpkgOptionKind::Ordinary},
+    {"listfiles", 0, DpkgOptionKind::Ordinary}, {"status", 0, DpkgOptionKind::Ordinary},
+    {"get-selections", 0, DpkgOptionKind::Ordinary}, {"set-selections", 0, DpkgOptionKind::Ordinary},
+    {"clear-selections", 0, DpkgOptionKind::Ordinary}, {"print-avail", 0, DpkgOptionKind::Ordinary},
+    {"update-avail", 0, DpkgOptionKind::Ordinary}, {"merge-avail", 0, DpkgOptionKind::Ordinary},
+    {"clear-avail", 0, DpkgOptionKind::Ordinary}, {"forget-old-unavail", 0, DpkgOptionKind::Ordinary},
+    {"audit", 0, DpkgOptionKind::Ordinary}, {"yet-to-unpack", 0, DpkgOptionKind::Ordinary},
+    {"list", 0, DpkgOptionKind::Ordinary}, {"search", 0, DpkgOptionKind::Ordinary},
+    {"assert", 2, DpkgOptionKind::Ordinary}, {"add-architecture", 0, DpkgOptionKind::Ordinary},
+    {"remove-architecture", 0, DpkgOptionKind::Ordinary}, {"print-architecture", 0, DpkgOptionKind::Ordinary},
+    {"print-foreign-architectures", 0, DpkgOptionKind::Ordinary}, {"predep-package", 0, DpkgOptionKind::Ordinary},
+    {"validate-pkgname", 0, DpkgOptionKind::Ordinary}, {"validate-trigname", 0, DpkgOptionKind::Ordinary},
+    {"validate-archname", 0, DpkgOptionKind::Ordinary}, {"validate-version", 0, DpkgOptionKind::Ordinary},
+    {"compare-versions", 0, DpkgOptionKind::Ordinary}, {"help", 0, DpkgOptionKind::Ordinary},
+    {"version", 0, DpkgOptionKind::Ordinary}, {"pre-invoke", 1, DpkgOptionKind::Hook},
+    {"post-invoke", 1, DpkgOptionKind::Hook}, {"path-exclude", 1, DpkgOptionKind::Ordinary},
+    {"path-include", 1, DpkgOptionKind::Ordinary}, {"verify-format", 1, DpkgOptionKind::Ordinary},
+    {"status-logger", 1, DpkgOptionKind::Indirect}, {"command-fd", 0, DpkgOptionKind::Indirect},
+    {"status-fd", 1, DpkgOptionKind::Ordinary}, {"log", 1, DpkgOptionKind::Ordinary},
+    {"pending", 0, DpkgOptionKind::Ordinary}, {"recursive", 0, DpkgOptionKind::Ordinary},
+    {"no-act", 0, DpkgOptionKind::Ordinary}, {"dry-run", 0, DpkgOptionKind::Ordinary},
+    {"simulate", 0, DpkgOptionKind::Ordinary}, {"no-pager", 0, DpkgOptionKind::Ordinary},
+    {"no-debsig", 0, DpkgOptionKind::Ordinary}, {"selected-only", 0, DpkgOptionKind::Ordinary},
+    {"triggers", 0, DpkgOptionKind::Ordinary}, {"no-triggers", 0, DpkgOptionKind::Ordinary},
+    {"no-also-select", 0, DpkgOptionKind::Ordinary}, {"skip-same-version", 0, DpkgOptionKind::Ordinary},
+    {"auto-deconfigure", 0, DpkgOptionKind::Ordinary}, {"robot", 0, DpkgOptionKind::Ordinary},
+    {"root", 1, DpkgOptionKind::Root}, {"abort-after", 1, DpkgOptionKind::Ordinary},
+    {"admindir", 1, DpkgOptionKind::Admin}, {"instdir", 1, DpkgOptionKind::Root},
+    {"ignore-depends", 1, DpkgOptionKind::Ordinary}, {"force", 2, DpkgOptionKind::Ordinary},
+    {"refuse", 2, DpkgOptionKind::Ordinary}, {"no-force", 2, DpkgOptionKind::Ordinary},
+    {"debug", 1, DpkgOptionKind::Ordinary}, {"build", 0, DpkgOptionKind::Ordinary},
+    {"contents", 0, DpkgOptionKind::Ordinary}, {"control", 0, DpkgOptionKind::Ordinary},
+    {"info", 0, DpkgOptionKind::Ordinary}, {"field", 0, DpkgOptionKind::Ordinary},
+    {"extract", 0, DpkgOptionKind::Ordinary}, {"vextract", 0, DpkgOptionKind::Ordinary},
+    {"ctrl-tarfile", 0, DpkgOptionKind::Ordinary}, {"fsys-tarfile", 0, DpkgOptionKind::Ordinary}
+};
+struct DpkgPathSpan { std::size_t begin, end; };
+bool DpkgArgumentBudget(const std::vector<std::string> &arguments, Error *error) {
+    if (arguments.size() > maximumDpkgArguments)
+        return Fail(error, "invalid_dpkg_argument", "Too many dpkg arguments.");
+    std::size_t bytes = 0;
+    for (const auto &argument : arguments) {
+        if (argument.size() >= maximumRequest || argument.size() + 1 > maximumRequest - bytes)
+            return Fail(error, "invalid_dpkg_argument", "Dpkg arguments exceed their size limit.");
+        bytes += argument.size() + 1;
+        if (argument.find('\0') != std::string::npos)
+            return Fail(error, "invalid_dpkg_argument", "Invalid dpkg argument.");
+    }
+    return true;
+}
+bool DpkgPathMatches(const Environment &environment, DpkgOptionKind kind, const std::string &value, Error *error) {
+    const auto &expected = kind == DpkgOptionKind::Admin ? environment.dpkgAdmin : environment.dpkgRoot;
+    char *actual = realpath(value.c_str(), NULL);
+    char *wanted = realpath(expected.c_str(), NULL);
+    const bool same = actual != NULL && wanted != NULL && std::strcmp(actual, wanted) == 0;
+    std::free(actual); std::free(wanted);
+    return same || Fail(error, "dpkg_environment_mismatch", "dpkg and APT select different roots or databases.");
+}
+bool WalkDpkgArguments(const Environment &environment, const std::vector<std::string> &arguments,
+    std::vector<DpkgPathSpan> *paths, Error *error) {
+    if (!DpkgArgumentBudget(arguments, error)) return false;
     std::vector<std::string> hooks;
-    for (std::size_t index = 0; index != arguments.size(); ++index) {
-        const std::string &argument = arguments[index];
-        bool hook(false);
-        for (const char *name : {"--pre-invoke", "--post-invoke"}) {
-            const std::string key(name); std::string command;
-            if (argument == key) {
-                if (++index == arguments.size()) return Fail(error, "invalid_dpkg_argument", "Missing dpkg hook command.");
-                command = arguments[index];
-            } else if (argument.compare(0, key.size() + 1, key + '=') == 0) command = argument.substr(key.size() + 1);
-            else continue;
-            if (command.empty() || command.find('\0') != std::string::npos)
-                return Fail(error, "invalid_dpkg_argument", "Invalid dpkg hook command.");
-            hooks.push_back(key + '=' + command); hook = true; break;
+    for (std::size_t i = 0; i < arguments.size(); ++i) {
+        const auto &argument = arguments[i];
+        // Native parsing does not permute options past an operand. Even bytes
+        // spelling an unsafe option are ordinary data after this boundary.
+        if (argument == "--" || argument == "-" || argument.empty() || argument[0] != '-') {
+            for (; i < arguments.size(); ++i) if (!SafeString(arguments[i]))
+                return Fail(error, "invalid_dpkg_argument", "Invalid dpkg argument.");
+            break;
         }
-        if (hook) continue;
-        if (!SafeString(argument)) return Fail(error, "invalid_dpkg_argument", "Invalid dpkg argument.");
-        if (argument == "--command-fd" || argument.compare(0, 13, "--command-fd=") == 0 ||
-            argument == "--status-logger" || argument.compare(0, 16, "--status-logger=") == 0)
-            return Fail(error, "unsafe_dpkg_argument", "Indirect commands are not a privileged tool interface.");
-        if (argument.compare(0, 2, "--") == 0) {
-            const std::string option = argument.substr(0, argument.find('='));
-            for (const char *restricted : {"--root", "--instdir", "--admindir", "--pre-invoke", "--post-invoke", "--command-fd", "--status-logger"}) {
-                const std::string name(restricted);
-                if (option.size() > 2 && option.size() < name.size() && name.compare(0, option.size(), option) == 0)
-                    return Fail(error, "unsafe_dpkg_argument", "Abbreviated privileged options are not supported.");
+        if (argument.compare(0, 2, "--") != 0) {
+            if (!SafeString(argument)) return Fail(error, "invalid_dpkg_argument", "Invalid dpkg argument.");
+            // D is the sole value-taking short option in these native tables.
+            // Its suffix is one opaque value, never more clustered options.
+            for (std::size_t at = 1; at < argument.size(); ++at) {
+                if (argument[at] == 'D') {
+                    if (at + 1 == argument.size()) {
+                        if (++i == arguments.size()) return Fail(error, "invalid_dpkg_argument", "Missing dpkg option value.");
+                        if (!SafeString(arguments[i])) return Fail(error, "invalid_dpkg_argument", "Invalid dpkg option value.");
+                    }
+                    break;
+                }
+                if (std::strchr("iArPVLspClS?aRGONEBbceIfxX", argument[at]) == NULL)
+                    return Fail(error, "unsupported_dpkg_option", "Unknown dpkg option arity is not supported.");
+            }
+            continue;
+        }
+        const auto equal = argument.find('=');
+        const auto spelling = argument.substr(0, equal);
+        for (const char *restricted : {"--root", "--instdir", "--admindir", "--pre-invoke", "--post-invoke", "--command-fd", "--status-logger"}) {
+            const std::string name(restricted);
+            if (spelling.size() > 2 && spelling.size() < name.size() && name.compare(0, spelling.size(), spelling) == 0)
+                return Fail(error, "unsafe_dpkg_argument", "Abbreviated privileged options are not supported.");
+        }
+        const DpkgOption *option = NULL; std::size_t valueAt = std::string::npos;
+        for (const auto &candidate : dpkgOptions) {
+            const std::string name = std::string("--") + candidate.name;
+            if (argument == name) { option = &candidate; break; }
+            if (argument.size() > name.size() && argument.compare(0, name.size(), name) == 0 &&
+                argument[name.size()] == (candidate.arity == 2 ? '-' : '=')) {
+                if (candidate.arity == 0 && candidate.kind != DpkgOptionKind::Indirect)
+                    return Fail(error, "invalid_dpkg_argument", "Unexpected dpkg option value.");
+                option = &candidate; valueAt = name.size() + 1; break;
             }
         }
-        const char *names[] = {"--root", "--instdir", "--admindir"};
-        for (const char *name : names) {
-            const std::string key(name);
-            std::string value;
-            if (argument == key) {
-                if (++index == arguments.size()) return Fail(error, "invalid_dpkg_argument", "Missing dpkg path.");
-                value = arguments[index];
-            } else if (argument.compare(0, key.size() + 1, key + '=') == 0)
-                value = argument.substr(key.size() + 1);
-            else continue;
-            const std::string &expected = key == "--admindir" ? environment.dpkgAdmin : environment.dpkgRoot;
-            char *actual = realpath(value.c_str(), NULL);
-            char *wanted = realpath(expected.c_str(), NULL);
-            const bool same = actual != NULL && wanted != NULL && std::strcmp(actual, wanted) == 0;
-            std::free(actual); std::free(wanted);
-            if (!same) return Fail(error, "dpkg_environment_mismatch", "dpkg and APT select different roots or databases.");
+        if (option == NULL) return Fail(error, "unsupported_dpkg_option", "Unknown dpkg option arity is not supported.");
+        if (option->kind == DpkgOptionKind::Indirect)
+            return Fail(error, "unsafe_dpkg_argument", "Indirect commands are not a privileged tool interface.");
+        const auto begin = i;
+        std::string value;
+        if (option->arity != 0) {
+            if (valueAt != std::string::npos) value = argument.substr(valueAt);
+            else {
+                if (++i == arguments.size()) return Fail(error, "invalid_dpkg_argument", "Missing dpkg option value.");
+                value = arguments[i];
+            }
+        }
+        if (option->kind == DpkgOptionKind::Hook) {
+            // Root-approved hook commands retain their exact shell bytes,
+            // including line breaks; all argument NULs were rejected above.
+            if (value.empty()) return Fail(error, "invalid_dpkg_argument", "Invalid dpkg hook command.");
+            hooks.push_back(std::string("--") + option->name + '=' + value);
+        } else {
+            if (!SafeString(argument) || !SafeString(value))
+                return Fail(error, "invalid_dpkg_argument", "Invalid dpkg argument.");
+            if (option->kind == DpkgOptionKind::Root || option->kind == DpkgOptionKind::Admin) {
+                if (!DpkgPathMatches(environment, option->kind, value, error)) return false;
+                if (paths != NULL) paths->push_back({begin, i + 1});
+            }
         }
     }
     if (!hooks.empty() && hooks != environment.trustedDpkgHooks)
         return Fail(error, "unsafe_dpkg_argument", "Invocation hooks must exactly match protected APT configuration.");
     return true;
+}
+}
+
+bool ValidateDpkgArguments(const Environment &environment,
+                           const std::vector<std::string> &arguments, Error *error) {
+    return WalkDpkgArguments(environment, arguments, NULL, error);
+}
+
+bool BindDpkgArguments(const Environment &environment, const std::vector<std::string> &arguments,
+    std::vector<std::string> *bound, Error *error) {
+    if (!bound) return Fail(error, "invalid_dpkg_argument", "Invalid dpkg argument.");
+    if (environment.dpkgRoot.size() > 4096 || environment.dpkgAdmin.size() > 4096) {
+        bound->clear(); return Fail(error, "invalid_dpkg_argument", "Dpkg paths exceed their size limit.");
+    }
+    std::vector<DpkgPathSpan> paths;
+    if (!WalkDpkgArguments(environment, arguments, &paths, error)) {
+        bound->clear(); return false;
+    }
+    std::vector<std::string> result{"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin};
+    if (!WalkDpkgArguments(environment, result, NULL, error)) { bound->clear(); return false; }
+    std::size_t begin = 0;
+    for (const auto &path : paths) {
+        result.insert(result.end(), arguments.begin() + begin, arguments.begin() + path.begin);
+        begin = path.end;
+    }
+    result.insert(result.end(), arguments.begin() + begin, arguments.end());
+    if (!DpkgArgumentBudget(result, error)) { bound->clear(); return false; }
+    *bound = std::move(result); return true;
 }
 
 } // namespace Privileged

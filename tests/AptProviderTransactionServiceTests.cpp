@@ -62,7 +62,7 @@ P::TransactionBeginRequest Prepare(Fixture &fixture, int *lock, bool scoped = fa
     environment.dpkgDeb = "/usr/bin/dpkg-deb"; environment.dpkgRoot = "/"; environment.dpkgAdmin = admin;
     environment.sourceList = fixture.runtime.sourceListPath; environment.extendedStates = fixture.root + "/extended_states";
     serviceEnvironment.executableSearchPath = serviceEnvironment.archiveDecoderSearchPath = "/usr/bin:/bin";
-    serviceEnvironment.runtime.dpkgOptions = {"--root=/", "--admindir=" + admin};
+    serviceEnvironment.runtime.dpkgOptions = {"--admindir=" + admin, "--root=/"};
     serviceEnvironment.runtime.packageInstallPrefix = "/";
     serviceStateDirectory = fixture.root + "/private";
     serviceRegistration = {fixture.root + "/registration", "fixture-provider", "config-v1", "policy-v1", "methods-v1", "libraries-v1", "frontend-v1"};
@@ -73,6 +73,9 @@ P::TransactionBeginRequest Prepare(Fixture &fixture, int *lock, bool scoped = fa
     V::Error error;
     Require(V::RuntimeSnapshot(environment, &begin.review.binding.packageStateIdentity, &error), "capture initial service snapshot");
     fixtureAuthority = P::NativeDpkgAuthority(); fixtureAuthorityAvailable = true;
+    Require(CydiaRuntime::NativeLaunchEnvironment::FromEntries({"PATH=/usr/bin:/bin", "DPKG_FRONTEND_LOCKED=1"},
+            &fixtureAuthority.launchEnvironment), "construct explicit fixture native launch snapshot");
+    fixtureAuthority.launchEnvironmentBytes = CydiaRuntime::Privileged::SerializeFields(fixtureAuthority.launchEnvironment.entries());
     fixtureAuthority.configurationIdentity = Hash("fixture native graph\n"); fixtureAuthority.platformIdentity.assign(64, 'a');
     V::Evidence config;
     Require(V::CaptureEvidence(fixture.root + "/native.conf", false, false, &config, &error), "capture service fixture declaration");
@@ -106,7 +109,13 @@ void RunService(Fixture &fixture, int socket, unsigned mode) {
     };
     unsigned children = 0;
     options.execute = [&](const std::string &tool, const std::vector<std::string> &arguments, int input, int status,
-        const std::function<void()> &started) {
+        const std::function<void()> &started, const CydiaRuntime::NativeLaunchEnvironment &launchEnvironment) {
+        Require(launchEnvironment.initialized(), "service carries retained explicit child environment");
+        Require(arguments.size() > 1 && arguments[0] == "--root=" + serviceEnvironment.environment.dpkgRoot &&
+            arguments[1] == "--admindir=" + serviceEnvironment.environment.dpkgAdmin &&
+            std::count(arguments.begin(), arguments.end(), arguments[0]) == 1 &&
+            std::count(arguments.begin(), arguments.end(), arguments[1]) == 1,
+            "service normalizes protected reset options to the selected root/admin");
         Require(tool == serviceEnvironment.environment.dpkg, "executor path comes from fixture authority"); ++children;
         Require(std::find(arguments.begin(), arguments.end(), "--status-fd=" + std::to_string(status)) != arguments.end(),
             "owner maps worker status placeholder to actual received descriptor");

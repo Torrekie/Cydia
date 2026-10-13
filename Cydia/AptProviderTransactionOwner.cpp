@@ -131,7 +131,7 @@ public:
         ComponentClosureEvidence proof;
         if (!Parent(nullptr, error) || !Closure(path, files, &proof, error, cancel)) return false;
         CydiaRuntime::Dpkg::Runner reader(path);
-        if (!reader.RunAndCaptureBounded(arguments, output, limit, 3000, cancel).succeeded())
+        if (!reader.RunAndCaptureBounded(arguments, native.launchEnvironment, output, limit, 3000, cancel).succeeded())
             return Fail(error, "provider_dpkg_state_query_failed");
         return true;
     }
@@ -212,13 +212,13 @@ public:
                 !Closure(options.selected.environment.dpkg, refreshed.components, &closure, error, cancel) || !Active(cancel, error) ||
                 !lease.AuthorizeEffects(refreshed, plan.envelopeIdentity, plan.pass, closure, error))
                 return Stop(error, "provider_trigger_drain_not_authorized");
-            arguments.insert(arguments.begin(), {"--root=" + options.selected.environment.dpkgRoot,
-                "--admindir=" + options.selected.environment.dpkgAdmin});
+            if (!P::BindDpkgArguments(options.selected.environment, arguments, &arguments, &ignored))
+                return Stop(error, "provider_dpkg_options_changed");
             if (cancel && cancel()) reply.launchError = ECANCELED;
             else reply = options.execute(options.selected.environment.dpkg, arguments, channels.inputDescriptor, channels.statusDescriptor, [&] {
                 std::string ignoredStart; lease.StartedEffects(plan.pass, &ignoredStart);
                 channels.started(); if (started) started();
-            });
+            }, native.launchEnvironment);
             if (last) *last = reply;
             SynchronizeCancellation();
             TransactionLeaseContext after; DpkgState afterState; TriggerEffectCheckpoint next; std::string reason;
@@ -358,8 +358,9 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
         return s.Stop(error, "provider_trigger_primary_not_authorized");
     }
     auto arguments = batch.arguments;
-    arguments.insert(arguments.begin(), {"--root=" + s.options.selected.environment.dpkgRoot,
-        "--admindir=" + s.options.selected.environment.dpkgAdmin});
+    P::Error pathError;
+    if (!P::BindDpkgArguments(s.options.selected.environment, arguments, &arguments, &pathError))
+        return s.Stop(error, "provider_dpkg_options_changed");
     // Direct executor owns actual spawn/reap. It must not propagate exceptions
     // or return while a child remains live; channel cancellation never kills it.
     if (cancel()) result->launchError = ECANCELED;
@@ -367,7 +368,7 @@ bool TransactionOwner::Execute(const TransactionLeaseEnvelope &envelope, const P
         std::string ignoredStart; s.lease.Started(batch.batch, &ignoredStart);
         if (primary.started) primary.started();
         notifyStarted();
-    });
+    }, s.native.launchEnvironment);
     primaryScope.Finish();
     s.SynchronizeCancellation();
     auto completed = s.completedUnpacks;

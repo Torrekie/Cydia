@@ -4,10 +4,15 @@
 #define Cydia_AptProviderNativeDpkgAuthority_HPP
 #include "Cydia/AptProviderBrokerPrivileged.hpp"
 #include "Cydia/AptProviderComponentSuccession.hpp"
+#include "Cydia/NativeLaunchEnvironment.hpp"
 
 namespace CydiaAPT { namespace Provider {
 struct NativeDpkgAuthority {
     std::string configurationIdentity, platformIdentity;
+    // Parent-local exact launch snapshot. Configuration/approval identity
+    // binds it; queries and mutation callbacks must pass this same envp.
+    CydiaRuntime::NativeLaunchEnvironment launchEnvironment;
+    std::string launchEnvironmentBytes; // Canonical consistency binding, never wire input.
     std::vector<CydiaRuntime::Privileged::Evidence> configurationEvidence;
     std::vector<std::string> componentPaths;
     std::map<std::string, std::vector<std::string>> successorPaths;

@@ -153,6 +153,12 @@ bool RevokeAdminAccess(const PackageDatabasePaths &paths, Error *error);
 bool ValidateDpkgArguments(const Environment &environment,
                            const std::vector<std::string> &arguments,
                            Error *error);
+// Validate and bind one canonical root/admin pair. Equivalent caller path
+// options are removed so a later --root cannot reset the selected database.
+// Other option/operand order is preserved. Failure publishes no argv.
+bool BindDpkgArguments(const Environment &, const std::vector<std::string> &,
+    std::vector<std::string> *, Error *);
+
 
 } // namespace Privileged
 } // namespace CydiaRuntime

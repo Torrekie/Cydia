@@ -243,13 +243,13 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/KeyringImport.cpp Cydia/KeyringImportPrivileged.cpp Cydia/KeyringImport.hpp \
 		Cydia/KeyringVerifier.cpp Cydia/KeyringVerifier.hpp \
 		Cydia/RecoveryPlan.cpp Cydia/RecoveryPlan.hpp Cydia/RecoveryPrivileged.cpp Cydia/RecoveryPrivileged.hpp \
-		Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h \
+		Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/DpkgRunner.h \
 		$(EXEC_COMPAT_LIBRARY) $(APT_LIBRARY)
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) -o $@ $(filter %.cpp,$^) $(EXEC_COMPAT_LIBRARY) $(APT_LIBRARY) $(flag) $(link) -Wno-deprecated-writable-strings -framework CoreFoundation -licucore
 	@$(LDID) -T0 -Sgenent.xml $@
 
-$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/SharedConfigHandoff.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/LegacyCydiaSourceAlias.cpp Cydia/LegacyCydiaSourceAlias.hpp Cydia/DpkgRunner.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp Cydia/InstalledRuntimePolicy.hpp Cydia/DpkgAdminAccess.hpp Cydia/SharedStateFile.hpp
+$(POSTINST_BINARY): postinst.mm Cydia/FirmwareMarkerPermissions.hpp Cydia/PrivateStateDirectory.hpp Cydia/PrivateMetadataMigration.hpp Cydia/SharedConfigHandoff.hpp Cydia/LegacySourceHandoff.cpp Cydia/LegacySourceHandoff.hpp Cydia/LegacyCydiaSourceAlias.cpp Cydia/LegacyCydiaSourceAlias.hpp Cydia/DpkgRunner.cpp Cydia/NativeLaunchEnvironment.cpp Cydia/DpkgRunner.h Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePaths.hpp Cydia/InstalledRuntimePolicy.hpp Cydia/DpkgAdminAccess.hpp Cydia/SharedStateFile.hpp
 	@mkdir -p $(dir $@)
 	$(cycc) $(plus) $(objc_arc) -DCYDIA_POSTINST_ROOTLESS=$(if $(filter rootless,$(PACKAGE_LAYOUT)),1,0) -o $@ $(filter %.mm %.cpp,$^) $(flag) $(link)
 	@$(LDID) -T0 -Sgenent.xml $@
@@ -259,5 +259,7 @@ postinst: $(POSTINST_BINARY)
 cfversion: $(CFVERSION_BINARY)
 setnsfpn: $(SETNSFPN_BINARY)
 cydo: $(CYDO_BINARY)
+
+$(CYDO_BINARY) $(POSTINST_BINARY): Cydia/NativeLaunchEnvironment.hpp
 
 FORCE:

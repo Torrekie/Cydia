@@ -118,6 +118,14 @@ void Declarations() {
         Require(authority.configurationIdentity.size() == 64 && authority.platformIdentity.size() == 64 &&
             authority.successorPaths.at("dpkg-archive") == std::vector<std::string>{f.program}, "real declaration derives identities and exact archive successor association");
         Require(A::RevalidateNativeDpkgAuthority(authority, f.Capture(), &error), "unchanged declaration and graph revalidate");
+        Require(authority.launchEnvironment.initialized() &&
+            std::find(authority.launchEnvironment.entries().begin(), authority.launchEnvironment.entries().end(), "PATH=" + f.selected.executableSearchPath) != authority.launchEnvironment.entries().end() &&
+            std::find(authority.launchEnvironment.entries().begin(), authority.launchEnvironment.entries().end(), "DPKG_FRONTEND_LOCKED=1") != authority.launchEnvironment.entries().end(),
+            "authority captures exact selected path and parent-lock overlay");
+        auto changedEnvironment = authority;
+        Require(changedEnvironment.launchEnvironment.Overlay({"PATH=" + f.selected.executableSearchPath + ":/changed"}, {}, &changedEnvironment.launchEnvironment) &&
+            !A::RevalidateNativeDpkgAuthority(changedEnvironment, f.Capture(), &error),
+            "launch environment cannot change behind its retained binding");
         Write(f.optional, "new optional native policy\n");
         Require(!A::RevalidateNativeDpkgAuthority(authority, f.Capture(), &error), "previously absent native configuration cannot appear during a lease");
     }

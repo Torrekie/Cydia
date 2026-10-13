@@ -146,7 +146,7 @@ bool ExecuteBrokerDpkg(const CydiaRuntime::PackageDatabasePaths &paths,
     if (!P::RecheckEvidence(environment.evidence, error) || !ParentOwns(environment, parent) ||
         !P::RuntimeSnapshot(environment, &current, error) || current != request.stateIdentity)
         return Fail(error, "provider_execution_state_changed");
-    arguments.insert(arguments.begin(), {"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin});
+    if (!P::BindDpkgArguments(environment, arguments, &arguments, error)) return false;
     *exitCode = execute(environment.dpkg, arguments);
     return true;
 }

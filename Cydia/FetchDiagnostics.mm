@@ -32,13 +32,14 @@ NSString *CydiaAPTDiagnosticMessage(const CydiaAPT::ErrorData &diagnostic) {
         "provider_changed_since_probe", "provider_changed_during_launch", "provider_changed_during_probe",
         "provider_execution_state_changed", "provider_architectures_changed", "provider_authority_changed",
         "provider_dpkg_options_changed", "provider_archive_index_changed", "provider_archive_sources_changed",
-        "provider_evidence_changed", "provider_review_changed", "provider_reprobe_required"}))
+        "provider_evidence_changed", "provider_review_changed", "provider_reprobe_required",
+        "provider_native_launch_environment_changed"}))
         return DiagnosticLabel(@"TRANSACTION_STALE", @"Settings");
     if (DiagnosticCodeIs(code, {
         "provider_review_missing", "provider_review_or_lock_required", "provider_unverified_dpkg_effects",
         "provider_deconfiguration_unknown", "provider_trigger_targets_unknown", "provider_archive_evidence_unavailable",
         "provider_trigger_predepends_batch_boundary", "provider_trigger_primary_not_authorized",
-        "provider_native_auto_deconfigure_unsupported",
+        "provider_native_auto_deconfigure_unsupported", "provider_native_launch_environment_invalid",
         "provider_archive_review_missing", "provider_parent_operation_unsupported", "provider_security_override_unsupported",
         "provider_execution_not_approved", "provider_archive_manifest_missing", "provider_dpkg_state_unavailable"}))
         return DiagnosticLabel(@"REVIEW_UNAVAILABLE", @"RuntimeProvider");

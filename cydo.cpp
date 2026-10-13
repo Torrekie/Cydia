@@ -421,8 +421,11 @@ int SpawnAndWait(const std::string &tool, std::vector<std::string> arguments, in
 // ordinary one-shot executor untouched; this spawn atomically closes all other
 // inherited descriptors, including the authenticated transaction connection.
 CydiaAPT::Provider::ParentExecutionReply SpawnTransactionChild(const std::string &tool,
-    const std::vector<std::string> &authorized, int input, int status, const std::function<void()> &started) {
+    const std::vector<std::string> &authorized, int input, int status, const std::function<void()> &started,
+    const CydiaRuntime::NativeLaunchEnvironment &environment) {
     CydiaAPT::Provider::ParentExecutionReply result;
+    CydiaRuntime::NativeLaunchEnvironment::Envp envp;
+    if (!environment.BuildEnvp(&envp)) { result.launchError = EINVAL; return result; }
     std::vector<std::string> arguments(authorized); unsigned statusOptions = 0;
     for (std::size_t i = 0; i < arguments.size(); ++i) {
         if (arguments[i] == "--status-fd") {
@@ -458,7 +461,7 @@ CydiaAPT::Provider::ParentExecutionReply SpawnTransactionChild(const std::string
     std::vector<char *> argv;
     for (auto &argument : arguments) argv.push_back(const_cast<char *>(argument.c_str()));
     argv.push_back(nullptr); pid_t child = -1;
-    if (!error) error = posix_spawn(&child, tool.c_str(), &actions, &attributes, argv.data(), environ);
+    if (!error) error = posix_spawn(&child, tool.c_str(), &actions, &attributes, argv.data(), envp.data());
     if (attributesReady) posix_spawnattr_destroy(&attributes);
     if (actionsReady) posix_spawn_file_actions_destroy(&actions);
     close(inputCopy); close(statusCopy);
@@ -552,10 +555,11 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
             }
             *uid = callerUID; return true;
         };
-        options.prepareEnvironment = [&paths, callerUID, callerGID, &callerGroups](Provider::BrokerEnvironment *selected, std::string *) {
+        options.prepareEnvironment = [&paths, callerUID, callerGID, &callerGroups](Provider::BrokerEnvironment *selected, std::string *failure) {
             SanitizeEnvironment(paths);
-            setenv("PATH", selected->executableSearchPath.c_str(), 1);
-            setenv("DPKG_FRONTEND_LOCKED", "1", 1);
+            if (setenv("PATH", selected->executableSearchPath.c_str(), 1) || setenv("DPKG_FRONTEND_LOCKED", "1", 1)) {
+                if (failure) *failure = "provider_native_launch_environment_invalid"; return false;
+            }
             setlocale(LC_ALL, "C"); setlocale(LC_CTYPE, ""); setlocale(LC_MESSAGES, "");
             const std::string share(paths.DpkgDataDirectory().substr(0, paths.DpkgDataDirectory().rfind('/')));
             const std::string usr(share.substr(0, share.rfind('/')));
@@ -763,7 +767,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
                 !Privileged::ValidateDpkgArguments(environment, arguments, &error) ||
                 !Privileged::FrontendLockOwner(environment.dpkgAdmin, &owner, &error) || owner != parent ||
                 !Privileged::RecheckEvidence(environment.evidence, &error)) return Denied(error);
-            arguments.insert(arguments.begin(), {"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin});
+            if (!Privileged::BindDpkgArguments(environment, arguments, &arguments, &error)) return Denied(error);
             setenv("DPKG_FRONTEND_LOCKED", "1", 1);
             return SpawnAndWait(environment.dpkg, arguments, providerRequestDescriptor);
         }
@@ -914,7 +918,7 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         if (owner == 0 && !lock.Acquire(environment.dpkgAdmin, &error)) return Denied(error);
         if (!Privileged::RecheckEvidence(environment.evidence, &error)) return Denied(error);
         setenv("DPKG_FRONTEND_LOCKED", "1", 1);
-        arguments.insert(arguments.begin(), {"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin});
+        if (!Privileged::BindDpkgArguments(environment, arguments, &arguments, &error)) return Denied(error);
     } else if (!LegacyCommand(paths, environment, &tool, arguments)) return EX_NOPERM;
     if (!Privileged::ValidateRootOwnedPath(tool, false, true, &error)) return Denied(error);
     return SpawnAndWait(tool, arguments);

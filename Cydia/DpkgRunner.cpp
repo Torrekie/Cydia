@@ -4,6 +4,7 @@
  */
 
 #include "Cydia/DpkgRunner.h"
+#include "Cydia/NativeLaunchEnvironment.hpp"
 #include "Cydia/PackageDatabasePaths.hpp"
 
 #include <algorithm>
@@ -149,6 +150,45 @@ Result Runner::RunWithInputAndCaptureBounded(const std::vector<std::string> &arg
     return RunInternal(arguments, -1, &input, NULL, output, maxBytes, timeoutMilliseconds, cancelled);
 }
 
+Result Runner::Run(const std::vector<std::string> &arguments,
+    const NativeLaunchEnvironment &environment, int statusFd) const {
+    return RunInternal(arguments, statusFd, NULL, NULL, NULL, 0, 0, std::function<bool()>(), &environment);
+}
+
+Result Runner::RunWithInput(const std::vector<std::string> &arguments,
+    const NativeLaunchEnvironment &environment, const std::string &input, int statusFd) const {
+    return RunInternal(arguments, statusFd, &input, NULL, NULL, 0, 0, std::function<bool()>(), &environment);
+}
+
+Result Runner::RunToFile(const std::vector<std::string> &arguments,
+    const NativeLaunchEnvironment &environment, const std::string &outputPath, int statusFd) const {
+    return RunInternal(arguments, statusFd, NULL, &outputPath, NULL, 0, 0, std::function<bool()>(), &environment);
+}
+
+Result Runner::RunAndCapture(const std::vector<std::string> &arguments,
+    const NativeLaunchEnvironment &environment, std::string *output, std::size_t maxBytes, int statusFd) const {
+    if (output == NULL) return launchFailure(EINVAL);
+    output->clear();
+    return RunInternal(arguments, statusFd, NULL, NULL, output, maxBytes, 0, std::function<bool()>(), &environment);
+}
+
+Result Runner::RunAndCaptureBounded(const std::vector<std::string> &arguments,
+    const NativeLaunchEnvironment &environment, std::string *output, std::size_t maxBytes,
+    unsigned timeoutMilliseconds, const std::function<bool()> &cancelled) const {
+    if (output == NULL || timeoutMilliseconds == 0) return launchFailure(EINVAL);
+    output->clear();
+    return RunInternal(arguments, -1, NULL, NULL, output, maxBytes, timeoutMilliseconds, cancelled, &environment);
+}
+
+Result Runner::RunWithInputAndCaptureBounded(const std::vector<std::string> &arguments,
+    const NativeLaunchEnvironment &environment, const std::string &input, std::string *output,
+    std::size_t maxBytes, unsigned timeoutMilliseconds, const std::function<bool()> &cancelled) const {
+    if (output == NULL || timeoutMilliseconds == 0) return launchFailure(EINVAL);
+    output->clear();
+    if (input.size() > 8 * 1024 * 1024) return launchFailure(EFBIG);
+    return RunInternal(arguments, -1, &input, NULL, output, maxBytes, timeoutMilliseconds, cancelled, &environment);
+}
+
 Result Runner::RunInternal(const std::vector<std::string> &arguments,
                            int statusFd,
                            const std::string *input,
@@ -156,7 +196,12 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
                            std::string *capturedOutput,
                            std::size_t maxCapturedBytes,
                            unsigned timeoutMilliseconds,
-                           const std::function<bool()> &cancelled) const {
+                           const std::function<bool()> &cancelled,
+                           const NativeLaunchEnvironment *environment) const {
+    // Retain owned immutable strings through spawn, including an explicit
+    // empty environment. Invalid snapshots never reach descriptor setup.
+    NativeLaunchEnvironment::Envp frozenEnvp;
+    if (environment != NULL && !environment->BuildEnvp(&frozenEnvp)) return launchFailure(EINVAL);
     const bool bounded(timeoutMilliseconds != 0);
     const auto deadline(std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMilliseconds));
     if (executable_.empty() || statusFd < -1 ||
@@ -335,7 +380,7 @@ Result Runner::RunInternal(const std::vector<std::string> &arguments,
     }
     pid_t child;
     if (spawnError == 0) spawnError = posix_spawn(&child, executable_.c_str(), &actions,
-        bounded ? &attributes : NULL, argv.data(), environ);
+        bounded ? &attributes : NULL, argv.data(), environment != NULL ? frozenEnvp.data() : environ);
     if (attributesReady) (void) posix_spawnattr_destroy(&attributes);
     (void) posix_spawn_file_actions_destroy(&actions);
     if (inheritedStatusFd >= 0)

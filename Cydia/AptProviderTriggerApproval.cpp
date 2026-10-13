@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #include "Cydia/AptProviderTriggerCapture.hpp"
 #include "Cydia/AptProviderNativeDpkgAuthority.hpp"
+#include "Cydia/RuntimeSnapshotInputs.hpp"
 #include <apt-pkg/hashes.h>
 #include <map>
 #include <set>
@@ -30,7 +31,7 @@ void Field(std::string *bytes, const std::string &value) {
 }
 std::string TriggerNativeAuthorityIdentity(const NativeDpkgAuthority &native,
     const std::vector<InstalledComponentEvidence> &components) {
-    if (!Digest(native.configurationIdentity) || !Digest(native.platformIdentity) || components.empty() ||
+    if (!native.launchEnvironment.initialized() || !Digest(native.configurationIdentity) || !Digest(native.platformIdentity) || components.empty() ||
         components.size() > MaximumTransactionComponents || native.componentPaths.size() != components.size()) return "";
     const std::set<std::string> expected(native.componentPaths.begin(), native.componentPaths.end());
     if (expected.size() != components.size()) return "";
@@ -43,8 +44,9 @@ std::string TriggerNativeAuthorityIdentity(const NativeDpkgAuthority &native,
             metadata.mode > 07777 || (metadata.mode & 0022) || metadata.size > CydiaPackages::ArchiveLimits().maxStreamBytes ||
             !sorted.emplace(metadata.path, &component).second) return "";
     }
-    std::string bytes("CYDIA-TRIGGER-NATIVE-APPROVAL-1");
+    std::string bytes("CYDIA-TRIGGER-NATIVE-APPROVAL-2");
     Field(&bytes, native.configurationIdentity); Field(&bytes, native.platformIdentity);
+    Field(&bytes, CydiaRuntime::Privileged::SerializeFields(native.launchEnvironment.entries()));
     Field(&bytes, std::to_string(sorted.size()));
     for (const auto &entry : sorted) {
         const auto &component = *entry.second; const auto &metadata = component.file.metadata;
