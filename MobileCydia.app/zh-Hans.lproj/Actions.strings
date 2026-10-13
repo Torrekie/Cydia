@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "已配置的架构";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "可用软件包";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "目前无法获取架构信息。";
+
+"PACKAGE_TEMPORARY_CHANGES" = "软件包临时更改";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "这些已安装的软件包版本可能会暂时进入未配置状态。这里列出的后续操作必须完成，Cydia 才会结束本次处理。";

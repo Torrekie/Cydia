@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "Ingestelde architecturen";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "Beschikbare pakketten";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Architectuurinformatie is momenteel niet beschikbaar.";
+
+"PACKAGE_TEMPORARY_CHANGES" = "Tijdelijke pakketwijzigingen";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "Deze geïnstalleerde pakketversies kunnen tijdelijk de status ‘niet geconfigureerd’ krijgen. De hier getoonde vervolgacties moeten voltooid zijn voordat Cydia de verwerking afrondt.";

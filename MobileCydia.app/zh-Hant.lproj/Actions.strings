@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "已設定的架構";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "可用套件";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "目前無法取得架構資訊。";
+
+"PACKAGE_TEMPORARY_CHANGES" = "套件暫時變更";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "這些已安裝的套件版本可能會暫時進入未設定狀態。這裡列出的後續操作必須完成，Cydia 才會結束本次處理。";

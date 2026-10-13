@@ -4,6 +4,7 @@
 #include "Cydia/AptBackend.hpp"
 #include "Cydia/AptProviderSelection.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
+#include "Cydia/AptProviderEffectReviewBundle.hpp"
 #include "Cydia/RuntimeProviderStatus.h"
 #include <functional>
 #include <memory>
@@ -41,7 +42,7 @@ public:
     bool CaptureReview(AptBackend &backend, TransactionData *transaction, std::string *error);
     bool ApproveReview(AptBackend &backend, const std::set<std::uint64_t> &shownActions,
         const std::set<std::string> &shownArchiveWarnings, std::string *error,
-        const std::string &shownEffectsIdentity = {});
+        const std::string &shownEffectsIdentity = {}, const std::string &shownDeconfigurationIdentity = {});
     bool ReviewUnchanged(const AptBackend &backend) const;
     void InvalidateReview();
     bool executionComplete() const;
@@ -51,6 +52,7 @@ public:
     void RetireExecution(AptBackend &backend);
     const Provider::ReviewedTransaction *review() const;
     const Provider::TriggerEffectEnvelope *reviewedEffects() const;
+    std::shared_ptr<const Provider::EffectReviewBundle> reviewedDeconfiguration() const;
 };
 }
 #endif

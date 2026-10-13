@@ -16,6 +16,8 @@ P::DpkgState state;
 CydiaAPT::Recovery::Snapshot recoverySnapshot;
 unsigned recoveryReads = 0, registeredReads = 0;
 bool recoveryReadable = false;
+std::shared_ptr<P::EffectReviewBundle> pairedCaptureReply;
+unsigned pairedCaptures = 0, triggerCaptures = 0;
 void Require(bool value, const char *why) { if (!value) { std::cerr << why << '\n'; std::abort(); } }
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
 // This mock covers only the app broker's lifecycle. Real service/owner tests
@@ -25,6 +27,7 @@ struct TransactionMock {
     bool enabled = false, rejectBegin = false, loseExecute = false;
     std::string beginError, baseline;
     unsigned starts = 0, legacyExecutions = 0, legacyCommits = 0, closes = 0;
+    unsigned beginTimeout = 0;
     CommitReply commit = CommitReply::Accepted;
     P::TransactionBeginRequest begin;
     std::vector<std::pair<P::TransactionChannel::Operation, std::string>> frames;
@@ -49,10 +52,11 @@ ProviderTransaction::~ProviderTransaction() = default;
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
 ProviderTransaction::ProviderTransaction(std::unique_ptr<Implementation> implementation) : implementation_(std::move(implementation)) {}
 std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::string &helper, const Privileged::Request &request,
-    const std::string &digest, std::string *error, unsigned, const std::function<bool()> &, bool scopedChildren, bool conffilePolicy) {
+    const std::string &digest, std::string *error, unsigned timeout, const std::function<bool()> &, bool scopedChildren, bool conffilePolicy) {
     Require(conffilePolicy, "retained broker requests freshly bound native conffile policy");
     Require(transactionMock.enabled, "archive denial must precede persistent transaction admission");
     ++transactionMock.starts; std::vector<std::string> fields;
+    transactionMock.beginTimeout = timeout;
     Require(helper == "/fixture/cydo" && P::Decode(request.payload, &fields) && fields.size() == 3 && fields[0] == "CYDIA-BROKER-1" &&
         P::DecodeTransactionBegin(fields[2], &transactionMock.begin) && P::TransactionBeginDigest(transactionMock.begin) == digest,
         "broker sends canonical exact Begin digest and retained review");
@@ -114,7 +118,9 @@ Result Run(const std::string &, const std::string &command, const Privileged::Re
     Result result{};
     if (command == "--cydia-provider-state" || command == "--cydia-provider-state-effects")
         Require(P::EncodeBrokerState(state, &result.output), "fixture state encoding");
-    else if (command == "--cydia-provider-extended-read") {
+    else if (command == "--cydia-provider-review-effects" && pairedCaptureReply) {
+        ++triggerCaptures; Require(P::EncodeTriggerEffectEnvelope(pairedCaptureReply->triggers, &result.output), "mock legacy trigger capture");
+    } else if (command == "--cydia-provider-extended-read") {
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
         if (transactionMock.enabled) result.output = transactionMock.baseline;
 #endif
@@ -128,6 +134,18 @@ Result Run(const std::string &, const std::string &command, const Privileged::Re
 int OpenProviderLock(const std::string &, const Privileged::Request &, Privileged::Error *, unsigned) {
     char name[] = "/tmp/cydia-grant-lock-XXXXXX";
     const int fd = mkstemp(name); if (fd >= 0) unlink(name); return fd;
+}
+bool CaptureProviderDeconfigurationReview(const std::string &helper, const Privileged::Request &request,
+    const P::ReviewedTransaction &review, const std::string &methods, std::shared_ptr<const P::EffectReviewBundle> *out,
+    Privileged::Error *, unsigned, const std::function<bool()> &) {
+    ++pairedCaptures; std::vector<std::string> fields; P::EffectReviewCaptureRequest captured;
+    std::string expected, sent;
+    Require(helper == "/fixture/cydo" && out && P::Decode(request.payload, &fields) && fields.size() == 3 &&
+        P::DecodeEffectReviewCaptureRequest(fields[2], &captured) && captured.methodsIdentity == methods &&
+        P::Encode(review, &expected) && P::Encode(captured.review, &sent) && expected == sent,
+        "fixture receives exact read-only paired review/method request");
+    Require(pairedCaptureReply && P::EffectReviewBundleMatches(*pairedCaptureReply, review, methods), "mock pair matches exact frontend review");
+    *out = pairedCaptureReply; return true;
 }
 DpkgExecutionResult RunProviderDpkg(const std::string &, const std::string &, const Privileged::Request &request, int, const std::string *, const std::vector<std::string> &) {
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
@@ -165,6 +183,7 @@ struct Fixture {
     unsigned calls = 0;
     bool stopAfterGrant = false, cancelled = false;
     Fixture() {
+        pairedCaptureReply.reset(); pairedCaptures = triggerCaptures = 0;
 #if defined(CYDIA_TRANSACTION_BROKER_TESTING)
         transactionMock = TransactionMock();
 #endif
@@ -408,7 +427,8 @@ void ReadyLifecycle(Fixture &fixture, P::Broker &broker) {
     Require(broker.Approve(fixture.review, {{"sample", "amd64", true}}), "approve exact lifecycle review and auto delta");
     broker.SetStatusDescriptor(8);
 }
-P::ParentExecutionReply ExecuteLifecycle(Fixture &fixture, P::Broker &broker, std::uint64_t id, std::uint64_t batch) {
+P::ParentExecutionReply ExecuteLifecycle(Fixture &fixture, P::Broker &broker, std::uint64_t id, std::uint64_t batch,
+    const P::RequestControl &control = {}) {
     const auto found = std::find_if(fixture.review.execution.actions.begin(), fixture.review.execution.actions.end(),
         [id](const P::ReviewedAction &action) { return action.identifier == id; });
     Require(found != fixture.review.execution.actions.end(), "fixture action exists");
@@ -423,7 +443,7 @@ P::ParentExecutionReply ExecuteLifecycle(Fixture &fixture, P::Broker &broker, st
     execution.arguments = {"--status-fd=99", "--no-triggers", found->action == P::ExecutionAction::Unpack ? "--unpack" : "--configure", operand};
     auto request = fixture.Request(P::Operation::ExecuteDpkg); P::Message reply;
     Require(P::Encode(execution, &request.payload), "encode broker lifecycle child");
-    broker.HandleParentRequest(request, &reply, {}); P::ParentExecutionReply result;
+    broker.HandleParentRequest(request, &reply, control); P::ParentExecutionReply result;
     Require(reply.succeeded && P::Decode(reply.payload, &result), "broker returns typed execution result"); return result;
 }
 bool CommitLifecycle(Fixture &fixture, P::Broker &broker, unsigned malformed = 0) {
@@ -553,6 +573,56 @@ void FiniteReviewCannotDowngrade() {
     Require(!denied.started && denied.launchError && transactionMock.starts == 1 && !transactionMock.legacyExecutions &&
         !broker.mutationStarted(), "missing declaration cannot downgrade finite approval or start a legacy child");
 }
+void PairedCaptureAndImmutableApproval() {
+    // A fixture-only routing selector is not native readiness proof. Every
+    // paired case either refuses approval or mocks a pre-mutation Begin denial.
+    for (unsigned mode = 0; mode != 10; ++mode) {
+        Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
+        fixture.options.finiteTriggerEffects = true; fixture.options.capabilities |= P::FiniteTriggerEffects;
+        bool ready = true;
+        if (mode != 6) fixture.options.deconfigurationReadiness = [&](const P::ReviewedTransaction &, std::string *) { return ready; };
+        pairedCaptureReply = std::make_shared<P::EffectReviewBundle>(); pairedCaptureReply->methodsIdentity = "methods";
+        auto &pool(pairedCaptureReply->deconfiguration); pool.identity.assign(64, 'a'); pool.initialCheckpoint.assign(64, 'b');
+        pool.nativeAuthorityIdentity.assign(64, 'c'); pool.primaryReview = fixture.review;
+        auto &triggers(pairedCaptureReply->triggers); triggers.identity.assign(64, 'd'); triggers.initialCheckpoint = pool.initialCheckpoint;
+        triggers.nativeAuthorityIdentity = pool.nativeAuthorityIdentity; triggers.primaryReview = fixture.review;
+        triggers.recipients = {{"sample:all@1", {"sample", "1", "all"}}}; triggers.awaiters = triggers.recipients; triggers.incoming.insert("sample:all@1");
+        P::Broker broker(fixture.options); fixture.Ready(broker, false);
+        std::shared_ptr<const P::TriggerEffectEnvelope> effects; std::shared_ptr<const P::EffectReviewBundle> pair; std::string error;
+        Require(broker.CaptureEffects(fixture.review, &effects, &error, &pair), "read-only capture selects its immutable mode");
+        if (mode == 6) {
+            Require(!pair && effects && pairedCaptures == 0 && triggerCaptures == 1,
+                "missing readiness selector preserves the existing ordinary finite-trigger capture");
+            Require(broker.Approve(fixture.review, { {"sample", "amd64", true} }, {}, {}, effects), "ordinary review is unchanged");
+            continue;
+        }
+        Require(pair && effects.get() == &pair->triggers && pairedCaptures == 1 && triggerCaptures == 0,
+            "trigger and conditional approval come from one exact shared capture object");
+        if (mode == 1) pair = std::make_shared<const P::EffectReviewBundle>(*pair);
+        if (mode == 2) effects = std::make_shared<const P::TriggerEffectEnvelope>(*effects);
+        if (mode == 3) pair.reset();
+        if (mode == 4) pairedCaptureReply->deconfiguration.identity.assign(64, 'e');
+        if (mode == 5) ready = false;
+        const bool approved(broker.Approve(fixture.review, { {"sample", "amd64", true} }, {}, {}, effects, pair));
+        if (mode >= 1 && mode <= 5) {
+            Require(!approved && transactionMock.starts == 0 && !broker.mutationStarted(),
+                "copying, dropping, changing or invalidating the displayed pair cannot approve a new review");
+            continue;
+        }
+        Require(approved, "unchanged exact paired review can be retained after explicit confirmation");
+        broker.SetStatusDescriptor(8); transactionMock.rejectBegin = true; transactionMock.beginError = "provider_native_configuration_missing";
+        if (mode == 7) pairedCaptureReply->deconfiguration.identity.assign(64, 'f');
+        if (mode == 8) ready = false;
+        P::RequestControl control; if (mode == 9) control.remainingMilliseconds = [] { return 1000u; };
+        const auto result(ExecuteLifecycle(fixture, broker, 1, 1, control));
+        Require(!result.started && result.launchError && !transactionMock.legacyExecutions && !broker.mutationStarted(),
+            "paired Begin cannot fall through to legacy mutation after any denial");
+        if (mode == 0) Require(transactionMock.starts == 1 && transactionMock.begin.reviewedDeconfiguration &&
+            transactionMock.beginTimeout >= P::MinimumEffectReviewCaptureMilliseconds,
+            "retained Begin carries exact pair and sufficient locked-recapture time");
+        else Require(transactionMock.starts == 0, "post-confirmation changes or insufficient deadline refuse before dispatch");
+    }
+}
 #endif
 }
 void CanonicalBeginApproval() {
@@ -588,6 +658,7 @@ int main() {
     BeginFailuresNeverDowngrade(); MissingDeclarationKeepsLegacy(); RetainedOwnerIgnoresOriginalArchives();
     CompletionAndUncertaintySurviveCleanup(); CommitCannotInventCompletion();
     FiniteReviewCannotDowngrade();
+    PairedCaptureAndImmutableApproval();
 #endif
     std::cout << "[apt-provider-broker-authorization] PASS\n";
 }

@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "Настроенные архитектуры";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "Доступные пакеты";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Сведения об архитектурах сейчас недоступны.";
+
+"PACKAGE_TEMPORARY_CHANGES" = "Временные изменения пакетов";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "Эти установленные версии пакетов могут временно перейти в ненастроенное состояние. Показанные здесь последующие операции должны завершиться, прежде чем Cydia завершит обработку.";

@@ -191,6 +191,11 @@ def main():
         "Cydia/DpkgConffile.cpp", "Cydia/DpkgStatusParser.cpp"],
         "cydia-provider-transaction-service", extra_link_flags=["-lz"],
         extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1", "-DCYDIA_TRANSACTION_SERVICE_TESTING=1"])
+    compile_driver(["tests/AptProviderUnpackAdmissionTests.cpp"] + transaction_owner_sources + [
+        "Cydia/AptProviderTransactionChannel.cpp", "Cydia/AptProviderUnpackAdmission.cpp",
+        "Cydia/AptProviderInstalledOwnership.cpp", "Cydia/AptProviderUnpackOwnership.cpp",
+        "Cydia/AptProviderPreDependsEvidence.cpp"], "cydia-provider-unpack-admission", extra_link_flags=["-lz"],
+        extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1"])
     compile_driver(["tests/AptProviderNativeDpkgAuthorityTests.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
         "Cydia/AptRecoveryDependencyInspector.cpp", "Cydia/AptRecoveryMachO.cpp", "Cydia/RepositorySecurityPolicy.cpp",
         "Cydia/ExtendedState.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",

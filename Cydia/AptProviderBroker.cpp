@@ -38,6 +38,8 @@ public:
     std::string session, error, originalExtendedState;
     ReviewedTransaction approved;
     std::shared_ptr<const TriggerEffectEnvelope> reviewedEffects;
+    std::shared_ptr<const EffectReviewBundle> reviewedDeconfiguration, capturedDeconfiguration;
+    std::string capturedDeconfigurationBytes, reviewedDeconfigurationBytes;
     ReviewPolicy approvedPolicy;
     std::vector<AutoInstalledDelta> changes;
     ReviewAuthorization authorization;
@@ -92,12 +94,19 @@ public:
         return AuthorityValid() && !session.empty() && binding.session == session && binding.providerIdentifier == ProviderID() &&
             binding.configurationIdentity == ConfigurationID() && binding.policyIdentity == PolicyID();
     }
+    bool DeconfigurationReady(const ReviewedTransaction &review, std::string *reason) const {
+        if (!options.deconfigurationReadiness) return false;
+        try { return options.deconfigurationReadiness(review, reason); }
+        catch (...) { if (reason) *reason = "provider_deconfiguration_readiness_failed"; return false; }
+    }
     void CloseTransaction() {
         if (transaction) { transaction->Close(); transaction.reset(); }
     }
     void Invalidate() {
         CloseTransaction(); authorization.Invalidate(); committed = transactionComplete = transactionAttempted = transactionDenied = false;
-        approved = ReviewedTransaction(); reviewedEffects.reset(); changes.clear();
+        approved = ReviewedTransaction(); reviewedEffects.reset(); reviewedDeconfiguration.reset();
+        capturedDeconfiguration.reset(); capturedDeconfigurationBytes.clear(); changes.clear();
+        reviewedDeconfigurationBytes.clear();
     }
     bool BeginTransaction(const RequestControl &control) {
         if (transactionAttempted) return !transactionDenied;
@@ -106,17 +115,30 @@ public:
         begin.archiveWarnings = approvedPolicy.unverifiedArchiveWarningsAccepted; begin.changes = changes;
         begin.extendedState = originalExtendedState;
         begin.reviewedEffects = reviewedEffects;
+        begin.reviewedDeconfiguration = reviewedDeconfiguration;
+        if (reviewedDeconfiguration) {
+            std::string retained;
+            if (!EncodeEffectReviewBundle(*reviewedDeconfiguration, &retained) || retained != reviewedDeconfigurationBytes)
+                return Fail("provider_deconfiguration_review_changed");
+        }
         std::string bytes, digest = TransactionBeginDigest(begin);
         if (!EncodeTransactionBegin(begin, &bytes) || digest.empty()) return Fail("provider_invalid_transaction_request");
         std::string code;
+        unsigned timeout = Deadline(control);
+        if (reviewedDeconfiguration) {
+            if (!DeconfigurationReady(approved, &code)) return Fail(code.empty() ? "provider_deconfiguration_not_ready" : code.c_str());
+            const unsigned remaining = control.remainingMilliseconds ? control.remainingMilliseconds() : MaximumEffectReviewCaptureMilliseconds;
+            if (remaining < MinimumEffectReviewCaptureMilliseconds) return Fail("provider_deconfiguration_deadline_insufficient");
+            timeout = std::min(remaining, MaximumEffectReviewCaptureMilliseconds);
+        }
         transaction = Client::ProviderTransaction::Start(options.helperPath, Request(bytes), digest, &code,
-            Deadline(control), control.cancelled, true, true);
+            timeout, control.cancelled, true, true);
         if (transaction) { transactionDenied = false; return true; }
         // Existing distributions need not install a declaration merely to use
         // the established restricted executor. Selection happens once before
         // the first mutation; a bad/present graph never falls through, and a
         // retained transaction can never retry through this legacy path.
-        if (!reviewedEffects && code == "provider_native_configuration_missing") { transactionDenied = false; return true; }
+        if (!reviewedEffects && !reviewedDeconfiguration && code == "provider_native_configuration_missing") { transactionDenied = false; return true; }
         transactionDenied = true; return Fail(code.empty() ? "provider_transaction_unavailable" : code.c_str());
     }
     bool Acquire(const Message &request, const RequestControl &control) {
@@ -300,14 +322,44 @@ public:
 Broker::Broker(const BrokerOptions &options) : implementation_(new Implementation(options)) {}
 Broker::~Broker() {}
 bool Broker::CaptureEffects(const ReviewedTransaction &review, std::shared_ptr<const TriggerEffectEnvelope> *effects,
-    std::string *error) {
+    std::string *error, std::shared_ptr<const EffectReviewBundle> *deconfiguration) {
     auto &value = *implementation_;
+    if (error) error->clear();
     if (!effects) return false;
     effects->reset();
+    if (deconfiguration) deconfiguration->reset();
+    value.capturedDeconfiguration.reset(); value.capturedDeconfigurationBytes.clear();
     if (!value.options.finiteTriggerEffects) return true;
     std::string bytes;
     if (value.lock < 0 || !value.Bound(review.binding) || !Encode(review, &bytes))
         return value.Fail("provider_trigger_capture_not_bound");
+    if (value.options.deconfigurationReadiness) {
+        std::string reason;
+        const bool ready(value.DeconfigurationReady(review, &reason));
+        if (!ready && reason == "provider_deconfiguration_readiness_failed") {
+            if (error) *error = reason;
+            return value.Fail(reason.c_str());
+        }
+        if (ready) {
+            if (!deconfiguration) return value.Fail("provider_deconfiguration_review_missing");
+            EffectReviewCaptureRequest requested; requested.review = review; requested.methodsIdentity = value.environment.methodsIdentity;
+            CydiaRuntime::Privileged::Error failure; std::shared_ptr<const EffectReviewBundle> captured;
+            if (!EncodeEffectReviewCaptureRequest(requested, &bytes) ||
+                !Client::CaptureProviderDeconfigurationReview(value.options.helperPath, value.Request(bytes), review,
+                    requested.methodsIdentity, &captured, &failure) ||
+                !captured ||
+                !EncodeEffectReviewBundle(*captured, &value.capturedDeconfigurationBytes)) {
+                const std::string code(failure.code.empty() ? "provider_deconfiguration_capture_failed" : failure.code);
+                if (error) *error = code;
+                return value.Fail(code.c_str());
+            }
+            value.capturedDeconfiguration = captured;
+            // Alias the trigger member of this exact capture object. Do not
+            // separately capture or copy a pool into the paired approval.
+            *effects = std::shared_ptr<const TriggerEffectEnvelope>(captured, &captured->triggers);
+            *deconfiguration = std::move(captured); return true;
+        }
+    }
     const auto result = Client::Run(value.options.helperPath, "--cydia-provider-review-effects", value.Request(bytes), 8 * 1024 * 1024, 10000);
     std::shared_ptr<TriggerEffectEnvelope> captured(new TriggerEffectEnvelope()); std::string original, retained;
     if (!result.succeeded() || !DecodeTriggerEffectEnvelope(result.output, captured.get()) ||
@@ -329,15 +381,25 @@ bool Broker::BindSession(const Binding &binding) {
 }
 bool Broker::Approve(const ReviewedTransaction &review, const std::vector<AutoInstalledDelta> &changes,
                      const std::set<std::uint64_t> &additionalReviewed, const std::set<std::string> &warnings,
-                     const std::shared_ptr<const TriggerEffectEnvelope> &effects) {
+                     const std::shared_ptr<const TriggerEffectEnvelope> &effects,
+                     const std::shared_ptr<const EffectReviewBundle> &deconfiguration) {
     auto &value = *implementation_;
     if (value.uncertain) return value.Fail("provider_execution_outcome_unknown");
+    const auto captured(value.capturedDeconfiguration); const auto capturedBytes(value.capturedDeconfigurationBytes);
     value.Invalidate(); value.started = value.observedCommit = false;
     auto policy = value.options.policy; policy.environment = value.environment;
     std::string expected, shown, effectBytes;
     if (bool(effects) != value.options.finiteTriggerEffects || (effects &&
         (!Encode(review, &expected) || !Encode(effects->primaryReview, &shown) || expected != shown ||
             !EncodeTriggerEffectEnvelope(*effects, &effectBytes)))) return value.Fail("provider_trigger_review_changed");
+    if (captured || deconfiguration) {
+        std::string bytes, reason;
+        if (!captured || !deconfiguration || deconfiguration.get() != captured.get() || effects.get() != &captured->triggers ||
+            !EffectReviewBundleMatches(*deconfiguration, review, value.environment.methodsIdentity) ||
+            !EncodeEffectReviewBundle(*deconfiguration, &bytes) || bytes != capturedBytes ||
+            !value.DeconfigurationReady(review, &reason))
+            return value.Fail(reason.empty() ? "provider_deconfiguration_review_changed" : reason.c_str());
+    }
     policy.additionalActionsReviewed = additionalReviewed; policy.unverifiedArchiveWarningsAccepted = warnings;
     std::map<std::string, bool> deltas;
     // Do not approve a manifest known to require effects this parent cannot
@@ -365,7 +427,8 @@ bool Broker::Approve(const ReviewedTransaction &review, const std::vector<AutoIn
             value.Invalidate(); return value.Fail("provider_unreviewed_auto_state");
         }
     }
-    value.approved = review; value.reviewedEffects = effects;
+    value.approved = review; value.reviewedEffects = effects; value.reviewedDeconfiguration = deconfiguration;
+    value.reviewedDeconfigurationBytes = deconfiguration ? capturedBytes : std::string();
     value.approvedPolicy = policy; value.changes = changes; value.error.clear(); return true;
 }
 void Broker::SetStatusDescriptor(int descriptor) { implementation_->status = descriptor; }

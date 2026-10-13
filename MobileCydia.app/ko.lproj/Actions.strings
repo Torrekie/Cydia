@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "설정된 아키텍처";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "사용 가능한 패키지";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "현재 아키텍처 정보를 가져올 수 없습니다.";
+
+"PACKAGE_TEMPORARY_CHANGES" = "임시 패키지 변경 사항";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "설치된 이 패키지 버전들은 일시적으로 설정되지 않은 상태가 될 수 있습니다. Cydia가 처리를 완료하려면 여기에 표시된 후속 작업이 먼저 완료되어야 합니다.";

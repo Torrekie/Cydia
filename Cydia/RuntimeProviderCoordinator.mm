@@ -11,6 +11,7 @@
 #include "Cydia/DatabaseStatus.h"
 #include "Cydia/FetchDiagnostics.h"
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/TransactionReview.h"
 #include "Cydia/PackageDatabasePaths.hpp"
 #include <cstdlib>
 
@@ -198,6 +199,8 @@ public:
     CydiaRuntimeProviderStatus *__strong status;
     P::ReviewedTransaction reviewed;
     std::shared_ptr<const P::TriggerEffectEnvelope> reviewedEffects;
+    std::shared_ptr<const P::EffectReviewBundle> reviewedDeconfiguration;
+    std::string deconfigurationIdentity;
     std::vector<AutoInstalledDelta> deltas;
     std::string reviewBytes;
     bool captured = false, approved = false, initialized = false;
@@ -206,7 +209,8 @@ public:
         state:CydiaRuntimeProviderStateUnchecked providerName:nil providerVersion:nil aptVersion:nil diagnostic:nil]) {}
 
     void ClearReview() {
-        captured = approved = false; reviewed = P::ReviewedTransaction(); reviewedEffects.reset(); deltas.clear(); reviewBytes.clear();
+        captured = approved = false; reviewed = P::ReviewedTransaction(); reviewedEffects.reset(); reviewedDeconfiguration.reset();
+        deconfigurationIdentity.clear(); deltas.clear(); reviewBytes.clear();
         if (context) context->archives.reset();
     }
 };
@@ -409,17 +413,26 @@ bool RuntimeProviderCoordinator::CaptureReview(AptBackend &backend, TransactionD
     state.context->archives = P::ArchiveEvidenceSnapshot::Capture(*ActiveRuntimeDescriptor(), state.reviewed,
         state.recoveryWorker ? state.recovery.acquisitionSearchPath : state.selected.executableSearchPath, {}, error);
     state.captured = state.context->archives != nullptr;
-    if (state.captured) state.captured = state.context->broker->CaptureEffects(state.reviewed, &state.reviewedEffects, error);
+    if (state.captured) state.captured = state.context->broker->CaptureEffects(state.reviewed, &state.reviewedEffects, error,
+        &state.reviewedDeconfiguration);
+    if (state.captured && state.reviewedDeconfiguration) {
+        state.deconfigurationIdentity = CydiaDeconfigurationReviewIdentity(*state.reviewedDeconfiguration);
+        state.captured = state.deconfigurationIdentity.size() == 64;
+        if (!state.captured && error) *error = "provider_deconfiguration_review_changed";
+    }
     return state.captured;
 }
 bool RuntimeProviderCoordinator::ApproveReview(AptBackend &backend, const std::set<std::uint64_t> &shownActions,
-    const std::set<std::string> &shownWarnings, std::string *error, const std::string &shownEffectsIdentity) {
+    const std::set<std::string> &shownWarnings, std::string *error, const std::string &shownEffectsIdentity,
+    const std::string &shownDeconfigurationIdentity) {
     auto &state(*implementation_);
     if (!state.captured || state.approved || !ReviewUnchanged(backend) ||
-        shownEffectsIdentity != (state.reviewedEffects ? state.reviewedEffects->identity : "")) {
+        shownEffectsIdentity != (state.reviewedEffects ? state.reviewedEffects->identity : "") ||
+        shownDeconfigurationIdentity != state.deconfigurationIdentity) {
         if (error) *error = "provider_review_changed"; return false;
     }
-    if (remote() && !state.context->broker->Approve(state.reviewed, state.deltas, shownActions, shownWarnings, state.reviewedEffects)) {
+    if (remote() && !state.context->broker->Approve(state.reviewed, state.deltas, shownActions, shownWarnings, state.reviewedEffects,
+        state.reviewedDeconfiguration)) {
         if (error) *error = state.context->broker->errorCode(); return false;
     }
     state.approved = true; return true;
@@ -429,10 +442,14 @@ bool RuntimeProviderCoordinator::ReviewUnchanged(const AptBackend &backend) cons
     if (!state.captured) return false;
     if (!remote()) return true;
     P::ReviewedTransaction current; std::string bytes;
-    return healthy() && backend.providerReview(&current) && P::Encode(current, &bytes) && bytes == state.reviewBytes;
+    return healthy() && backend.providerReview(&current) && P::Encode(current, &bytes) && bytes == state.reviewBytes &&
+        (!state.reviewedDeconfiguration || CydiaDeconfigurationReviewIdentity(*state.reviewedDeconfiguration) == state.deconfigurationIdentity);
 }
 void RuntimeProviderCoordinator::InvalidateReview() { implementation_->ClearReview(); }
 const Provider::TriggerEffectEnvelope *RuntimeProviderCoordinator::reviewedEffects() const { return implementation_->reviewedEffects.get(); }
+std::shared_ptr<const Provider::EffectReviewBundle> RuntimeProviderCoordinator::reviewedDeconfiguration() const {
+    return implementation_->reviewedDeconfiguration;
+}
 bool RuntimeProviderCoordinator::executionComplete() const {
     return !remote() || (implementation_->approved && implementation_->context->broker->complete());
 }

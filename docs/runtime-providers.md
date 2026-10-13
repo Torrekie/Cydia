@@ -213,6 +213,21 @@ staging. Native presentation, complete pre-child admission and restoration-aware
 settlement remain prerequisites to activation; a paired Begin currently refuses
 execution after reconstruction and this capture route advertises no capability.
 
+The optional native confirmation retains that exact shared bundle, displays
+old installed generations, causes and existing Configure/Remove/Purge endpoints,
+and binds every displayed approval byte to its presentation identity. Its two
+guidance labels cover all 21 locales. The internal capture selector is unset in
+ordinary sessions until complete parent gates exist; no user setting or provider
+boolean can activate it. A paired Begin also cannot fall back to legacy execution.
+
+An opaque pre-unpack capture checks the actual retained private archive operands,
+fresh native state, selected effective policy, ordered Conflicts/Breaks/Pre-Depends
+processing and protected ownership. It rechecks sources, indexes, archive copies,
+scripts, configuration and locks before publishing or reusing its result.
+`FactsVerified` covers those captured facts, not inline-trigger or whole-child
+execution safety. Multiple archives without independently proven native list
+continuity request a fresh boundary; the capture never splits or retries dpkg.
+
 A bounded restoration ledger records only observed, approved old-generation
 deconfiguration after a successful child. It transfers debt only through the
 exact reviewed successor Unpack and independently proven installed controls and

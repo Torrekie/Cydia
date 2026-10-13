@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "ארכיטקטורות מוגדרות";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "חבילות זמינות";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "מידע על ארכיטקטורות אינו זמין כרגע.";
+
+"PACKAGE_TEMPORARY_CHANGES" = "שינויים זמניים בחבילות";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "ייתכן שגרסאות החבילות המותקנות האלה יהיו זמנית במצב ״לא מוגדר״. הפעולות הבאות המוצגות כאן חייבות להסתיים לפני ש-Cydia ישלים את התהליך.";

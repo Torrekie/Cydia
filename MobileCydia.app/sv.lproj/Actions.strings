@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "Konfigurerade arkitekturer";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "Tillgängliga paket";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Arkitekturinformation är inte tillgänglig just nu.";
+
+"PACKAGE_TEMPORARY_CHANGES" = "Tillfälliga paketändringar";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "Dessa installerade paketversioner kan tillfälligt få statusen ”inte konfigurerad”. De uppföljande åtgärder som visas här måste slutföras innan Cydia avslutar processen.";

@@ -31,3 +31,6 @@
 "PACKAGE_LOOKUP_REGISTERED" = "Skonfigurowane architektury";
 "PACKAGE_LOOKUP_ALTERNATIVES" = "Dostępne pakiety";
 "PACKAGE_LOOKUP_ARCHITECTURES_UNKNOWN" = "Informacje o architekturach są obecnie niedostępne.";
+
+"PACKAGE_TEMPORARY_CHANGES" = "Tymczasowe zmiany pakietów";
+"PACKAGE_TEMPORARY_CHANGES_HELP" = "Te zainstalowane wersje pakietów mogą tymczasowo przejść w stan nieskonfigurowany. Dalsze operacje pokazane tutaj muszą się zakończyć, zanim Cydia zakończy przetwarzanie.";

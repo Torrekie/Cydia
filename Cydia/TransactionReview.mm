@@ -3,6 +3,26 @@
 #include "Cydia/RuntimeProviderStatus.h"
 #include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/AptProviderTransactionRequest.hpp"
+#include <CommonCrypto/CommonDigest.h>
+
+std::string CydiaDeconfigurationReviewIdentity(const CydiaAPT::Provider::EffectReviewBundle &value) {
+    std::string bytes;
+    if (!CydiaAPT::Provider::EncodeEffectReviewBundle(value, &bytes)) return {};
+    const char domain[] = "CYDIA-DECONFIGURATION-PRESENTATION-1";
+    CC_SHA256_CTX context; unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    if (!CC_SHA256_Init(&context) || !CC_SHA256_Update(&context, domain, sizeof(domain) - 1) ||
+        !CC_SHA256_Update(&context, bytes.data(), static_cast<CC_LONG>(bytes.size())) || !CC_SHA256_Final(digest, &context)) return {};
+    const char hex[] = "0123456789abcdef"; std::string identity; identity.reserve(sizeof(digest) * 2);
+    for (unsigned char byte : digest) { identity += hex[byte >> 4]; identity += hex[byte & 15]; }
+    return identity;
+}
+NSString *CydiaDeconfigurationReviewLocalize(NSString *key) {
+    NSDictionary *fallbacks(@{
+        @"PACKAGE_TEMPORARY_CHANGES": @"Temporary package changes",
+        @"PACKAGE_TEMPORARY_CHANGES_HELP": @"These installed package versions may temporarily become unconfigured. The follow-up operations shown here must finish before Cydia completes."
+    });
+    return [[NSBundle mainBundle] localizedStringForKey:key value:fallbacks[key] ?: key table:@"Actions"];
+}
 
 namespace {
 NSString *PackageName(const CydiaAPT::Provider::ExecutionPackage &package, NSArray<NSString *> *architectures) {
@@ -14,6 +34,10 @@ NSString *PackageName(const CydiaAPT::Provider::ExecutionPackage &package, NSArr
 NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
     return [[NSString alloc] initWithBytes:package.version.data() length:package.version.size() encoding:NSUTF8StringEncoding];
 }
+NSString *ExactPackageName(const CydiaAPT::Provider::ExecutionPackage &package) {
+    const std::string qualified(package.package + ':' + package.architecture);
+    return [[NSString alloc] initWithBytes:qualified.data() length:qualified.size() encoding:NSUTF8StringEncoding];
+}
 }
 
 @implementation CydiaTransactionReview {
@@ -22,6 +46,8 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
     std::set<std::string> archiveWarnings_;
     std::string transactionBytes_;
     std::string effectsIdentity_;
+    std::string deconfigurationIdentity_;
+    std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> deconfiguration_;
 }
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
     providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
@@ -32,6 +58,14 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
     providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
     runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
     reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects {
+    return [self initWithTransaction:transaction providerReview:review runtimeOrigin:origin reviewedEffects:effects
+        reviewedDeconfiguration:std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle>()];
+}
+- (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
+    reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
+    reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration {
     if ((self = [super init])) {
         using Origin = CydiaAPT::RuntimeDescriptorOrigin;
         if (origin != Origin::Embedded && origin != Origin::External && origin != Origin::RecoveryWorker) return nil;
@@ -83,6 +117,50 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
             effectsIdentity_ = effects->identity;
         }
         _processingRows = [processing copy];
+        NSMutableArray *conditional([NSMutableArray array]);
+        if (deconfiguration) {
+            // A copied or independently captured trigger DTO must not be joined
+            // into this presentation. Both pools belong to this same pair.
+            std::string shownTransaction;
+            if (!review || effects != &deconfiguration->triggers ||
+                !CydiaAPT::Provider::EffectReviewBundleMatches(*deconfiguration, *review, deconfiguration->methodsIdentity) ||
+                !CydiaAPT::Provider::Encode(deconfiguration->deconfiguration.primaryReview.transaction, &shownTransaction) ||
+                shownTransaction != transactionBytes_) return nil;
+            deconfigurationIdentity_ = CydiaDeconfigurationReviewIdentity(*deconfiguration);
+            if (deconfigurationIdentity_.size() != 64) return nil;
+            std::map<std::uint64_t, const CydiaAPT::Provider::ReviewedAction *> actionsByID;
+            for (const auto &action : review->execution.actions) actionsByID.emplace(action.identifier, &action);
+            for (const auto &entry : deconfiguration->deconfiguration.allowances) {
+                const auto &allowance(entry.second);
+                NSString *installed(ExactPackageName(allowance.installed)), *oldVersion(Version(allowance.installed));
+                if (!installed || !oldVersion) return nil;
+                [conditional addObject:@{@"title": installed, @"detail": oldVersion, @"kind": @"installed"}];
+                for (const auto &cause : allowance.causes) {
+                    const auto found(actionsByID.find(cause.unpackAction));
+                    if (found == actionsByID.end()) return nil;
+                    const auto *incoming(found->second);
+                    NSString *name(ExactPackageName(incoming->package)), *version(Version(incoming->package));
+                    NSString *relation([[NSString alloc] initWithBytes:cause.canonicalRelation.data() length:cause.canonicalRelation.size()
+                        encoding:NSUTF8StringEncoding]);
+                    if (!name || !version || !relation) return nil;
+                    // Literal relationship syntax is package metadata. For a
+                    // sibling cause, show the two exact differing generations.
+                    NSString *detail(cause.kind == CydiaAPT::Provider::DeconfigurationCauseKind::Breaks ?
+                        [NSString stringWithFormat:@"%@\n%@", version, relation] :
+                        [NSString stringWithFormat:@"%@ ↔ %@", version, oldVersion]);
+                    [conditional addObject:@{@"title": [NSString stringWithFormat:@"%@: %@",
+                        CydiaRuntimeProviderLocalize(@"REVIEW_UNPACK"), name], @"detail": detail, @"kind": @"cause"}];
+                }
+                NSString *name(ExactPackageName(allowance.endpoint.package)), *version(Version(allowance.endpoint.package));
+                NSString *key(allowance.endpoint.kind == CydiaAPT::Provider::ExecutionAction::Configure ? @"REVIEW_CONFIGURE" :
+                    allowance.endpoint.kind == CydiaAPT::Provider::ExecutionAction::Remove ? @"REVIEW_REMOVE" : @"REVIEW_PURGE");
+                if (!name || !version) return nil;
+                [conditional addObject:@{@"title": [NSString stringWithFormat:@"%@: %@", CydiaRuntimeProviderLocalize(key), name],
+                    @"detail": version, @"kind": @"endpoint"}];
+            }
+            deconfiguration_ = deconfiguration;
+        }
+        _conditionalRows = [conditional copy];
         _runtimeNotice = origin == Origin::External ? @"" : CydiaRuntimeProviderLocalize(@"RECOVERY_REVIEW");
     }
     return self;
@@ -91,6 +169,7 @@ NSString *Version(const CydiaAPT::Provider::ExecutionPackage &package) {
 - (const std::set<std::uint64_t> &)displayedActions { return actions_; }
 - (const std::set<std::string> &)displayedArchiveWarnings { return archiveWarnings_; }
 - (const std::string &)displayedEffectsIdentity { return effectsIdentity_; }
+- (const std::string &)displayedDeconfigurationIdentity { return deconfigurationIdentity_; }
 - (bool)matchesTransaction:(const CydiaAPT::TransactionData &)transaction {
     std::string bytes;
     return !transactionBytes_.empty() && CydiaAPT::Provider::Encode(transaction, &bytes) && transactionBytes_ == bytes;

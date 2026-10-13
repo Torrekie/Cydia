@@ -145,7 +145,7 @@ NSError *Error(NSString *text) {
     if (runtime_->remote() && !descriptor) return false;
     const auto origin(descriptor ? descriptor->origin : CydiaAPT::RuntimeDescriptorOrigin::Embedded);
     CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:runtime_->review()
-        runtimeOrigin:origin reviewedEffects:runtime_->reviewedEffects()]);
+        runtimeOrigin:origin reviewedEffects:runtime_->reviewedEffects() reviewedDeconfiguration:runtime_->reviewedDeconfiguration()]);
     @synchronized(runtimeStatusLock_) { confirmationReview_ = review; confirmationApproved_ = NO; }
     return review != nil;
 }
@@ -164,7 +164,7 @@ NSError *Error(NSString *text) {
                 (!runtime_->remote() || descriptor) && review.runtimeOrigin == origin) {
                 std::string error;
                 accepted = runtime_->ApproveReview(*apt_, [review displayedActions], [review displayedArchiveWarnings], &error,
-                    [review displayedEffectsIdentity]);
+                    [review displayedEffectsIdentity], [review displayedDeconfigurationIdentity]);
                 confirmationApproved_ = accepted;
             }
         }

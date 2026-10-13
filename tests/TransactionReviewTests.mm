@@ -239,6 +239,87 @@ void ImmutableProcessingPool() {
         runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::External reviewedEffects:&effects] == nil,
         "processing approval cannot hide a changed primary review");
 }
+std::shared_ptr<P::EffectReviewBundle> ConditionalFixture(Fixture &fixture) {
+    auto &binding(fixture.provider.binding);
+    binding.providerIdentifier = "fixture"; binding.session.assign(64, 'a'); binding.configurationIdentity = "config";
+    binding.policyIdentity = "policy"; binding.packageStateIdentity = "state"; binding.review = "review";
+    binding.cacheEpoch = binding.selectionRevision = 1;
+    fixture.provider.transaction = fixture.transaction;
+    const auto primary(fixture.provider.execution.actions);
+    fixture.provider.execution.actions = {primary[2], primary[0], primary[1], primary[3]};
+    auto bundle = std::make_shared<P::EffectReviewBundle>(); bundle->methodsIdentity = "methods:fixture";
+    auto &approval(bundle->deconfiguration); approval.identity.assign(64, 'a'); approval.initialCheckpoint.assign(64, 'b');
+    approval.nativeAuthorityIdentity.assign(64, 'c'); approval.primaryReview = fixture.provider;
+    P::DeconfigurationAllowance allowance; allowance.installed = {"native-package", "0.9", "iphoneos-arm64"};
+    allowance.selection = P::DpkgSelection::Hold; allowance.initialStatus = allowance.diskStatus = P::DpkgPackageStatus::Installed;
+    allowance.installedControlIdentity.assign(64, 'd'); allowance.installedScriptsIdentity.assign(64, 'e');
+    P::DeconfigurationCause cause; cause.unpackAction = 42; cause.archive = "independent-archive";
+    cause.canonicalRelation = "native-package (<< 1.0)"; cause.comparedVersion = "0.9"; allowance.causes.push_back(cause);
+    allowance.endpoint.action = 29; allowance.endpoint.precedingUnpack = 17; allowance.endpoint.package = {"native-package", "1.0", "iphoneos-arm64"};
+    approval.allowances["native-package:iphoneos-arm64@0.9"] = allowance;
+    auto &triggers(bundle->triggers); triggers.identity.assign(64, 'f'); triggers.initialCheckpoint = approval.initialCheckpoint;
+    triggers.nativeAuthorityIdentity = approval.nativeAuthorityIdentity; triggers.primaryReview = fixture.provider;
+    triggers.recipients = {{"native-package:iphoneos-arm64@1.0", {"native-package", "1.0", "iphoneos-arm64"}}};
+    triggers.awaiters = triggers.recipients; triggers.incoming.insert("native-package:iphoneos-arm64@1.0");
+    return bundle;
+}
+CydiaTransactionReview *ConditionalReview(const Fixture &fixture, const std::shared_ptr<P::EffectReviewBundle> &bundle,
+    const P::TriggerEffectEnvelope *effects = nullptr) {
+    return [[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:&fixture.provider
+        runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::External reviewedEffects:effects ? effects : &bundle->triggers reviewedDeconfiguration:bundle];
+}
+void ExactConditionalRowsAndImmutableIdentity() {
+    Fixture fixture; auto bundle(ConditionalFixture(fixture)); CydiaTransactionReview *review(ConditionalReview(fixture, bundle));
+    const auto identity(CydiaDeconfigurationReviewIdentity(*bundle));
+    Require(review != nil && identity.size() == 64 && [review displayedDeconfigurationIdentity] == identity,
+        "conditional display identity binds the entire canonical pair");
+    Require(review.conditionalRows.count == 3 && [review displayedActions] == std::set<std::uint64_t>({17, 29, 42, 58}),
+        "conditional recipients invent no primary action IDs");
+    Row(review.conditionalRows, 0, @"native-package:iphoneos-arm64", @"0.9");
+    Row(review.conditionalRows, 1, @"Unpack: independent-package:all", @"1.0\nnative-package (<< 1.0)");
+    Row(review.conditionalRows, 2, @"Configure: native-package:iphoneos-arm64", @"1.0");
+    Require(![review.conditionalRows isKindOfClass:[NSMutableArray class]], "conditional rows are copied immutable values");
+    bundle->methodsIdentity = "methods:changed";
+    Require(CydiaDeconfigurationReviewIdentity(*bundle) != identity && [review displayedDeconfigurationIdentity] == identity,
+        "a later paired method change cannot rewrite what the controller displayed");
+    bundle->deconfiguration.allowances.clear();
+    Require(review.conditionalRows.count == 3 && [review displayedDeconfigurationIdentity] == identity,
+        "later input pool mutation cannot rewrite approved rows or identity");
+    Fixture invalid; auto other(ConditionalFixture(invalid)); auto copied(other->triggers);
+    Require(ConditionalReview(invalid, other, &copied) == nil, "independently copied trigger pool cannot be joined into paired presentation");
+    ++invalid.provider.binding.cacheEpoch;
+    Require(ConditionalReview(invalid, other) == nil, "changed primary review cannot borrow paired presentation");
+    invalid = Fixture(); other = ConditionalFixture(invalid); invalid.transaction.packages.at("native-package").displayName = "different display";
+    Require(ConditionalReview(invalid, other) == nil, "different transaction presentation cannot borrow paired approval");
+}
+void ExistingRemovalEndpointsAndSiblingCause() {
+    for (const auto kind : {P::ExecutionAction::Remove, P::ExecutionAction::Purge}) {
+        Fixture fixture; auto bundle(ConditionalFixture(fixture));
+        auto allowance(bundle->deconfiguration.allowances.begin()->second); allowance.installed = {"removed-package", "0.9", "iphoneos-arm64"};
+        allowance.causes[0].canonicalRelation = "removed-package (<< 1.0)";
+        allowance.endpoint.action = 99; allowance.endpoint.precedingUnpack = 0; allowance.endpoint.kind = kind; allowance.endpoint.package = allowance.installed;
+        fixture.provider.execution.actions.push_back(Action(99, kind, "removed-package", "iphoneos-arm64", "0.9"));
+        bundle->deconfiguration.allowances.clear(); bundle->deconfiguration.allowances["removed-package:iphoneos-arm64@0.9"] = allowance;
+        bundle->deconfiguration.primaryReview = bundle->triggers.primaryReview = fixture.provider;
+        CydiaTransactionReview *review(ConditionalReview(fixture, bundle)); Require(review != nil, "existing remove/purge endpoint is presentable");
+        Row(review.conditionalRows, 2, kind == P::ExecutionAction::Remove ? @"Remove: removed-package:iphoneos-arm64" :
+            @"Purge: removed-package:iphoneos-arm64", @"0.9");
+        Require([review displayedActions].count(99) == 1 && [review displayedActions].size() == 5,
+            "existing endpoint stays an existing primary action");
+    }
+    Fixture fixture; auto bundle(ConditionalFixture(fixture)); auto allowance(bundle->deconfiguration.allowances.begin()->second);
+    allowance.installed.architecture = "iphoneos-arm"; allowance.causes[0].kind = P::DeconfigurationCauseKind::SiblingVersionMismatch;
+    allowance.causes[0].unpackAction = 17; allowance.causes[0].archive = "native-archive"; allowance.causes[0].canonicalRelation.clear();
+    allowance.endpoint.action = 99; allowance.endpoint.precedingUnpack = 0; allowance.endpoint.kind = P::ExecutionAction::Remove;
+    allowance.endpoint.package = allowance.installed;
+    fixture.provider.execution.actions.push_back(Action(99, P::ExecutionAction::Remove, "native-package", "iphoneos-arm", "0.9"));
+    bundle->deconfiguration.allowances.clear(); bundle->deconfiguration.allowances["native-package:iphoneos-arm@0.9"] = allowance;
+    bundle->deconfiguration.primaryReview = bundle->triggers.primaryReview = fixture.provider;
+    CydiaTransactionReview *review(ConditionalReview(fixture, bundle)); Require(review != nil, "sibling cause is presentable without an invented relation");
+    Row(review.conditionalRows, 0, @"native-package:iphoneos-arm", @"0.9");
+    Row(review.conditionalRows, 1, @"Unpack: native-package:iphoneos-arm64", @"1.0 ↔ 0.9");
+    Row(review.conditionalRows, 2, @"Remove: native-package:iphoneos-arm", @"0.9");
+}
 }
 
 int main() {
@@ -246,6 +327,7 @@ int main() {
         ImmutableOwnedSnapshot(); ChangesInvalidateTheSnapshot(); ExactRowsAndSingleArchitecture();
         DistinctForeignArchitecture(); EveryKnownActionIsVisibleAndUnknownRejected(); EmbeddedRecoveryNotice();
         ImmutableProcessingPool(); RecoveryWorkerNotice();
+        ExactConditionalRowsAndImmutableIdentity(); ExistingRemovalEndpointsAndSiblingCause();
         std::cout << "[transaction-review] PASS\n";
     }
 }

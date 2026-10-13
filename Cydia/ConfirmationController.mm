@@ -163,6 +163,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     CydiaConfirmationCellLayoutColumns,
     CydiaConfirmationCellLayoutMessage,
     CydiaConfirmationCellLayoutAction,
+    CydiaConfirmationCellLayoutStacked,
 };
 
 @interface CydiaConfirmationTableCell : UITableViewCell
@@ -220,13 +221,14 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
     BOOL accessibility(UIContentSizeCategoryIsAccessibilityCategory(
         [traitCollection preferredContentSizeCategory]));
     BOOL columns(layout == CydiaConfirmationCellLayoutColumns && !accessibility);
-    _confirmationDetailLabel.hidden = layout != CydiaConfirmationCellLayoutColumns;
+    BOOL details(layout == CydiaConfirmationCellLayoutColumns || layout == CydiaConfirmationCellLayoutStacked);
+    _confirmationDetailLabel.hidden = !details;
     confirmationStackView_.axis = columns ? UILayoutConstraintAxisHorizontal :
                                             UILayoutConstraintAxisVertical;
     confirmationStackView_.alignment = columns ? UIStackViewAlignmentFirstBaseline :
                                                  UIStackViewAlignmentFill;
     confirmationStackView_.spacing = columns ? 8.0 :
-        (layout == CydiaConfirmationCellLayoutColumns ? 2.0 : 0.0);
+        (details ? 2.0 : 0.0);
     _confirmationTitleLabel.textAlignment =
         layout == CydiaConfirmationCellLayoutAction ? NSTextAlignmentCenter : NSTextAlignmentLeft;
     _confirmationDetailLabel.textAlignment = columns ? NSTextAlignmentRight : NSTextAlignmentLeft;
@@ -349,6 +351,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             [sections addObject:[CydiaConfirmationTableSection archiveWarningsWithCount:_transactionReview.archiveWarningRows.count]];
         if (_transactionReview.processingRows.count)
             [sections addObject:[CydiaConfirmationTableSection processing]];
+        if (_transactionReview.conditionalRows.count)
+            [sections addObject:[CydiaConfirmationTableSection conditionalChangesWithCount:_transactionReview.conditionalRows.count]];
         _sections = [sections copy];
     }
     return self;
@@ -494,13 +498,21 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
         layout = CydiaConfirmationCellLayoutMessage;
     else if (sectionKind == CydiaConfirmationTableSectionKindQueue)
         layout = CydiaConfirmationCellLayoutAction;
+    else if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges)
+        layout = CydiaConfirmationCellLayoutStacked;
     [confirmationCell setConfirmationLayout:layout traitCollection:traits];
+    if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges) {
+        [confirmationCell confirmationTitleLabel].textAlignment = NSTextAlignmentNatural;
+        [confirmationCell confirmationDetailLabel].textAlignment = NSTextAlignmentNatural;
+    }
     UIFontTextStyle titleStyle(UIFontTextStyleBody);
     UIFontTextStyle detailStyle(UIFontTextStyleBody);
     if (sectionKind == CydiaConfirmationTableSectionKindQueue)
         titleStyle = UIFontTextStyleSubheadline;
     else if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice)
         titleStyle = detailStyle = UIFontTextStyleFootnote;
+    else if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges)
+        detailStyle = UIFontTextStyleFootnote;
     [[confirmationCell confirmationTitleLabel]
         setFont:[UIFont preferredFontForTextStyle:titleStyle
                              compatibleWithTraitCollection:traits]];
@@ -629,6 +641,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             return UCLocalize("WARNING");
         case CydiaConfirmationTableSectionKindProcessing:
             return CydiaRuntimeProviderLocalize(@"REVIEW_PROCESSING");
+        case CydiaConfirmationTableSectionKindConditionalChanges:
+            return CydiaDeconfigurationReviewLocalize(@"PACKAGE_TEMPORARY_CHANGES");
         case CydiaConfirmationTableSectionKindSizes:
             return UCLocalize("STATISTICS");
         case CydiaConfirmationTableSectionKindModifications:
@@ -662,6 +676,18 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     switch ([section kind]) {
+        case CydiaConfirmationTableSectionKindConditionalChanges:
+            if (indexPath.row == 0) {
+                titleLabel.text = CydiaDeconfigurationReviewLocalize(@"PACKAGE_TEMPORARY_CHANGES_HELP");
+                cell.accessibilityIdentifier = @"cydia.confirmation.conditional-notice";
+                cell.accessibilityLabel = titleLabel.text;
+            } else {
+                NSDictionary *row(_transactionReview.conditionalRows[indexPath.row - 1]);
+                titleLabel.text = row[@"title"]; detailLabel.text = row[@"detail"];
+                cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.confirmation.conditional.%@.%ld", row[@"kind"], (long)indexPath.row];
+                cell.accessibilityLabel = [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), titleLabel.text, detailLabel.text];
+            }
+            break;
         case CydiaConfirmationTableSectionKindProcessing:
             if (indexPath.row == 0) {
                 titleLabel.text = CydiaRuntimeProviderLocalize(@"REVIEW_PROCESSING");
