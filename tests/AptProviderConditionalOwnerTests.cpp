@@ -76,8 +76,13 @@ bool ConditionalResetHostConfiguration(const std::string &bytes, std::string *re
         const auto first = line.find_first_not_of(" \t");
         if (first == std::string::npos || line[first] == '#') continue;
         const auto last = line.find_last_not_of(" \t"); line = line.substr(first, last - first + 1);
-        if (line == "log /var/log/dpkg.log" || line == "log=/var/log/dpkg.log" ||
-            line == "force-unsafe-io" || line == "no-debsig") continue;
+        if (line == "log /var/log/dpkg.log" || line == "log=/var/log/dpkg.log" || line == "no-debsig" ||
+            line == "force-unsafe-io" || line == "force-confdef" || line == "force-confold" ||
+            line == "force-confnew" || line == "force-overwrite" || line == "force-downgrade") continue;
+        // Report only the option name, never a hook body or value. Refusal
+        // remains mandatory; diagnostics do not relax the host prerequisite.
+        const auto optionEnd = line.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-");
+        std::cerr << "[conditional-host-config] unsupported option " << line.substr(0, std::min<std::size_t>(optionEnd, 64)) << '\n';
         return ConditionalHostRefusal(reason, "native fixture host configuration has an unmodeled directive or hook");
     }
     return true;

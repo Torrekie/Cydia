@@ -101,7 +101,7 @@ bool MatchLaunch(const BrokerEnvironment &selected, const NativeDpkgAuthority &n
 bool Modeled(const N::Settings &settings) {
     if (settings.triggers != N::TriggerMode::Disabled || settings.noAct || settings.recursive || settings.pending ||
         settings.selectedOnly || settings.skipSameVersion || !settings.hooks.empty() || !settings.statusLoggers.empty() ||
-        !settings.ignoreDepends.empty() || !settings.unmodeledOptions.empty()) return false;
+        !settings.ignoreDepends.empty() || !settings.filters.empty() || !settings.unmodeledOptions.empty()) return false;
     for (const auto force : settings.forces)
         if (force == N::Force::ConfigureAny || force == N::Force::Conflicts || force == N::Force::Depends ||
             force == N::Force::DependsVersion || force == N::Force::OverwriteDir ||

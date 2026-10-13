@@ -198,7 +198,7 @@ struct AdmissionFixture : Fixture {
         fixturePolicyProducer = FixturePolicyProducer();
     }
 };
-enum class AdmissionCheck { Ready, Blocked, EarlyBlocked, TwoGroups, Forced, Boundary, SiblingBlocked, StaleSource, StaleNative, StaleOwnership, StaleScript, WrongLaunch, WrongPrivatePath, WrongBatchAction, WrongOriginLedger, WrongCurrentSet, MissingDeferredQueue, DeferredActivations, NativeUpgrade, AuthorizedHistory, WrongRestorationLedger, UnknownHistory, LateCaptureArchiveMutation, LateRevalidateArchiveMutation, Cancelled };
+enum class AdmissionCheck { Ready, Blocked, EarlyBlocked, TwoGroups, Forced, Boundary, SiblingBlocked, StaleSource, StaleNative, StaleOwnership, StaleScript, WrongLaunch, WrongPrivatePath, WrongBatchAction, WrongOriginLedger, WrongCurrentSet, MissingDeferredQueue, DeferredActivations, NativeUpgrade, AuthorizedHistory, WrongRestorationLedger, UnknownHistory, LateCaptureArchiveMutation, LateRevalidateArchiveMutation, FilteredPayload, Cancelled };
 void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     close(fixture.frontend); fixture.frontend = -1;
     std::string error; std::shared_ptr<const P::ProtectedDeconfigurationReview> approved;
@@ -237,6 +237,7 @@ void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     Require(N::InputIdentity(inputs, [](const std::string &bytes) { return Hash(bytes); }, &record.inputIdentity), "actual policy input identity");
     record.settings.autoDeconfigure = !fixture.sibling; record.settings.triggers = N::TriggerMode::Disabled; record.settings.statusDescriptors = {3};
     if (fixture.forceBreaks) record.settings.forces = {N::Force::Breaks};
+    if (check == AdmissionCheck::FilteredPayload) record.settings.filters = {{N::FilterKind::Exclude, "/usr/lib/*"}};
     fixtureAuthority.effectRecords = {record};
     P::TriggerCaptureLock lock; lock.parent = getppid();
     std::shared_ptr<const P::ProtectedRestorationCheckpoint> currentPoint;
@@ -285,7 +286,7 @@ void AdmissionChild(AdmissionFixture &fixture, AdmissionCheck check) {
     if (check == AdmissionCheck::WrongLaunch || check == AdmissionCheck::WrongPrivatePath ||
         check == AdmissionCheck::WrongBatchAction || check == AdmissionCheck::WrongOriginLedger ||
         check == AdmissionCheck::WrongCurrentSet || check == AdmissionCheck::WrongRestorationLedger ||
-        check == AdmissionCheck::UnknownHistory || check == AdmissionCheck::Cancelled) {
+        check == AdmissionCheck::UnknownHistory || check == AdmissionCheck::FilteredPayload || check == AdmissionCheck::Cancelled) {
         Require(!captured && !facts, "wrong launch/private copy/primary action/cancellation cannot publish opaque facts"); return;
     }
     Require(captured && facts && !facts->identity().empty(), error.c_str());
@@ -411,6 +412,7 @@ int main() {
     CheckAdmission(early, late, AdmissionCheck::AuthorizedHistory);
     CheckAdmission(early, late, AdmissionCheck::UnknownHistory);
     CheckAdmission(early, late, AdmissionCheck::WrongRestorationLedger);
+    CheckAdmission(early, late, AdmissionCheck::FilteredPayload);
     CheckAdmission(early, late, AdmissionCheck::LateCaptureArchiveMutation);
     CheckAdmission(early, late, AdmissionCheck::LateRevalidateArchiveMutation);
     CheckAdmission("Pre-Depends: sample:amd64\n", "Pre-Depends: sample:amd64\n", AdmissionCheck::SiblingBlocked);

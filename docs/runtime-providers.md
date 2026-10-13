@@ -258,7 +258,7 @@ distribution or Darwin declaration acceptance.
 The conditional route admits one retained archive per Unpack child and one
 explicit Configure/Remove/Purge target. It does not split or retry an already
 authorized native batch. Unmodeled multiarchive list continuity, dependency
-cycle breaking, implicit removal and unsupported effective native settings
+cycle breaking, implicit removal, native payload filters and unsupported effective native settings
 request a new review before that child. All capture callbacks share bounded
 cancellation, while actual started children are always awaited and reaped.
 The owner seals the complete retained archive store after its final native

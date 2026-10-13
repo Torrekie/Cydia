@@ -269,6 +269,7 @@ public:
         if (settings.triggers != N::TriggerMode::Disabled || settings.noAct || settings.recursive ||
             settings.selectedOnly || settings.skipSameVersion || !settings.hooks.empty() ||
             !settings.statusLoggers.empty() || !settings.ignoreDepends.empty() || !settings.unmodeledOptions.empty() ||
+            (role == N::Role::Unpack && !settings.filters.empty()) ||
             (role != N::Role::Unpack && settings.autoDeconfigure) ||
             (role != N::Role::TriggerDrain && settings.pending))
             return Fail(error, "provider_native_effect_policy_unsupported");
