@@ -219,7 +219,8 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderTransactionRequestDigest.cpp \
 		Cydia/AptProviderTransactionFiles.cpp Cydia/AptProviderTransactionLease.cpp \
 		Cydia/AptProviderTransactionOwner.cpp Cydia/AptProviderTransactionService.cpp \
-		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderReview.cpp Cydia/AptProviderArchiveEvidence.cpp \
+		Cydia/AptProviderNativeDpkgAuthority.cpp Cydia/AptProviderNativeDpkgAuthority.hpp Cydia/AptProviderReview.cpp Cydia/AptProviderArchiveEvidence.cpp \
+		Cydia/AptProviderNativeEffectPolicy.cpp Cydia/AptProviderNativeEffectPolicy.hpp \
 		Cydia/AptProviderTriggerEffects.cpp Cydia/AptProviderTriggerMetadata.cpp \
 		Cydia/AptProviderInstalledScripts.cpp Cydia/AptProviderBinaryRelationships.cpp \
 		Cydia/AptProviderUnpackOwnership.cpp \

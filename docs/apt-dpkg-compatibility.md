@@ -8,16 +8,18 @@ authoritative unless the administrator explicitly overrides them. The
 policy precedence, recovery boundaries, Remorix packaging/localization,
 commercial-repository integration, and staged acceptance criteria.
 
-The implementation described below still embeds APT and executes dpkg as an
-external program. It does not yet select an external APT backend. The bundled
-backend must remain reproducible from a reviewed source revision, and dpkg
+Automatic startup selects a validated registered external APT worker before
+the private recovery worker. An ordinary installed APT package without a
+supported adapter is not a registered provider. The transitional in-process
+backend remains when the private recovery payload is unavailable. Bundled
+APT must remain reproducible from a reviewed source revision, and dpkg
 integration must tolerate supported runtime implementations without linking
 against dpkg's private C library. Cydia-owned ICU services prefer a validated
 bootstrap ICU, then Apple's `libicucore`; UIKit collation remains Apple-owned.
 The private fallback loader requires separately supplied ICU/data binaries.
 Embedded APT packages its matching upstream catalogs and uses a protected
 bootstrap libintl when available, with optional private libintl fallback.
-The provider protocol client does not yet activate an external APT backend.
+dpkg remains external; neither provider selection nor recovery replaces it.
 
 ## Adding and editing sources
 
@@ -29,11 +31,11 @@ returns to the original URL draft. Repository editing remains in Settings.
 
 | Operation | Behavior |
 | --- | --- |
-| Structured draft | URL, exact path or suite/components, APT architecture filters, and optional source-code indexes |
+| Structured draft | Inline URL, suite (flat default `./`) and components (flat default empty), APT architecture filters and an editable save filename; source-code indexes remain deferred |
 | Imported definition | Original `.list` or Deb822 bytes remain intact until explicitly converted to fields; unsupported options, comments and multiple values remain editable as raw text |
 | Find Repository Options | Follows bounded, same-origin published directory links and reads Release metadata; retains nested suite paths and offers only advertised components |
 | Architecture selection | Inherits effective APT settings by default; filtering indexes does not register a dpkg architecture or change the eligibility of `Architecture: all` |
-| Source check | Uses the embedded APT in a temporary source/list configuration with no update hooks or shared-cache changes; cancellation removes temporary files |
+| Source check | Routes through the selected backend/session; recovery isolates temporary source/list configuration without update hooks or shared-cache changes; cancellation removes its temporary files |
 | Save destination | A collision-safe new file in APT's effective source directory; Advanced can choose an eligible existing file of the same format |
 | Signing key | Finds candidates in permitted key files, installed keyring packages, publisher links, signature-guided keyserver results, or suitable packages already available from configured sources |
 | Trust approval | Shows provenance and full fingerprints, checks an actual repository signature, then requires **Trust Key and Save**; the key is scoped using `Signed-By` |
@@ -47,8 +49,9 @@ package, or grants trust. Hidden directory listings and unavailable key data
 retain manual entry/import as the fallback. Local key generation cannot replace
 a missing publisher public key.
 
-The current source editor inherits Allow/Warning/Error from Cydia Settings,
-not from the distribution's APT implementation. Invalid signatures,
+An unsaved repository-security preference inherits an accepted external
+provider's distribution policy. Recovery retains Cydia's Warning default;
+saved Allow/Warning/Error choices remain explicit overrides. Invalid signatures,
 hash mismatches and known authenticated-to-unsigned transitions cannot silently
 be treated as ordinary unsigned sources. A selected candidate key must
 authenticate the checked source even under Allow or Warning. Package archive

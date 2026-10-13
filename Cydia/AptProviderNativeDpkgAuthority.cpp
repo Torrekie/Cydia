@@ -13,11 +13,15 @@
 namespace CydiaAPT { namespace Provider {
 namespace {
 namespace P = CydiaRuntime::Privileged;
+namespace N = NativeEffectPolicy;
 const std::size_t DeclarationLimit = 1024 * 1024;
 #if defined(CYDIA_NATIVE_DPKG_AUTHORITY_TESTING)
 std::vector<std::string> testPaths;
 #endif
-bool Fail(std::string *error, const char *code) { if (error) *error = code; return false; }
+bool Fail(std::string *error, const char *code) {
+    if (error) *error = code;
+    return false;
+}
 bool Path(const std::string &path) {
     if (path.size() < 2 || path.size() > 4096 || path.front() != '/' || path.back() == '/') return false;
     for (unsigned char c : path) if (c < 32 || c == 127) return false;
@@ -25,7 +29,8 @@ bool Path(const std::string &path) {
     while (start < path.size()) {
         const auto end = path.find('/', start); const auto part = path.substr(start, end == std::string::npos ? end : end-start);
         if (part.empty() || part == "." || part == "..") return false;
-        if (end == std::string::npos) break; start = end+1;
+        if (end == std::string::npos) break;
+        start = end+1;
     }
     return true;
 }
@@ -51,7 +56,22 @@ struct Declaration {
     std::vector<std::string> files, directories, optionalFiles, optionalDirectories, components, commands;
     std::map<std::string, std::set<std::string>> executors;
     std::map<std::string, std::vector<std::string>> successors;
+    unsigned version = 1;
+    NativeEffectRecordState recordState = NativeEffectRecordState::Missing;
+    N::Error recordError = N::Error::None;
+    std::string recordBytes;
+    std::vector<N::Record> records;
 };
+bool PolicyContainer(const std::string &bytes, Declaration *value) {
+    std::vector<std::string> fields, records;
+    if (!Fields(bytes, &fields, 2) || fields.size() != 2 || fields[0] != "CYDIA-NATIVE-EFFECT-POLICIES-1" ||
+        !Fields(fields[1], &records, N::MaximumRecords) || !std::is_sorted(records.begin(), records.end()) ||
+        P::SerializeFields(fields) != bytes || P::SerializeFields(records) != fields[1]) return false;
+    value->recordBytes = bytes;
+    value->recordState = N::DecodeRecords(bytes, &value->records, &value->recordError) ?
+        NativeEffectRecordState::Parsed : NativeEffectRecordState::Invalid;
+    return true;
+}
 bool Paths(const std::string &bytes, std::vector<std::string> *paths) {
     if (!Fields(bytes, paths, MaximumTransactionComponents)) return false;
     std::set<std::string> unique;
@@ -60,9 +80,15 @@ bool Paths(const std::string &bytes, std::vector<std::string> *paths) {
 }
 bool Parse(const std::string &bytes, Declaration *result) {
     std::vector<std::string> fields, pairs;
-    if (!result || !Fields(bytes, &fields, 10) || fields.size() != 10 || fields[0] != "CYDIA-NATIVE-DPKG-1" ||
+    if (!result || !Fields(bytes, &fields, 12) || (fields.size() != 10 && fields.size() != 12) ||
+        (fields.size() == 10 ? fields[0] != "CYDIA-NATIVE-DPKG-1" :
+            (fields[0] != "CYDIA-NATIVE-DPKG-2" || fields[11] != "complete-native-effect-policy")) ||
         !Fields(fields[1], &pairs, 1024) || pairs.empty() || pairs.size()%2) return false;
     Declaration value;
+    if (fields.size() == 12) {
+        value.version = 2;
+        if (!PolicyContainer(fields[10], &value)) return false;
+    }
     for (std::size_t i=0; i<pairs.size(); i+=2)
         if (!Path(pairs[i]) || !Digest(pairs[i+1]) || !value.executors[pairs[i]].insert(pairs[i+1]).second) return false;
     if (!Paths(fields[2], &value.files) || !Paths(fields[3], &value.directories) ||
@@ -82,6 +108,48 @@ bool Parse(const std::string &bytes, Declaration *result) {
     for (const auto &command : value.commands) if (!value.executors.count(command) ||
         std::find(value.components.begin(), value.components.end(), command) == value.components.end()) return false;
     *result = std::move(value); return true;
+}
+std::string SHA256(const std::string &bytes) {
+    Hashes hash(Hashes::SHA256SUM);
+    return hash.Add(bytes.data(), bytes.size()) ? hash.GetHashString(Hashes::SHA256SUM).HashValue() : "";
+}
+std::string ConfigurationBytes(const NativeDpkgAuthority &value, const std::vector<P::Evidence> &inputs) {
+    std::vector<std::string> fields{"CYDIA-NATIVE-DPKG-CONFIGURATION-2", value.executableSearchPath,
+        value.dpkgRoot, value.dpkgAdmin, value.launchEnvironmentBytes};
+    for (const auto &input : inputs) fields.push_back(P::SerializeSnapshotEvidence(input));
+    return P::SerializeFields(fields);
+}
+bool EffectInputBounds(const NativeDpkgAuthority &authority, const std::vector<std::string> &prefix) {
+    if (authority.configurationEvidence.empty() || authority.configurationEvidence.size() > 4096 ||
+        authority.dpkgRoot.size() > 4096 || authority.dpkgAdmin.size() > 4096 ||
+        authority.executableSearchPath.size() > N::MaximumValueBytes ||
+        authority.launchEnvironmentBytes.size() > 2 * N::MaximumBytes || prefix.size() > N::MaximumItems) return false;
+    std::size_t bytes = 0, items = 0;
+    const auto add = [&](const std::string &value, std::size_t limit) {
+        if (value.size() > limit || value.size() > 32 * 1024 * 1024 - bytes) return false;
+        bytes += value.size();
+        return true;
+    };
+    for (const auto &option : prefix)
+        if (!add(option, N::MaximumValueBytes) || bytes > N::MaximumBytes) return false;
+    bytes = 0;
+    for (const auto &input : authority.configurationEvidence) {
+        // This graph uses only protected CaptureEvidence, never source-reader,
+        // shared-state, identity-only or delegated-reader projections.
+        if (input.identityOnly || input.sharedState || input.sourceInput || input.adminAccess ||
+            !input.sourceDelegation.empty() || input.sourceReaderGroups.values.size() > 128 ||
+            !add(input.path, 4096) || !add(input.bytes, 8 * 1024 * 1024) ||
+            input.entries.size() > N::MaximumInputs || input.entries.size() > 16384 - items) return false;
+        // Evidence captures process groups even for a protected root reader.
+        // Retain and bound that local metadata, but never hash it into the
+        // distributor's portable content-only lookup.
+        const auto groups = input.sourceReaderGroups.values.size();
+        if (groups > (32 * 1024 * 1024 - bytes) / 32) return false;
+        bytes += groups * 32;
+        items += input.entries.size();
+        for (const auto &entry : input.entries) if (!add(entry, N::MaximumValueBytes)) return false;
+    }
+    return true;
 }
 // A narrow refusal for an already unsupported effect, not an effective native
 // policy parser. dpkg reads configuration before argv, so omitting its command
@@ -139,7 +207,10 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
     for (const auto &path : locations) {
         if (cancelled && cancelled()) return Fail(error, "provider_cancelled");
         struct stat state{};
-        if (lstat(path.c_str(), &state)) { if (errno == ENOENT) continue; return Fail(error, "provider_native_configuration_unreadable"); }
+        if (lstat(path.c_str(), &state)) {
+            if (errno == ENOENT) continue;
+            return Fail(error, "provider_native_configuration_unreadable");
+        }
         if (!P::CaptureEvidence(path, false, false, &declaration, &ignored) || declaration.bytes.size() > DeclarationLimit)
             return Fail(error, "provider_native_configuration_unprotected");
         found = true; break;
@@ -149,6 +220,11 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
     if (!Parse(declaration.bytes, &parsed)) return Fail(error, "provider_native_configuration_invalid");
     NativeDpkgAuthority value; value.executorGenerations = parsed.executors;
     value.commands = parsed.commands; value.componentPaths = parsed.components;
+    value.declarationVersion = parsed.version; value.declarationPath = declaration.path;
+    value.dpkgRoot = selected.environment.dpkgRoot; value.dpkgAdmin = selected.environment.dpkgAdmin;
+    value.executableSearchPath = selected.executableSearchPath;
+    value.effectRecordState = parsed.recordState; value.effectRecordError = parsed.recordError;
+    value.effectRecordBytes = parsed.recordBytes; value.effectRecords = std::move(parsed.records);
     for (const auto &tool : {selected.environment.dpkg, selected.environment.dpkgQuery})
         if (!parsed.executors.count(tool) || std::find(parsed.components.begin(), parsed.components.end(), tool) == parsed.components.end())
             return Fail(error, "provider_native_executor_undeclared");
@@ -171,10 +247,7 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
         const auto match = parsed.successors.find(archive.package.package+':'+archive.package.architecture);
         if (match != parsed.successors.end()) value.successorPaths.emplace(archive.identifier, match->second);
     }
-    std::vector<std::string> fields{"CYDIA-NATIVE-DPKG-CONFIGURATION-2", selected.executableSearchPath,
-        selected.environment.dpkgRoot, selected.environment.dpkgAdmin, value.launchEnvironmentBytes};
-    for (const auto &input : graph.inputs) fields.push_back(P::SerializeSnapshotEvidence(input));
-    const auto bytes = P::SerializeFields(fields); Hashes hash(Hashes::SHA256SUM);
+    const auto bytes = ConfigurationBytes(value, graph.inputs); Hashes hash(Hashes::SHA256SUM);
     if (!hash.Add(bytes.data(), bytes.size()) || !P::RecheckEvidence(graph.inputs, &ignored))
         return Fail(error, "provider_native_configuration_changed");
     value.configurationIdentity = hash.GetHashString(Hashes::SHA256SUM).HashValue();
@@ -187,7 +260,9 @@ bool ResolveNativeDpkgAuthority(const CydiaRuntime::PackageDatabasePaths &paths,
         components.push_back(std::move(observed));
     }
     if (!RevalidateNativeDpkgAuthority(value, components, error)) return false;
-    *result = std::move(value); if (error) error->clear(); return true;
+    *result = std::move(value);
+    if (error) error->clear();
+    return true;
 }
 bool RevalidateNativeDpkgAuthority(const NativeDpkgAuthority &authority,
     const std::vector<InstalledComponentEvidence> &components, std::string *error) {
@@ -206,7 +281,8 @@ bool RevalidateNativeDpkgAuthority(const NativeDpkgAuthority &authority,
         if (file == observed.end() || !executor.second.count(file->second->file.sha256) || !(file->second->file.metadata.mode & 0111))
             return Fail(error, "provider_native_executor_generation_unsupported");
     }
-    if (error) error->clear(); return true;
+    if (error) error->clear();
+    return true;
 }
 bool CaptureNativeDpkgClosure(const NativeDpkgAuthority &authority, const std::string &executable,
     const std::vector<InstalledComponentEvidence> &components, ComponentClosureEvidence *proof,
@@ -223,6 +299,98 @@ bool CaptureNativeDpkgClosure(const NativeDpkgAuthority &authority, const std::s
     }
     return Recovery::InspectTransactionComponentClosure(executable, components, authority.configurationIdentity,
         authority.platformIdentity, proof, error, cancelled);
+}
+bool BuildNativeEffectPolicyInputs(const NativeDpkgAuthority &authority, const std::string &executable,
+    const std::vector<InstalledComponentEvidence> &components, const std::string &semanticProfile,
+    N::Role role, const std::vector<std::string> &prefix, N::Inputs *result, std::string *error,
+    const std::function<bool()> &cancelled) {
+    if (!result) return Fail(error, "provider_native_effect_policy_invalid");
+    *result = N::Inputs();
+    if (cancelled && cancelled()) return Fail(error, "provider_cancelled");
+    if (!EffectInputBounds(authority, prefix) ||
+        components.empty() || components.size() > MaximumTransactionComponents || !N::SupportedProfile(semanticProfile))
+        return Fail(error, "provider_native_effect_policy_invalid");
+    for (const auto &component : components)
+        if (!Path(component.file.metadata.path) || !Digest(component.file.sha256) || !Digest(component.parentsIdentity))
+            return Fail(error, "provider_component_origin_invalid");
+    const auto &declaration = authority.configurationEvidence.front();
+    Declaration parsed;
+    if (declaration.path != authority.declarationPath || declaration.directory || declaration.absent ||
+        !Parse(declaration.bytes, &parsed) || parsed.version != authority.declarationVersion ||
+        parsed.recordState != authority.effectRecordState || parsed.recordError != authority.effectRecordError ||
+        parsed.recordBytes != authority.effectRecordBytes || parsed.executors != authority.executorGenerations ||
+        parsed.commands != authority.commands || parsed.components != authority.componentPaths ||
+        SHA256(ConfigurationBytes(authority, authority.configurationEvidence)) != authority.configurationIdentity)
+        return Fail(error, "provider_native_configuration_changed");
+    std::string encoded;
+    if (parsed.recordState == NativeEffectRecordState::Parsed) {
+        if (!N::EncodeRecords(authority.effectRecords, &encoded) || encoded != parsed.recordBytes)
+            return Fail(error, "provider_native_configuration_changed");
+    } else if (!authority.effectRecords.empty()) return Fail(error, "provider_native_configuration_changed");
+    ComponentClosureEvidence closure;
+    if (!CaptureNativeDpkgClosure(authority, executable, components, &closure, error, cancelled)) return false;
+    N::Inputs value; value.semanticProfile = semanticProfile; value.executorPath = executable;
+    value.platformIdentity = authority.platformIdentity; value.dpkgRoot = authority.dpkgRoot; value.dpkgAdmin = authority.dpkgAdmin;
+    value.executableSearchPath = authority.executableSearchPath; value.environment = authority.launchEnvironment;
+    value.role = role; value.optionPrefix = prefix;
+    const auto sameDeclaration = [&](dev_t device, ino_t inode) {
+        return device == declaration.identity.st_dev && inode == declaration.identity.st_ino;
+    };
+    std::map<std::string, std::string> captured;
+    for (const auto &input : authority.configurationEvidence) {
+        if (cancelled && cancelled()) return Fail(error, "provider_cancelled");
+        if (&input != &declaration && (input.path == declaration.path || (!input.absent &&
+            sameDeclaration(input.identity.st_dev, input.identity.st_ino))))
+            return Fail(error, "provider_native_effect_policy_circular");
+        const auto bytes = P::SerializeSnapshotEvidence(input);
+        const auto previous = captured.find(input.path);
+        if (previous != captured.end()) {
+            if (previous->second != bytes) return Fail(error, "provider_native_configuration_changed");
+            continue;
+        }
+        captured.emplace(input.path, bytes);
+        N::ContentInput node; node.path = input.path; node.present = !input.absent;
+        node.role = &input == &declaration ? N::InputRole::Declaration : N::InputRole::Configuration;
+        node.kind = input.directory ? N::ContentKind::Directory : N::ContentKind::File;
+        if (!input.absent) {
+            if (input.directory) node.members = input.entries;
+            else { node.size = input.bytes.size(); node.sha256 = SHA256(input.bytes); }
+        }
+        value.configuration.push_back(std::move(node));
+    }
+    for (const auto &component : components) {
+        if (cancelled && cancelled()) return Fail(error, "provider_cancelled");
+        if (component.file.metadata.path == declaration.path || sameDeclaration(component.device, component.inode))
+            return Fail(error, "provider_native_effect_policy_circular");
+        N::ComponentInput node; node.path = component.file.metadata.path; node.sha256 = component.file.sha256;
+        if (node.path == executable) value.executorSHA256 = node.sha256;
+        value.components.push_back(std::move(node));
+    }
+    if (!N::EncodeInputs(value, &encoded)) return Fail(error, "provider_native_effect_policy_invalid");
+    P::Error ignored;
+    if (!P::RecheckEvidence(authority.configurationEvidence, &ignored)) return Fail(error, "provider_native_configuration_changed");
+    *result = std::move(value);
+    if (error) error->clear();
+    return true;
+}
+N::Match MatchNativeEffectPolicy(const NativeDpkgAuthority &authority, const std::string &executable,
+    const std::vector<InstalledComponentEvidence> &components, const std::string &semanticProfile,
+    N::Role role, const std::vector<std::string> &prefix, std::string *error, const std::function<bool()> &cancelled) {
+    N::Inputs inputs; N::Match result;
+    if (!N::SupportedProfile(semanticProfile)) {
+        result.status = N::Status::Unsupported; result.error = N::Error::UnsupportedProfile;
+        if (error) error->clear();
+        return result;
+    }
+    if (!BuildNativeEffectPolicyInputs(authority, executable, components, semanticProfile, role, prefix, &inputs, error, cancelled)) {
+        result.error = N::Error::Invalid;
+        return result;
+    }
+    if (authority.effectRecordState == NativeEffectRecordState::Invalid) {
+        result.error = authority.effectRecordError;
+        return result;
+    }
+    return N::MatchRecord(authority.effectRecords, inputs, SHA256);
 }
 #if defined(CYDIA_NATIVE_DPKG_AUTHORITY_TESTING)
 void SetNativeDpkgAuthorityTestPaths(const std::string &primary, const std::string &fallback) {

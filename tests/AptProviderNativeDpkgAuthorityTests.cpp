@@ -21,6 +21,7 @@ namespace {
 namespace A = CydiaAPT::Provider;
 namespace R = CydiaAPT::Recovery;
 namespace P = CydiaRuntime::Privileged;
+namespace N = A::NativeEffectPolicy;
 void Require(bool value, const char *message) {
     if (!value) { std::fprintf(stderr, "[native-dpkg-authority] %s\n", message); std::exit(1); }
 }
@@ -190,6 +191,148 @@ void ConfiguredAutomaticDeconfiguration() {
         Require(f.Resolve(&authority, &error), "comments and other option values do not become automatic deconfiguration");
     }
 }
+std::vector<std::string> Prefix(const Fixture &f) {
+    return {"--root=" + f.selected.environment.dpkgRoot, "--admindir=" + f.selected.environment.dpkgAdmin,
+        "--no-triggers", "--status-fd=3", "--unpack"};
+}
+N::Inputs EffectInputs(Fixture &f, const A::NativeDpkgAuthority &authority) {
+    N::Inputs inputs; std::string error;
+    Require(A::BuildNativeEffectPolicyInputs(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1",
+        N::Role::Unpack, Prefix(f), &inputs, &error), error.c_str());
+    return inputs;
+}
+N::Record EffectRecord(Fixture &f, const A::NativeDpkgAuthority &authority) {
+    const auto inputs = EffectInputs(f, authority); N::Record record;
+    record.semanticProfile = inputs.semanticProfile; record.executorPath = inputs.executorPath;
+    record.executorSHA256 = inputs.executorSHA256; record.role = inputs.role; record.optionPrefix = inputs.optionPrefix;
+    Require(N::InputIdentity(inputs, Hash, &record.inputIdentity), "hash independently captured content-only native inputs");
+    record.settings.triggers = N::TriggerMode::Disabled; record.settings.abortAfter = 50; record.settings.statusDescriptors = {3};
+    return record;
+}
+void VersionTwo(Fixture &f, const std::string &container) {
+    f.fields.resize(10); f.fields[0] = "CYDIA-NATIVE-DPKG-2";
+    f.fields.push_back(container); f.fields.push_back("complete-native-effect-policy"); f.Save();
+}
+void VersionTwo(Fixture &f, const std::vector<N::Record> &records) {
+    std::string container; Require(N::EncodeRecords(records, &container), "encode bounded protected effect fixture");
+    VersionTwo(f, container);
+}
+N::Match Match(Fixture &f, const A::NativeDpkgAuthority &authority) {
+    std::string error;
+    return A::MatchNativeEffectPolicy(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1",
+        N::Role::Unpack, Prefix(f), &error);
+}
+void EffectDeclarations() {
+    {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        Require(f.Resolve(&authority, &error) && authority.declarationVersion == 1 &&
+            authority.effectRecordState == A::NativeEffectRecordState::Missing && Match(f, authority).status == N::Status::Missing,
+            "v1 graph remains usable without an optional effect assertion");
+        const auto record = EffectRecord(f, authority);
+        VersionTwo(f, std::vector<N::Record>{record});
+        Require(f.Resolve(&authority, &error) && authority.declarationVersion == 2 &&
+            authority.effectRecordState == A::NativeEffectRecordState::Parsed && authority.effectRecords.size() == 1,
+            "protected twelve-field v2 declaration retains typed records");
+        const auto match = Match(f, authority);
+        Require(match.status == N::Status::Matched && match.settings && match.inputIdentity == record.inputIdentity,
+            "replacing outer declaration bytes cannot create a circular input-identity dependency");
+        const CydiaSources::ReaderGroups processGroups;
+        Require(authority.configurationEvidence.front().sourceReaderGroups.values == processGroups.values,
+            "ordinary protected evidence retains supplementary groups, including nonempty host groups");
+        auto corrupted = authority; corrupted.effectRecords.front().settings.pending = true;
+        Require(Match(f, corrupted).status == N::Status::Invalid, "mutable cached record cannot replace independently retained protected bytes");
+        corrupted = authority; corrupted.dpkgRoot = "/another-root";
+        Require(Match(f, corrupted).status == N::Status::Invalid, "captured selected paths cannot diverge from local authority binding");
+        corrupted = authority; corrupted.configurationEvidence.front().sourceReaderGroups.values.resize(129);
+        Require(Match(f, corrupted).status == N::Status::Invalid, "oversized local group metadata refuses before serialization");
+        N::Inputs failed;
+        Require(!A::BuildNativeEffectPolicyInputs(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1", N::Role::Unpack,
+            Prefix(f), &failed, &error, [] { return true; }) && failed.configuration.empty() && failed.executorPath.empty(),
+            "cancelled input capture publishes no partial effect inputs");
+    }
+    for (unsigned variant = 0; variant != 5; ++variant) {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        Require(f.Resolve(&authority, &error), "resolve optional policy base"); auto record = EffectRecord(f, authority);
+        N::Status expected = N::Status::Missing;
+        switch (variant) {
+            case 0: VersionTwo(f, std::vector<N::Record>()); break;
+            case 1:
+                record.semanticProfile = "dpkg-future-effects-2"; record.settings = N::Settings();
+                record.unsupportedSettings = "future opaque state"; VersionTwo(f, std::vector<N::Record>{record});
+                expected = N::Status::Unsupported; break;
+            case 2:
+                record.inputIdentity.assign(64, '0'); VersionTwo(f, std::vector<N::Record>{record});
+                expected = N::Status::InputMismatch; break;
+            case 3:
+                record.settings.unmodeledOptions = {"vendor-effect"}; VersionTwo(f, std::vector<N::Record>{record});
+                expected = N::Status::Unsupported; break;
+            case 4:
+                VersionTwo(f, P::SerializeFields({"CYDIA-NATIVE-EFFECT-POLICIES-1", P::SerializeFields({"malformed inner record"})}));
+                expected = N::Status::Invalid; break;
+        }
+        Require(f.Resolve(&authority, &error) && !authority.configurationIdentity.empty(),
+            "unusable effect assertion does not disable an otherwise valid protected graph");
+        const auto match = Match(f, authority);
+        Require(match.status == expected && !match.settings && match.inputIdentity.empty(),
+            "missing unsupported stale unmodeled or malformed policy never grants an assertion match");
+        Require(variant != 4 || (authority.effectRecordState == A::NativeEffectRecordState::Invalid &&
+            authority.effectRecords.empty() && authority.effectRecordError != N::Error::None),
+            "malformed records retain an explicit typed failure without partial records");
+    }
+    for (unsigned variant = 0; variant != 4; ++variant) {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        std::string container;
+        Require(N::EncodeRecords({}, &container), "empty canonical container");
+        if (variant == 0) container = "broken container";
+        if (variant == 1) container = P::SerializeFields({"CYDIA-NATIVE-EFFECT-POLICIES-1", "broken list framing"});
+        if (variant == 2) container = P::SerializeFields({"CYDIA-NATIVE-EFFECT-POLICIES-1", P::SerializeFields({"z", "a"})});
+        VersionTwo(f, container);
+        if (variant == 3) { f.fields[11] = "partial-effects"; f.Save(); }
+        Require(!f.Resolve(&authority, &error) && error == "provider_native_configuration_invalid" && authority.configurationIdentity.empty(),
+            "broken outer framing or record-container framing remains a declaration error");
+    }
+    {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        Require(f.Resolve(&authority, &error), "auto-deconfigure v2 fixture base");
+        VersionTwo(f, std::vector<N::Record>{EffectRecord(f, authority)});
+        A::ReviewedAction unpack; unpack.identifier = 1; unpack.action = A::ExecutionAction::Unpack;
+        f.review.execution.actions = {unpack}; Write(f.root + "/conf/dpkg", "auto-deconfigure\n");
+        Require(!f.Resolve(&authority, &error) && error == "provider_native_auto_deconfigure_unsupported",
+            "v2 assertion does not relax existing configured auto-deconfiguration refusal");
+    }
+}
+void EffectContentAndLocalEvidence() {
+    Fixture f; A::NativeDpkgAuthority authority; std::string error;
+    Require(f.Resolve(&authority, &error), "content identity base");
+    const auto record = EffectRecord(f, authority); VersionTwo(f, std::vector<N::Record>{record});
+    Require(f.Resolve(&authority, &error) && Match(f, authority).status == N::Status::Matched, "initial v2 content matches");
+    const auto localIdentity = authority.configurationIdentity;
+    const auto path = f.root + "/conf/dpkg", temporary = f.root + "/conf/new-dpkg";
+    Write(temporary, "no-force\n"); Require(rename(temporary.c_str(), path.c_str()) == 0, "replace native input with same bytes/new inode");
+    Require(Match(f, authority).status == N::Status::Invalid, "old local inode proof must be recaptured even for identical content");
+    Require(f.Resolve(&authority, &error) && authority.configurationIdentity != localIdentity &&
+        Match(f, authority).status == N::Status::Matched, "fresh identical content preserves distributor lookup while local authority changes");
+    Write(path, "log changed\n");
+    Require(f.Resolve(&authority, &error) && Match(f, authority).status == N::Status::InputMismatch,
+        "real changed native configuration content invalidates the distributor assertion");
+    Write(path, "no-force\n"); Write(f.optional, "new optional policy\n");
+    Require(f.Resolve(&authority, &error) && Match(f, authority).status == N::Status::InputMismatch,
+        "previously absent configuration becoming present changes content input identity");
+}
+void CircularEffectInputs() {
+    for (unsigned alias = 0; alias != 2; ++alias) {
+        Fixture f; A::NativeDpkgAuthority authority; std::string error;
+        const auto path = alias ? f.root + "/conf/declaration-alias" : f.primary;
+        f.fields[2] = P::SerializeFields({f.root + "/conf/dpkg", path});
+        VersionTwo(f, std::vector<N::Record>());
+        if (alias) Require(link(f.primary.c_str(), path.c_str()) == 0, "create protected declaration alias fixture");
+        Require(f.Resolve(&authority, &error), "graph capture remains separate from effect lookup admission");
+        N::Inputs inputs;
+        Require(!A::BuildNativeEffectPolicyInputs(authority, f.program, f.Capture(), "dpkg-1.23.7-effects-1", N::Role::Unpack,
+            Prefix(f), &inputs, &error) && error == "provider_native_effect_policy_circular" && inputs.configuration.empty(),
+            "native-read declaration path or inode alias cannot create a circular distributor lookup");
+    }
+}
 void Closures() {
     for (unsigned variant = 0; variant != 9; ++variant) {
         Fixture f; A::NativeDpkgAuthority authority; A::ComponentClosureEvidence proof; std::string error;
@@ -243,6 +386,6 @@ void Closures() {
 }
 }
 int main() {
-    Declarations(); ConfiguredAutomaticDeconfiguration(); Closures();
+    Declarations(); ConfiguredAutomaticDeconfiguration(); EffectDeclarations(); EffectContentAndLocalEvidence(); CircularEffectInputs(); Closures();
     std::puts("Native dpkg protected declaration and Mach-O closure tests passed");
 }

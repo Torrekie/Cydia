@@ -133,8 +133,9 @@ separately from the read-only query view, and can capture protected `prerm` and
 control inspection preserves exact script presence, bytes and tar metadata.
 Bounded binary relationship parsing distinguishes dpkg's unpack and configure
 checks, including actual architectures and versioned virtual providers. Native
-version comparisons use a frozen parent-owned dpkg callback and exit codes;
-localized diagnostics never determine execution policy. The initial-generation
+version-comparison adapter accepts a frozen parent-owned dpkg callback and exit
+codes; its production capture/query connection is still pending. Localized
+diagnostics never determine execution policy. The initial-generation
 allowance builder binds prospective Breaks/sibling causes to exact reviewed
 restoration endpoints. Batch index-control capture binds each exact reviewed
 record to retained source/index provenance before download. Protected ownership
@@ -359,6 +360,45 @@ The retained environment binding fixes native launch inputs; it does not attest
 to compiled defaults or interpret them as complete effect policy. Supported
 native option arities and short clusters are used for database-path binding;
 unknown option arities and abbreviated privileged options are refused.
+
+`CYDIA-NATIVE-DPKG-2` retains fields 1–9 and the graph marker of version one,
+adds a canonical bounded effect-record container at field 10, and ends with
+`complete-native-effect-policy` at field 11. The protected reader accepts both
+versions. Invalid outer/container framing remains a declaration error; an
+invalid inner assertion retains a separate typed failure while its valid
+protected graph remains usable. Missing, stale, ambiguous, unknown-profile or
+unmodeled assertions cannot enable deconfiguration.
+
+The record container is `CYDIA-NATIVE-EFFECT-POLICIES-1` plus a nested list in
+canonical encoded-byte order. Each `CYDIA-NATIVE-EFFECT-POLICY-1` record binds a
+semantic profile, executor path/SHA256, input identity, invocation role, exact
+ordered option prefix, resolved setting assertions and the
+`asserted-native-effect-settings` marker. The initial supported profile is
+`dpkg-1.23.7-effects-1`; support is never inferred from version output. Settings
+retain native Automatic/Enabled/Disabled trigger states, pending scope,
+execution/selection/signature flags, abort/debug/output settings, the complete
+enabled force subset, ignored dependencies and ordered hooks/loggers/filters.
+Unexpressed settings remain explicit unsupported values.
+
+Cydia builds distributor lookup inputs from revalidated native graph and actual
+component/loader evidence, selected paths and its frozen launch environment.
+File contents, explicit absence and directory membership are bound, along with
+executor/component bytes, platform identity, invocation role and the parent's
+finalized option prefix. Declaration/self-output bytes and local inode/time/group
+metadata are excluded from that lookup. Textual or inode aliases reintroducing
+the declaration through native inputs/components refuse lookup. The complete
+protected local authority remains separate and requires fresh review after a
+local generation change even if contents still match the distributor record.
+
+The pure codec is limited to 1 MiB, 64 records and 64 KiB per record/value, with
+separate item/count bounds. Required environment names bind presence separately
+from empty values; additional `DPKG_*` and `LC_*` names are included. A separate
+per-child identity includes all frozen environment entries, exact arguments and
+fixed stdin/status roles. Parent-owned SHA256 is used; no producer, native parser
+or new executable is supplied. A matched record is an input-bound distributor
+assertion, not execution readiness. Production deconfiguration still needs
+parent-finalized argument/I/O binding, immutable approval, independent Begin
+reconstruction, complete effect admission and restoration-aware settlement.
 
 Declaration and graph sizes, component/dependency counts, archive reads and
 nonmutating admission are bounded. All archive copies are retained in private

@@ -44,6 +44,8 @@ void CydiaLabels() {
     Local("provider_trigger_primary_not_authorized", @"REVIEW_UNAVAILABLE", @"RuntimeProvider");
     Local("provider_native_auto_deconfigure_unsupported", @"REVIEW_UNAVAILABLE", @"RuntimeProvider");
     Local("provider_native_launch_environment_invalid", @"REVIEW_UNAVAILABLE", @"RuntimeProvider");
+    Local("provider_native_effect_policy_invalid", @"REVIEW_UNAVAILABLE", @"RuntimeProvider");
+    Local("provider_native_effect_policy_circular", @"REVIEW_UNAVAILABLE", @"RuntimeProvider");
     Local("provider_native_launch_environment_changed", @"TRANSACTION_STALE", @"Settings");
     Local("provider_session_unavailable", @"BROKEN_HELP", @"RuntimeProvider");
     Local("future_provider_diagnostic", @"OPERATION_FAILED", @"RuntimeProvider");

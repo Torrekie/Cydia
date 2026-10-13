@@ -7,6 +7,7 @@ PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ACTION_DRIVER="$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-actions"
 python3 "$PROJECT_DIR/tests/BuildAptBackendPolicyTest.py"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-native-launch-environment"
+ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-native-effect-policy"
 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-source-preflight" "$APT_INTEGRATION_TESTS_BUILD_DIR/methods"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-package-archive-reader"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-binary-relationships"

@@ -63,7 +63,7 @@ native UI. Raw English HTML alone therefore does not establish an English UI.
 | Storage | Localized `STORAGE` title, English body/category names | Existing title translation preserved. New native states, category heading and condensed warning translated. |
 | Application Extensions | English explanatory prose and localized application names | Native names retain their existing mechanism. New count, empty/loading errors and unavailable-package notice translated. |
 | Informational guides and Package Support | Inspected preserved bodies lack client localization hooks | Existing English prose retained; new native navigation/accessibility text translated. |
-| Unknown package | Five original localization keys | Former standalone screen is absent from the native route; its original translations still exist. This is an omitted state, not an untranslated displayed string. |
+| Unknown package | Five original localization keys | Native unavailable-package presentation is routed by application navigation and covered by its controller/probe checks; historical translations remain available. |
 
 Historical per-language server responses are not available in the source
 repository, and some FAQ descendant content is unavailable. Bundled keys
@@ -127,16 +127,18 @@ Brazilian/European Portuguese and Simplified/Traditional Chinese resources.
 
 | Table | Entries per locale | Native consumers and provenance |
 | --- | --- | --- |
-| `Settings.strings` | 102 | Settings and Advanced Settings; repository Allow/Warning/Error policy; user-selected bootstrap protection; executable overrides; capability review; public-key import; repository/download diagnostics; transaction failures; bootstrap database access navigation; explicit default/custom tool selection and save/discard states. These explanations and review states were introduced with the optional APT frontend. |
-| `Sources.strings` | 46 | Repository Settings for actual `.list` lines and `.sources` stanzas, destination files, enable/disable actions, complete-definition review, bootstrap protection, read-only delegated definitions and conflicts. The Sources tab retains direct package browsing; configuration details live in Settings. Four labels from the retired definition-first browsing route are removed. |
-| `Actions.strings` | 14 | Native package version selection, priority/candidate information, purge, hold handling, Essential/Protected safeguards and unavailable installed-version reinstall. These labels explain the expanded APT/dpkg actions. |
+| `Settings.strings` | 109 | Settings and Advanced Settings; repository Allow/Warning/Error policy; user-selected bootstrap protection; executable overrides; capability review; public-key import; repository/download diagnostics; transaction failures; bootstrap database access navigation; explicit default/custom tool selection and save/discard states. These explanations and review states were introduced with the optional APT frontend. |
+| `Sources.strings` | 128 | Repository Settings and advanced Add Source for actual `.list` lines and `.sources` stanzas, inline URL/suite/component editing, discovery, signing-key review, destination filenames, synchronized raw definitions, enable/disable actions, bootstrap protection, read-only delegated definitions and conflicts. The Sources tab retains direct package browsing; configuration details live in Settings. |
+| `Actions.strings` | 31 | Native package version and architecture selection, foreign/unsupported architecture explanations, priority/candidate information, purge, hold handling, Essential/Protected safeguards and unavailable installed-version reinstall. These labels explain the expanded APT/dpkg actions. |
 | `Recovery.strings` | 21 | Native incomplete-package recovery, normal repair, emergency-removal review, retained script backups and failure states. This is new guidance around the retained historical Forcibly Clear action. |
 | `RuntimeAccess.strings` | 20 | The explicit package-management access check in Advanced Settings, its six checks, contention, changed-state and timeout results, and technical-details navigation. Unsuccessful attempted checks and skipped checks have distinct labels; raw diagnostic output has a separate page. This diagnostic view is newly authored. |
 | `BootstrapAccess.strings` | 24 | Native review of the selected package database and group-writable ancestor directories, explicit Allow and Revoke actions, trust explanations, changed-access and failure states. This optional approval preserves existing bootstrap permissions. |
 | `InfoPlist.strings` | 2 | Localized OpenPGP public-key document-type labels for file sharing and Open in Cydia. Both `CFBundleTypeName` and the declared `OpenPGP Public Key` label are provided. |
 | `PackageSupport.strings` | 8 | Package support title/guidance and the console-package title/notice; existing author, maintainer and Package Support labels are reused. All 21 locales are provided; contact routes and commercial conditions are preserved. |
+| `Accounts.strings` | 11 | Native repository-account connection, removal, authentication and download-authorization explanations. Repository names and account data remain supplied values. |
+| `RuntimeProvider.strings` | 34 | Runtime selection and status, fallback explanations, independently reviewed package operations and finite trigger processing, and localized transaction failure summaries. |
 
-All eight tables have matching key sets in every shipped locale. Existing shared
+All ten tables have matching key sets in every shipped locale. Existing shared
 navigation and action labels continue to use `Localizable.strings`, including
 Settings, About, Cancel, Confirm, Remove, Reinstall and Forcibly Clear. Historical
 About attributions and English-only guide bodies retain their previous scope.

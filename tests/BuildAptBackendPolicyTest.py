@@ -34,8 +34,10 @@ def main():
                "Cydia/RepositorySecurityPolicy.cpp"]
     def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=(), extra_compile_flags=()):
         driver_sources = list(driver_sources)
+        if "Cydia/AptProviderNativeDpkgAuthority.cpp" in driver_sources and "Cydia/AptProviderNativeEffectPolicy.cpp" not in driver_sources:
+            driver_sources.append("Cydia/AptProviderNativeEffectPolicy.cpp")
         if any(source in driver_sources for source in ["Cydia/DpkgRunner.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
-                "Cydia/AptProviderTriggerApproval.cpp"]) and "Cydia/NativeLaunchEnvironment.cpp" not in driver_sources:
+                "Cydia/AptProviderTriggerApproval.cpp", "Cydia/AptProviderNativeEffectPolicy.cpp"]) and "Cydia/NativeLaunchEnvironment.cpp" not in driver_sources:
             driver_sources.append("Cydia/NativeLaunchEnvironment.cpp")
         if "Cydia/RuntimeSnapshotInputs.cpp" in driver_sources and "Cydia/AptProviderTriggerEvidenceCapture.cpp" not in driver_sources:
             driver_sources.append("Cydia/AptProviderTriggerEvidenceCapture.cpp")
@@ -57,6 +59,7 @@ def main():
 
     compile_driver(sources, "cydia-package-actions", sanitize=True)
     compile_driver(["tests/NativeLaunchEnvironmentTests.cpp", "Cydia/NativeLaunchEnvironment.cpp"], "cydia-native-launch-environment", sanitize=True)
+    compile_driver(["tests/AptProviderNativeEffectPolicyTests.cpp", "Cydia/AptProviderNativeEffectPolicy.cpp"], "cydia-native-effect-policy", sanitize=True)
     compile_driver(["tests/AptBackendRecoveryTests.cpp"] + sources[1:] + [
                     "Cydia/AptNativeBackend.cpp", "Cydia/AptBackendRecovery.cpp",
                     "Cydia/AptRecoveryPackageManager.cpp", "Cydia/SourcePreflight.cpp",

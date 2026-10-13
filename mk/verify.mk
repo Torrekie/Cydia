@@ -200,6 +200,17 @@ verify: verify-native-launch-environment
 verify-native-launch-environment: $(NATIVE_LAUNCH_ENVIRONMENT_TEST)
 	@$<
 
+APT_NATIVE_EFFECT_POLICY_TEST := $(BUILD_DIR)/tests/AptProviderNativeEffectPolicyTests
+$(APT_NATIVE_EFFECT_POLICY_TEST): tests/AptProviderNativeEffectPolicyTests.cpp \
+		Cydia/AptProviderNativeEffectPolicy.cpp Cydia/AptProviderNativeEffectPolicy.hpp \
+		Cydia/NativeLaunchEnvironment.cpp Cydia/NativeLaunchEnvironment.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(filter %.cpp,$^) -o $@
+.PHONY: verify-apt-native-effect-policy
+verify: verify-apt-native-effect-policy
+verify-apt-native-effect-policy: $(APT_NATIVE_EFFECT_POLICY_TEST)
+	@$<
+
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 
