@@ -28,6 +28,9 @@ A::ReviewedAction Action(std::uint64_t id, A::ExecutionAction kind, A::Execution
 }
 P::Evidence File(const std::string &path, const std::string &bytes = "", bool absent = false) {
     P::Evidence result{}; result.path = path; result.bytes = bytes; result.absent = absent; result.adminAccess = true;
+    // Native admin captures retain ReaderGroups' process metadata too; this
+    // is not source-reader authority when sourceInput is false.
+    result.sourceReaderGroups.valid = true; result.sourceReaderGroups.values = {0, 123};
     result.identity.st_mode = S_IFREG | 0755; result.identity.st_nlink = 1; result.identity.st_ino = 1;
     result.identity.st_size = bytes.size(); return result;
 }
@@ -94,8 +97,12 @@ struct Fixture {
     }
     bool Build(A::DeconfigurationAllowanceSet *out, std::string *error) {
         std::vector<A::ExecutionPackage> targets;
-        if (!Targets(&targets, error)) return false;
-        return A::BuildDeconfigurationAllowances(review, point, std::string(64, '9'), incoming, Scripts(targets), Compare, out, error);
+        if (!Targets(&targets, error)) {
+            std::cerr << "[deconfiguration-effects][selection] " << *error << '\n'; return false;
+        }
+        const bool built = A::BuildDeconfigurationAllowances(review, point, std::string(64, '9'), incoming, Scripts(targets), Compare, out, error);
+        if (!built) std::cerr << "[deconfiguration-effects][binding] " << *error << '\n';
+        return built;
     }
 };
 Fixture BreaksUpgrade() {
@@ -130,6 +137,10 @@ void BoundOldVictimAndIdentity() {
     scripts = unchangedTokens; scripts.files.front().sourceDelegation.assign(A::MaximumDeconfigurationInputBytes + 1, 'x');
     Require(!A::BuildDeconfigurationAllowances(f.review, f.point, std::string(64, '9'), f.incoming, scripts, Compare, &pool, &error),
         "unbounded ancillary evidence is refused before serialization");
+    scripts = unchangedTokens;
+    scripts.files.front().sourceReaderGroups.values.assign(A::MaximumDeconfigurationEvidenceGroups + 1, 123);
+    Require(!A::BuildDeconfigurationAllowances(f.review, f.point, std::string(64, '9'), f.incoming, scripts, Compare, &pool, &error),
+        "supplementary-group metadata is bounded before serialization");
 }
 void EndpointsAndAtomicRefusal() {
     auto f = BreaksUpgrade(); std::vector<A::ExecutionPackage> targets{{"sentinel", "1", "all"}}; std::string error;

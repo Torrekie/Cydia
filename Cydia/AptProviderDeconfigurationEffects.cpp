@@ -338,19 +338,21 @@ bool Derive(const ReviewedTransaction &review, const TriggerEffectCheckpoint &ch
         if (!Endpoint(review, lastCause.at(allowance.first), &allowance.second, &result.budget, error)) return false;
     *out = std::move(result); return true;
 }
+bool EvidenceShape(const P::Evidence &file);
 bool Script(const P::Evidence &file, Budget *budget, std::string *encoded) {
-    if (file.path.empty() || file.path.front() != '/' || file.path.size() > 4096 || file.directory || file.identityOnly ||
+    if (!EvidenceShape(file) || file.directory || file.identityOnly ||
         file.bytes.size() > MaximumInstalledScriptBytes || !file.entries.empty()) return false;
     if (file.absent) { if (!file.bytes.empty()) return false; }
     else if (!S_ISREG(file.identity.st_mode) || file.identity.st_uid || file.identity.st_nlink != 1 ||
         (file.identity.st_mode & 0022) || file.identity.st_size < 0 ||
         static_cast<std::uint64_t>(file.identity.st_size) != file.bytes.size()) return false;
-    if (!budget->Bytes(file.path.size()) || !budget->Bytes(file.bytes.size())) return false;
-    *encoded = P::SerializeSnapshotEvidence(file); return !encoded->empty();
+    *encoded = P::SerializeSnapshotEvidence(file);
+    return !encoded->empty() && budget->Bytes(encoded->size());
 }
 bool EvidenceShape(const P::Evidence &file) {
     if (file.path.empty() || file.path.front() != '/' || file.path.size() > 4096 ||
-        !file.sourceDelegation.empty() || !file.entries.empty() || !file.sourceReaderGroups.values.empty() ||
+        !file.sourceDelegation.empty() || !file.entries.empty() ||
+        file.sourceReaderGroups.values.size() > MaximumDeconfigurationEvidenceGroups ||
         file.sourceInput || file.sharedState || file.sourceReaderUID || file.sourceReaderGID) return false;
     for (unsigned char byte : file.path) if (byte < 32 || byte == 127) return false;
     if (file.absent) return !file.directory && !file.identityOnly && file.bytes.empty();
@@ -407,9 +409,10 @@ bool BuildDeconfigurationAllowances(const ReviewedTransaction &review, const Tri
             return Fail(error, "provider_deconfiguration_scripts_invalid");
         std::map<std::string, std::string> files; std::map<std::string, const P::Evidence *> rawFiles;
         for (const auto &file : scripts.files) {
-            if (!EvidenceShape(file) || !derived.budget.Bytes(file.path.size()) || !derived.budget.Bytes(file.bytes.size()))
+            if (!EvidenceShape(file) || file.bytes.size() > MaximumDeconfigurationInputBytes)
                 return Fail(error, "provider_deconfiguration_scripts_invalid");
             const auto encoded = P::SerializeSnapshotEvidence(file);
+            if (!derived.budget.Bytes(encoded.size())) return Fail(error, "provider_deconfiguration_limit");
             const auto inserted = files.emplace(file.path, encoded);
             if (!inserted.second && inserted.first->second != encoded) return Fail(error, "provider_deconfiguration_scripts_invalid");
             rawFiles.emplace(file.path, &file);

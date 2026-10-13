@@ -36,6 +36,9 @@ bool SelectHashes(const ArchiveManifest &archive, StagedArchiveEvidence *copy, s
     selected["SHA256"] = copy->identity.file.sha256;
     copy->hashes.swap(selected); return true;
 }
+bool SameScript(const CydiaPackages::ArchiveMaintainerScript &a, const CydiaPackages::ArchiveMaintainerScript &b) {
+    return a.present == b.present && a.bytes == b.bytes && a.mode == b.mode && a.uid == b.uid && a.gid == b.gid;
+}
 }
 class TransactionArchiveStore::Implementation {
 public:
@@ -152,7 +155,8 @@ bool TransactionArchiveStore::Begin(const std::string &base, const RuntimeDescri
             for (const auto &candidate : sourceControls) if (candidate.archive.archive.identifier == archive.identifier) original = &candidate;
             if (!original || !control.control.complete || !control.archive.complete || !control.archive.identityVerified ||
                 control.control.controls != original->control.controls || control.control.triggersPresent != original->control.triggersPresent ||
-                control.control.triggers != original->control.triggers) return Fail(error, "provider_trigger_incoming_unverified");
+                control.control.triggers != original->control.triggers || !SameScript(control.control.prerm, original->control.prerm) ||
+                !SameScript(control.control.postinst, original->control.postinst)) return Fail(error, "provider_trigger_incoming_unverified");
             VerifiedArchiveControlEvidence effect; effect.archive = retained.source; effect.control = control.control;
             state.effectControls.push_back(std::move(effect));
         }

@@ -37,10 +37,10 @@ void Write(const std::string &path, const std::string &bytes, mode_t mode = 0644
 void Octal(char *field, std::size_t size, unsigned long long value) {
     std::snprintf(field, size, "%0*llo", static_cast<int>(size - 1), value);
 }
-std::string Tar(const std::string &name, const std::string &bytes) {
+std::string Tar(const std::string &name, const std::string &bytes, mode_t mode = 0644) {
     char header[512] = {}; Require(name.size() < 100, "short tar fixture name");
     std::memcpy(header, name.data(), name.size());
-    Octal(header + 100, 8, 0644); Octal(header + 108, 8, 0); Octal(header + 116, 8, 0);
+    Octal(header + 100, 8, mode); Octal(header + 108, 8, 0); Octal(header + 116, 8, 0);
     Octal(header + 124, 12, bytes.size()); Octal(header + 136, 12, 0);
     std::memset(header + 148, ' ', 8); header[156] = '0';
     std::memcpy(header + 257, "ustar\0", 6); std::memcpy(header + 263, "00", 2);
@@ -58,7 +58,7 @@ struct Fixture {
     CydiaAPT::RuntimeDescriptor runtime;
     P::ReviewedTransaction review;
     P::ReviewPolicy policy;
-    Fixture() {
+    explicit Fixture(bool scripts = false) {
         std::string pattern = std::filesystem::current_path().string() + "/transaction-files.XXXXXX";
         std::vector<char> bytes(pattern.begin(), pattern.end()); bytes.push_back('\0');
         const char *created = mkdtemp(bytes.data()); Require(created != nullptr, "private fixture directory"); root = created;
@@ -83,8 +83,13 @@ struct Fixture {
         const auto identity = CydiaAPT::BuildPackageIdentity("sample", "amd64", "all", "amd64", CydiaAPT::MultiArchMode::None);
         review.transaction.installs = {identity.routingName}; review.transaction.packages[identity.routingName] = {identity, "1", "sample"};
         Write(runtime.sourceListPath, "deb https://example.invalid/ ./\n");
-        deb = "!<arch>\n" + Ar("debian-binary", "2.0\n") + Ar("control.tar", Tar("control",
-            "Package: sample\nVersion: 1\nArchitecture: all\nDescription: fixture\n")) +
+        std::string control = Tar("control", "Package: sample\nVersion: 1\nArchitecture: all\nDescription: fixture\n");
+        if (scripts) {
+            control.resize(control.size() - 1024); control += Tar("prerm", "#!/bin/sh\nexit 0\n", 0755);
+            control.resize(control.size() - 1024); control += Tar("postinst", "", 0755);
+            policy.unverifiedArchiveWarningsAccepted.insert("sample");
+        }
+        deb = "!<arch>\n" + Ar("debian-binary", "2.0\n") + Ar("control.tar", control) +
             Ar("data.tar", Tar("usr/lib/fixture", "approved library bytes"));
         P::ArchiveManifest archive; archive.identifier = "sample"; archive.package = {"sample", "1", "all"};
         archive.sourceDefinitionPath = runtime.sourceListPath; archive.sourceURI = "https://example.invalid/";
@@ -149,6 +154,14 @@ void StagedArchives() {
     Require(!changed.Begin(refused, &error), "bad archive cannot create ready store");
     Fixture cancelled; P::TransactionArchiveStore noStore;
     Require(!cancelled.Begin(noStore, &error, [] { return true; }) && noStore.archives().empty(), "cancel before staging leaves no ready evidence");
+    Fixture scripted(true); P::TransactionArchiveStore scripts;
+    Require(scripts.Begin(scripted.root + "/private", scripted.runtime, scripted.review, scripted.policy, "/usr/bin:/bin",
+        {{"sample", {"/usr/lib/fixture"}}}, &error, {}, true) && scripts.effectControls().size() == 1,
+        "script-bearing verified source and protected copy retain effect controls");
+    const auto &control = scripts.effectControls().front().control;
+    Require(control.complete && control.prerm.present && control.prerm.bytes == "#!/bin/sh\nexit 0\n" && control.prerm.mode == 0755 &&
+        control.prerm.uid == 0 && control.prerm.gid == 0 && control.postinst.present && control.postinst.bytes.empty() && control.postinst.mode == 0755,
+        "retained archive proof preserves exact script bytes, tar metadata and present-empty distinction");
 }
 }
 #if defined(CYDIA_TRANSACTION_OWNER_TESTING)
