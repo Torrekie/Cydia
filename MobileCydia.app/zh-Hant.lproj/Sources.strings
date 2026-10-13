@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "進階設定";
+"SOURCE_ADVANCED_UNAVAILABLE" = "進階選項無法使用。請在「設定」中檢查套件管理器存取權限與來源設定，再重新開啟此來源。";
 "SOURCE_CHOOSE_FILE" = "選擇來源檔案";
 "SOURCE_COMPONENTS" = "元件（選填）";
 "SOURCE_CONTINUE" = "繼續";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "檔案與行號";
 "SOURCE_NEW_FILE" = "新增來源檔案";
 "SOURCE_NEW_FILE_EXPLANATION" = "輸入以 .list 或 .sources 結尾的新檔案名稱。只有在確認並儲存定義後才會建立檔案。";
-"SOURCE_PROTECTED" = "只能在進階設定中更改此發行源。";
+"SOURCE_PROTECTED" = "此發行源受保護。請展開其進階選項以進行變更。";
+"SOURCE_NO_PROTECTED_SOURCES" = "沒有受保護的來源。";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "此處僅顯示被標記為發行源的來源。請在「進階設定 > 發行源」中管理這項選擇。";
 "SOURCE_PROTECTED_OR_REVIEW" = "受保護或尚未確認的發行源需要在進階設定中處理。編輯前必須能夠讀取來源檔案。";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "更改來源前，請在進階設定中檢查受保護的發行源。";
 "SOURCE_RELOAD_REQUIRED" = "來源檔案已變更。請重新載入來源並再次確認更改。";

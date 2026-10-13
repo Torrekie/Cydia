@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Ajustes avançados";
+"SOURCE_ADVANCED_UNAVAILABLE" = "As opções avançadas não estão disponíveis. Verifique o acesso ao gerenciador de pacotes e a configuração das fontes em Configurações e reabra esta fonte.";
 "SOURCE_CHOOSE_FILE" = "Escolher arquivo de fontes";
 "SOURCE_COMPONENTS" = "Componentes (opcionais)";
 "SOURCE_CONTINUE" = "Continuar";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Arquivo e linha";
 "SOURCE_NEW_FILE" = "Novo arquivo de fontes";
 "SOURCE_NEW_FILE_EXPLANATION" = "Insira um novo nome de arquivo que termine em .list ou .sources. O arquivo só será criado depois que você revisar e salvar a definição.";
-"SOURCE_PROTECTED" = "Esta fonte da distribuição de pacotes só pode ser alterada nos ajustes avançados.";
+"SOURCE_PROTECTED" = "Esta fonte da distribuição está protegida. Abra suas opções avançadas para fazer alterações.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Nenhuma fonte protegida.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Aqui são exibidas apenas as fontes marcadas como fontes da distribuição. Gerencie essa seleção em Ajustes avançados > Fontes da distribuição.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Fontes protegidas ou não identificadas da distribuição de pacotes precisam dos ajustes avançados. Os arquivos de fontes devem estar legíveis antes da edição.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Revise as fontes protegidas da distribuição de pacotes nos ajustes avançados antes de alterar as fontes.";
 "SOURCE_RELOAD_REQUIRED" = "O arquivo de fontes mudou. Recarregue as fontes e revise a alteração novamente.";

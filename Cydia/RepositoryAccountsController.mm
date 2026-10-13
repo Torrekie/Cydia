@@ -65,10 +65,12 @@
     } else if (!_loaded && !_busy) [self loadAccount];
     else if (_loaded && !_busy && _signedIn && _package.length) [self refreshAccount];
 }
+- (void)beginLoading {
+    _busy = YES; _status = nil; [_table reloadData];
+}
 - (void)loadAccount {
     if (_busy || !_sourceURL) return;
-    _busy = YES; _status = UCLocalize("LOADING"); _packagePresentation = nil;
-    _userName = nil; [_table reloadData];
+    _packagePresentation = nil; _userName = nil; [self beginLoading];
     __weak RepositoryAccountsController *weakSelf = self;
     [[CydiaRepositoryAccountService sharedService] discoverSource:_sourceURL name:_sourceName ?: _sourceURL.host
         completion:^(CydiaRepositoryAccount *account, NSError *error) {
@@ -82,7 +84,7 @@
 }
 - (void)refreshAccount {
     if (_busy || !_account) return;
-    _busy = YES; _packagePresentation = nil; [_table reloadData];
+    _packagePresentation = nil; [self beginLoading];
     __weak RepositoryAccountsController *weakSelf = self;
     [[CydiaRepositoryAccountService sharedService] userInfo:_account completion:^(NSDictionary *info, NSError *error) {
         RepositoryAccountsController *self = weakSelf; if (!self) return;
@@ -100,7 +102,7 @@
 - (void)refreshPackage {
     if (_busy || !_account.supportsAccountIntegration || !_package.length) return;
     const BOOL authenticated = _account.signedIn;
-    _busy = YES; _packagePresentation = nil; [_table reloadData];
+    _packagePresentation = nil; [self beginLoading];
     __weak RepositoryAccountsController *weakSelf = self;
     void (^completion)(NSDictionary *, NSError *) = ^(NSDictionary *info, NSError *error) {
         RepositoryAccountsController *self = weakSelf; if (!self) return;
@@ -122,6 +124,7 @@
 - (NSArray<NSString *> *)accountRows {
     NSMutableArray *rows = [NSMutableArray arrayWithObject:@"source"];
     if (_account) [rows addObject:@"provider"];
+    if (_busy) [rows addObject:@"loading"];
     if (_account.supportsAccountIntegration) [rows addObject:@"authentication"];
     if (_account.supportsAccountIntegration && _authenticationFailed && _signedIn) [rows addObject:@"logout"];
     if (_packagePresentation && _packagePresentation.state != CydiaRepositoryPackageStateUnknown)
@@ -136,6 +139,7 @@
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (!_sourceURL) return CydiaAccountLocalize(@"ACCOUNT_SOURCE_HELP");
+    if (_busy) return nil;
     return _status.length ? _status : (_account.supportsAccountIntegration && !_signedIn ? CydiaAccountLocalize(@"ACCOUNT_SIGN_IN_REQUIRED") : nil);
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -148,7 +152,9 @@
     cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
     cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection];
     cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
-    cell.accessoryType = UITableViewCellAccessoryNone; cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.accessoryType = UITableViewCellAccessoryNone; cell.accessoryView = nil;
+    cell.selectionStyle = UITableViewCellSelectionStyleNone; cell.accessibilityTraits = UIAccessibilityTraitStaticText;
+    cell.accessibilityIdentifier = nil;
     cell.detailTextLabel.text = nil; cell.userInteractionEnabled = !_busy;
     if (!_sourceURL) {
         NSDictionary *source = _sources[path.row]; cell.textLabel.text = source[@"name"];
@@ -158,6 +164,11 @@
         cell.textLabel.text = _sourceName ?: _sourceURL.host; cell.detailTextLabel.text = _sourceURL.host;
     } else if ([self.accountRows[path.row] isEqual:@"provider"]) {
         cell.textLabel.text = _account.name; cell.detailTextLabel.text = CydiaAccountOrigin(_account.providerURL);
+    } else if ([self.accountRows[path.row] isEqual:@"loading"]) {
+        cell.textLabel.text = UCLocalize("LOADING");
+        UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+        spinner.color = cell.textLabel.textColor; [spinner startAnimating]; cell.accessoryView = spinner;
+        cell.accessibilityIdentifier = @"cydia.repository.account.loading";
     } else if ([self.accountRows[path.row] isEqual:@"authentication"] || [self.accountRows[path.row] isEqual:@"logout"]) {
         const BOOL logout = [self.accountRows[path.row] isEqual:@"logout"] || (_signedIn && !_authenticationFailed);
         cell.textLabel.text = CydiaAccountLocalize(logout ? @"ACCOUNT_SIGN_OUT" : @"ACCOUNT_SIGN_IN");
@@ -191,6 +202,8 @@
             cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         }
     }
+    if (cell.selectionStyle == UITableViewCellSelectionStyleDefault)
+        cell.accessibilityTraits = UIAccessibilityTraitButton | (_busy ? UIAccessibilityTraitNotEnabled : 0);
     return cell;
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
@@ -219,7 +232,7 @@
     }
     if ((![row isEqual:@"authentication"] && ![row isEqual:@"logout"]) || !_account.supportsAccountIntegration) return;
     if ([row isEqual:@"logout"] || (_signedIn && !_authenticationFailed)) {
-        _busy = YES; [_table reloadData];
+        [self beginLoading];
         [[CydiaRepositoryAccountService sharedService] signOut:_account completion:^(NSError *error) {
             self.busy = NO; self.signedIn = self.account.signedIn; self.userName = nil; self.packagePresentation = nil;
             if (!error) self.authenticationFailed = NO;
@@ -235,7 +248,7 @@
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:CydiaAccountLocalize(@"ACCOUNT_SIGN_IN") style:UIAlertActionStyleDefault
         handler:^(UIAlertAction *action) {
-        self.busy = YES; [self.table reloadData];
+        [self beginLoading];
         [[CydiaRepositoryAccountService sharedService] signIn:self.account presenter:self completion:^(NSError *error) {
             self.busy = NO; self.signedIn = self.account.signedIn; self.status = error.localizedDescription;
             if (!error) self.authenticationFailed = NO;

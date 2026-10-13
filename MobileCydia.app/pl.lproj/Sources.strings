@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Ustawienia zaawansowane";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Opcje zaawansowane są niedostępne. Sprawdź dostęp do menedżera pakietów i konfigurację źródeł w Ustawieniach, a następnie ponownie otwórz to źródło.";
 "SOURCE_CHOOSE_FILE" = "Wybierz plik źródeł";
 "SOURCE_COMPONENTS" = "Komponenty (opcjonalne)";
 "SOURCE_CONTINUE" = "Dalej";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Plik i wiersz";
 "SOURCE_NEW_FILE" = "Nowy plik źródeł";
 "SOURCE_NEW_FILE_EXPLANATION" = "Wprowadź nową nazwę pliku zakończoną na .list lub .sources. Plik zostanie utworzony dopiero po sprawdzeniu i zapisaniu definicji.";
-"SOURCE_PROTECTED" = "To źródło dystrybucji pakietów można zmienić tylko w ustawieniach zaawansowanych.";
+"SOURCE_PROTECTED" = "To źródło dystrybucji jest chronione. Otwórz jego opcje zaawansowane, aby wprowadzić zmiany.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Brak chronionych źródeł.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Wyświetlane są tutaj tylko źródła oznaczone jako źródła dystrybucji. Zarządzaj tym wyborem w sekcji „Ustawienia zaawansowane > Źródła dystrybucji”.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Chronione lub nierozpoznane źródła dystrybucji pakietów wymagają ustawień zaawansowanych. Przed edycją pliki źródeł muszą być możliwe do odczytania.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Przed zmianą źródeł sprawdź chronione źródła dystrybucji pakietów w ustawieniach zaawansowanych.";
 "SOURCE_RELOAD_REQUIRED" = "Plik źródeł został zmieniony. Wczytaj ponownie Źródła i jeszcze raz sprawdź zmianę.";

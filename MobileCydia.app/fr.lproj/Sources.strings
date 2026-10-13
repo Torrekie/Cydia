@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Réglages avancés";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Les options avancées sont indisponibles. Vérifiez l’accès au gestionnaire de paquets et la configuration des sources dans Réglages, puis ouvrez à nouveau cette source.";
 "SOURCE_CHOOSE_FILE" = "Choisir le fichier de sources";
 "SOURCE_COMPONENTS" = "Composants (facultatifs)";
 "SOURCE_CONTINUE" = "Continuer";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Fichier et ligne";
 "SOURCE_NEW_FILE" = "Nouveau fichier de sources";
 "SOURCE_NEW_FILE_EXPLANATION" = "Saisissez un nouveau nom de fichier se terminant par .list ou .sources. Le fichier sera créé après vérification et enregistrement de la définition.";
-"SOURCE_PROTECTED" = "Cette source de la distribution de paquets ne peut être modifiée que dans les réglages avancés.";
+"SOURCE_PROTECTED" = "Cette source de la distribution est protégée. Ouvrez ses options avancées pour la modifier.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Aucune source protégée.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Seules les sources marquées comme sources de la distribution sont affichées ici. Gérez cette sélection dans Réglages avancés > Sources de la distribution.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Les sources protégées ou non identifiées de la distribution de paquets doivent être vérifiées dans les réglages avancés. Les fichiers de sources doivent être lisibles avant toute modification.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Vérifiez les sources protégées de la distribution de paquets dans les réglages avancés avant de modifier les sources.";
 "SOURCE_RELOAD_REQUIRED" = "Le fichier de sources a changé. Rechargez les sources et vérifiez à nouveau la modification.";

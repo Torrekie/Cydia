@@ -162,6 +162,7 @@ static NSString *CapabilityReason(const std::string &reason) {
             if (![self.database beginSettingsChange]) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     self.busy = NO; self.ready = YES;
+                    self.status = CapabilityText(@"SETTINGS_WAIT_FOR_OPERATION");
                     [self updateControls]; [self showMessage:CapabilityText(@"SETTINGS_WAIT_FOR_OPERATION")];
                 });
                 return;

@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Advanced Settings";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Advanced controls are unavailable. Check package-manager access and source configuration in Settings, then reopen this source.";
 "SOURCE_CHOOSE_FILE" = "Choose Source File";
 "SOURCE_COMPONENTS" = "Components (optional)";
 "SOURCE_CONTINUE" = "Continue";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "File and Line";
 "SOURCE_NEW_FILE" = "New Source File";
 "SOURCE_NEW_FILE_EXPLANATION" = "Enter a new filename ending in .list or .sources. The file is created only after you review and save the definition.";
-"SOURCE_PROTECTED" = "This distribution source can only be changed in Advanced Settings.";
+"SOURCE_PROTECTED" = "This distribution source is protected. Open its advanced controls to make changes.";
+"SOURCE_NO_PROTECTED_SOURCES" = "No protected sources.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Only sources marked as distribution sources are shown here. Manage that selection in Advanced Settings > Distribution Sources.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Protected or unresolved distribution sources require Advanced Settings. Source files must be readable before editing.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Review protected distribution sources in Advanced Settings before changing sources.";
 "SOURCE_RELOAD_REQUIRED" = "The source file changed. Reload Sources and review the change again.";

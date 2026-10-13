@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Impostazioni avanzate";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Le opzioni avanzate non sono disponibili. Controlla l’accesso al gestore di pacchetti e la configurazione delle sorgenti in Impostazioni, poi riapri questa sorgente.";
 "SOURCE_CHOOSE_FILE" = "Scegli file delle sorgenti";
 "SOURCE_COMPONENTS" = "Componenti (facoltativi)";
 "SOURCE_CONTINUE" = "Continua";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "File e riga";
 "SOURCE_NEW_FILE" = "Nuovo file delle sorgenti";
 "SOURCE_NEW_FILE_EXPLANATION" = "Inserisci un nuovo nome di file che termini con .list o .sources. Il file verrà creato solo dopo aver esaminato e salvato la definizione.";
-"SOURCE_PROTECTED" = "Questa sorgente della distribuzione di pacchetti può essere modificata solo nelle impostazioni avanzate.";
+"SOURCE_PROTECTED" = "Questa sorgente della distribuzione è protetta. Apri le sue opzioni avanzate per modificarla.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Nessuna sorgente protetta.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Qui sono mostrate solo le sorgenti contrassegnate come sorgenti della distribuzione. Gestisci questa selezione in Impostazioni avanzate > Sorgenti della distribuzione.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Le sorgenti protette o non identificate della distribuzione di pacchetti richiedono le impostazioni avanzate. I file delle sorgenti devono essere leggibili prima della modifica.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Esamina le sorgenti protette della distribuzione di pacchetti nelle impostazioni avanzate prima di modificare le sorgenti.";
 "SOURCE_RELOAD_REQUIRED" = "Il file delle sorgenti è cambiato. Ricarica le sorgenti ed esamina nuovamente la modifica.";

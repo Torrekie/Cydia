@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Erweiterte Einstellungen";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Erweiterte Optionen sind nicht verfügbar. Prüfe den Zugriff auf die Paketverwaltung und die Quellenkonfiguration in den Einstellungen und öffne diese Quelle anschließend erneut.";
 "SOURCE_CHOOSE_FILE" = "Quelldatei auswählen";
 "SOURCE_COMPONENTS" = "Komponenten (optional)";
 "SOURCE_CONTINUE" = "Weiter";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Datei und Zeile";
 "SOURCE_NEW_FILE" = "Neue Quelldatei";
 "SOURCE_NEW_FILE_EXPLANATION" = "Gib einen neuen Dateinamen mit der Endung .list oder .sources ein. Die Datei wird erst nach dem Prüfen und Speichern der Definition erstellt.";
-"SOURCE_PROTECTED" = "Diese Quelle der Paketdistribution kann nur in den erweiterten Einstellungen geändert werden.";
+"SOURCE_PROTECTED" = "Diese Quelle der Distribution ist geschützt. Öffne ihre erweiterten Optionen, um Änderungen vorzunehmen.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Keine geschützten Quellen.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Hier werden nur Quellen angezeigt, die als Quellen der Distribution gekennzeichnet sind. Verwalte diese Auswahl unter „Erweiterte Einstellungen > Quellen der Distribution“.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Geschützte oder nicht eindeutig zugeordnete Quellen der Paketdistribution müssen in den erweiterten Einstellungen geprüft werden. Quelldateien müssen vor der Bearbeitung lesbar sein.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Prüfe geschützte Quellen der Paketdistribution in den erweiterten Einstellungen, bevor du Quellen änderst.";
 "SOURCE_RELOAD_REQUIRED" = "Die Quelldatei wurde geändert. Lade die Quellen neu und prüfe die Änderung erneut.";

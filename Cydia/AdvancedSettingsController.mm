@@ -255,6 +255,7 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
 
 @interface CydiaExecutablePathController : CyteViewController <UITableViewDataSource, UITableViewDelegate>
 - (instancetype)initWithDatabase:(Database *)database tool:(NSString *)tool path:(NSString *)path;
+@property (nonatomic, copy) void (^saveCompletion)(void);
 @end
 @implementation CydiaExecutablePathController {
     Database *database_;
@@ -300,6 +301,8 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     [super viewDidLoad]; self.navigationItem.title = tool_;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:Text(@"SETTINGS_SAVE")
         style:UIBarButtonItemStyleDone target:self action:@selector(savePath)];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:UCLocalize("CANCEL")
+        style:UIBarButtonItemStylePlain target:self action:@selector(cancelEditing)];
     [self updateSave];
 }
 - (NSString *)selectedPath {
@@ -308,8 +311,28 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
 - (void)updateSave {
     NSString *path([self selectedPath]);
     self.navigationItem.rightBarButtonItem.enabled = !saving_ && (useDefault_.on || [path hasPrefix:@"/"]) && ![path isEqual:savedPath_];
+    self.navigationItem.leftBarButtonItem.enabled = !saving_;
 }
-- (void)defaultChanged:(UISwitch *)sender { [field_ resignFirstResponder]; [table_ reloadData]; [self updateSave]; }
+- (BOOL)hasChanges {
+    return useDefault_.on != (savedPath_.length == 0) || ![(field_.text ?: @"") isEqualToString:savedPath_];
+}
+- (void)cancelEditing {
+    if (saving_) return;
+    [field_ resignFirstResponder];
+    if (![self hasChanges]) { [self dismissViewControllerAnimated:YES completion:nil]; return; }
+    UIAlertController *alert([UIAlertController alertControllerWithTitle:Text(@"DISCARD_SETTINGS_TITLE")
+        message:Text(@"DISCARD_SETTINGS_MESSAGE") preferredStyle:UIAlertControllerStyleAlert]);
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:Text(@"DISCARD_SETTINGS_ACTION") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *) {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+- (void)defaultChanged:(UISwitch *)sender {
+    [field_ resignFirstResponder];
+    [table_ reloadSections:[NSIndexSet indexSetWithIndex:1] withRowAnimation:UITableViewRowAnimationAutomatic];
+    [self updateSave];
+}
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 2; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 || !useDefault_.on ? 1 : 0; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return section == 1 && !useDefault_.on ? Text(@"TOOL_CUSTOM_PATH") : nil; }
@@ -331,8 +354,6 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     [field_ resignFirstResponder]; saving_ = YES; table_.userInteractionEnabled = NO; [self updateSave];
     const std::string payload(CydiaRuntime::Privileged::SerializeFields({[tool_ UTF8String], [[self selectedPath] UTF8String]}));
     __weak UINavigationController *reviewedNavigation(self.navigationController);
-    NSArray *stack(self.navigationController.viewControllers);
-    __weak UIViewController *reviewedParent(stack.count >= 2 ? stack[stack.count - 2] : nil);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         CydiaRuntime::PrivilegedClient::Result result;
         const BOOL acquired([database_ beginSettingsChange]);
@@ -342,19 +363,10 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             saving_ = NO; table_.userInteractionEnabled = YES; [self updateSave];
-            UINavigationController *navigation(reviewedNavigation); UIViewController *parent(reviewedParent);
+            UINavigationController *navigation(reviewedNavigation);
             if (navigation.topViewController != self || self.viewIfLoaded.window == nil || self.presentedViewController != nil) return;
             if (!acquired || !result.succeeded()) { Message(self, Text(acquired ? @"SETTINGS_SAVE_FAILED" : @"SETTINGS_WAIT_FOR_OPERATION")); return; }
-            NSArray *current(navigation.viewControllers);
-            if (current.count < 2 || current[current.count - 2] != parent) return;
-            [navigation popViewControllerAnimated:YES];
-            void (^notify)(void) = ^{
-                if (navigation.topViewController == parent && parent.viewIfLoaded.window != nil && parent.presentedViewController == nil)
-                    Message(parent, Text(@"SETTING_RESTART_REQUIRED"));
-            };
-            if (navigation.transitionCoordinator != nil)
-                [navigation.transitionCoordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) { notify(); }];
-            else dispatch_async(dispatch_get_main_queue(), notify);
+            [self dismissViewControllerAnimated:YES completion:self.saveCompletion];
         });
     });
 }
@@ -377,6 +389,9 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
 - (void)viewDidLoad { [super viewDidLoad]; self.navigationItem.title = Text(@"EXTERNAL_EXECUTABLES"); }
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self reloadOverrides];
+}
+- (void)reloadOverrides {
     std::map<std::string, std::string> overrides;
     CydiaRuntime::Privileged::Evidence evidence; CydiaRuntime::Privileged::Error error;
     const auto &paths(CydiaRuntime::PackageDatabasePaths::Current());
@@ -402,7 +417,19 @@ void RefreshGroupedAppearance(UITableView *table, UITraitCollection *traits, UIT
     [table deselectRowAtIndexPath:path animated:YES]; if (!available_) return;
     NSString *tool([self tools][path.row]);
     CydiaExecutablePathController *controller([[CydiaExecutablePathController alloc] initWithDatabase:database_ tool:tool path:overrides_[tool]]);
-    controller.delegate = self.delegate; [self.navigationController pushViewController:controller animated:YES];
+    controller.delegate = self.delegate;
+    __weak CydiaExternalToolsController *parent(self);
+    controller.saveCompletion = ^{
+        CydiaExternalToolsController *reviewedParent(parent);
+        if (reviewedParent == nil) return;
+        [reviewedParent reloadOverrides];
+        if (reviewedParent.viewIfLoaded.window != nil && reviewedParent.presentedViewController == nil)
+            Message(reviewedParent, Text(@"SETTING_RESTART_REQUIRED"));
+    };
+    UINavigationController *navigation([[UINavigationController alloc] initWithRootViewController:controller]);
+    navigation.modalPresentationStyle = UIModalPresentationFormSheet;
+    if (@available(iOS 13.0, *)) navigation.modalInPresentation = YES;
+    [self presentViewController:navigation animated:YES completion:nil];
 }
 @end
 

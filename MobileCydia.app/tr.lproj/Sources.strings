@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Gelişmiş Ayarlar";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Gelişmiş seçenekler kullanılamıyor. Ayarlar’da paket yöneticisi erişimini ve kaynak yapılandırmasını kontrol edip bu kaynağı yeniden açın.";
 "SOURCE_CHOOSE_FILE" = "Kaynak Dosyasını Seç";
 "SOURCE_COMPONENTS" = "Bileşenler (isteğe bağlı)";
 "SOURCE_CONTINUE" = "Devam Et";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Dosya ve Satır";
 "SOURCE_NEW_FILE" = "Yeni Kaynak Dosyası";
 "SOURCE_NEW_FILE_EXPLANATION" = ".list veya .sources ile biten yeni bir dosya adı girin. Dosya yalnızca tanımı inceleyip kaydettikten sonra oluşturulur.";
-"SOURCE_PROTECTED" = "Bu paket dağıtım kaynağı yalnızca Gelişmiş Ayarlar’da değiştirilebilir.";
+"SOURCE_PROTECTED" = "Bu dağıtım kaynağı korunmaktadır. Değişiklik yapmak için kaynağın gelişmiş seçeneklerini açın.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Korunan kaynak yok.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Burada yalnızca dağıtım kaynağı olarak işaretlenen kaynaklar gösterilir. Bu seçimi Gelişmiş ayarlar > Dağıtım Kaynakları bölümünde yönetin.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Korunan veya tanımlanamayan paket dağıtım kaynakları Gelişmiş Ayarlar’da incelenmelidir. Düzenlemeden önce kaynak dosyaları okunabilir olmalıdır.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Kaynakları değiştirmeden önce korunan paket dağıtım kaynaklarını Gelişmiş Ayarlar’da inceleyin.";
 "SOURCE_RELOAD_REQUIRED" = "Kaynak dosyası değişti. Kaynakları yeniden yükleyin ve değişikliği tekrar inceleyin.";

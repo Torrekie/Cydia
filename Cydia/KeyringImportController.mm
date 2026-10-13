@@ -79,14 +79,21 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 @property(nonatomic, strong) NSURL *initialURL;
 @property(nonatomic, copy) NSString *fileName;
 @property(nonatomic, copy) NSArray<CydiaSourceDefinition *> *sources;
+@property(nonatomic, copy) NSArray<NSString *> *sourceSummaries;
 @property(nonatomic, copy) NSIndexSet *editableSources;
 @property(nonatomic, strong) CydiaSourceDefinition *selectedSource;
 @property(nonatomic) BOOL busy;
 @property(nonatomic) BOOL reviewed;
+@property(nonatomic) BOOL loadingSources;
+@property(nonatomic) NSUInteger sourceGeneration, fileGeneration;
+@property(nonatomic) NSInteger displayedSectionCount;
 @end
 
 @implementation CydiaKeyringImportController
-- (instancetype)initWithDatabase:(Database *)database { if ((self = [super init])) _database = database; return self; }
+- (instancetype)initWithDatabase:(Database *)database {
+    if ((self = [super init])) { _database = database; _displayedSectionCount = 1; }
+    return self;
+}
 - (instancetype)initWithDatabase:(Database *)database importURL:(NSURL *)url {
     if ((self = [self initWithDatabase:database])) _initialURL = url; return self;
 }
@@ -105,8 +112,42 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     [self applyAppearance]; [self updateControls];
 }
 - (void)reloadSources {
-    self.sources = CydiaReadSourceDefinitions();
-    self.editableSources = CydiaReadSourceDisplayEditability(self.sources, CydiaSources::Access::AdvancedSettings);
+    const NSUInteger generation(++self.sourceGeneration);
+    CydiaSourceDefinition *selected(self.selectedSource);
+    self.loadingSources = YES; [self updateControls];
+    __weak CydiaKeyringImportController *weakSelf(self);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        @autoreleasepool {
+            NSArray<CydiaSourceDefinition *> *sources(CydiaReadSourceDefinitions());
+            NSIndexSet *editable(CydiaReadSourceDisplayEditability(sources, CydiaSources::Access::AdvancedSettings));
+            NSMutableArray<NSString *> *summaries([NSMutableArray arrayWithCapacity:sources.count]);
+            NSUInteger selection(NSNotFound);
+            BOOL changedSnapshot(NO);
+            for (NSUInteger index = 0; index != sources.count; ++index) {
+                CydiaSourceDefinition *source(sources[index]);
+                [summaries addObject:KeySourceSummary(source)];
+                if (selected != nil && [source.filePath isEqual:selected.filePath] &&
+                    source.ordinal == selected.ordinal && [source.original isEqual:selected.original] &&
+                    [editable containsIndex:index]) {
+                    selection = index;
+                    const auto &before([selected snapshot]); const auto &after([source snapshot]);
+                    changedSnapshot = !before.identity.sameVersion(after.identity) ||
+                        before.canonicalPath != after.canonicalPath || before.readOnly != after.readOnly ||
+                        before.document.path != after.document.path || before.document.format != after.document.format ||
+                        before.document.bytes != after.document.bytes;
+                }
+            }
+            dispatch_async(dispatch_get_main_queue(), ^{
+                CydiaKeyringImportController *self(weakSelf);
+                if (!self || generation != self.sourceGeneration) return;
+                self.loadingSources = NO; self.sources = sources; self.editableSources = editable;
+                self.sourceSummaries = summaries;
+                self.selectedSource = selection == NSNotFound ? nil : sources[selection];
+                if (changedSnapshot || (selected != nil && self.selectedSource == nil)) [self clearReview];
+                else [self updateControls];
+            });
+        }
+    });
 }
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
@@ -114,15 +155,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
 }
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    if (self.busy) return;
-    CydiaSourceDefinition *selected(self.selectedSource); [self reloadSources]; self.selectedSource = nil;
-    for (CydiaSourceDefinition *source in self.sources)
-        if ([source.filePath isEqual:selected.filePath] && source.ordinal == selected.ordinal &&
-            [source.original isEqual:selected.original] && CydiaSourceDefinitionCanEdit(source, CydiaSources::Access::AdvancedSettings)) {
-            self.selectedSource = source; break;
-        }
-    if (selected != nil && self.selectedSource == nil) [self clearReview];
-    [self updateControls];
+    if (!self.busy && !_input.bytes.empty()) [self reloadSources];
 }
 - (void)applyAppearance {
     self.table.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection];
@@ -140,22 +173,55 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     return YES;
 }
 - (void)updateControls {
-    self.reviewButton.enabled = !self.busy && !_input.bytes.empty() && self.selectedSource != nil;
+    self.reviewButton.enabled = !self.busy && !self.loadingSources && !_input.bytes.empty() && self.selectedSource != nil;
     self.reviewButton.title = KeyText(self.reviewed ? @"KEY_IMPORT_ACTION" : @"KEY_IMPORT_REVIEW_ACTION");
-    self.table.userInteractionEnabled = !self.busy; [self.table reloadData];
+    self.table.userInteractionEnabled = !self.busy;
+    const NSInteger previous(self.displayedSectionCount);
+    const NSInteger current(_input.bytes.empty() ? 1 : self.reviewed ? 3 : 2);
+    self.displayedSectionCount = current;
+    if (self.table.window == nil || previous == current) { [self.table reloadData]; return; }
+    const UITableViewRowAnimation animation(UIAccessibilityIsReduceMotionEnabled() ? UITableViewRowAnimationNone : UITableViewRowAnimationAutomatic);
+    [self.table beginUpdates];
+    if (current > previous) [self.table insertSections:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(previous, current - previous)] withRowAnimation:animation];
+    else [self.table deleteSections:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(current, previous - current)] withRowAnimation:animation];
+    [self.table reloadSections:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, MIN(previous, current))] withRowAnimation:UITableViewRowAnimationNone];
+    [self.table endUpdates];
 }
-- (void)clearReview { self.reviewed = NO; _input.token.clear(); _review = Keys::Review(); [self updateControls]; }
+- (void)resetReview {
+    self.reviewed = NO; _input.token.clear(); _review = Keys::Review();
+    _reviewedRequest = CydiaRuntime::Privileged::Request();
+}
+- (void)clearReview { [self resetReview]; [self updateControls]; }
+- (void)beginKeyReplacement {
+    ++self.sourceGeneration; self.loadingSources = NO;
+    _input = Keys::Input(); self.fileName = nil; self.selectedSource = nil;
+    [self resetReview]; self.busy = YES; [self updateControls];
+}
 - (void)acceptBytes:(const std::string &)bytes name:(NSString *)name {
     CydiaRuntime::Privileged::Error error;
-    if (!Keys::CheckPublicKeyPackets(bytes, nullptr, &error)) { [self showMessage:KeyText(@"KEY_IMPORT_PUBLIC_ONLY")]; return; }
-    _input.bytes = bytes; self.fileName = name; [self clearReview];
+    if (!Keys::CheckPublicKeyPackets(bytes, nullptr, &error)) {
+        [self updateControls]; [self showMessage:KeyText(@"KEY_IMPORT_PUBLIC_ONLY")]; return;
+    }
+    _input.bytes = bytes; self.fileName = name; [self resetReview]; [self reloadSources];
 }
 - (void)stageURL:(NSURL *)url {
     if (![self available]) return;
-    NSData *data(BoundedKey(url));
-    if (!data) { [self showMessage:KeyText(@"KEY_IMPORT_PUBLIC_ONLY")]; return; }
-    const std::string bytes(static_cast<const char *>(data.bytes), data.length);
-    [self acceptBytes:bytes name:url.lastPathComponent];
+    [self beginKeyReplacement];
+    const NSUInteger generation(++self.fileGeneration);
+    __weak CydiaKeyringImportController *weakSelf(self);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        @autoreleasepool {
+            NSData *data(BoundedKey(url));
+            const std::string bytes(data ? std::string(static_cast<const char *>(data.bytes), data.length) : std::string());
+            dispatch_async(dispatch_get_main_queue(), ^{
+                CydiaKeyringImportController *self(weakSelf);
+                if (!self || generation != self.fileGeneration) return;
+                self.busy = NO;
+                if (!data) { [self updateControls]; [self showMessage:KeyText(@"KEY_IMPORT_PUBLIC_ONLY")]; }
+                else [self acceptBytes:bytes name:url.lastPathComponent];
+            });
+        }
+    });
 }
 - (void)chooseFile {
     if (![self available]) return;
@@ -205,13 +271,14 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
                 }
                 [picker addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
                 picker.popoverPresentationController.sourceView = self.table; picker.popoverPresentationController.sourceRect = CGRectMake(self.table.bounds.size.width / 2, 40, 1, 1);
-                [self presentViewController:picker animated:YES completion:nil];
+                [self presentImportAlert:picker];
             });
         }
     });
 }
 - (void)readPackage:(NSString *)package path:(NSString *)path {
-    self.busy = YES; [self updateControls];
+    if (![self available]) return;
+    [self beginKeyReplacement];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
             Client::Result result; const BOOL acquired([self.database beginSettingsChange]);
@@ -228,7 +295,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     });
 }
 - (void)reviewOrApply {
-    if (![self available] || !self.selectedSource || _input.bytes.empty()) return;
+    if (![self available] || self.loadingSources || !self.selectedSource || _input.bytes.empty()) return;
     if (self.reviewed) { [self confirmImport]; return; }
     _input.source = CydiaSources::CommitRequest(); _input.source.expected = [self.selectedSource snapshot];
     _input.source.mutation = CydiaSources::Mutation(CydiaSources::EditKind::ReplaceDefinition);
@@ -252,8 +319,8 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
                 if (valid) {
                     _review = review; _input.source = review.source; _input.token = review.token;
                     _reviewedRequest = request; _reviewedRequest.payload = Keys::SerializeInput(_input);
-                } else { [self reloadSources]; self.selectedSource = nil; [self showFailure:result]; }
-                [self updateControls];
+                    [self updateControls];
+                } else { self.selectedSource = nil; [self resetReview]; [self reloadSources]; [self showFailure:result]; }
             });
         }
     });
@@ -264,7 +331,7 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     UIAlertController *alert([UIAlertController alertControllerWithTitle:KeyText(@"KEY_IMPORT") message:[NSString stringWithFormat:@"%@\n\n%@\n%@", KeyText(@"KEY_IMPORT_CONFIRM"), fingerprints, scope] preferredStyle:UIAlertControllerStyleAlert]);
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:KeyText(@"KEY_IMPORT") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self applyImport]; }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentImportAlert:alert];
 }
 - (void)applyImport {
     self.busy = YES; [self updateControls];
@@ -276,18 +343,17 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
                 @finally { [self.database endSettingsChange]; }
             }
             dispatch_async(dispatch_get_main_queue(), ^{
-                self.busy = NO; [self clearReview]; [self reloadSources]; self.selectedSource = nil;
+                self.busy = NO; self.selectedSource = nil; [self resetReview]; [self reloadSources];
                 id<CydiaDelegate, NSObject> delegate([self delegate]);
                 if ([delegate respondsToSelector:@selector(reloadDataWithInvocation:)]) [delegate reloadDataWithInvocation:nil];
                 if (!acquired || !result.succeeded()) [self showFailure:result]; else [self showMessage:KeyText(@"KEY_IMPORT_DONE")];
-                [self updateControls];
             });
         }
     });
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.reviewed ? 3 : 2; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return self.displayedSectionCount; }
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 3 : section == 1 ? MAX(self.sources.count, 1) : _review.fingerprints.size() + 1;
+    return section == 0 ? 3 : section == 1 ? (self.loadingSources ? 1 : MAX(self.sources.count, 1)) : _review.fingerprints.size() + 1;
 }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section {
     return KeyText(section == 0 ? @"KEY_IMPORT" : section == 1 ? @"KEY_IMPORT_SELECT_SOURCE" : @"KEY_IMPORT_FINGERPRINTS");
@@ -318,8 +384,14 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
         cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.settings.key-import.input.%ld", (long)path.row];
     } else if (path.section == 1) {
         cell.accessoryView = nil;
+        if (self.loadingSources) {
+            cell.textLabel.text = UCLocalize("LOADING");
+            UIActivityIndicatorView *spinner([[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray]);
+            spinner.color = cell.textLabel.textColor; [spinner startAnimating]; cell.accessoryView = spinner;
+            return cell;
+        }
         if (self.sources.count == 0) { cell.textLabel.text = KeyText(@"KEY_IMPORT_NO_SOURCES"); return cell; }
-        CydiaSourceDefinition *source(self.sources[path.row]); cell.textLabel.text = KeySourceSummary(source);
+        CydiaSourceDefinition *source(self.sources[path.row]); cell.textLabel.text = self.sourceSummaries[path.row];
         const BOOL editable([self.editableSources containsIndex:path.row]);
         cell.textLabel.enabled = editable;
         if (!editable) cell.detailTextLabel.text = [[NSBundle mainBundle] localizedStringForKey:
@@ -339,8 +411,10 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
     [table deselectRowAtIndexPath:path animated:YES]; if (![self available]) return;
     if (path.section == 0 && path.row == 1) [self chooseFile];
     else if (path.section == 0 && path.row == 2) [self choosePackage];
-    else if (path.section == 1 && self.sources.count != 0 &&
-        CydiaSourceDefinitionCanEdit(self.sources[path.row], CydiaSources::Access::AdvancedSettings)) {
+    // Selecting a displayed source grants no trust. The privileged preview and
+    // import revalidate its complete snapshot and protection policy.
+    else if (path.section == 1 && !self.loadingSources && self.sources.count != 0 &&
+        [self.editableSources containsIndex:path.row]) {
         self.selectedSource = self.sources[path.row]; [self clearReview];
     }
 }
@@ -366,11 +440,29 @@ static bool KeyFields(const std::string &bytes, std::vector<std::string> *fields
         }]];
     }
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentImportAlert:alert];
 }
 - (void)showMessage:(NSString *)message {
     UIAlertController *alert([UIAlertController alertControllerWithTitle:KeyText(@"KEY_IMPORT") message:message preferredStyle:UIAlertControllerStyleAlert]);
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentImportAlert:alert];
+}
+- (void)presentImportAlert:(UIAlertController *)alert {
+    if (self.navigationController.topViewController != self || self.isMovingFromParentViewController || self.isBeingDismissed)
+        return;
+    UIViewController *presented(self.presentedViewController);
+    if (presented != nil) {
+        // File/package input can finish while its picker or prompt dismisses.
+        // Wait for that owned transition, then check this pane again.
+        id<UIViewControllerTransitionCoordinator> transition(presented.transitionCoordinator);
+        if (presented.isBeingDismissed && transition != nil) {
+            __weak CydiaKeyringImportController *weakSelf(self);
+            [transition animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+                if (!context.isCancelled) [weakSelf presentImportAlert:alert];
+            }];
+        }
+        return;
+    }
+    if (self.viewIfLoaded.window != nil) [self presentViewController:alert animated:YES completion:nil];
 }
 @end

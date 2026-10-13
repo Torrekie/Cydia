@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "詳細設定";
+"SOURCE_ADVANCED_UNAVAILABLE" = "詳細オプションは利用できません。「設定」でパッケージマネージャーへのアクセスとソース設定を確認してから、このソースを開き直してください。";
 "SOURCE_CHOOSE_FILE" = "ソースファイルを選択";
 "SOURCE_COMPONENTS" = "コンポーネント（任意）";
 "SOURCE_CONTINUE" = "続ける";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "ファイルと行番号";
 "SOURCE_NEW_FILE" = "新規ソースファイル";
 "SOURCE_NEW_FILE_EXPLANATION" = ".list または .sources で終わる新しいファイル名を入力してください。定義を確認して保存した後にファイルが作成されます。";
-"SOURCE_PROTECTED" = "この配布環境のソースは詳細設定でのみ変更できます。";
+"SOURCE_PROTECTED" = "この配布環境のソースは保護されています。変更するには、このソースの詳細オプションを開いてください。";
+"SOURCE_NO_PROTECTED_SOURCES" = "保護されたソースはありません。";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "ここには、配布環境のソースとして指定されたソースのみが表示されます。選択は「詳細設定 > 配布環境のソース」で変更できます。";
 "SOURCE_PROTECTED_OR_REVIEW" = "保護された配布環境のソースや特定できないものは詳細設定で確認してください。編集にはソースファイルを読み取れる必要があります。";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "ソースを変更する前に、詳細設定で保護された配布環境のソースを確認してください。";
 "SOURCE_RELOAD_REQUIRED" = "ソースファイルが変更されました。ソースを再読み込みして変更内容を再確認してください。";

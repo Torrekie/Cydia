@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "高级设置";
+"SOURCE_ADVANCED_UNAVAILABLE" = "高级选项不可用。请在“设置”中检查软件包管理器访问权限和软件源配置，然后重新打开此软件源。";
 "SOURCE_CHOOSE_FILE" = "选择源文件";
 "SOURCE_COMPONENTS" = "组件（可选）";
 "SOURCE_CONTINUE" = "继续";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "文件及行号";
 "SOURCE_NEW_FILE" = "新建源文件";
 "SOURCE_NEW_FILE_EXPLANATION" = "输入以 .list 或 .sources 结尾的新文件名。只有在确认并保存定义后才会创建文件。";
-"SOURCE_PROTECTED" = "只能在高级设置中更改此发行源。";
+"SOURCE_PROTECTED" = "此发行源受保护。请展开其高级选项以进行更改。";
+"SOURCE_NO_PROTECTED_SOURCES" = "没有受保护的软件源。";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "此处仅显示被标记为发行源的软件源。请在“高级设置 > 发行源”中管理这一选择。";
 "SOURCE_PROTECTED_OR_REVIEW" = "受保护或尚未确认的发行源需要在高级设置中处理。编辑前必须能够读取软件源文件。";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "更改软件源前，请在高级设置中检查受保护的发行源。";
 "SOURCE_RELOAD_REQUIRED" = "源文件已发生变化。请重新载入软件源并再次确认更改。";

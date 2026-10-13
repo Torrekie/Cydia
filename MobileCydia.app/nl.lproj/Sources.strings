@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Geavanceerde instellingen";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Geavanceerde opties zijn niet beschikbaar. Controleer de toegang tot de pakketbeheerder en de bronconfiguratie in Instellingen en open deze bron daarna opnieuw.";
 "SOURCE_CHOOSE_FILE" = "Bronbestand kiezen";
 "SOURCE_COMPONENTS" = "Componenten (optioneel)";
 "SOURCE_CONTINUE" = "Doorgaan";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Bestand en regel";
 "SOURCE_NEW_FILE" = "Nieuw bronbestand";
 "SOURCE_NEW_FILE_EXPLANATION" = "Voer een nieuwe bestandsnaam in die eindigt op .list of .sources. Het bestand wordt pas aangemaakt nadat je de definitie hebt gecontroleerd en opgeslagen.";
-"SOURCE_PROTECTED" = "Deze bron van de pakketdistributie kan alleen in Geavanceerde instellingen worden gewijzigd.";
+"SOURCE_PROTECTED" = "Deze distributiebron is beschermd. Open de geavanceerde opties van deze bron om wijzigingen aan te brengen.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Geen beschermde bronnen.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Hier worden alleen bronnen weergegeven die als distributiebronnen zijn gemarkeerd. Beheer deze selectie via Geavanceerde instellingen > Distributiebronnen.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Beschermde of niet eenduidig geïdentificeerde bronnen van de pakketdistributie vereisen Geavanceerde instellingen. Bronbestanden moeten leesbaar zijn voordat je ze bewerkt.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Controleer beschermde bronnen van de pakketdistributie in Geavanceerde instellingen voordat je bronnen wijzigt.";
 "SOURCE_RELOAD_REQUIRED" = "Het bronbestand is gewijzigd. Laad Bronnen opnieuw en controleer de wijziging nogmaals.";

@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Avancerade inställningar";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Avancerade alternativ är inte tillgängliga. Kontrollera åtkomsten till pakethanteraren och källornas konfiguration i Inställningar och öppna sedan källan igen.";
 "SOURCE_CHOOSE_FILE" = "Välj källfil";
 "SOURCE_COMPONENTS" = "Komponenter (valfritt)";
 "SOURCE_CONTINUE" = "Fortsätt";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Fil och rad";
 "SOURCE_NEW_FILE" = "Ny källfil";
 "SOURCE_NEW_FILE_EXPLANATION" = "Ange ett nytt filnamn som slutar med .list eller .sources. Filen skapas först när du har granskat och sparat definitionen.";
-"SOURCE_PROTECTED" = "Denna distributionskälla kan endast ändras i Avancerade inställningar.";
+"SOURCE_PROTECTED" = "Denna distributionskälla är skyddad. Öppna dess avancerade alternativ för att göra ändringar.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Inga skyddade källor.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Här visas endast källor som har markerats som distributionskällor. Hantera valet under Avancerade inställningar > Distributionskällor.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Skyddade eller oidentifierade källor för paketdistributionen kräver Avancerade inställningar. Källfiler måste vara läsbara innan de redigeras.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Granska skyddade källor för paketdistributionen i Avancerade inställningar innan du ändrar källor.";
 "SOURCE_RELOAD_REQUIRED" = "Källfilen har ändrats. Läs in Källor på nytt och granska ändringen igen.";

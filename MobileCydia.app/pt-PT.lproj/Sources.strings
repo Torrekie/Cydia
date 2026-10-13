@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Definições avançadas";
+"SOURCE_ADVANCED_UNAVAILABLE" = "As opções avançadas não estão disponíveis. Verifique o acesso ao gestor de pacotes e a configuração das origens nas Definições e volte a abrir esta origem.";
 "SOURCE_CHOOSE_FILE" = "Escolher ficheiro de origens";
 "SOURCE_COMPONENTS" = "Componentes (opcionais)";
 "SOURCE_CONTINUE" = "Continuar";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Ficheiro e linha";
 "SOURCE_NEW_FILE" = "Novo ficheiro de origens";
 "SOURCE_NEW_FILE_EXPLANATION" = "Introduza um novo nome de ficheiro terminado em .list ou .sources. O ficheiro só será criado depois de verificar e guardar a definição.";
-"SOURCE_PROTECTED" = "Esta origem da distribuição de pacotes só pode ser alterada nas definições avançadas.";
+"SOURCE_PROTECTED" = "Esta origem da distribuição está protegida. Abra as suas opções avançadas para fazer alterações.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Não existem origens protegidas.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Aqui são apresentadas apenas as origens marcadas como origens da distribuição. Faça a gestão desta seleção em Definições avançadas > Origens da distribuição.";
 "SOURCE_PROTECTED_OR_REVIEW" = "As origens protegidas ou não identificadas da distribuição de pacotes requerem as definições avançadas. Os ficheiros de origens têm de estar legíveis antes de serem editados.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Verifique as origens protegidas da distribuição de pacotes nas definições avançadas antes de alterar as origens.";
 "SOURCE_RELOAD_REQUIRED" = "O ficheiro de origens foi alterado. Volte a carregar as origens e verifique novamente a alteração.";

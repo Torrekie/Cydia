@@ -74,9 +74,18 @@ static NSString *SecurityValue(Database *database) {
 
 @implementation CydiaRepositorySecurityController
 - (instancetype)initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) _database = database;
+    if ((self = [super init]) != nil) {
+        _database = database;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(runtimeStatusDidChange:)
+            name:CydiaRuntimeProviderStatusDidChangeNotification object:database];
+    }
     return self;
 }
+- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+- (void)runtimeStatusDidChange:(NSNotification *)notification {
+    if (self.isViewLoaded) [self.table reloadData];
+}
+- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self.table reloadData]; }
 
 - (void)loadView {
     self.table = SettingsTable(self);
@@ -143,6 +152,8 @@ static NSString *SecurityValue(Database *database) {
     }];
 }
 - (void)showMessage:(NSString *)message {
+    if (self.navigationController.topViewController != self || self.viewIfLoaded.window == nil ||
+        self.presentedViewController != nil || self.isMovingFromParentViewController || self.isBeingDismissed) return;
     UIAlertController *alert([UIAlertController alertControllerWithTitle:UCLocalize("SETTINGS") message:message preferredStyle:UIAlertControllerStyleAlert]);
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -156,8 +167,16 @@ static NSString *SecurityValue(Database *database) {
 
 @implementation CydiaSettingsController
 - (instancetype)initWithDatabase:(Database *)database {
-    if ((self = [super init]) != nil) _database = database;
+    if ((self = [super init]) != nil) {
+        _database = database;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(runtimeStatusDidChange:)
+            name:CydiaRuntimeProviderStatusDidChangeNotification object:database];
+    }
     return self;
+}
+- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+- (void)runtimeStatusDidChange:(NSNotification *)notification {
+    if (self.isViewLoaded) [self.table reloadData];
 }
 - (NSURL *)navigationURL { return [NSURL URLWithString:@"cydia://home/settings"]; }
 - (void)loadView { self.table = SettingsTable(self); self.view = self.table; }

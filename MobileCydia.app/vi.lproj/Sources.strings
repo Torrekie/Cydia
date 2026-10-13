@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 "SOURCE_ADVANCED_SETTINGS" = "Cài đặt nâng cao";
+"SOURCE_ADVANCED_UNAVAILABLE" = "Không thể sử dụng các tùy chọn nâng cao. Kiểm tra quyền truy cập trình quản lý gói và cấu hình nguồn trong Thiết lập, rồi mở lại nguồn này.";
 "SOURCE_CHOOSE_FILE" = "Chọn tệp nguồn";
 "SOURCE_COMPONENTS" = "Thành phần (không bắt buộc)";
 "SOURCE_CONTINUE" = "Tiếp tục";
@@ -23,7 +24,9 @@
 "SOURCE_LOCATION" = "Tệp và số dòng";
 "SOURCE_NEW_FILE" = "Tệp nguồn mới";
 "SOURCE_NEW_FILE_EXPLANATION" = "Nhập tên tệp mới kết thúc bằng .list hoặc .sources. Tệp chỉ được tạo sau khi bạn xem xét và lưu định nghĩa.";
-"SOURCE_PROTECTED" = "Chỉ có thể thay đổi nguồn của hệ thống phân phối gói này trong Cài đặt nâng cao.";
+"SOURCE_PROTECTED" = "Nguồn của hệ thống phân phối gói này được bảo vệ. Mở các tùy chọn nâng cao của nguồn này để thay đổi.";
+"SOURCE_NO_PROTECTED_SOURCES" = "Không có nguồn được bảo vệ.";
+"SOURCE_PROTECTED_SETTINGS_HELP" = "Chỉ những nguồn được đánh dấu là nguồn của hệ thống phân phối gói được hiển thị ở đây. Quản lý lựa chọn này trong Cài đặt nâng cao > Nguồn của hệ thống phân phối gói.";
 "SOURCE_PROTECTED_OR_REVIEW" = "Nguồn của hệ thống phân phối gói được bảo vệ hoặc chưa xác định cần được xem xét trong Cài đặt nâng cao. Phải đọc được tệp nguồn trước khi sửa.";
 "SOURCE_PROTECTION_REVIEW_REQUIRED" = "Xem xét các nguồn được bảo vệ của hệ thống phân phối gói trong Cài đặt nâng cao trước khi thay đổi nguồn.";
 "SOURCE_RELOAD_REQUIRED" = "Tệp nguồn đã thay đổi. Hãy tải lại Nguồn và xem xét thay đổi một lần nữa.";

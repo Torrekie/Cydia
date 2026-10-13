@@ -4,7 +4,9 @@
 #import "Cydia/RuntimeAccessController.h"
 #import "Cydia/UIColor+Cydia.h"
 #include "Cydia/AptRuntime.hpp"
+#include "Cydia/PackageDatabasePaths.hpp"
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/SourceDocumentCommit.hpp"
 #include <cerrno>
 #include <string>
 #include <vector>
@@ -137,7 +139,12 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     if (path.section == 0) {
         cell.textLabel.text = AccessText(path.row == 0 ? @"BOOTSTRAP_ACCESS_DATABASE" : @"BOOTSTRAP_ACCESS_STATUS");
-        cell.detailTextLabel.text = path.row == 0 ? AccessString(review_.admin) : AccessText(StatusKey(review_.status));
+        // A retained database location is useful while rereviewing, but an
+        // earlier policy must not look freshly verified during or after a
+        // failed access operation.
+        cell.detailTextLabel.text = path.row == 0 ? AccessString(review_.admin) :
+            AccessText(busy_ ? @"BOOTSTRAP_ACCESS_REVIEWING" : reviewed_ ?
+                StatusKey(review_.status) : @"BOOTSTRAP_ACCESS_FAILED");
     } else if (path.section == 1) cell.textLabel.text = AccessString(review_.descriptions);
     else if (path.section == 2) {
         const BOOL check([self isCheckRow:path.row]);
@@ -208,6 +215,13 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         @autoreleasepool {
             namespace Client = CydiaRuntime::PrivilegedClient;
+            CydiaSources::ProtectedFileSnapshot savedApproval;
+            const BOOL savedApprovalReadable(CydiaSources::ReadProtectedFile(
+                CydiaRuntime::PackageDatabasePaths::Current().CydiaStateDirectory() + "/admin-access.conf", &savedApproval));
+            // A strict database can retain an inactive approval. Hide revoke
+            // only after a trusted read confirms there is nothing to clear;
+            // an unreadable policy must still permit recovery clearing.
+            const BOOL canRevoke(!savedApprovalReadable || !savedApproval.bytes.empty());
             CydiaRuntime::Privileged::Request request;
             Client::Result result = {}; Review review;
             const BOOL acquired([database_ beginSettingsChange]);
@@ -220,11 +234,9 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
             }
             const BOOL valid(acquired && result.succeeded() && ParseReview(result.output, &review));
             dispatch_async(dispatch_get_main_queue(), ^{
-                busy_ = NO; reviewed_ = valid;
+                busy_ = NO; reviewed_ = valid; revocable_ = canRevoke;
                 if (valid) {
-                    // Strict permissions do not clear an inactive saved approval.
-                    // Keep explicit revocation available regardless of applicability.
-                    review_ = review; revocable_ = YES;
+                    review_ = review;
                     checkAvailable_ = review.status == "strict" || review.status == "approved";
                     reviewedRequest_ = request; reviewedRequest_.payload = review.token;
                     message_ = outcome;
@@ -232,10 +244,10 @@ std::string FailureDetails(const char *command, const CydiaRuntime::PrivilegedCl
                     message_ = AccessText(!acquired ? @"BOOTSTRAP_ACCESS_BUSY" : result.launchError == ETIMEDOUT ? @"BOOTSTRAP_ACCESS_TIMEOUT" : @"BOOTSTRAP_ACCESS_FAILED");
                     if (acquired) details_ = FailureDetails("--cydia-admin-access-review", result) +
                         (result.succeeded() ? "\nInvalid access review response.\n" : "");
-                    // Revocation does not depend on a working database or a
-                    // prior successful review. It is safe and idempotent when
-                    // no approval exists. Never display an old approved status.
-                    review_ = Review(); revocable_ = YES;
+                    // A failed database review does not establish whether a
+                    // saved approval exists. Use only the trusted policy read
+                    // above for revoke visibility and discard any old status.
+                    review_ = Review();
                     reviewedRequest_ = CydiaRuntime::Privileged::Request();
                     if (outcome.length) message_ = [outcome stringByAppendingFormat:@"\n\n%@", message_];
                 }
