@@ -24,7 +24,7 @@ std::string TriggerNativeGenerationIdentity(const NativeDpkgAuthority &,
 // Readiness checks declared configuration and actual loader closures only: it
 // neither queries dpkg nor needs a frontend lock, and is not approval to run.
 bool NativeTriggerEffectsReady(const CydiaRuntime::PackageDatabasePaths &, const BrokerEnvironment &,
-    std::string *error, const std::function<bool()> &cancelled = {});
+    std::string *error, const std::function<bool()> &cancelled = {}, bool *conditionalReviewSupported = nullptr);
 
 // Both capture routes require the real direct parent to hold lock-frontend.
 // Every bounded native query rechecks its native declaration and closure. Raw

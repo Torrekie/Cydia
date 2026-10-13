@@ -79,6 +79,13 @@ public:
     std::function<bool()> Cancellation(const std::function<bool()> &outer) {
         return [this, outer] { return cancelled.load() || disconnected.load() || (outer && outer()); };
     }
+    std::function<bool()> CaptureCancellation(const std::function<bool()> &outer) {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(30000);
+        return [this, outer, end] {
+            return std::chrono::steady_clock::now() >= end || cancelled.load() || disconnected.load() ||
+                (outer && outer());
+        };
+    }
     bool Parent(TransactionLeaseContext *context, std::string *error) {
         P::ApplicationProcessIdentity app; uid_t uid = 0; P::Error ignored; pid_t owner = 0;
         struct stat lock;
@@ -122,7 +129,7 @@ public:
         ComponentClosureEvidence *proof, std::string *error, const std::function<bool()> &cancel) {
         return CaptureNativeDpkgClosure(native, path, files, proof, error, cancel) && components.AuthorizeLaunch(*proof, error);
     }
-    bool FrozenSnapshot(std::string *token, std::string *error) {
+    bool FrozenSnapshot(std::string *token, std::string *error, const std::function<bool()> &cancel = {}) {
         // Configuration and component evidence is independently guarded above.
         // Re-reading registration/source/keyring policy here would wrongly
         // invalidate an approved package that legitimately replaces those files.
@@ -130,7 +137,8 @@ public:
         environment.dpkgAdmin = options.selected.environment.dpkgAdmin;
         environment.extendedStates = options.selected.environment.extendedStates;
         std::vector<P::Evidence> inputs; P::Error ignored;
-        if (!P::CaptureSnapshotInputs(environment, P::SnapshotScope::PackageState, &inputs, &ignored))
+        if (!Active(cancel, error) || !P::CaptureSnapshotInputs(environment, P::SnapshotScope::PackageState,
+            &inputs, &ignored, P::CaptureEvidence, P::CaptureSharedStateEvidence, P::CaptureSourceEvidence, cancel))
             return Fail(error, "provider_dpkg_state_unavailable");
         for (const auto &input : inputs) {
             if (input.path == environment.dpkgAdmin + "/updates")
@@ -140,8 +148,11 @@ public:
             if (!options.reviewedEffects && input.path == environment.dpkgAdmin + "/triggers/Unincorp" && !input.bytes.empty())
                 return Fail(error, "provider_dpkg_trigger_state_unsettled");
         }
-        if (!P::RecheckEvidence(inputs, &ignored) || !P::RecheckEvidence(native.configurationEvidence, &ignored))
-            return Fail(error, "provider_dpkg_state_changed");
+        for (const auto *group : {&inputs, &native.configurationEvidence})
+            for (const auto &input : *group)
+                if (!Active(cancel, error) || !P::RecheckEvidence({input}, &ignored))
+                    return Fail(error, "provider_dpkg_state_changed");
+        if (!Active(cancel, error)) return false;
         std::string bytes = "CYDIA-LEASE-STATE-1" + P::SerializeFields({identity.operatingIdentity, native.configurationIdentity});
         for (const auto &input : inputs) bytes += P::SerializeSnapshotEvidence(input);
         *token = Hash(bytes);
@@ -162,31 +173,33 @@ public:
             return Fail(error, "provider_dpkg_state_query_failed");
         return true;
     }
-    TriggerStateSnapshot SnapshotReader() {
-        return [this](std::string *token, std::string *reason) {
+    TriggerStateSnapshot SnapshotReader(const std::function<bool()> &cancel = {}) {
+        return [this, cancel](std::string *token, std::string *reason) {
             std::string bytes;
-            if (!FrozenSnapshot(&bytes, reason)) return false;
+            if (!FrozenSnapshot(&bytes, reason, cancel)) return false;
             *token = bytes == initialState ? options.review.binding.packageStateIdentity : "lease:" + bytes;
             return true;
         };
     }
     bool CaptureRestoration(const DpkgState &state, const TriggerEffectCheckpoint &effect,
         std::shared_ptr<const ProtectedRestorationCheckpoint> *point, std::string *error,
-        const std::function<bool()> &cancel) {
+        const std::function<bool()> &outerCancel) {
+        const auto cancel = CaptureCancellation(outerCancel);
         if (!point || !protectedDeconfiguration) return Fail(error, "provider_restoration_capture_unavailable");
         TriggerCaptureLock lock; lock.parent = getppid();
         return ProtectedRestorationCheckpoint::Capture(options.selected.environment, state, lock,
-            protectedDeconfiguration->allowances, point, error, cancel, SnapshotReader()) &&
+            protectedDeconfiguration->allowances, point, error, cancel, SnapshotReader(cancel)) &&
             (*point)->observation().identity == effect.identity && (*point)->trigger().identity == effect.identity;
     }
     bool CaptureContext(const std::set<std::uint64_t> &unpacked, TransactionLeaseContext *context,
-        DpkgState *state, std::string *error, const std::function<bool()> &cancel, TriggerEffectCheckpoint *effect = nullptr) {
+        DpkgState *state, std::string *error, const std::function<bool()> &outerCancel, TriggerEffectCheckpoint *effect = nullptr) {
+        const auto cancel = CaptureCancellation(outerCancel);
         if (!context || !state) return Fail(error, "provider_lease_input_invalid");
         *context = TransactionLeaseContext(); *state = DpkgState();
         if ((cancel && cancel()) || !Parent(context, error) || !ComponentFiles(unpacked, &context->components, error, cancel) ||
             !components.Observe(unpacked, context->components, error) || !archives.Capture(&context->stagedArchives, error, cancel)) return false;
         std::string before, after, nativeArchitecture, foreignArchitectures, records;
-        if (!FrozenSnapshot(&before, error)) return false;
+        if (!FrozenSnapshot(&before, error, cancel)) return false;
         const auto &environment = options.selected.environment;
         std::vector<std::string> arguments{"--root=" + environment.dpkgRoot, "--admindir=" + environment.dpkgAdmin, "--print-architecture"};
         if (!Query(environment.dpkg, arguments, 32768, context->components, &nativeArchitecture, error, cancel)) return false;
@@ -194,7 +207,7 @@ public:
         if (!Query(environment.dpkg, arguments, 32768, context->components, &foreignArchitectures, error, cancel)) return false;
         arguments = {"--admindir=" + environment.dpkgAdmin, "--showformat=" + std::string(DpkgStateQueryFormat()), "--show", "*"};
         if (!Query(environment.dpkgQuery, arguments, 32 * 1024 * 1024, context->components, &records, error, cancel) ||
-            !FrozenSnapshot(&after, error) || before != after || !Parent(context, error)) return false;
+            !FrozenSnapshot(&after, error, cancel) || before != after || !Parent(context, error)) return false;
         std::vector<InstalledComponentEvidence> finalFiles;
         if (!ComponentFiles(unpacked, &finalFiles, error, cancel) || !components.Observe(unpacked, finalFiles, error) ||
             !archives.Capture(&context->stagedArchives, error, cancel)) return false;
@@ -209,7 +222,7 @@ public:
             return Fail(error, "provider_architectures_changed");
         if (options.reviewedEffects) {
             TriggerCaptureLock lock; lock.parent = getppid(); TriggerEffectCheckpoint checkpoint;
-            const auto snapshot = SnapshotReader();
+            const auto snapshot = SnapshotReader(cancel);
             if (!CaptureTriggerEffectCheckpoint(options.selected.environment, *state, lock, &checkpoint, error, cancel, snapshot)) return false;
             if (effect) *effect = std::move(checkpoint);
         }
@@ -289,7 +302,7 @@ public:
         P::Error ignored;
         const auto stable = [&] {
             std::string current; ComponentClosureEvidence closure;
-            return !cancel() && Parent(nullptr, error) && FrozenSnapshot(&current, error) &&
+            return !cancel() && Parent(nullptr, error) && FrozenSnapshot(&current, error, cancel) &&
                 (current == initialState ? options.review.binding.packageStateIdentity : "lease:" + current) == point.packages.packageStateIdentity &&
                 P::RecheckEvidence(point.metadata.files, &ignored) && P::RecheckEvidence(before.scripts().files, &ignored) &&
                 RecheckProtectedTriggerEvidence(options.selected.environment, point.registry, error, cancel) &&
@@ -337,7 +350,8 @@ public:
         std::size_t prefix, int receivedStatus,
         std::shared_ptr<const ProtectedRestorationCheckpoint> *before,
         std::shared_ptr<const ProtectedUnpackAdmission> *unpack, ConditionalDeconfigurationAdmission *admission,
-        PrimaryReadinessResult *readiness, std::string *error, const std::function<bool()> &cancel) {
+        PrimaryReadinessResult *readiness, std::string *error, const std::function<bool()> &outerCancel) {
+        const auto cancel = CaptureCancellation(outerCancel);
         if (!protectedDeconfiguration || !before || !unpack || !admission || batch.actions.size() != 1 ||
             !restoration.active() || checkpoint.identity != restoration.stateIdentity() ||
             checkpoint.identity != effects.stateIdentity() ||
@@ -348,7 +362,7 @@ public:
         if (batch.action == ExecutionAction::Unpack) {
             if (!ProtectedUnpackAdmission::Capture(options.selected, native, context.components, components,
                 archives, *protectedDeconfiguration, restoration, **before, batch, arguments, receivedStatus, lock, unpack,
-                error, cancel, SnapshotReader())) return false;
+                error, cancel, SnapshotReader(cancel))) return false;
             if ((*unpack)->readiness() != UnpackAdmissionReadiness::FactsVerified ||
                 (*unpack)->checkpoint().identity != checkpoint.identity ||
                 !(*unpack)->singleArchiveNativeChecksReady())
@@ -377,16 +391,20 @@ public:
         // This final physical check is after all channel/policy waits and both
         // ledger reservations, immediately before the existing native executor.
         if (*unpack && !(*unpack)->Revalidate(options.selected, native, context.components, components,
-            archives, restoration, **before, arguments, lock, error, cancel, SnapshotReader())) return false;
+            archives, restoration, **before, arguments, lock, error, cancel, SnapshotReader(cancel))) return false;
         NativeEffectPolicy::Role role = NativeEffectPolicy::Role::Unpack;
         if (batch.action == ExecutionAction::Configure) role = NativeEffectPolicy::Role::Configure;
         else if (batch.action == ExecutionAction::Remove) role = NativeEffectPolicy::Role::Remove;
         else if (batch.action == ExecutionAction::Purge) role = NativeEffectPolicy::Role::Purge;
         std::shared_ptr<const ProtectedRestorationCheckpoint> finalBefore;
-        return MatchConditionalLaunch(arguments, prefix, role, context.components, error, cancel) &&
+        if (!(MatchConditionalLaunch(arguments, prefix, role, context.components, error, cancel) &&
             CaptureRestoration(state, checkpoint, &finalBefore, error, cancel) &&
             SameRestorationCheckpoint(finalBefore->observation(), (*before)->observation()) &&
-            Parent(nullptr, error) && Active(cancel, error);
+            Parent(nullptr, error) && Active(cancel, error))) return false;
+        // Protected capture and policy callbacks above may take time. Seal all
+        // private copies after them; no later capture callback precedes spawn.
+        std::vector<StagedArchiveEvidence> sealed;
+        return archives.Capture(&sealed, error, cancel);
     }
     bool SettleConditionalPrimary(const AuthorizedExecution &batch, const ParentExecutionReply &reply,
         const DpkgState &state, const DpkgState &afterState, const TriggerEffectCheckpoint &afterEffects,
@@ -583,13 +601,14 @@ bool TransactionOwner::Begin(std::string *error, const std::function<bool()> &ca
             observed != approved)
             return s.Stop(error, "provider_deconfiguration_review_changed");
         if (!s.Parent(nullptr, error) || !s.Active(cancel, error)) return false;
+        if (captured->allowances.allowances.empty())
+            return s.Stop(error, "provider_deconfiguration_empty_pool");
         s.protectedDeconfiguration = std::move(captured);
         s.authorizedPolicy.conditionalDeconfiguration = std::shared_ptr<const DeconfigurationAllowanceSet>(
             s.protectedDeconfiguration, &s.protectedDeconfiguration->allowances);
-        // Conditional mutation remains unavailable until the complete native
-        // pre-child, restoration and state/effect settlement route is admitted.
-        // No captured approval or runtime readiness switch grants permission.
-        return s.Stop(error, "provider_deconfiguration_execution_unavailable");
+        // This reconstructed approval selects the conditional owner route.
+        // Every actual child still needs fresh native policy/effect admission
+        // and protected restoration settlement; no DTO grants a launch.
     }
     CydiaSources::ProtectedFileSnapshot baseline;
     if (!CydiaSources::ReadSharedStateFile(environment.extendedStates, &baseline) || baseline.bytes != o.expectedExtendedState)

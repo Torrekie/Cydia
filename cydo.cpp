@@ -763,9 +763,12 @@ int Dispatch(const CydiaRuntime::PackageDatabasePaths &paths, pid_t parent, int 
         if (providerEffects) {
             std::string reason, output; bool captured = false;
             if (argc != 2) return EX_DATAERR;
-            if (command == "--cydia-provider-effect-ready")
-                captured = request.payload.empty() && Provider::NativeTriggerEffectsReady(paths, brokerEnvironment, &reason);
-            else if (command == "--cydia-provider-state-effects") {
+            if (command == "--cydia-provider-effect-ready") {
+                bool conditionalReviewSupported = false;
+                captured = request.payload.empty() && Provider::NativeTriggerEffectsReady(paths, brokerEnvironment, &reason,
+                    {}, &conditionalReviewSupported);
+                if (captured && conditionalReviewSupported) output = "CYDIA-CONDITIONAL-REVIEW-1\n";
+            } else if (command == "--cydia-provider-state-effects") {
                 Provider::DpkgState state;
                 captured = request.payload.empty() && Provider::CaptureEffectAwareDpkgState(paths, brokerEnvironment, &state, &reason) &&
                     Provider::EncodeBrokerState(state, &output);

@@ -133,8 +133,9 @@ authorize inline processing, implicit removal, or deconfiguration.
 Support alone does not select this mode. Legacy capture still refuses an
 unresolved deferred journal and retains its explicit complete trigger batches.
 An approved finite-effects transaction cannot downgrade to the legacy executor.
-Automatic deconfiguration and trigger-only transactions without primary
-operations remain unsupported.
+Trigger-only transactions without primary operations remain unsupported.
+Conditional deconfiguration requires a supported protected native policy record,
+an immutable paired approval and the bounded per-child route described below.
 
 The Cydia library retains native installed `Config-Version` and raw disk status
 separately from the read-only query view, and can capture protected `prerm` and
@@ -157,9 +158,11 @@ virtual providers, incoming self dependencies and same-child deconfiguration
 queues distinct. These library facts are not an execution route: automatic
 deconfiguration requires immutable native approval, locked reconstruction,
 complete per-batch effect admission and restoration-aware settlement. The
-transaction owner now contains those conditional gates, including exact primary
-dependency checks and restoration-aware trigger scheduling. Its Begin guard
-and ordinary capture selector remain closed pending connected execution acceptance.
+transaction owner contains those conditional gates, including exact primary
+dependency checks and restoration-aware trigger scheduling. A protected startup
+marker selects review capture only for the current native executor and supported
+Unpack profile; it cannot authorize execution. An empty allowance pool retains
+ordinary finite-trigger execution and batching.
 
 Control capture also retains the original record and native dependency-field
 order. Index records, archive controls and installed status each keep their own
@@ -211,16 +214,17 @@ the review digest; legacy v2 framing and digests remain readable when no
 deconfiguration approval is supplied. The authenticated service checks the
 independently resolved methods before binding the session. The retained owner
 reconstructs one protected checkpoint and compares both approvals before archive
-staging. Native presentation, complete pre-child admission and restoration-aware
-settlement remain prerequisites to activation; a paired Begin currently refuses
-execution after reconstruction and this capture route advertises no capability.
+staging. A nonempty matched pair selects conditional owner settlement; an empty
+paired Begin is refused because the broker uses ordinary trigger approval in
+that case. Every actual launch still requires complete fresh native admission,
+and the capture route advertises no provider execution capability.
 
 The optional native confirmation retains that exact shared bundle, displays
 old installed generations, causes and existing Configure/Remove/Purge endpoints,
 and binds every displayed approval byte to its presentation identity. Its two
-guidance labels cover all 21 locales. The internal capture selector is unset in
-ordinary sessions until complete parent gates exist; no user setting or provider
-boolean can activate it. A paired Begin also cannot fall back to legacy execution.
+guidance labels cover all 21 locales. The internal capture selector is installed
+only after independently protected native routing support; no user setting or
+provider boolean can activate it. A paired Begin cannot fall back to legacy execution.
 
 An opaque pre-unpack capture checks the actual retained private archive operands,
 fresh native state, selected effective policy, ordered Conflicts/Breaks/Pre-Depends
@@ -246,8 +250,19 @@ while genuinely forgotten records remain absent. Conditional owner settlement
 checks complete before/after observations against its private ledger history,
 retains real HalfConfigured and Unpacked phases, and publishes debt and trigger
 changes only after both checks pass. Drain/Defer/Refuse decisions, trigger
-quiescence and the existing final state compare-and-swap are wired behind the
-closed Begin guard; pure lifecycle fixtures do not establish execution acceptance.
+quiescence and the existing final state compare-and-swap are connected to the
+owner. Connected disposable native-child fixtures exercise that call chain;
+their explicitly labelled policy/loader doubles do not establish real
+distribution or Darwin declaration acceptance.
+
+The conditional route admits one retained archive per Unpack child and one
+explicit Configure/Remove/Purge target. It does not split or retry an already
+authorized native batch. Unmodeled multiarchive list continuity, dependency
+cycle breaking, implicit removal and unsupported effective native settings
+request a new review before that child. All capture callbacks share bounded
+cancellation, while actual started children are always awaited and reaped.
+The owner seals the complete retained archive store after its final native
+policy and restoration callbacks, immediately before launch.
 
 Internal transaction-channel version three can bind a protected conffile policy
 to each actual child before spawn. The parent retains the parser's exact option
@@ -844,16 +859,17 @@ Current limits are explicit:
 - Independent archive provenance supports ordinary flat and suite/component
   indexes; custom `Acquire::IndexTargets` and alternate list naming are unsupported.
 - Legacy explicit trigger batches must enumerate the complete fresh pending set
-  and retain `--no-triggers`; automatic deconfiguration remains
-  unsupported. This is a bounded adapter contract, not full implicit trigger parity.
+  and retain `--no-triggers`; automatic deconfiguration requires the separate
+  protected paired route. This is a bounded adapter contract, not full implicit trigger parity.
   The broker rejects effects it cannot independently establish; the protocol's
   action enum and visible review rows are not a claim of complete dpkg coverage.
-- Before unpack, the parent refuses an out-of-sync coinstalled
+- Without an independently rebuilt paired approval, the parent refuses an out-of-sync coinstalled
   `Multi-Arch: same` sibling that dpkg would implicitly deconfigure, even without
   `--auto-deconfigure`. Updating both architectures in one batch does not hide
   that intermediate effect. Single instances, unrelated foreign packages and
   dpkg-equivalent synchronized versions remain supported. Full sibling upgrades
-  need independently approved causes and exact restoration endpoints.
+  require independently approved causes and exact restoration endpoints through
+  the bounded conditional route; unmodeled native batching remains unsupported.
 - Active native components can succeed only through retained helper authority
   and explicitly declared binary generations with the same immutable native
   configuration graph. Missing native declarations retain restricted execution;

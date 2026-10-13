@@ -141,6 +141,23 @@ void Run(unsigned variant) {
     const auto &paths = CydiaRuntime::PackageDatabasePaths::Current();
     Require(A::NativeTriggerEffectsReady(paths, fixture.selected, &error), error.c_str());
     Require(closures >= 2 && Read(fixture.calls).empty(), "startup checks actual closures without native query");
+    for (unsigned mode = 0; mode != 8; ++mode) {
+        authority.effectRecordState = A::NativeEffectRecordState::Parsed;
+        A::NativeEffectPolicy::Record record; record.semanticProfile = "dpkg-1.23.7-effects-1";
+        record.executorPath = fixture.selected.environment.dpkg;
+        record.executorSHA256 = *authority.executorGenerations.at(record.executorPath).begin();
+        if (mode == 1) authority.effectRecordState = A::NativeEffectRecordState::Missing;
+        if (mode == 2) authority.effectRecordState = A::NativeEffectRecordState::Invalid;
+        if (mode == 3) record.semanticProfile = "unknown-profile";
+        if (mode == 4) record.executorSHA256 = Hash("future executor");
+        if (mode == 5) record.executorPath = fixture.selected.environment.dpkgQuery;
+        if (mode == 6) record.role = A::NativeEffectPolicy::Role::Configure;
+        if (mode == 7) record.unsupportedSettings = "opaque assertion";
+        authority.effectRecords = {record}; bool supported = true;
+        Require(A::NativeTriggerEffectsReady(paths, fixture.selected, &error, {}, &supported) && supported == (mode == 0) &&
+            Read(fixture.calls).empty(), "conditional capture routing requires protected current supported unpack records and performs no query");
+    }
+    authority.effectRecordState = A::NativeEffectRecordState::Missing; authority.effectRecords.clear();
     std::vector<A::InstalledComponentEvidence> files;
     for (const auto &path : authority.componentPaths) {
         A::InstalledComponentEvidence file;

@@ -353,6 +353,14 @@ bool Broker::CaptureEffects(const ReviewedTransaction &review, std::shared_ptr<c
                 if (error) *error = code;
                 return value.Fail(code.c_str());
             }
+            if (captured->deconfiguration.allowances.empty()) {
+                // The same protected checkpoint proved there are no optional
+                // deconfigurations. Preserve ordinary trigger batching and
+                // settlement instead of attaching a conditional execution mode.
+                value.capturedDeconfigurationBytes.clear();
+                *effects = std::shared_ptr<const TriggerEffectEnvelope>(captured, &captured->triggers);
+                return true;
+            }
             value.capturedDeconfiguration = captured;
             // Alias the trigger member of this exact capture object. Do not
             // separately capture or copy a pool into the paired approval.

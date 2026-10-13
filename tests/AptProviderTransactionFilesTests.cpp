@@ -337,12 +337,12 @@ void OwnerChild(Fixture &fixture, const P::TransactionOwnerOptions &provided, un
         const bool accepted = owner.Begin(&error, mode == 14 ? std::function<bool()>([] { return true; }) : std::function<bool()>());
         Require(!accepted && executions == 0 && notifications == 0 && effectScopes == 0 &&
             !owner.mutationStarted() && !owner.complete(), "conditional Begin cannot start a primary or effect child");
-        if (mode == 9) Require(error == "provider_deconfiguration_execution_unavailable",
-            "independent locked paired reconstruction succeeds but full execution gates remain unavailable");
+        if (mode == 9) Require(error == "provider_deconfiguration_empty_pool",
+            "an empty paired transport cannot replace the ordinary trigger execution route");
         if (mode == 10 || mode == 11) Require(error == "provider_deconfiguration_review_changed",
             "asserted allowance identity or method identity cannot replace the independently reconstructed review");
-        if (mode == 12 || mode == 13) Require(!error.empty() && error != "provider_deconfiguration_execution_unavailable",
-            "changed index or missing lock refuses before a matched approval can reach the held execution gate");
+        if (mode == 12 || mode == 13) Require(!error.empty() && error != "provider_deconfiguration_empty_pool",
+            "changed index or missing lock refuses before paired reconstruction can finish");
         if (mode == 14) Require(error == "provider_cancelled", "cancelled conditional Begin cannot capture or stage");
         Require(std::filesystem::is_empty(fixture.root + "/private"), "conditional rejection precedes any retained archive staging");
         Require(owner.Close(&error), "refused conditional owner closes without a live child");

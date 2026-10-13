@@ -216,6 +216,9 @@ def main():
         "Cydia/AptProviderRestorationDebt.cpp"], "cydia-provider-unpack-admission", extra_link_flags=["-lz"],
         extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1"])
     # The admission driver also retains actual restoration captures.
+    compile_driver(["tests/AptProviderConditionalOwnerTests.cpp"] + transaction_owner_sources + [
+        "Cydia/AptProviderTransactionChannel.cpp"], "cydia-provider-conditional-owner", extra_link_flags=["-lz"],
+        extra_compile_flags=["-DCYDIA_TRANSACTION_OWNER_TESTING=1"])
     compile_driver(["tests/AptProviderNativeDpkgAuthorityTests.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp",
         "Cydia/AptRecoveryDependencyInspector.cpp", "Cydia/AptRecoveryMachO.cpp", "Cydia/RepositorySecurityPolicy.cpp",
         "Cydia/ExtendedState.cpp", "Cydia/PrivilegedRuntime.cpp", "Cydia/PackageDatabasePaths.cpp",

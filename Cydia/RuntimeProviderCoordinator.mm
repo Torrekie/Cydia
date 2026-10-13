@@ -13,6 +13,7 @@
 #include "Cydia/PrivilegedClient.h"
 #include "Cydia/TransactionReview.h"
 #include "Cydia/PackageDatabasePaths.hpp"
+#include <algorithm>
 #include <cstdlib>
 
 namespace CydiaAPT {
@@ -63,10 +64,19 @@ RemoteCandidate StartCandidate(AcquireStatus &progress, const RuntimeDescriptor 
             P::BrokerRequestPayload(broker.authority, "", &ready.payload);
         // Support is optional. Select it only after the native protected graph
         // has independently passed; an installed declaration alone is not readiness.
-        hello.finiteTriggerEffects = wrapped && Client::Run(runtime.privilegedHelperPath,
-            "--cydia-provider-effect-ready", ready, 65536, 4000).succeeded();
+        const auto nativeReady = wrapped ? Client::Run(runtime.privilegedHelperPath,
+            "--cydia-provider-effect-ready", ready, 65536, 4000) : Client::Result();
+        hello.finiteTriggerEffects = wrapped && nativeReady.succeeded();
         if (hello.finiteTriggerEffects) hello.requiredCapabilities |= P::FiniteTriggerEffects;
         broker.finiteTriggerEffects = hello.finiteTriggerEffects;
+        if (hello.finiteTriggerEffects && nativeReady.output == "CYDIA-CONDITIONAL-REVIEW-1\n")
+            broker.deconfigurationReadiness = [](const P::ReviewedTransaction &review, std::string *) {
+                // Protected startup evidence selects capture, never mutation.
+                // Capture and Begin rebuild authority under the real lock; all
+                // final per-child policy/effect gates remain mandatory.
+                return std::any_of(review.execution.actions.begin(), review.execution.actions.end(),
+                    [](const P::ReviewedAction &action) { return action.action == P::ExecutionAction::Unpack; });
+            };
     }
     const std::weak_ptr<SessionContext> weak(result.context);
     broker.archives = [weak](const P::ReviewedTransaction &, const std::vector<P::ArchiveManifest> &archives,

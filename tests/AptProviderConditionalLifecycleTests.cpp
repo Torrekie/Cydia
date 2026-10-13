@@ -33,7 +33,8 @@ P::TriggerEffectCheckpoint Point(const std::string &rows, const std::string &sta
     for (const auto &entry : p.packages.packages) {
         P::TriggerPackageMetadata m; m.package = entry.second.package; m.diskStatus = entry.second.status;
         m.controls = Controls(entry.second.package.package);
-        if (m.diskStatus >= P::DpkgPackageStatus::TriggersAwaited) m.configVersion = m.package.version;
+        if (m.diskStatus == P::DpkgPackageStatus::Installed || m.diskStatus == P::DpkgPackageStatus::TriggersPending)
+            m.configVersion = m.package.version;
         else if (m.package.package == "victim") m.configVersion = "1";
         m.evidenceIdentity = Hash(m.diskStatus == P::DpkgPackageStatus::HalfConfigured ? 'e' :
             m.diskStatus == P::DpkgPackageStatus::Unpacked ? 'f' : 'c'); m.declarationIdentity = Hash('d');
@@ -127,8 +128,12 @@ void CombinedActualPhases() {
         const auto batch = Batch(a, number, id); const auto transition = Transition(a, batch, current, next);
         Require(effects.PreparePrimaryWithConditional(current.identity, batch, a, &error) && debt.PreparePrimary(current.identity, batch, &error), "reserve exact primary only");
         auto trialEffects = effects; auto trialDebt = debt;
-        Require(trialEffects.ReconcileWithConditional(batch, Success(), next, a, debt, transition, &error) &&
-            trialDebt.SettlePrimary(batch.batch, transition.child, transition.after, transition.successors, &error), "full graph/state/debt settlement uses observed phases");
+        const bool reconciled = trialEffects.ReconcileWithConditional(batch, Success(), next, a, debt, transition, &error);
+        if (!reconciled) std::cerr << "[conditional-lifecycle] primary " << id << " reconciliation: " << error << '\n';
+        Require(reconciled, "full graph/state/debt settlement uses observed phases");
+        const bool settled = trialDebt.SettlePrimary(batch.batch, transition.child, transition.after, transition.successors, &error);
+        if (!settled) std::cerr << "[conditional-lifecycle] primary " << id << " debt settlement: " << error << '\n';
+        Require(settled, "actual observed restoration endpoint settles debt");
         effects = std::move(trialEffects); debt = std::move(trialDebt); current = next;
     };
     settle(1, 10, Point(Row("victim", "1", "half-configured") + Row("cache", "1", "triggers-pending", "cache-native") + Row("lib") +

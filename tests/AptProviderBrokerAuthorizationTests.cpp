@@ -576,20 +576,47 @@ void FiniteReviewCannotDowngrade() {
 void PairedCaptureAndImmutableApproval() {
     // A fixture-only routing selector is not native readiness proof. Every
     // paired case either refuses approval or mocks a pre-mutation Begin denial.
-    for (unsigned mode = 0; mode != 10; ++mode) {
+    for (unsigned mode = 0; mode != 11; ++mode) {
         Fixture fixture; unsigned checks = 0; EnableLifecycle(fixture, &checks);
         fixture.options.finiteTriggerEffects = true; fixture.options.capabilities |= P::FiniteTriggerEffects;
         bool ready = true;
         if (mode != 6) fixture.options.deconfigurationReadiness = [&](const P::ReviewedTransaction &, std::string *) { return ready; };
+        if (mode != 10) {
+            const auto victim = CydiaAPT::BuildPackageIdentity("victim", "amd64", "amd64", "amd64", CydiaAPT::MultiArchMode::None);
+            fixture.review.transaction.removes.push_back(victim.routingName);
+            fixture.review.transaction.packages[victim.routingName] = {victim, "1", "victim"};
+            P::ReviewedAction remove; remove.identifier = 3; remove.action = P::ExecutionAction::Remove;
+            remove.package = {"victim", "1", "amd64"}; fixture.review.execution.actions.push_back(remove);
+        }
         pairedCaptureReply = std::make_shared<P::EffectReviewBundle>(); pairedCaptureReply->methodsIdentity = "methods";
         auto &pool(pairedCaptureReply->deconfiguration); pool.identity.assign(64, 'a'); pool.initialCheckpoint.assign(64, 'b');
         pool.nativeAuthorityIdentity.assign(64, 'c'); pool.primaryReview = fixture.review;
+        if (mode != 10) {
+            P::DeconfigurationAllowance allowance; allowance.installed = {"victim", "1", "amd64"};
+            allowance.initialStatus = allowance.diskStatus = P::DpkgPackageStatus::Installed;
+            allowance.configVersion = "1"; allowance.installedControlIdentity.assign(64, 'e'); allowance.installedScriptsIdentity.assign(64, 'f');
+            P::DeconfigurationCause cause; cause.unpackAction = 1; cause.archive = "approved";
+            cause.canonicalRelation = "victim"; cause.comparedVersion = "1"; allowance.causes.push_back(cause);
+            allowance.endpoint.kind = P::ExecutionAction::Remove; allowance.endpoint.action = 3;
+            allowance.endpoint.package = allowance.installed; pool.allowances["victim:amd64@1"] = allowance;
+        }
         auto &triggers(pairedCaptureReply->triggers); triggers.identity.assign(64, 'd'); triggers.initialCheckpoint = pool.initialCheckpoint;
         triggers.nativeAuthorityIdentity = pool.nativeAuthorityIdentity; triggers.primaryReview = fixture.review;
         triggers.recipients = {{"sample:all@1", {"sample", "1", "all"}}}; triggers.awaiters = triggers.recipients; triggers.incoming.insert("sample:all@1");
         P::Broker broker(fixture.options); fixture.Ready(broker, false);
         std::shared_ptr<const P::TriggerEffectEnvelope> effects; std::shared_ptr<const P::EffectReviewBundle> pair; std::string error;
         Require(broker.CaptureEffects(fixture.review, &effects, &error, &pair), "read-only capture selects its immutable mode");
+        if (mode == 10) {
+            Require(!pair && effects && pairedCaptures == 1 && triggerCaptures == 0,
+                "empty conditional pool preserves ordinary trigger mode from the exact protected checkpoint");
+            Require(broker.Approve(fixture.review, {{"sample", "amd64", true}}, {}, {}, effects),
+                "empty conditional approval does not change ordinary primary authorization");
+            broker.SetStatusDescriptor(8);
+            const auto result = ExecuteLifecycle(fixture, broker, 1, 1);
+            Require(result.started && transactionMock.starts == 1 && !transactionMock.begin.reviewedDeconfiguration &&
+                !transactionMock.legacyExecutions, "ordinary retained Begin contains no conditional permission");
+            continue;
+        }
         if (mode == 6) {
             Require(!pair && effects && pairedCaptures == 0 && triggerCaptures == 1,
                 "missing readiness selector preserves the existing ordinary finite-trigger capture");

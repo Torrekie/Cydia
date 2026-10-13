@@ -33,6 +33,7 @@ ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-tri
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-capture"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-transaction-files"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-transaction-owner"
+fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-conditional-owner"
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-native-generation"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-unpack-admission"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-transaction-service"

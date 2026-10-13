@@ -69,6 +69,20 @@ public:
     Capture(const BrokerEnvironment &selected, const std::function<bool()> &cancelled) :
         selected_(selected), cancelled_(cancelled) {}
     std::string NativeIdentity() const { return TriggerNativeAuthorityIdentity(authority_, components_); }
+    bool ConditionalReviewSupported() const {
+        // This advertises only the protected review route. Exact inputs, final
+        // argv, effects and restoration are independently checked before spawn.
+        if (authority_.effectRecordState != NativeEffectRecordState::Parsed) return false;
+        const auto executor = std::find_if(components_.begin(), components_.end(), [&](const InstalledComponentEvidence &file) {
+            return file.file.metadata.path == selected_.environment.dpkg;
+        });
+        if (executor == components_.end()) return false;
+        return std::any_of(authority_.effectRecords.begin(), authority_.effectRecords.end(), [&](const NativeEffectPolicy::Record &record) {
+            return record.role == NativeEffectPolicy::Role::Unpack && record.executorPath == selected_.environment.dpkg &&
+                record.executorSHA256 == executor->file.sha256 && record.semanticProfile == "dpkg-1.23.7-effects-1" &&
+                record.unsupportedSettings.empty();
+        });
+    }
     bool Components(std::string *error) {
         if (!Active(cancelled_, error)) return false;
         std::vector<InstalledComponentEvidence> observed;
@@ -234,9 +248,13 @@ public:
 };
 }
 bool NativeTriggerEffectsReady(const CydiaRuntime::PackageDatabasePaths &paths, const BrokerEnvironment &selected,
-    std::string *error, const std::function<bool()> &cancelled) {
+    std::string *error, const std::function<bool()> &cancelled, bool *conditionalReviewSupported) {
     if (error) error->clear();
-    Capture capture(selected, cancelled); return capture.Ready(paths, ReviewedTransaction(), error);
+    if (conditionalReviewSupported) *conditionalReviewSupported = false;
+    Capture capture(selected, cancelled);
+    if (!capture.Ready(paths, ReviewedTransaction(), error)) return false;
+    if (conditionalReviewSupported) *conditionalReviewSupported = capture.ConditionalReviewSupported();
+    return true;
 }
 bool CaptureEffectAwareDpkgState(const CydiaRuntime::PackageDatabasePaths &paths, const BrokerEnvironment &selected,
     DpkgState *state, std::string *error, const std::function<bool()> &cancelled) {
