@@ -428,6 +428,9 @@ void ConditionalOwnerChild(ConditionalFixture &fixture, ConditionalCase scenario
         auto descriptors = std::make_shared<std::vector<int>>(4);
         Require(socketpair(AF_UNIX, SOCK_STREAM, 0, descriptors->data()) == 0 &&
             pipe(descriptors->data() + 2) == 0, "fresh production-shaped stdin/status channels for each child");
+        for (int descriptor : *descriptors)
+            Require(fcntl(descriptor, F_SETFD, FD_CLOEXEC) == 0,
+                "native children inherit only the prepared stdin and fd3 mappings");
         channels->inputDescriptor = (*descriptors)[0]; channels->statusDescriptor = (*descriptors)[3]; ++channelScopes;
         const auto statusIndex = std::find_if(source.begin(), source.end(), [](const std::string &arg) {
             return arg.compare(0, 12, "--status-fd=") == 0;
