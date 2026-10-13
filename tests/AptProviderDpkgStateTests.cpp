@@ -101,6 +101,69 @@ void Evidence() {
     request.action = P::ExecutionAction::Triggers;
     Require(!P::ApplyDpkgStateEvidence(state, review, request, &evidence, &error), "unknown trigger dependencies assumed safe");
 }
+void ImplicitMultiarchDeconfiguration() {
+    // dpkg's unpack.c sibling loop runs even without --auto-deconfigure.
+    // Keep these refusals before any child, rather than discovering the
+    // additional half-configured package only during settlement.
+    P::ReviewedTransaction review;
+    review.execution.actions = {Action(1, P::ExecutionAction::Unpack, "shared", "2", "amd64")};
+    P::ParentExecutionRequest request; request.action = P::ExecutionAction::Unpack; request.actions = {1};
+    request.arguments = {"--no-triggers", "--unpack", "/archives/shared.deb"};
+    P::ParentExecutionEvidence evidence; std::string error;
+    const auto admitted = [&](const std::string &rows) {
+        return P::ApplyDpkgStateEvidence(State(rows), review, request, &evidence, &error);
+    };
+    const auto native = Row("shared", "1", "amd64", "install ok installed", "same");
+    for (const auto &sibling : {
+        Row("shared", "1", "i386", "install ok installed", "same"),
+        Row("shared", "1", "i386", "hold ok installed", "same"),
+        Row("shared", "1", "i386", "install ok triggers-pending", "same", "cache"),
+        Row("shared", "1", "i386", "install ok triggers-awaited", "same", "", "cache:amd64")
+    }) Require(!admitted(native + sibling) && error == "provider_deconfiguration_unknown" && !evidence.stateVerified,
+        "implicit sibling deconfiguration admitted before unpack");
+    review.execution.actions.push_back(Action(2, P::ExecutionAction::Unpack, "shared", "2", "i386"));
+    request.actions.push_back(2);
+    Require(!admitted(native + Row("shared", "1", "i386", "install ok installed", "same")),
+        "later sibling upgrade concealed first unpack's deconfiguration");
+    review.execution.actions.resize(1); request.actions = {1};
+    Require(admitted(native), "single-instance multiarch upgrade rejected");
+    Require(admitted(native + Row("unrelated", "1", "i386", "install ok installed", "same")),
+        "unrelated foreign package blocked native upgrade");
+    Require(admitted(native + Row("shared", "2", "i386", "install ok installed", "same")),
+        "already synchronized sibling blocked unpack");
+    for (const char *status : {"install ok not-installed", "deinstall ok config-files", "install ok half-installed",
+            "install ok unpacked", "install ok half-configured"})
+        Require(admitted(native + Row("shared", "1", "i386", status, "same")),
+            "sibling outside native deconfiguration status gate rejected");
+    review.execution.actions[0].package.architecture = "i386";
+    Require(!admitted(native + Row("shared", "1", "i386", "install ok installed", "same")),
+        "foreign upgrade omitted native sibling deconfiguration");
+    Require(admitted(Row("shared", "1", "i386", "install ok installed", "same")),
+        "single foreign instance upgrade rejected");
+    review.execution.actions[0].package.architecture = "amd64";
+    // Equality follows dpkg version.c/parsehelp.c, including absent revision,
+    // numeric runs and epochs, rather than a string or semantic-version test.
+    const std::vector<std::pair<std::string, std::string>> equal = {
+        {"1", "0:1-0"}, {"1.00", "1.0"}, {"1.0002-0003", "1.2-3"},
+        {"0002:1~rc0001-0", "2:1~rc1"}, {"1a0", "1a"},
+        {"2147483647:1-0", "02147483647:1"}, {"+1:1", "1:1-0"}, {"-0:1", "1"}
+    };
+    for (const auto &versions : equal) {
+        review.execution.actions[0].package.version = versions.first;
+        Require(admitted(Row("shared", versions.second, "i386", "install ok installed", "same")),
+            "dpkg-equivalent sibling version rejected");
+    }
+    const std::vector<std::pair<std::string, std::string>> different = {
+        {"1", "1-1"}, {"1:1", "1"}, {"1~rc1", "1"}, {"1~~", "1~"},
+        {"1.01", "1.10"}, {"1a0b", "1ab"}, {"1+0", "1"}, {"1-2", "1-02.0"},
+        {"1", "2147483648:1"}, {"1", "-1:1"}, {"1", "1-"}
+    };
+    for (const auto &versions : different) {
+        review.execution.actions[0].package.version = versions.first;
+        Require(!admitted(Row("shared", versions.second, "i386", "install ok installed", "same")) &&
+            error == "provider_deconfiguration_unknown", "different or unparseable sibling version admitted");
+    }
+}
 void BoundedTriggers() {
     // dpkg trig_clear_awaiters preserves an unpacked waiter's status, and
     // modstatdb_shutdown checkpoints its cleared links. Sources:
@@ -223,6 +286,6 @@ void Transitions() {
 }
 }
 int main() {
-    ParsingAndPending(); Evidence(); BoundedTriggers(); Transitions();
+    ParsingAndPending(); Evidence(); ImplicitMultiarchDeconfiguration(); BoundedTriggers(); Transitions();
     std::cout << "[apt-provider-dpkg-state] OK\n";
 }

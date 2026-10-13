@@ -118,7 +118,10 @@ void RunService(Fixture &fixture, int socket, unsigned mode) {
             Require(write(status, "child\n", 6) == 6, "fresh child status received");
             if (mode == 6) std::this_thread::sleep_for(std::chrono::milliseconds(150));
             const bool pending = mode >= 13 && !configure && !drain;
-            const std::string state = pending ? "triggers-awaited" : configure ? "installed" : "unpacked";
+            // Unpack has not configured sample. Pending trigger bookkeeping
+            // may coexist with its unpacked state; triggers-awaited would
+            // instead claim a configured package awaiting trigger completion.
+            const std::string state = configure ? "installed" : "unpacked";
             std::string control = "Package: sample\nVersion: 1\nArchitecture: all\nStatus: install ok " + state + "\n";
             if (pending) control += "Triggers-Awaited: cache:amd64\n";
             control += '\n';
@@ -147,6 +150,8 @@ void RunService(Fixture &fixture, int socket, unsigned mode) {
     std::string error;
     const bool success = P::ServeProviderTransaction(socket,
         CydiaRuntime::PackageDatabasePaths::ForLayout(CydiaRuntime::PackageDatabaseLayout::Rootful), options, &error);
+    if (success != (mode == 0 || mode == 13)) std::cerr << "[transaction-service][helper] mode=" << mode
+        << " success=" << success << " error=" << error << " children=" << children << '\n';
     Require(success == (mode == 0 || mode == 13), "service reports exact scenario outcome");
     Require(resolutions == (mode == 12 ? 0u : 1u), "authority resolved once per lifetime before mutations");
     if (mode == 2) Require(error == "provider_native_configuration_missing", "missing native declaration remains distinct");
@@ -262,7 +267,11 @@ void ScopedScenario(unsigned mode) {
         for (;;) {
             response = Receive(channel);
             if (response.event == TC::Event::Settled) {
-                Require(response.success == (mode == 13) && response.mutationStarted == (mode != 15), "outer scope reports exact aggregate execution outcome");
+                const bool expected = response.success == (mode == 13) && response.mutationStarted == (mode != 15);
+                if (!expected) std::cerr << "[transaction-service][outer] mode=" << mode << " batch=" << batch
+                    << " error=" << response.errorCode << " success=" << response.success << " started=" << response.mutationStarted
+                    << " indeterminate=" << response.indeterminate << " scopes=" << scopes << " drains=" << drains << '\n';
+                Require(expected, "outer scope reports exact aggregate execution outcome");
                 if (mode == 16) Require(!response.indeterminate && response.errorCode == "provider_lease_batch_not_authorized",
                     "initial drain plus denied primary remains settled without transport loss");
                 break;

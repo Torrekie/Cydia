@@ -2,6 +2,7 @@
 #include "Cydia/AptProviderDpkgState.hpp"
 #include "Cydia/ExtendedState.hpp"
 #include <algorithm>
+#include <climits>
 #include <set>
 #include <sstream>
 
@@ -19,6 +20,58 @@ bool SamePackage(const ExecutionPackage &a, const ExecutionPackage &b) {
 bool Version(const std::string &value) {
     return !value.empty() && value.size() <= 1024 && value.find_first_not_of(
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.+:~-") == std::string::npos;
+}
+// Equality only, following dpkg's lib/dpkg/version.c verrevcmp and
+// lib/dpkg/parsehelp.c parseversion. Numeric runs ignore leading zeroes;
+// an absent revision equals revision 0. Do not reject a synchronized sibling
+// merely because its version uses another equivalent spelling.
+bool SameVersionPart(const std::string &a, const std::string &b) {
+    const auto digit = [](char c) { return c >= '0' && c <= '9'; };
+    std::size_t i = 0, j = 0;
+    while (i < a.size() || j < b.size()) {
+        while ((i < a.size() && !digit(a[i])) || (j < b.size() && !digit(b[j]))) {
+            if (i == a.size() || j == b.size() || a[i] != b[j]) return false;
+            ++i; ++j;
+        }
+        while (i < a.size() && a[i] == '0') ++i;
+        while (j < b.size() && b[j] == '0') ++j;
+        while (i < a.size() && j < b.size() && digit(a[i]) && digit(b[j])) {
+            if (a[i] != b[j]) return false;
+            ++i; ++j;
+        }
+        if ((i < a.size() && digit(a[i])) || (j < b.size() && digit(b[j]))) return false;
+    }
+    return true;
+}
+bool SplitVersion(const std::string &value, unsigned *epoch, std::string *upstream, std::string *revision) {
+    if (!Version(value)) return false;
+    *epoch = 0;
+    const auto colon = value.find(':');
+    if (colon != std::string::npos) {
+        if (!colon) return false;
+        std::size_t begin = (value[0] == '+' || value[0] == '-') ? 1 : 0;
+        if (begin == colon) return false;
+        for (std::size_t i = begin; i < colon; ++i) {
+            if (value[i] < '0' || value[i] > '9' || *epoch > (INT_MAX - unsigned(value[i] - '0')) / 10)
+                return false;
+            *epoch = *epoch * 10 + unsigned(value[i] - '0');
+        }
+        if (value[0] == '-' && *epoch != 0) return false;
+    }
+    *upstream = value.substr(colon == std::string::npos ? 0 : colon + 1);
+    const auto hyphen = upstream->rfind('-');
+    *revision = hyphen == std::string::npos ? "" : upstream->substr(hyphen + 1);
+    if (hyphen != std::string::npos) {
+        if (revision->empty()) return false;
+        upstream->resize(hyphen);
+    }
+    return !upstream->empty();
+}
+bool SameDpkgVersion(const std::string &a, const std::string &b) {
+    if (a == b) return Version(a);
+    unsigned aEpoch, bEpoch; std::string aUpstream, bUpstream, aRevision, bRevision;
+    return SplitVersion(a, &aEpoch, &aUpstream, &aRevision) && SplitVersion(b, &bEpoch, &bUpstream, &bRevision) &&
+        aEpoch == bEpoch && SameVersionPart(aUpstream, bUpstream) && SameVersionPart(aRevision, bRevision);
 }
 bool Architecture(const std::string &value) {
     return CydiaRuntime::ValidArchitectureName(value) && value != "any" && value != "native";
@@ -278,11 +331,23 @@ bool ApplyDpkgStateEvidence(const DpkgState &state, const ReviewedTransaction &r
         if (action == actions.end() || !requested.insert(id).second || action->second->action != request.action)
             return Fail(error, "provider_unreviewed_batch_target");
         if (request.action == ExecutionAction::Unpack) {
-            for (const auto &record : state.packages)
+            for (const auto &record : state.packages) {
+                // dpkg src/main/unpack.c deconfigures out-of-sync coinstalled
+                // instances before pkg_check_depcon, independently of
+                // --auto-deconfigure (dpkg 1.21.9 and 1.23.7). Neither current
+                // execution mode has an independently approved restoration
+                // envelope for that effect. Refuse before launching dpkg,
+                // even if a later archive in this batch updates the sibling.
+                if (record.second.package.package == action->second->package.package &&
+                    record.second.package.architecture != action->second->package.architecture &&
+                    record.second.multiArch == "same" && record.second.status > DpkgPackageStatus::HalfConfigured &&
+                    !SameDpkgVersion(record.second.package.version, action->second->package.version))
+                    return Fail(error, "provider_deconfiguration_unknown");
                 if (record.second.package.package == action->second->package.package &&
                     (record.second.package.architecture == action->second->package.architecture ||
                      record.second.package.architecture == "all" || action->second->package.architecture == "all") &&
                     !EmptyTriggers(record.second)) return Fail(error, "provider_trigger_targets_unknown");
+            }
             continue;
         }
         const auto record = state.packages.find(Key(action->second->package));

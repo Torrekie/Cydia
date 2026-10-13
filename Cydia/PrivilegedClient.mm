@@ -753,7 +753,8 @@ std::unique_ptr<ProviderTransaction> ProviderTransaction::Start(const std::strin
         std::vector<std::string> fields;
         if (!CydiaAPT::Provider::Decode(request.payload, &fields) || fields.size() != 3 ||
             !CydiaAPT::Provider::DecodeTransactionBegin(fields[2], &approved) || !approved.reviewedEffects) {
-            if (error) *error = "provider_transaction_review_mismatch"; return nullptr;
+            if (error) *error = "provider_transaction_review_mismatch";
+            return nullptr;
         }
     }
     std::string encoded;

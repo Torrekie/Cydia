@@ -636,6 +636,12 @@ Current limits are explicit:
   unsupported. This is a bounded adapter contract, not full implicit trigger parity.
   The broker rejects effects it cannot independently establish; the protocol's
   action enum and visible review rows are not a claim of complete dpkg coverage.
+- Before unpack, the parent refuses an out-of-sync coinstalled
+  `Multi-Arch: same` sibling that dpkg would implicitly deconfigure, even without
+  `--auto-deconfigure`. Updating both architectures in one batch does not hide
+  that intermediate effect. Single instances, unrelated foreign packages and
+  dpkg-equivalent synchronized versions remain supported. Full sibling upgrades
+  need independently approved causes and exact restoration endpoints.
 - Active native components can succeed only through retained helper authority
   and explicitly declared binary generations with the same immutable native
   configuration graph. Missing native declarations retain restricted execution;
