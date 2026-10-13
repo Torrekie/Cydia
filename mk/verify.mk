@@ -176,6 +176,21 @@ verify: verify-apt-unpack-ownership
 verify-apt-unpack-ownership: $(APT_UNPACK_OWNERSHIP_TEST)
 	@$<
 
+APT_DECONFIGURATION_APPROVAL_TEST := $(BUILD_DIR)/tests/AptProviderDeconfigurationApprovalTests
+apt_deconfiguration_approval_test_sources := tests/AptProviderDeconfigurationApprovalTests.cpp \
+	Cydia/AptProviderDeconfigurationApproval.cpp Cydia/AptProviderBinaryRelationships.cpp \
+	Cydia/AptProviderProtocol.cpp Cydia/AptProviderValues.cpp \
+	Cydia/PackageIdentity.cpp Cydia/RepositorySecurityPolicy.cpp
+$(APT_DECONFIGURATION_APPROVAL_TEST): $(apt_deconfiguration_approval_test_sources) \
+		Cydia/AptProviderDeconfigurationApproval.hpp Cydia/AptProviderDeconfigurationEffects.hpp \
+		Cydia/AptProviderBinaryRelationships.hpp Cydia/AptProviderProtocol.hpp
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=c++11 -Wall -Wextra -Werror -I. $(apt_deconfiguration_approval_test_sources) -o $@
+.PHONY: verify-apt-deconfiguration-approval
+verify: verify-apt-deconfiguration-approval
+verify-apt-deconfiguration-approval: $(APT_DECONFIGURATION_APPROVAL_TEST)
+	@$<
+
 verify-repository-hygiene:
 	@python3 scripts/verify-repository-hygiene.py
 

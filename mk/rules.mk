@@ -225,6 +225,7 @@ $(CYDO_BINARY): cydo.cpp Cydia/PackageDatabasePaths.cpp Cydia/PackageDatabasePat
 		Cydia/AptProviderUnpackOwnership.cpp \
 		Cydia/AptProviderInstalledOwnership.cpp Cydia/AptProviderPreDependsEvidence.cpp \
 		Cydia/AptProviderDeconfigurationEffects.cpp \
+		Cydia/AptProviderDeconfigurationApproval.cpp \
 		Cydia/AptProviderNativeVersionComparison.cpp \
 		Cydia/AptProviderTriggerCapture.cpp Cydia/AptProviderTriggerApproval.cpp \
 		Cydia/AptProviderTriggerEvidence.cpp Cydia/AptProviderTriggerEvidenceProtected.cpp \

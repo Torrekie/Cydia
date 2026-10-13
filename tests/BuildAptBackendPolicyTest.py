@@ -195,6 +195,9 @@ def main():
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources,
         "cydia-provider-predepends-evidence", sanitize=True,
         extra_compile_flags=["-DCYDIA_PREDEPENDS_NATIVE_APT"])
+    compile_driver(["tests/AptProviderDeconfigurationApprovalTests.cpp", "Cydia/AptProviderDeconfigurationApproval.cpp",
+        "Cydia/AptProviderBinaryRelationships.cpp", "Cydia/AptProviderProtocol.cpp", "Cydia/AptProviderValues.cpp",
+        "Cydia/PackageIdentity.cpp", "Cydia/RepositorySecurityPolicy.cpp"], "cydia-provider-deconfiguration-approval", sanitize=True)
     compile_driver(["tests/AptProviderDeconfigurationEffectsTests.cpp", "Cydia/AptProviderDeconfigurationEffects.cpp",
         "Cydia/AptProviderBinaryRelationships.cpp"] + trigger_effect_sources, "cydia-provider-deconfiguration-allowances", sanitize=True)
     compile_driver(["tests/AptProviderTriggerCaptureTests.cpp"] + trigger_effect_sources + [

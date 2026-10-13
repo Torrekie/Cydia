@@ -149,6 +149,16 @@ child boundary; it never starts or retries dpkg. This evaluator is not yet an
 execution route. Replicated deconfiguration causes and their canonical identity
 framing have separate output bounds, with incremental hashing and atomic refusal.
 
+A standalone `CYDIA-DECONFIGURATION-APPROVAL-1` codec transports the exact
+review, checkpoint/native identities, old-generation phases and history,
+control/script identities, ordered causes and existing restoration endpoints.
+It carries no protected file or script contents and recomputes no native proof.
+Frames are limited to 8 MiB, with bounded action/archive/allowance counts and a
+shared cause limit; malformed references, noncanonical framing and partial
+results are refused. This codec does not change transaction protocol versions,
+advertise capability or enable execution. Begin integration must independently
+recapture and rebuild the parent proof before comparing canonical approvals.
+
 After settlement, Cydia retires the worker, cache handles, grants and review;
 the next normal reload performs fresh discovery. A helper-confirmed final
 commit remains a known outcome if the worker subsequently fails. Unknown
