@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "Unavailable for this account.";
 "ACCOUNT_SOURCE_HELP" = "Choose an installed source to manage its account. Sources without an account service remain usable normally.";
 "ACCOUNT_LINK_CONSENT" = "Link %@ to %@? The payment provider will receive your device identifier and model. Sign in only if you trust this provider.";
+"ACCOUNT_BUY" = "Buy on Repository Website";
+"ACCOUNT_DOWNLOAD" = "Download";
+"ACCOUNT_CHECK_AGAIN" = "Check Again";
+"ACCOUNT_WEBSITE" = "Open Repository Website";

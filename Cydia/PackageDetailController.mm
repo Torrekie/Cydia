@@ -4,6 +4,7 @@
  */
 #include "Cydia/PackageDetailController.h"
 #import "Cydia/RepositoryAccountsController.h"
+#import "Cydia/RepositoryPackagePresentation.h"
 #import "Cydia/RepositoryAccountService.h"
 #include "Cydia/PackageDetailDepictionCell.h"
 
@@ -1035,9 +1036,35 @@ dispatch:
 
 - (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action {
     if ([action kind] == CydiaPackageDetailModifyActionKindAccount) {
+        CydiaPackageDetailViewModel *selection = _viewModel;
+        CydiaPackageDetailModifyAction *download = nil;
+        for (CydiaPackageDetailModifyAction *candidate in selection.modifyActions) {
+            switch (candidate.kind) {
+                case CydiaPackageDetailModifyActionKindInstall:
+                case CydiaPackageDetailModifyActionKindUpgrade:
+                case CydiaPackageDetailModifyActionKindDowngrade:
+                case CydiaPackageDetailModifyActionKindReinstall:
+                    download = candidate;
+                    break;
+                default: break;
+            }
+            if (download != nil) break;
+        }
+        __weak PackageDetailController *weakSelf = self;
+        void (^downloadAction)(void) = nil;
+        if (download != nil) downloadAction = ^{
+            PackageDetailController *self = weakSelf;
+            if (self == nil || self.viewModel != selection ||
+                ![self.navigationController.viewControllers containsObject:self]) return;
+            [self.navigationController popToViewController:self animated:YES];
+            [self selectModifyAction:download];
+        };
         [self.navigationController pushViewController:[[RepositoryAccountsController alloc]
             initWithSourceURL:[NSURL URLWithString:_viewModel.source.repositoryURLString]
-            name:_viewModel.source.name package:_viewModel.baseIdentity ?: _viewModel.identity] animated:YES];
+            name:_viewModel.source.name package:_viewModel.baseIdentity ?: _viewModel.identity
+            downloadAction:downloadAction purchaseURL:CydiaRepositoryPurchaseWebsite(
+                [NSURL URLWithString:selection.source.repositoryURLString],
+                selection.homepageURLString ? [NSURL URLWithString:selection.homepageURLString] : nil)] animated:YES];
         return;
     }
     if ([action kind] != CydiaPackageDetailModifyActionKindVersions) {

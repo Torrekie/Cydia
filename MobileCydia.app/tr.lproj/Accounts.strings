@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "Bu hesap için kullanılamıyor.";
 "ACCOUNT_SOURCE_HELP" = "Hesabını yönetmek için eklenmiş bir kaynak seçin. Hesap hizmeti olmayan kaynaklar normal şekilde kullanılabilir.";
 "ACCOUNT_LINK_CONSENT" = "%@, %@ ile bağlansın mı? Ödeme sağlayıcısı cihazınızın tanımlayıcısını ve modelini alacaktır. Yalnızca bu sağlayıcıya güveniyorsanız giriş yapın.";
+"ACCOUNT_BUY" = "Deponun Web Sitesinden Satın Al";
+"ACCOUNT_DOWNLOAD" = "İndir";
+"ACCOUNT_CHECK_AGAIN" = "Yeniden Denetle";
+"ACCOUNT_WEBSITE" = "Deponun Web Sitesini Aç";

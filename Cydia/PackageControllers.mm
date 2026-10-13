@@ -373,6 +373,14 @@ NSURL *PackageRouteURL(NSString *URLString) {
     Package *package([self packageForAction]);
     if (package == nil)
         return;
+    /* Account authorization must not turn an old visible action into a new
+     * candidate, a different source, or an action now blocked by a hold. */
+    CydiaPackageDetailViewModel *fresh([[CydiaPackageDetailViewModel alloc]
+        initWithPackage:package registeredArchitectures:[package registeredArchitectures]
+        versionArchitecture:PackageVersionArchitectureFilter(name_, package)]);
+    if (!CydiaPackageDetailCanPerformAction(self.viewModel, fresh, action.kind)) {
+        [self reloadData]; return;
+    }
     switch ([action kind]) {
         case CydiaPackageDetailModifyActionKindClear:
             return [self.delegate clearPackage:package];

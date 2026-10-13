@@ -39,12 +39,17 @@ def main():
             actual = sorted(FORMAT.findall(value.replace("%%", "")))
             assert actual == expected, f"Format arguments differ: {bundle.name}/{key}"
     accounts = read_table(ROOT / "MobileCydia.app/en.lproj/Accounts.strings")
+    assert {"ACCOUNT_BUY", "ACCOUNT_DOWNLOAD", "ACCOUNT_CHECK_AGAIN", "ACCOUNT_WEBSITE"} <= accounts.keys(), \
+        "Package account actions are missing"
     for bundle in bundles:
         table = read_table(bundle / "Accounts.strings")
         assert table.keys() == accounts.keys(), f"Account keys differ in {bundle.name}"
         for key, value in table.items():
             assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(accounts[key].replace("%%", ""))), \
                 f"Account arguments differ: {bundle.name}/{key}"
+            assert key not in {"ACCOUNT_BUY", "ACCOUNT_DOWNLOAD", "ACCOUNT_CHECK_AGAIN", "ACCOUNT_WEBSITE"} or \
+                bundle.name == "en.lproj" or value != accounts[key], \
+                f"English account fallback: {bundle.name}/{key}"
     runtime_provider = read_table(ROOT / "MobileCydia.app/en.lproj/RuntimeProvider.strings")
     runtime_provider_keys = {
         "REVIEW_OPERATIONS", "REVIEW_UNPACK", "REVIEW_CONFIGURE", "REVIEW_REMOVE",

@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "Für dieses Konto nicht verfügbar.";
 "ACCOUNT_SOURCE_HELP" = "Wähle eine hinzugefügte Quelle, um ihr Konto zu verwalten. Quellen ohne Kontodienst bleiben normal nutzbar.";
 "ACCOUNT_LINK_CONSENT" = "%@ mit %@ verknüpfen? Der Zahlungsanbieter erhält deine Gerätekennung und dein Gerätemodell. Melde dich nur an, wenn du diesem Anbieter vertraust.";
+"ACCOUNT_BUY" = "Auf der Website der Paketquelle kaufen";
+"ACCOUNT_DOWNLOAD" = "Herunterladen";
+"ACCOUNT_CHECK_AGAIN" = "Erneut prüfen";
+"ACCOUNT_WEBSITE" = "Website der Paketquelle öffnen";

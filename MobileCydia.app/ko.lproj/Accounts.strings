@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "이 계정에서는 이용할 수 없습니다.";
 "ACCOUNT_SOURCE_HELP" = "추가된 소스를 선택하여 계정을 관리하세요. 계정 서비스가 없는 소스도 정상적으로 사용할 수 있습니다.";
 "ACCOUNT_LINK_CONSENT" = "%@을(를) %@에 연결할까요? 결제 서비스 제공업체에 기기 식별자와 모델이 전송됩니다. 신뢰할 수 있는 제공업체인 경우에만 로그인하세요.";
+"ACCOUNT_BUY" = "저장소 웹사이트에서 구입";
+"ACCOUNT_DOWNLOAD" = "다운로드";
+"ACCOUNT_CHECK_AGAIN" = "다시 확인";
+"ACCOUNT_WEBSITE" = "저장소 웹사이트 열기";

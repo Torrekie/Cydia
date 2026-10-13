@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "Inte tillgängligt för det här kontot.";
 "ACCOUNT_SOURCE_HELP" = "Välj en tillagd källa för att hantera dess konto. Källor utan kontotjänst kan fortfarande användas som vanligt.";
 "ACCOUNT_LINK_CONSENT" = "Länka %@ till %@? Betaltjänsten får din enhets identifierare och modell. Logga bara in om du litar på leverantören.";
+"ACCOUNT_BUY" = "Köp på paketkällans webbplats";
+"ACCOUNT_DOWNLOAD" = "Hämta";
+"ACCOUNT_CHECK_AGAIN" = "Kontrollera igen";
+"ACCOUNT_WEBSITE" = "Öppna paketkällans webbplats";

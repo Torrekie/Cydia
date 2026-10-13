@@ -13,6 +13,28 @@
 - (nullable NSString *)address;
 @end
 
+BOOL CydiaPackageDetailCanPerformAction(CydiaPackageDetailViewModel *selected,
+    CydiaPackageDetailViewModel *current, CydiaPackageDetailModifyActionKind kind) {
+    if (selected == nil || current == nil) return NO;
+    auto equal = [](id left, id right) { return left == right || [left isEqual:right]; };
+    if (!equal(selected.identity, current.identity) ||
+        !equal(selected.fullVersion, current.fullVersion) ||
+        !equal(selected.architecture, current.architecture)) return NO;
+    BOOL offered = NO;
+    for (CydiaPackageDetailModifyAction *action in current.modifyActions)
+        if (action.kind == kind) { offered = YES; break; }
+    if (!offered) return NO;
+    switch (kind) {
+        case CydiaPackageDetailModifyActionKindInstall:
+        case CydiaPackageDetailModifyActionKindUpgrade:
+        case CydiaPackageDetailModifyActionKindDowngrade:
+        case CydiaPackageDetailModifyActionKindReinstall:
+            return equal(selected.source.key, current.source.key) &&
+                equal(selected.source.repositoryURLString, current.source.repositoryURLString);
+        default: return YES;
+    }
+}
+
 @protocol CydiaPackageDetailSourceSource <NSObject>
 - (nullable NSString *)key;
 - (nullable NSString *)rooturi;

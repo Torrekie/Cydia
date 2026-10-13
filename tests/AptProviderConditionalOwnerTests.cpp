@@ -172,7 +172,7 @@ void ConditionalHostGuardFixtures() {
     Write(directory + "/dpkg.cfg", "# ordinary system configuration\nno-debsig\nlog /var/log/dpkg.log\n");
     Write(directory + "/dpkg.cfg.d/01-native-test", "force-unsafe-io\n");
     Require(ConditionalHostConfigurationTree(directory, &observation, &reason), "nonexecuting guard accepts only host values reset by HOME");
-    for (const auto &setting : {"pre-invoke=touch /outside\n", "post-invoke echo unsafe\n", "include /elsewhere\n", "root=/\n", "force-all\n", "log=/tmp/other\n"}) {
+    for (const auto &setting : {"pre-invoke=touch /outside\n", "post-invoke echo unsafe\n", "include /elsewhere\n", "root=/\n", "force-all\n", "log=/tmp/other\n", "status-logger=touch /outside\n"}) {
         Write(directory + "/dpkg.cfg.d/01-native-test", setting);
         Require(!ConditionalHostConfigurationTree(directory, &observation, &reason), "nonexecuting guard refuses unmodeled hooks/includes/options");
     }

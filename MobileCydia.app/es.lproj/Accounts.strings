@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "No disponible para esta cuenta.";
 "ACCOUNT_SOURCE_HELP" = "Elige una fuente añadida para gestionar su cuenta. Las fuentes sin servicio de cuentas siguen funcionando con normalidad.";
 "ACCOUNT_LINK_CONSENT" = "¿Vincular %@ con %@? El proveedor de pagos recibirá el identificador y el modelo de tu dispositivo. Inicia sesión solo si confías en este proveedor.";
+"ACCOUNT_BUY" = "Comprar en el sitio web del repositorio";
+"ACCOUNT_DOWNLOAD" = "Descargar";
+"ACCOUNT_CHECK_AGAIN" = "Volver a comprobar";
+"ACCOUNT_WEBSITE" = "Abrir el sitio web del repositorio";

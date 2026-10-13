@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "此账户无法获取。";
 "ACCOUNT_SOURCE_HELP" = "选择已添加的软件源以管理账户。没有账户服务的软件源仍可正常使用。";
 "ACCOUNT_LINK_CONSENT" = "将 %@ 关联到 %@？支付服务提供商将收到你的设备标识符和型号。请仅在信任该提供商时登录。";
+"ACCOUNT_BUY" = "在软件源网站购买";
+"ACCOUNT_DOWNLOAD" = "下载";
+"ACCOUNT_CHECK_AGAIN" = "重新检查";
+"ACCOUNT_WEBSITE" = "打开软件源网站";

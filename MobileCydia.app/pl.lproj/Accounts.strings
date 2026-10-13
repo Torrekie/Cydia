@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "Niedostępne dla tego konta.";
 "ACCOUNT_SOURCE_HELP" = "Wybierz dodane źródło, aby zarządzać jego kontem. Źródła bez usługi kont nadal działają normalnie.";
 "ACCOUNT_LINK_CONSENT" = "Połączyć %@ z %@? Dostawca płatności otrzyma identyfikator i model Twojego urządzenia. Zaloguj się tylko wtedy, gdy ufasz temu dostawcy.";
+"ACCOUNT_BUY" = "Kup w witrynie repozytorium";
+"ACCOUNT_DOWNLOAD" = "Pobierz";
+"ACCOUNT_CHECK_AGAIN" = "Sprawdź ponownie";
+"ACCOUNT_WEBSITE" = "Otwórz witrynę repozytorium";

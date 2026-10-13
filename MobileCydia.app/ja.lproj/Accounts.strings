@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "このアカウントでは利用できません。";
 "ACCOUNT_SOURCE_HELP" = "追加済みのソースを選んでアカウントを管理します。アカウントサービスのないソースも通常どおり使用できます。";
 "ACCOUNT_LINK_CONSENT" = "%@ を %@ に連携しますか？決済サービスにデバイスの識別子と機種が送信されます。信頼できる場合にのみサインインしてください。";
+"ACCOUNT_BUY" = "リポジトリのウェブサイトで購入";
+"ACCOUNT_DOWNLOAD" = "ダウンロード";
+"ACCOUNT_CHECK_AGAIN" = "再確認";
+"ACCOUNT_WEBSITE" = "リポジトリのウェブサイトを開く";

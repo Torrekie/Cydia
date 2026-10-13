@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "此帳號無法取得。";
 "ACCOUNT_SOURCE_HELP" = "選擇已加入的軟體來源以管理帳號。沒有帳號服務的軟體來源仍可正常使用。";
 "ACCOUNT_LINK_CONSENT" = "將 %@ 連結至 %@？付款服務供應商將收到你的裝置識別碼和型號。請僅在信任該供應商時登入。";
+"ACCOUNT_BUY" = "在軟體來源網站購買";
+"ACCOUNT_DOWNLOAD" = "下載";
+"ACCOUNT_CHECK_AGAIN" = "重新檢查";
+"ACCOUNT_WEBSITE" = "開啟軟體來源網站";

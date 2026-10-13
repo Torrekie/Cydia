@@ -1255,6 +1255,18 @@ $(PACKAGE_DETAIL_VIEW_MODEL_TEST): tests/PackageDetailViewModelTests.mm \
 verify-package-detail-view-model: $(PACKAGE_DETAIL_VIEW_MODEL_TEST)
 	@$<
 
+$(BUILD_DIR)/tests/RepositoryPackagePresentationTests: tests/RepositoryPackagePresentationTests.mm \
+		Cydia/RepositoryPackagePresentation.h Cydia/RepositoryPackagePresentation.mm
+	@mkdir -p $(dir $@)
+	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
+		tests/RepositoryPackagePresentationTests.mm Cydia/RepositoryPackagePresentation.mm \
+		-framework Foundation -o $@
+
+verify-repository-package-presentation: $(BUILD_DIR)/tests/RepositoryPackagePresentationTests
+	@$<
+
+verify: verify-repository-package-presentation
+
 $(PACKAGE_DEPICTION_FACADE_TEST): tests/PackageDepictionJavaScriptFacadeTests.mm \
 		Cydia/PackageDepictionJavaScriptFacade.h Cydia/PackageDepictionJavaScriptFacade.mm
 	@mkdir -p $(dir $@)
@@ -1470,6 +1482,9 @@ verify-error-view-controller: $(ERROR_VIEW_CONTROLLER_VERIFY_SCRIPT) \
 else
 verify-ui-route-context:
 	@echo "[verify] UI route runtime test requires a Darwin host; iOS compile coverage remains enabled"
+
+verify-repository-package-presentation:
+	@echo "[verify] Account presentation runtime test requires a Darwin host; iOS compile coverage remains enabled"
 
 verify-external-url-policy:
 	@echo "[verify] External URL policy runtime test requires a Darwin host; iOS compile coverage remains enabled"

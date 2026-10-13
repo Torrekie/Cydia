@@ -298,7 +298,7 @@ upstream English messages if no usable libintl is available.
 | Repository policy | Unsaved preference inherits an accepted external provider; recovery retains Warning; saved choices are preserved | Verify each adapter reproduces its distribution's compiled frontend and library policy |
 | Other APT settings | Expiration policy and explicit language/parallel settings are preserved | Preserve the selected provider's configuration and compiled behavior |
 | Source checks | Preflight, resource requests and discovery use the selected database backend and session | Establish source-check parity for each distribution adapter |
-| dpkg | Selected external tools, parent-owned locks, reviewed batches, retained staging and negotiated finite trigger effects | Complete independent deconfiguration evidence and adapter acceptance |
+| dpkg | Selected external tools, parent-owned locks, reviewed batches, retained staging, finite trigger effects and protected conditional deconfiguration with exact restoration endpoints | Accept each distribution's native declarations and adapter on its supported runtime |
 | ICU | Validated bootstrap/Apple service tables; isolated private fallback loader; Apple-owned UIKit collation | Supply reproducible private fallback binaries and matching data |
 | Messages | Converted locale environment, upstream catalog packaging and optional libintl bridge | Supply the private libintl closure for localization when external libraries are broken |
 | Failure handling | Selection and fallback occur at coordinator boundaries; no operation-level retry under another provider | Verify interruption and recovery behavior with real adapters and their dependencies |
@@ -764,6 +764,23 @@ Unavailable and authentication failures. Purchases always require an explicit
 user action. Keep ordinary Sources browsing familiar and source configuration
 in Settings. Support logout and account removal without deleting repositories.
 
+The package account page checks anonymous availability before sign-in and
+authenticated ownership afterward. An owned package offers Download only when
+the exact selected package still has an eligible install, upgrade, downgrade
+or reinstall action. It returns through normal queue and confirmation handling;
+it does not fetch an archive directly. Immediately before scheduling, Cydia
+rechecks the package identity, full version, architecture, source and current
+action availability. Check Again refreshes failed or stale account discovery.
+
+The legacy payment information protocol has no generic public purchase-website
+field. A Buy entry therefore requires a documented vendor product page from
+the selected package record: currently a Chariz source and its explicit
+`https://chariz.com/buy/<product>` homepage. Cydia never derives that product
+slug from the package ID. Otherwise a non-owned package offers the clearly
+labeled Open Repository Website entry. Error `recovery_url` values are not
+treated as checkout links. Public website actions are explicit HTTPS browser
+navigation, with no token, grant or device fields appended by Cydia.
+
 Keep long-lived account tokens and purchase secrets in Keychain. Honor any
 protocol-required user authentication and disclose required device binding;
 do not send permanent device identifiers with every public metadata request.
@@ -815,7 +832,7 @@ APT/ICU provider migration or public-source support.
 | `AptRuntime.*`, `RuntimeProviderCoordinator.*`, `AptProviderSelection.*`, `MobileCydia.mm` | Startup selection, protected registration and immutable descriptor adoption are implemented; distribution adapters and deployment acceptance remain |
 | `AptBackendFacade.cpp`, `AptBackend*`, `SourcePreflight*`, `AptProviderServer*`, `AptRecoveryWorker*` | Remote value facade, source routing, bounded server and separate native recovery worker are implemented; no distribution adapter or complete private payload is supplied |
 | `apt-extra/apt-2.7.9-cydia.patch`, `AptCompatibility.cpp` | Keep recovery-specific patches private; replace Cydia-only authentication/state hooks in stock-provider adapters |
-| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated authority snapshots, retained parent execution, protected archive staging, declared component succession and per-child settlement are implemented; independent deconfiguration coverage remains |
+| `PrivilegedRuntime.*`, `PrivilegedClient.*`, `AptProviderBroker*`, `cydo.cpp` | Authenticated authority snapshots, retained parent execution, protected archive staging, declared component succession, paired conditional review routing and per-child settlement are implemented; real distribution acceptance remains |
 | `RuntimeSnapshotInputs.*`, `Database*`, `TransactionReview.*`, `AptProviderArchiveEvidence.*` | Provider-bound immutable review and independent source/index/archive proof are implemented; custom index-target/list layouts remain unsupported |
 | `SettingsStore.*`, `RuntimeProviderSettingsController.*`, Settings controllers, locale tables | Explicit-choice preservation, Automatic/recovery selection and truthful asynchronous status UI are implemented in all existing locales |
 | `CyteKit/RegEx.hpp`, `Collation.hpp`, `Package.mm`, `Package+Metadata.mm`, `MessageLocaleConversion.mm` | ICU adapter and handle ownership, coherent collation and locale behavior |
@@ -824,7 +841,7 @@ APT/ICU provider migration or public-source support.
 | `AptProviderTransactionOwner.*`, `AptProviderTransactionLease.*`, `AptProviderComponentSuccession.*`, `AptProviderNativeDpkgAuthority.*` | Persistent helper ownership, retained archive copies, native declaration/loader evidence, approved component generations and exact settlement; declaration delivery and real distribution acceptance remain |
 | `AptProviderTrigger*`, `RuntimeSnapshotInputs.*`, transaction channel/service | Protected registry/control capture, immutable native approval, bounded finite drain ledger and separate child scopes; legacy mode remains restricted |
 | `DpkgConffile.*`, `AptProviderConffilePolicy*`, `Database+Configuration.mm`, `PrivilegedClient.*` | Retained transactions use exact final launch binding, protected force-state suppression and stale-alert invalidation; legacy argument-only behavior and stronger native per-question readiness remain separate limitations |
-| `AptProviderDeconfigurationApproval.*`, `AptProviderRestorationDebt.*` | Bounded immutable approval codec and observed restoration bookkeeping; protected capture, locked reconstruction and owner integration remain prerequisites to activation |
+| `AptProviderDeconfigurationApproval.*`, `AptProviderRestorationDebt.*`, `AptProviderConditionalDeconfiguration.*`, `AptProviderPrimaryReadiness.*`, `AptProviderRestorationTriggerDecision.*` | Protected paired capture, locked approval reconstruction, conditional Owner admission, exact restoration debt and bounded trigger settlement are connected for supported native profiles; unmodeled effects refuse before launch |
 | `apt-extra/apti18n.h`, locale packaging | Real gettext/catalog support for recovery without replacing provider-owned translations |
 | Account controllers/service, `PackageDetailViewModel.mm`, source snapshots | Payment-provider discovery, supported sign-in, ownership states and exact-package download authorization |
 | `DatabaseStatus.mm`, `ProgressEvent.mm`, acquisition protocol | Redacted display URLs, typed account/transport failures and protected short-lived grants |
@@ -837,7 +854,7 @@ APT/ICU provider migration or public-source support.
 | Contracts and policy | Versioned worker/account models, protected registration, explicit-choice handling and provider-bound snapshots | Demonstrate that real adapters declare their complete environment and reproduce distribution policy |
 | Remorix packages | A client/registration contract that does not require replacing another distribution | Supply localized APT/dpkg and an optional adapter; verify catalogs, ABI/path metadata and dependency closure |
 | Recovery isolation | Separate unprivileged worker, bound read-only capsule, isolated configuration and native acquisition/review | Supply and accept the private payload, complete transaction parity, then retire the transitional in-process fallback; configured hooks remain refused |
-| External transactions | Startup admission, native review, retained authenticated helper ownership, archive copies, declared component succession and optional finite trigger effects | Real adapter/device acceptance and independent deconfiguration proof |
+| External transactions | Startup admission, native review, retained authenticated helper ownership, archive copies, declared component succession, finite triggers and protected conditional restoration | Real adapter/device acceptance, including the declared native configuration and dependency closure |
 | Recovery dependencies and ICU | Bootstrap/Apple ICU selection, private loader interfaces and upstream gettext bridge/catalogs | Supply private ICU/libintl binaries and full dependency/data closure; prove usable recovery when optional bootstrap components fail |
 | Commercial sources | Native accounts, scoped authorization, private archive acquisition and redacted diagnostics | Vendor-accepted callbacks and authorized paid retrieval; any optional Remorix CLI authorization helper remains separate work |
 | UI and release acceptance | Runtime Settings and immutable confirmation in all existing Cydia locales | Verify runtime transitions, failure handling and safe drop-in upgrade/removal with supported provider packages |
@@ -932,6 +949,7 @@ messages allowed to fall back normally.
 - [Havoc 418 troubleshooting](https://docs.havoc.app/docs/help/common_errors/418_error/)
 - [Havoc seller DRM API](https://docs.havoc.app/docs/seller/drm/)
 - [Chariz purchase and package-manager FAQ](https://docs.chariz.com/help/faq)
+- [Chariz product purchase links](https://docs.chariz.com/product-listing/logo-assets)
 - [Payment-provider protocol](https://developer.getsileo.app/payment-providers)
 - [Zebra payment-provider extensions](https://github.com/zbrateam/Zebra/blob/v1/docs/Payment-Providers-Extensions.md)
 - [Zebra payment-provider implementation](https://github.com/zbrateam/Zebra/blob/v1/Zebra/Tabs/Sources/Helpers/ZBPaymentVendor.m)

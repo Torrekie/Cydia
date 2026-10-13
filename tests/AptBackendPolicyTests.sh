@@ -33,7 +33,33 @@ ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-tri
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-trigger-capture"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-transaction-files"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-transaction-owner"
-fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-conditional-owner"
+# The runner can have system dpkg shell loggers. Expose only this fixture's
+# known config in a private mount namespace; leave host mounts and files intact.
+# Restore the ordinary caller before fakeroot and retain the C++ config guard.
+(
+    conditional_uid=$(id -u)
+    conditional_gid=$(id -g)
+    if [ "$conditional_uid" -eq 0 ]; then
+        echo "[conditional-native] requires an ordinary fakeroot caller" >&2
+        exit 1
+    fi
+    for conditional_tool in sudo unshare mount setpriv fakeroot; do
+        command -v "$conditional_tool" >/dev/null
+    done
+    conditional_config=$(mktemp -d "${TMPDIR:-/tmp}/cydia-native-dpkg-config.XXXXXXXX")
+    trap 'rm -rf -- "$conditional_config"' 0
+    trap 'exit 1' 1 2 15
+    mkdir "$conditional_config/dpkg.cfg.d"
+    printf '# Disposable Cydia native fixture configuration\nno-debsig\n' >"$conditional_config/dpkg.cfg"
+    sudo -n unshare --mount --propagation private -- /bin/sh -eu -c '
+        mount --bind "$1" /etc/dpkg
+        mount -o remount,bind,ro /etc/dpkg
+        exec setpriv --reuid "$2" --regid "$3" --clear-groups \
+            --inh-caps=-all --ambient-caps=-all --bounding-set=-all \
+            --no-new-privs fakeroot "$4"
+    ' sh "$conditional_config" "$conditional_uid" "$conditional_gid" \
+        "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-conditional-owner"
+)
 ASAN_OPTIONS=detect_leaks=0 "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-native-generation"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-unpack-admission"
 fakeroot "$APT_INTEGRATION_TESTS_BUILD_DIR/cydia-provider-transaction-service"

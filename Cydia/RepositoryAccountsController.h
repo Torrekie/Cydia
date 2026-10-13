@@ -4,4 +4,8 @@
 @interface RepositoryAccountsController : CyteViewController
 - (instancetype)init;
 - (instancetype)initWithSourceURL:(NSURL *)sourceURL name:(NSString *)name package:(NSString *)package;
+/* The caller retains the exact package selection and revalidates it before
+ * returning to normal install/review. This is never a direct archive fetch. */
+- (instancetype)initWithSourceURL:(NSURL *)sourceURL name:(NSString *)name package:(NSString *)package
+                   downloadAction:(void (^)(void))downloadAction purchaseURL:(NSURL *)purchaseURL;
 @end

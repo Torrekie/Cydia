@@ -40,6 +40,7 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 @property(nonatomic, strong) NSMutableString *descriptionValue;
 @property(nonatomic, strong) NSMutableString *hostValue;
 @property(nonatomic, strong) NSURL *iconValue;
+@property(nonatomic, copy) NSString *rootValue;
 @end
 
 @implementation FakePackageSource
@@ -48,6 +49,7 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 - (NSString *)shortDescription { return _descriptionValue; }
 - (NSString *)host { return _hostValue; }
 - (NSURL *)iconURL { return _iconValue; }
+- (NSString *)rooturi { return _rootValue; }
 @end
 
 
@@ -607,6 +609,36 @@ void TestNullabilityFallbackAndContactPriority() {
             "package without a source did not project null source");
 }
 
+void TestDelayedAccountActionSelection() {
+    FakePackage *package(BasePackage(@"runtime:iphoneos-arm64"));
+    package.uninstalledValue = YES; package.installedValue = nil;
+    FakePackageSource *source = [FakePackageSource new];
+    source.keyValue = [@"source" mutableCopy]; source.rootValue = @"https://repo.example/";
+    package.sourceValue = source;
+    CydiaPackageDetailViewModel *(^snapshot)(void) = ^{
+        return [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    };
+    auto selected = snapshot();
+    const auto install = CydiaPackageDetailModifyActionKindInstall;
+    Require(CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "fresh exact install refused");
+    package.ignoredValue = YES;
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "late hold did not retire download action");
+    package.ignoredValue = NO; package.architectureSupportedValue = @NO;
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "unsupported arch accepted delayed download");
+    package.architectureSupportedValue = @YES;
+    source.rootValue = @"https://another.example/";
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "changed source accepted delayed download");
+    source.rootValue = @"https://repo.example/"; source.keyValue = [@"another-source" mutableCopy];
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "changed source stanza accepted delayed download");
+    source.keyValue = [@"source" mutableCopy]; package.fullVersionValue = @"3:1.1";
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "changed epoch accepted delayed download");
+    package.fullVersionValue = nil; package.architectureValue = @"iphoneos-arm";
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "changed arch accepted delayed download");
+    package.architectureValue = @"iphoneos-arm64"; package.sourceValue = nil;
+    Require(!CydiaPackageDetailCanPerformAction(selected, snapshot(), install), "removed source accepted delayed download");
+    Require(!CydiaPackageDetailCanPerformAction(selected, nil, install), "missing fresh snapshot accepted download");
+}
+
 int main() {
     @autoreleasepool {
         TestCompleteQualifiedSnapshotAndOwnership();
@@ -615,6 +647,7 @@ int main() {
         TestArchitecturePresentation();
         TestExactArchitectureAndEpochVersionChoices();
         TestNullabilityFallbackAndContactPriority();
+        TestDelayedAccountActionSelection();
     }
     std::cout << "[verify-package-detail-view-model][ ok ] immutable package snapshot"
               << std::endl;

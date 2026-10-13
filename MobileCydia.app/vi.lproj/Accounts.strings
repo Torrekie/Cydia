@@ -10,3 +10,7 @@
 "ACCOUNT_UNAVAILABLE" = "Không có sẵn cho tài khoản này.";
 "ACCOUNT_SOURCE_HELP" = "Chọn một nguồn đã thêm để quản lý tài khoản. Các nguồn không có dịch vụ tài khoản vẫn sử dụng bình thường.";
 "ACCOUNT_LINK_CONSENT" = "Liên kết %@ với %@? Nhà cung cấp thanh toán sẽ nhận mã định danh và kiểu thiết bị của bạn. Chỉ đăng nhập nếu bạn tin tưởng nhà cung cấp này.";
+"ACCOUNT_BUY" = "Mua trên trang web của kho gói";
+"ACCOUNT_DOWNLOAD" = "Tải về";
+"ACCOUNT_CHECK_AGAIN" = "Kiểm tra lại";
+"ACCOUNT_WEBSITE" = "Mở trang web của kho gói";

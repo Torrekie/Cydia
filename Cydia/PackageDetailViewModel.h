@@ -157,6 +157,11 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 
 @end
 
+/* A delayed account action must still describe the same selection and be
+ * offered by a fresh package snapshot. Acquisition also binds its source. */
+BOOL CydiaPackageDetailCanPerformAction(CydiaPackageDetailViewModel * _Nullable selected,
+    CydiaPackageDetailViewModel * _Nullable current, CydiaPackageDetailModifyActionKind kind);
+
 NS_ASSUME_NONNULL_END
 
 #endif // Cydia_PackageDetailViewModel_H
