@@ -9,6 +9,8 @@
 #include "Cydia/PackageDetailDepictionCell.h"
 
 #include "Cydia/Appearance.h"
+#include "Cydia/Database.h"
+#include "Cydia/Package.h"
 #include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/PackageDepictionPolicy.h"
 #include "Cydia/PackageDepictionView.h"
@@ -21,6 +23,7 @@ namespace {
 typedef NS_ENUM(NSUInteger, CydiaPackageDetailSectionKind) {
     CydiaPackageDetailSectionKindQueue,
     CydiaPackageDetailSectionKindActions,
+    CydiaPackageDetailSectionKindAccount,
     CydiaPackageDetailSectionKindWarnings,
     CydiaPackageDetailSectionKindDepiction,
     CydiaPackageDetailSectionKindDescription,
@@ -308,6 +311,10 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 @property(nonatomic, strong) CydiaPackageDepictionCell *depictionCell;
 @property(nonatomic) BOOL depictionTableUpdateScheduled;
 @property(nonatomic) BOOL depictionAccessibilityFocusSeeded;
+@property(nonatomic, strong) CydiaRepositoryPackagePresentation *repositoryPresentation;
+@property(nonatomic, copy) NSString *repositoryAccountNotice;
+@property(nonatomic) NSUInteger repositoryRequestGeneration;
+@property(nonatomic) BOOL repositoryInfoLoading, repositoryInfoLoaded;
 /* CyteViewController.delegate remains the application coordinator.  Keep the
  * package-shell callbacks on a distinct weak channel so production routing can
  * install both delegates without one silently replacing the other. */
@@ -384,6 +391,9 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         [previousDepictionURL length] != 0 &&
         [previousDepictionURL isEqualToString:nextDepictionURL]);
     _viewModel = viewModel;
+    ++_repositoryRequestGeneration;
+    _repositoryPresentation = nil; _repositoryAccountNotice = nil;
+    _repositoryInfoLoading = NO; _repositoryInfoLoaded = NO;
     _headerIcon = headerIcon ?: [UIImage imageNamed:@"unknown.png"] ?: [[UIImage alloc] init];
     _depictionEligible = nextDepictionEligible;
     if (!preserveDepictionView) {
@@ -403,6 +413,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         [_tableView reloadData];
     [self applyColorAppearance];
     [self.view setNeedsLayout];
+    if (self.view.window != nil) [self loadRepositoryPackagePrice];
 }
 
 - (void)updateWithViewModel:(CydiaPackageDetailViewModel *)viewModel
@@ -428,6 +439,8 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     if ([_viewModel modeLocalizationKey] != nil)
         [sections addObject:@(CydiaPackageDetailSectionKindQueue)];
     [sections addObject:@(CydiaPackageDetailSectionKindActions)];
+    if (_viewModel.isCommercial && _viewModel.source.repositoryURLString.length)
+        [sections addObject:@(CydiaPackageDetailSectionKindAccount)];
     if ([[_viewModel warnings] count] != 0)
         [sections addObject:@(CydiaPackageDetailSectionKindWarnings)];
     if (_depictionEligible) {
@@ -610,6 +623,45 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self applyColorAppearance];
+    if (!_repositoryInfoLoading && !_repositoryInfoLoaded) [self loadRepositoryPackagePrice];
+}
+
+- (void)loadRepositoryPackagePrice {
+    CydiaPackageDetailViewModel *selection = _viewModel;
+    if (!selection.isCommercial || !selection.source.repositoryURLString.length) return;
+    _repositoryInfoLoading = YES;
+    NSUInteger generation = ++_repositoryRequestGeneration;
+    __weak PackageDetailController *weakSelf = self;
+    CydiaRepositoryAccountService *service = [CydiaRepositoryAccountService sharedService];
+    [service discoverSource:[NSURL URLWithString:selection.source.repositoryURLString] name:selection.source.name
+        completion:^(CydiaRepositoryAccount *account, NSError *error) {
+        PackageDetailController *self = weakSelf;
+        if (!self || self.repositoryRequestGeneration != generation || self.viewModel != selection) return;
+        self.repositoryAccountNotice = account.compatibilityNotice ?: error.localizedDescription;
+        if (!account || !account.supportsAccountIntegration) {
+            self.repositoryInfoLoading = NO; self.repositoryInfoLoaded = YES; [self reloadRepositoryPackageRow]; return;
+        }
+        /* Public package metadata does not send a token or device identifier.
+         * Ownership is checked only in the source-scoped account interface. */
+        [service anonymousPackageInfo:selection.baseIdentity ?: selection.identity account:account
+            completion:^(NSDictionary *info, NSError *packageError) {
+            PackageDetailController *self = weakSelf;
+            if (!self || self.repositoryRequestGeneration != generation || self.viewModel != selection) return;
+            self.repositoryInfoLoading = NO; self.repositoryInfoLoaded = YES;
+            self.repositoryPresentation = [[CydiaRepositoryPackagePresentation alloc] initWithInfo:packageError ? nil : info
+                signedIn:NO supported:account.supportsAccountIntegration downloadAvailable:NO
+                downloadSupported:(account.capabilities & CydiaRepositoryCapabilityDownload) != 0
+                purchaseAvailable:NO purchaseURL:nil];
+            if (packageError) self.repositoryAccountNotice = account.compatibilityNotice ?: packageError.localizedDescription;
+            [self reloadRepositoryPackageRow];
+        }];
+    }];
+}
+- (void)reloadRepositoryPackageRow {
+    NSUInteger section = [_sections indexOfObject:@(CydiaPackageDetailSectionKindAccount)];
+    if (section == NSNotFound || !_tableView) return;
+    [_tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:0 inSection:section]]
+        withRowAnimation:UITableViewRowAnimationNone];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -650,6 +702,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         case CydiaPackageDetailSectionKindDepiction:
         case CydiaPackageDetailSectionKindDescription:
         case CydiaPackageDetailSectionKindHomepage:
+        case CydiaPackageDetailSectionKindAccount:
             return 1;
         case CydiaPackageDetailSectionKindActions:
             return 2 + ([_viewModel isConsolePackage] ? 1 : 0) +
@@ -816,6 +869,28 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     CydiaPackageDetailSectionKind kind([self sectionKind:indexPath.section]);
+    if (kind == CydiaPackageDetailSectionKindAccount) {
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"CydiaPackageAccount"];
+        if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"CydiaPackageAccount"];
+        cell.textLabel.text = CydiaAccountLocalize(@"ACCOUNT_PURCHASE_OPTIONS");
+        cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+        cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        cell.textLabel.adjustsFontForContentSizeCategory = YES; cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
+        cell.textLabel.numberOfLines = 0; cell.detailTextLabel.numberOfLines = 0;
+        cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent traitCollection:self.traitCollection];
+        cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection];
+        cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
+        NSMutableArray *details = [NSMutableArray array];
+        if (_repositoryInfoLoading) [details addObject:UCLocalize("LOADING")];
+        if (_repositoryPresentation.price.length) [details addObject:_repositoryPresentation.price];
+        if (_repositoryAccountNotice.length) [details addObject:_repositoryAccountNotice];
+        cell.detailTextLabel.text = [details componentsJoinedByString:@"\n"];
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.accessibilityIdentifier = @"cydia.package.account";
+        cell.accessibilityTraits = UIAccessibilityTraitButton;
+        return cell;
+    }
     if (kind == CydiaPackageDetailSectionKindDepiction)
         return [self depictionCellForTable:tableView];
     if (kind == CydiaPackageDetailSectionKindDescription) {
@@ -863,6 +938,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                 UCLocalize("WARNING"), cell.textLabel.text];
             break;
         case CydiaPackageDetailSectionKindDepiction:
+        case CydiaPackageDetailSectionKindAccount:
             break;
         case CydiaPackageDetailSectionKindHomepage:
             cell.textLabel.text = UCLocalize("MORE_INFORMATION");
@@ -966,7 +1042,12 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     CydiaPackageDetailNavigationKind navigationKind;
     NSString *URLString(nil);
     NSString *identifier(nil);
-    if (kind == CydiaPackageDetailSectionKindActions) {
+    if (kind == CydiaPackageDetailSectionKindAccount) {
+        for (CydiaPackageDetailModifyAction *action in _viewModel.modifyActions) {
+            if (action.kind == CydiaPackageDetailModifyActionKindAccount) { [self selectModifyAction:action]; break; }
+        }
+        return;
+    } else if (kind == CydiaPackageDetailSectionKindActions) {
         if (indexPath.row == 0) {
             navigationKind = CydiaPackageDetailNavigationKindSettings;
             URLString = [NSString stringWithFormat:@"cydia://package/%@/settings",
@@ -1052,6 +1133,18 @@ dispatch:
         }
         __weak PackageDetailController *weakSelf = self;
         void (^downloadAction)(void) = nil;
+        BOOL (^selectionIsCurrent)(void) = nil;
+        if (download != nil) selectionIsCurrent = ^BOOL {
+            PackageDetailController *self = weakSelf;
+            if (!self || self.viewModel != selection ||
+                ![self.navigationController.viewControllers containsObject:self]) return NO;
+            Package *package = [[Database sharedInstance] packageWithName:selection.identity];
+            if (!package) return NO;
+            CydiaPackageDetailViewModel *current = [[CydiaPackageDetailViewModel alloc]
+                initWithPackage:package registeredArchitectures:package.registeredArchitectures
+                versionArchitecture:selection.architecture];
+            return CydiaPackageDetailCanPerformAction(selection, current, download.kind);
+        };
         if (download != nil) downloadAction = ^{
             PackageDetailController *self = weakSelf;
             if (self == nil || self.viewModel != selection ||
@@ -1062,9 +1155,11 @@ dispatch:
         [self.navigationController pushViewController:[[RepositoryAccountsController alloc]
             initWithSourceURL:[NSURL URLWithString:_viewModel.source.repositoryURLString]
             name:_viewModel.source.name package:_viewModel.baseIdentity ?: _viewModel.identity
+            packageName:selection.displayName version:selection.fullVersion architecture:selection.architecture
             downloadAction:downloadAction purchaseURL:CydiaRepositoryPurchaseWebsite(
                 [NSURL URLWithString:selection.source.repositoryURLString],
-                selection.homepageURLString ? [NSURL URLWithString:selection.homepageURLString] : nil)] animated:YES];
+                selection.homepageURLString ? [NSURL URLWithString:selection.homepageURLString] : nil)
+            selectionIsCurrent:selectionIsCurrent] animated:YES];
         return;
     }
     if ([action kind] != CydiaPackageDetailModifyActionKindVersions) {

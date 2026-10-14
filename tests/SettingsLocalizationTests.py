@@ -6,7 +6,87 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENTRY = re.compile(r'("(?:[^"\\]|\\.)*")\s*=\s*("(?:[^"\\]|\\.)*")\s*;')
-FORMAT = re.compile(r'%(?!%)(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztL])?[@diouxXfFeEgGaAcCsSp]')
+FORMAT = re.compile(
+    r'%(?:%|(?:(?P<position>[1-9]\d*)\$)?[-+#0 \']*'
+    r'(?P<width>\*(?:(?P<width_position>[1-9]\d*)\$)?|\d+)?'
+    r'(?:\.(?P<precision>\*(?:(?P<precision_position>[1-9]\d*)\$)?|\d*))?'
+    r'(?P<length>hh|ll|[hljztLq])?(?P<conversion>[@diouxXfFeEgGaAcCsSp]))'
+)
+
+
+def format_arguments(text):
+    """Compare consumed argument identities, including positional star widths.
+
+    Translation may reorder or repeat an argument. It must not change its
+    type, drop an argument, introduce another, or mix positional/sequential
+    formats. Escaped percent signs consume no argument.
+    """
+    result = {}
+    next_position = 1
+    styles = set()
+
+    def consume(position, kind):
+        nonlocal next_position
+        styles.add('positional' if position else 'sequential')
+        identity = int(position) if position else next_position
+        if not position:
+            next_position += 1
+        assert identity not in result or result[identity] == kind, \
+            f"Conflicting types for format argument {identity}: {text!r}"
+        result[identity] = kind
+
+    cursor = 0
+    for match in FORMAT.finditer(text):
+        assert '%' not in text[cursor:match.start()], f"Invalid format specifier: {text!r}"
+        cursor = match.end()
+        if match.group() == '%%':
+            continue
+        for field in ('width', 'precision'):
+            if (match[field] or '').startswith('*'):
+                consume(match[field + '_position'], 'int')
+        conversion, length = match['conversion'], match['length'] or ''
+        if conversion in 'diouxX':
+            assert length != 'L', f"Invalid integer format: {text!r}"
+            size = {'': 'int', 'h': 'int', 'hh': 'int', 'l': 'long', 'll': 'long long',
+                    'q': 'long long', 'j': 'intmax_t', 'z': 'size_t', 't': 'ptrdiff_t'}[length]
+            kind = ('unsigned ' if conversion in 'ouxX' else '') + size
+            if length in ('h', 'hh'):
+                kind = 'int'  # Darwin short/char values use the default promotions.
+            elif length == 'j':
+                kind = 'uintmax_t' if conversion in 'ouxX' else 'intmax_t'
+            elif length == 'z':
+                kind = 'size_t' if conversion in 'ouxX' else 'ssize_t'
+        elif conversion in 'fFeEgGaA':
+            assert length in ('', 'l', 'L'), f"Invalid floating-point format: {text!r}"
+            kind = 'long double' if length == 'L' else 'double'
+        elif conversion in 'cs':
+            assert length in ('', 'l'), f"Invalid character format: {text!r}"
+            kind = ('wint_t' if length else 'int') if conversion == 'c' else \
+                ('wchar_t *' if length else 'char *')
+        else:
+            assert not length, f"Invalid format length: {text!r}"
+            kind = {'@': 'object', 'C': 'int', 'S': 'unichar *', 'p': 'void *'}[conversion]
+        consume(match['position'], kind)
+    assert '%' not in text[cursor:], f"Invalid trailing format specifier: {text!r}"
+    assert len(styles) <= 1, f"Mixed positional and sequential format: {text!r}"
+    assert set(result) == set(range(1, len(result) + 1)), f"Missing positional format argument: {text!r}"
+    return result
+
+
+def check_format_parser():
+    assert format_arguments('%@ %lu') == format_arguments('%2$lu %1$@')
+    assert format_arguments('%@ %% %d') == format_arguments('%2$d %% %1$@')
+    assert format_arguments('%*.*f') == format_arguments('%3$*1$.*2$f')
+    assert format_arguments('%1$@ %1$@') == format_arguments('%@')
+    assert format_arguments('%%') == {}
+    assert format_arguments('%d') != format_arguments('%ld')
+    for invalid in ('%1$@ %1$d', '%2$@', '%1$@ %d', '%*2$f', '%0$@', '%l@', '%'):
+        try:
+            format_arguments(invalid)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"Invalid format accepted: {invalid!r}")
 
 
 def read_table(path, allow_equal=False):
@@ -26,6 +106,7 @@ def read_table(path, allow_equal=False):
 
 
 def main():
+    check_format_parser()
     bundles = sorted((ROOT / "MobileCydia.app").glob("*.lproj"))
     assert len(bundles) == 21, "Review changes to the shipped locale baseline"
     english = read_table(ROOT / "MobileCydia.app/en.lproj/Settings.strings")
@@ -35,8 +116,8 @@ def main():
         table = read_table(bundle / "Settings.strings")
         assert table.keys() == english.keys(), f"Settings keys differ in {bundle.name}"
         for key, value in table.items():
-            expected = sorted(FORMAT.findall(english[key].replace("%%", "")))
-            actual = sorted(FORMAT.findall(value.replace("%%", "")))
+            expected = format_arguments(english[key])
+            actual = format_arguments(value)
             assert actual == expected, f"Format arguments differ: {bundle.name}/{key}"
     accounts = read_table(ROOT / "MobileCydia.app/en.lproj/Accounts.strings")
     assert {"ACCOUNT_BUY", "ACCOUNT_DOWNLOAD", "ACCOUNT_CHECK_AGAIN", "ACCOUNT_WEBSITE"} <= accounts.keys(), \
@@ -45,7 +126,7 @@ def main():
         table = read_table(bundle / "Accounts.strings")
         assert table.keys() == accounts.keys(), f"Account keys differ in {bundle.name}"
         for key, value in table.items():
-            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(accounts[key].replace("%%", ""))), \
+            assert format_arguments(value) == format_arguments(accounts[key]), \
                 f"Account arguments differ: {bundle.name}/{key}"
             assert key not in {"ACCOUNT_BUY", "ACCOUNT_DOWNLOAD", "ACCOUNT_CHECK_AGAIN", "ACCOUNT_WEBSITE"} or \
                 bundle.name == "en.lproj" or value != accounts[key], \
@@ -67,7 +148,7 @@ def main():
         table = read_table(bundle / "RuntimeProvider.strings")
         assert table.keys() == runtime_provider.keys(), f"Runtime provider keys differ in {bundle.name}"
         for key, value in table.items():
-            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(runtime_provider[key].replace("%%", ""))), \
+            assert format_arguments(value) == format_arguments(runtime_provider[key]), \
                 f"Runtime provider arguments differ: {bundle.name}/{key}"
         for key in {"REVIEW_UNAVAILABLE", "OPERATION_FAILED", "REVIEW_PROCESSING", "REVIEW_PROCESSING_HELP"}:
             assert bundle.name == "en.lproj" or table[key] != runtime_provider[key], \
@@ -81,14 +162,14 @@ def main():
         table = read_table(bundle / "RuntimeAccess.strings")
         assert table.keys() == access.keys(), f"Access check keys differ in {bundle.name}"
         for key, value in table.items():
-            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(access[key].replace("%%", ""))), \
+            assert format_arguments(value) == format_arguments(access[key]), \
                 f"Access check arguments differ: {bundle.name}/{key}"
     bootstrap = read_table(ROOT / "MobileCydia.app/en.lproj/BootstrapAccess.strings")
     for bundle in bundles:
         table = read_table(bundle / "BootstrapAccess.strings")
         assert table.keys() == bootstrap.keys(), f"Bootstrap access keys differ in {bundle.name}"
         for key, value in table.items():
-            assert sorted(FORMAT.findall(value.replace("%%", ""))) == sorted(FORMAT.findall(bootstrap[key].replace("%%", ""))), \
+            assert format_arguments(value) == format_arguments(bootstrap[key]), \
                 f"Bootstrap access arguments differ: {bundle.name}/{key}"
     outcomes = {"TRANSACTION_FAILED_TITLE", "TRANSACTION_CANCELLED"}
     outcome_english = read_table(ROOT / "MobileCydia.app/en.lproj/Localizable.strings", allow_equal=True)
@@ -98,7 +179,7 @@ def main():
         for key in outcomes:
             value = table.get(key)
             assert value and value != key, f"Progress outcome title missing: {bundle.name}/{key}"
-            assert not FORMAT.findall(value.replace("%%", "")), f"Unexpected progress title argument: {bundle.name}/{key}"
+            assert not format_arguments(value), f"Unexpected progress title argument: {bundle.name}/{key}"
             assert bundle.name == "en.lproj" or value != outcome_english[key], \
                 f"English progress outcome fallback: {bundle.name}/{key}"
     print(f"[settings-localization] PASS: {len(english)} keys in {len(bundles)} locales")

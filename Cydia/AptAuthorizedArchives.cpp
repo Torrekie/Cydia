@@ -31,6 +31,45 @@ struct StageDirectory {
     }
 };
 
+/* Use the method's machine-readable failure reason rather than interpreting
+ * translated HTTP text. A rejected temporary capability may be renewed once;
+ * network, TLS and integrity errors are never evidence of an expired grant. */
+class AuthorizedArchive : public pkgAcqFile {
+public:
+    std::string failureReason;
+    using pkgAcqFile::pkgAcqFile;
+    void Failed(std::string const &message, pkgAcquire::MethodConfig const *const configuration) override {
+        failureReason = LookupTag(message, "FailReason");
+        pkgAcqFile::Failed(message, configuration);
+    }
+    bool mayRenew() const {
+        return failureReason == "HttpError401" || failureReason == "HttpError403";
+    }
+};
+
+/* Private acquisition can leave signed URLs in APT's global error stack.
+ * Export only the redacted per-item diagnostic and preserve older errors. */
+struct PrivateErrors {
+    PrivateErrors() { _error->PushToStack(); }
+    ~PrivateErrors() { _error->RevertToStack(); }
+};
+
+const char *AuthorizationFailureReason(CydiaRuntime::RepositoryArchiveAuthorizationStatus status) {
+    using Status = CydiaRuntime::RepositoryArchiveAuthorizationStatus;
+    if (status == Status::AuthenticationRequired) return "repository_account_required";
+    if (status == Status::Unavailable) return "repository_package_unavailable";
+    if (status == Status::Unsupported) return "repository_authorization_required";
+    return "repository_authorization_failed";
+}
+
+bool SafeGrantURL(const std::string &URL, const URI &transport) {
+    if (transport.Access != "https" || transport.Host.empty() || !transport.User.empty() ||
+        !transport.Password.empty() || URL.find('#') != std::string::npos) return false;
+    for (unsigned char character : URL)
+        if (character <= 32 || character == 127 || character == '\\') return false;
+    return true;
+}
+
 void CopyConfiguration(const Configuration::Item *item, Configuration &copy, const std::string &prefix = "") {
     for (; item != NULL; item = item->Next) {
         const std::string name(prefix.empty() ? item->Tag : prefix + "::" + item->Tag);
@@ -128,34 +167,54 @@ bool StageAuthorizedArchives(pkgAcquire &fetcher, pkgAcquireStatus &status,
         request.version = expected.identity.version;
         request.architecture = expected.identity.architecture;
         status.Start();
-        const auto grant(AuthorizeRepositoryArchive(request, [&]() { return !status.Pulse(&fetcher); }));
+        auto grant(AuthorizeRepositoryArchive(request, [&]() { return !status.Pulse(&fetcher); }));
         status.Stop();
         if (grant.status == RepositoryArchiveAuthorizationStatus::NotRequired) continue;
         if (grant.status == RepositoryArchiveAuthorizationStatus::Cancelled) return false;
         if (grant.status != RepositoryArchiveAuthorizationStatus::Authorized)
-            return Failure(result, expected, grant.message,
-                grant.status == RepositoryArchiveAuthorizationStatus::Unsupported ?
-                    "repository_authorization_required" : "repository_authorization_failed");
+            return Failure(result, expected, grant.message, AuthorizationFailureReason(grant.status));
         if (!hashes.usable() || archive->FileSize == 0)
             return Failure(result, expected, "The authorized archive has no usable repository integrity information.", "archive_missing_hashes");
-        const URI transport(grant.transportURL);
-        if (transport.Access != "https" || transport.Host.empty() || !transport.User.empty() ||
-            !transport.Password.empty() || grant.transportURL.find_first_of("\r\n\t ") != std::string::npos)
-            return Failure(result, expected, "The repository returned an invalid download authorization.", "invalid_download_grant");
         const std::string cache(_config->FindDir("Dir::Cache::Archives"));
         StageDirectory temporary(cache);
         if (temporary.directory.empty())
             return Failure(result, expected, "Could not create a private package download.", "archive_staging_failed");
-        {
-            PrivateAcquisition configuration(transport);
-            if (!configuration.ready)
-                return Failure(result, expected, "", "authorized_download_failed");
-            pkgAcquire authorized(&status);
-            pkgAcqFile *download(new pkgAcqFile(&authorized, grant.transportURL, hashes, archive->FileSize,
-                expected.package, expected.package, "", temporary.file));
-            if (authorized.Run(pulseInterval) != pkgAcquire::Continue) return false;
-            if (download->Status != pkgAcquire::Item::StatDone || !download->Complete)
-                return Failure(result, expected, download->ErrorText, "authorized_download_failed");
+        for (unsigned attempt = 0; attempt != 2; ++attempt) {
+            const URI transport(grant.transportURL);
+            if (!SafeGrantURL(grant.transportURL, transport))
+                return Failure(result, expected, "The repository returned an invalid download authorization.", "invalid_download_grant");
+            bool renew = false;
+            std::string downloadError, methodFailure;
+            {
+                PrivateErrors errors;
+                PrivateAcquisition configuration(transport);
+                if (!configuration.ready)
+                    return Failure(result, expected, "", "authorized_download_failed");
+                pkgAcquire authorized(&status);
+                AuthorizedArchive *download(new AuthorizedArchive(&authorized, grant.transportURL, hashes, archive->FileSize,
+                    expected.package, expected.package, "", temporary.file));
+                if (authorized.Run(pulseInterval) == pkgAcquire::Cancelled) return false;
+                if (download->Status == pkgAcquire::Item::StatDone && download->Complete) break;
+                downloadError = download->ErrorText;
+                methodFailure = download->failureReason;
+                renew = download->mayRenew();
+            }
+            if (methodFailure == "HashSumMismatch")
+                return Failure(result, expected, downloadError, "archive_hash_mismatch");
+            if (methodFailure == "WeakHashSums")
+                return Failure(result, expected, downloadError, "archive_missing_hashes");
+            if (!renew || attempt != 0)
+                return Failure(result, expected, downloadError,
+                    renew ? "authorized_download_rejected" : "authorized_download_failed");
+            // Recheck ownership and the same exact archive before a single
+            // renewal. This never invokes checkout or falls back to Filename.
+            unlink(temporary.file.c_str()); unlink((temporary.file + ".FAILED").c_str());
+            status.Start();
+            grant = AuthorizeRepositoryArchive(request, [&]() { return !status.Pulse(&fetcher); });
+            status.Stop();
+            if (grant.status == RepositoryArchiveAuthorizationStatus::Cancelled) return false;
+            if (grant.status != RepositoryArchiveAuthorizationStatus::Authorized)
+                return Failure(result, expected, grant.message, AuthorizationFailureReason(grant.status));
         }
         if (!Verify(temporary.file, hashes, archive->FileSize))
             return Failure(result, expected, "The authorized package does not match the repository's hashes and size.", "archive_hash_mismatch");

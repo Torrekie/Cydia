@@ -10,6 +10,12 @@ static CydiaRepositoryPackagePresentation *Present(NSDictionary *info, BOOL sign
     return [[CydiaRepositoryPackagePresentation alloc] initWithInfo:info signedIn:signedIn
         supported:supported downloadAvailable:downloadAvailable purchaseURL:URL];
 }
+static CydiaRepositoryPackagePresentation *NativePresent(NSDictionary *info, BOOL downloadSupported = YES,
+    BOOL purchaseAvailable = YES) {
+    return [[CydiaRepositoryPackagePresentation alloc] initWithInfo:info signedIn:YES
+        supported:YES downloadAvailable:YES downloadSupported:downloadSupported
+        purchaseAvailable:purchaseAvailable purchaseURL:nil];
+}
 int main() {
     @autoreleasepool {
         NSURL *source = [NSURL URLWithString:@"https://repo.chariz.com/"];
@@ -66,6 +72,34 @@ int main() {
         Require(Present(@{@"available": @YES, @"purchased": @NO, @"recovery_url": safe.absoluteString,
             @"purchase_url": safe.absoluteString}).state == CydiaRepositoryPackageStateNotPurchased,
             "protocol-unsupported field became buy action");
+        NSDictionary *offer = @{@"available": @YES, @"purchased": @NO, @"price": @"$2.99"};
+        auto native = NativePresent(offer);
+        Require(native.state == CydiaRepositoryPackageStateBuy && [native.price isEqual:@"$2.99"] && !native.purchased,
+            "native provider offer has no bound displayed price");
+        Require(NativePresent(offer, NO).state == CydiaRepositoryPackageStateNotPurchased,
+            "purchase encouraged despite a known unsupported download client");
+        Require(NativePresent(offer, YES, NO).state == CydiaRepositoryPackageStateNotPurchased,
+            "purchase offered without provider checkout capability");
+        Require(NativePresent(unpurchased).state == CydiaRepositoryPackageStateNotPurchased,
+            "purchase offered without a confirmable price");
+        Require(NativePresent(owned, NO).state == CydiaRepositoryPackageStateOwned,
+            "reading ownership erased by a download policy restriction");
+        Require(NativePresent(@{@"available": @NO, @"purchased": @YES}).state == CydiaRepositoryPackageStateOwnedUnavailable,
+            "owned but unavailable product disappeared from ownership presentation");
+        Require(NativePresent(@{@"available": @NO, @"purchased": @YES}).purchased,
+            "ownership of an unavailable product was lost");
+        for (id price in @[@1, @YES, NSNull.null, @[], @{}, @"", @"$2\ncheckout"]) {
+            Require(NativePresent(@{@"available": @YES, @"purchased": @NO, @"price": price}).state == CydiaRepositoryPackageStateNotPurchased,
+                "invalid native price was offered for financial confirmation");
+        }
+        Require([CydiaRepositoryPurchasedPackageIdentifiers(@{@"items": @[@"com.example.one", @"com.example.one", @"two-package"]})
+            isEqual:@[@"com.example.one", @"two-package"]], "owned library did not deduplicate provider item IDs");
+        Require(CydiaRepositoryPurchasedPackageIdentifiers(@{@"items": @[]}).count == 0,
+            "valid empty provider library treated as failure");
+        for (id items in @[@"pkg", NSNull.null, @{}, @[@"pkg", @1], @[@"https://vendor.invalid/pkg"],
+            @[@"pkg:arm64"], @[@"Pkg"], @[@"-pkg"], @[@"p"]])
+            Require(CydiaRepositoryPurchasedPackageIdentifiers(@{@"items": items}) == nil,
+                "malformed provider library became an actionable local package identity");
     }
     std::puts("[repository-package] presentation decisions passed"); return 0;
 }

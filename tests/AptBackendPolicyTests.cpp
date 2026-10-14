@@ -408,6 +408,7 @@ void CheckCommercialArchiveInputs(bool cached) {
     std::map<const pkgAcquire::Item *, Internal::PreparedArchiveData> prepared{{archive, expected}};
     unsigned calls = 0;
     std::string grantURL;
+    RepositoryArchiveAuthorizationStatus grantStatus = RepositoryArchiveAuthorizationStatus::Authorized;
     SetRepositoryArchiveAuthorizationHandler([&](const RepositoryArchiveAuthorizationRequest &request,
         const std::function<bool()> &) {
         ++calls;
@@ -415,8 +416,8 @@ void CheckCommercialArchiveInputs(bool cached) {
             request.version == "1" && request.architecture == "all",
             "authorization request changed selected source or exact package identity");
         RepositoryArchiveAuthorizationResult result;
-        result.status = RepositoryArchiveAuthorizationStatus::Authorized;
-        result.transportURL = grantURL;
+        result.status = grantStatus;
+        if (grantStatus == RepositoryArchiveAuthorizationStatus::Authorized) result.transportURL = grantURL;
         return result;
     });
     if (cached) {
@@ -436,7 +437,10 @@ void CheckCommercialArchiveInputs(bool cached) {
         prepared[archive] = expected;
         for (const std::string &invalid : {std::string(), std::string("http://download.invalid/file.deb"),
              std::string("file:///archive.deb"), std::string("https://user:secret@download.invalid/file.deb"),
-             std::string("https://download.invalid/file.deb\nInjected: header")}) {
+             std::string("https://download.invalid/file.deb\nInjected: header"),
+             std::string("https://download.invalid/file.deb\vheader"),
+             std::string("https://download.invalid/file\\other.deb"),
+             std::string("https://download.invalid/file.deb#fragment")}) {
             grantURL = invalid;
             const unsigned before(calls); FetchResultData result; staged = true;
             Require(!Internal::StageAuthorizedArchives(fetcher, status, prepared, &result, &staged, 1000) &&
@@ -444,6 +448,21 @@ void CheckCommercialArchiveInputs(bool cached) {
                 result.failures.front().reason == "invalid_download_grant",
                 "invalid/non-HTTPS grant reached archive staging");
         }
+        for (const auto &denial : {
+            std::make_pair(RepositoryArchiveAuthorizationStatus::AuthenticationRequired, "repository_account_required"),
+            std::make_pair(RepositoryArchiveAuthorizationStatus::Unavailable, "repository_package_unavailable"),
+            std::make_pair(RepositoryArchiveAuthorizationStatus::Unsupported, "repository_authorization_required")}) {
+            grantStatus = denial.first;
+            const unsigned before(calls); FetchResultData result; staged = true;
+            Require(!Internal::StageAuthorizedArchives(fetcher, status, prepared, &result, &staged, 1000) &&
+                !staged && calls == before + 1 && result.failures.size() == 1 &&
+                result.failures.front().reason == denial.second,
+                "restricted archive silently downgraded or lost its authorization failure class");
+        }
+        grantStatus = RepositoryArchiveAuthorizationStatus::NotRequired;
+        FetchResultData legacy; staged = true;
+        Require(Internal::StageAuthorizedArchives(fetcher, status, prepared, &legacy, &staged, 1000) &&
+            !staged && legacy.failures.empty(), "proven legacy/public archive path was blocked");
         Require(access(archive->DestFile.c_str(), F_OK) != 0,
             "rejected authorization created a package payload");
     }
@@ -462,15 +481,25 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
     const SourceListData sources(backend.sourceList());
     Require(sources.success && sources.uris.size() == 1, "authorized fixture has an ambiguous source identity");
     unsigned authorizations(0);
+    unsigned renewalRequests(0);
+    bool renewalFixture(false), revokeOnRenewal(false);
     SetRepositoryArchiveAuthorizationHandler([&](const RepositoryArchiveAuthorizationRequest &request,
         const std::function<bool()> &) {
         ++authorizations;
+        if (renewalFixture) ++renewalRequests;
         Require(request.sourceURL == sources.uris.front() && request.package == "archive-authorized" &&
             request.version == "1" && request.architecture == "all",
             "authorized download lost selected repository or exact package identity");
         RepositoryArchiveAuthorizationResult result;
+        if (revokeOnRenewal && renewalRequests == 2) {
+            result.status = RepositoryArchiveAuthorizationStatus::Unavailable;
+            result.message = "Fixture ownership was revoked.";
+            return result;
+        }
         result.status = RepositoryArchiveAuthorizationStatus::Authorized;
-        result.transportURL = "https://authorized.invalid/archive.deb?token=fixture";
+        result.transportURL = renewalFixture && renewalRequests == 2 ?
+            "https://authorized.invalid/archive.deb?token=renewed" :
+            "https://authorized.invalid/archive.deb?token=fixture";
         return result;
     });
     const std::string previousMethod(_config->Find("Dir::Bin::Methods::https",
@@ -505,6 +534,32 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
     std::string first, extra;
     Require(std::getline(acquisition, first) && first == "private" && !std::getline(acquisition, extra),
         "authorized acquisition did not use exactly one private pkgAcqFile download");
+    acquisition.close();
+    fixtureInstallPrefix = "/";
+    renewalFixture = true;
+    for (const std::string &scenario : {std::string("expire"), std::string("reject"),
+         std::string("network"), std::string("hash"), std::string("revoke")}) {
+        unlink(cache.c_str()); unlink(marker); renewalRequests = 0;
+        revokeOnRenewal = scenario == "revoke";
+        setenv("CYDIA_APT_AUTHORIZED_FAILURE", revokeOnRenewal ? "expire" : scenario.c_str(), 1);
+        Require(backend.prepareArchives(), "authorization renewal fixture could not prepare its archive");
+        const FetchResultData renewed(backend.runFetcher(1000));
+        Require(renewed.completed && renewalRequests == (scenario == "network" || scenario == "hash" ? 1u : 2u),
+            "authorization renewed a network error or exceeded its single retry bound");
+        if (scenario == "expire") {
+            Require(renewed.failures.empty() && access(cache.c_str(), F_OK) == 0,
+                "fresh exact authorization did not recover a rejected temporary grant");
+        } else {
+            const std::string reason(scenario == "revoke" ? "repository_package_unavailable" :
+                scenario == "hash" ? "archive_hash_mismatch" :
+                scenario == "reject" ? "authorized_download_rejected" : "authorized_download_failed");
+            Require(renewed.failures.size() == 1 && renewed.failures.front().reason == reason &&
+                access(cache.c_str(), F_OK) != 0,
+                "authorization renewal lost its denial, downloaded revoked bytes or bypassed integrity");
+        }
+        Require(!_error->PendingError(), "private signed acquisition leaked errors into the ordinary APT stack");
+    }
+    unsetenv("CYDIA_APT_AUTHORIZED_FAILURE");
     backend.clearSelections();
     fixtureInstallPrefix = "/";
     fixtureSecurityMode = RepositorySecurityMode::Warning;

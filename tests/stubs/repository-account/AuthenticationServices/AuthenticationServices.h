@@ -1,6 +1,10 @@
 #pragma once
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#define ASWebAuthenticationSessionErrorDomain @"FixtureASWebAuthenticationSession"
+typedef NS_ENUM(NSInteger, ASWebAuthenticationSessionErrorCode) {
+    ASWebAuthenticationSessionErrorCodeCanceledLogin = 1,
+};
 typedef UIWindow *ASPresentationAnchor;
 @class ASWebAuthenticationSession;
 @protocol ASWebAuthenticationPresentationContextProviding <NSObject>

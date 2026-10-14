@@ -161,6 +161,7 @@ libs += -framework SystemConfiguration
 libs += -framework CFNetwork
 libs += -framework Security
 libs += -framework AuthenticationServices
+libs += -framework LocalAuthentication
 libs += -framework WebKit
 ifeq ($(HOST_OS),Linux)
 libs += -Wl,-force_load,$(APT_LIBRARY)

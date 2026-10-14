@@ -29,13 +29,20 @@ void Finish(const std::shared_ptr<AuthorizationState> &state, Status status, NSS
 void Fail(const std::shared_ptr<AuthorizationState> &state, NSError *error) {
     Status status = Status::Failed;
     if ([error.domain isEqualToString:@"CydiaRepositoryAccount"]) {
-        if (error.code == CydiaAccountErrorUnsupported) status = Status::Unsupported;
-        else if (error.code == CydiaAccountErrorAuthentication) status = Status::AuthenticationRequired;
+        if (error.code == CydiaAccountErrorUnsupported || error.code == CydiaAccountErrorClientPolicy)
+            status = Status::Unsupported;
+        else if (error.code == CydiaAccountErrorAuthentication || error.code == CydiaAccountErrorReauthentication)
+            status = Status::AuthenticationRequired;
         else if (error.code == CydiaAccountErrorUnavailable) status = Status::Unavailable;
+        else if (error.code == CydiaAccountErrorCancelled) status = Status::Cancelled;
     }
     Finish(state, status, error.localizedDescription ?: CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED"));
 }
-bool Boolean(id value) { return [value isKindOfClass:NSNumber.class] && [value boolValue]; }
+bool IsBoolean(id value) {
+    return [value isKindOfClass:NSNumber.class] &&
+        CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID();
+}
+bool Boolean(id value) { return IsBoolean(value) && [value boolValue]; }
 bool ExplicitlyFree(NSDictionary *info) {
     /* Do not infer a zero price from arbitrary/localized display strings. */
     id price = info[@"price"];
@@ -45,10 +52,10 @@ bool ExplicitlyFree(NSDictionary *info) {
 void OwnedPackage(const std::shared_ptr<AuthorizationState> &state,
                   CydiaRepositoryAccount *account, NSString *package, NSString *version, NSString *architecture) {
     if (!Active(state)) return;
-    if (!account.supportsAccountIntegration) {
-        // No accepted account integration means ordinary APT may still retrieve
-        // a public archive. The publisher's HTTP authorization remains decisive.
-        Finish(state, Status::NotRequired, nil); return;
+    if (!(account.capabilities & CydiaRepositoryCapabilityDownload)) {
+        // Discovery establishes a restricted provider. An unsupported client
+        // must not downgrade this package to anonymous Filename acquisition.
+        Finish(state, Status::Unsupported, account.compatibilityNotice ?: CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED")); return;
     }
     if (!account.signedIn) {
         Finish(state, Status::AuthenticationRequired, CydiaAccountLocalize(@"ACCOUNT_SIGN_IN_REQUIRED")); return;
@@ -57,10 +64,16 @@ void OwnedPackage(const std::shared_ptr<AuthorizationState> &state,
         completion:^(NSDictionary *info, NSError *error) {
         if (!Active(state)) return;
         if (error) { Fail(state, error); return; }
+        if (!IsBoolean(info[@"available"])) {
+            Finish(state, Status::Failed, CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED")); return;
+        }
         if (!Boolean(info[@"available"])) {
             Finish(state, Status::Unavailable, CydiaAccountLocalize(@"ACCOUNT_UNAVAILABLE")); return;
         }
         if (ExplicitlyFree(info)) { Finish(state, Status::NotRequired, nil); return; }
+        if (!IsBoolean(info[@"purchased"])) {
+            Finish(state, Status::Failed, CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED")); return;
+        }
         if (!Boolean(info[@"purchased"])) {
             Finish(state, Status::Unavailable, CydiaAccountLocalize(@"ACCOUNT_NOT_OWNED")); return;
         }
@@ -70,7 +83,8 @@ void OwnedPackage(const std::shared_ptr<AuthorizationState> &state,
             if (failure) { Fail(state, failure); return; }
             if (![grant.package isEqual:package] || ![grant.version isEqual:version] ||
                 ![grant.architecture isEqual:architecture] || ![grant.sourceURL isEqual:account.sourceURL] ||
-                !grant.transportURL || !grant.obtainedAt || -[grant.obtainedAt timeIntervalSinceNow] > 60) {
+                !grant.transportURL || !grant.obtainedAt || -[grant.obtainedAt timeIntervalSinceNow] > 60 ||
+                [grant.obtainedAt timeIntervalSinceNow] > 5) {
                 Finish(state, Status::Failed, CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED")); return;
             }
             Finish(state, Status::Authorized, nil, grant.transportURL);
@@ -104,11 +118,6 @@ static RepositoryArchiveAuthorizationResult AuthorizeRepositoryArchiveWithAccoun
                 else Fail(state, error);
                 return;
             }
-            if (!account.supportsAccountIntegration) {
-                // Preserve public/legacy archive retrieval. This does not
-                // authenticate the user or claim paid vendor compatibility.
-                Finish(state, Status::NotRequired, nil); return;
-            }
             /* Anonymous package information carries neither an account token
              * nor a permanent device identifier. Some providers require login
              * even for this API; only an already approved account may proceed. */
@@ -118,10 +127,14 @@ static RepositoryArchiveAuthorizationResult AuthorizeRepositoryArchiveWithAccoun
                 if (!failure && Boolean(info[@"available"]) && ExplicitlyFree(info)) {
                     Finish(state, Status::NotRequired, nil); return;
                 }
-                if (!failure && [info[@"available"] isKindOfClass:NSNumber.class] && !Boolean(info[@"available"])) {
+                if (!failure && !IsBoolean(info[@"available"])) {
+                    Finish(state, Status::Failed, CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED")); return;
+                }
+                if (!failure && !Boolean(info[@"available"])) {
                     Finish(state, Status::Unavailable, CydiaAccountLocalize(@"ACCOUNT_UNAVAILABLE")); return;
                 }
-                if (failure && failure.code != CydiaAccountErrorAuthentication && !account.signedIn) {
+                if (failure && (![failure.domain isEqualToString:@"CydiaRepositoryAccount"] ||
+                    failure.code != CydiaAccountErrorAuthentication)) {
                     Fail(state, failure); return;
                 }
                 OwnedPackage(state, account, package, version, architecture);

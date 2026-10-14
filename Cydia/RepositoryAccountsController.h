@@ -8,4 +8,11 @@
  * returning to normal install/review. This is never a direct archive fetch. */
 - (instancetype)initWithSourceURL:(NSURL *)sourceURL name:(NSString *)name package:(NSString *)package
                    downloadAction:(void (^)(void))downloadAction purchaseURL:(NSURL *)purchaseURL;
+- (instancetype)initWithSourceURL:(NSURL *)sourceURL name:(NSString *)name package:(NSString *)package
+                      packageName:(NSString *)packageName version:(NSString *)version architecture:(NSString *)architecture
+                   downloadAction:(void (^)(void))downloadAction purchaseURL:(NSURL *)purchaseURL;
+- (instancetype)initWithSourceURL:(NSURL *)sourceURL name:(NSString *)name package:(NSString *)package
+                      packageName:(NSString *)packageName version:(NSString *)version architecture:(NSString *)architecture
+                   downloadAction:(void (^)(void))downloadAction purchaseURL:(NSURL *)purchaseURL
+               selectionIsCurrent:(BOOL (^)(void))selectionIsCurrent;
 @end

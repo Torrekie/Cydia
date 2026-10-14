@@ -24,6 +24,23 @@ NSURL *PublicPurchaseURL(NSURL *URL) {
 }
 } // namespace
 
+NSArray<NSString *> *CydiaRepositoryPurchasedPackageIdentifiers(NSDictionary *info) {
+    id items = [info isKindOfClass:NSDictionary.class] ? info[@"items"] : nil;
+    if (![items isKindOfClass:NSArray.class] || [items count] > 10000) return nil;
+    NSMutableOrderedSet<NSString *> *packages = [NSMutableOrderedSet orderedSet];
+    NSCharacterSet *characters = [NSCharacterSet characterSetWithCharactersInString:
+        @"abcdefghijklmnopqrstuvwxyz0123456789+.-"];
+    NSCharacterSet *initial = [NSCharacterSet characterSetWithCharactersInString:
+        @"abcdefghijklmnopqrstuvwxyz0123456789"];
+    for (id value in items) {
+        if (![value isKindOfClass:NSString.class] || [value length] < 2 || [value length] > 256 ||
+            [value rangeOfCharacterFromSet:characters.invertedSet].location != NSNotFound ||
+            ![initial characterIsMember:[value characterAtIndex:0]]) return nil;
+        [packages addObject:value];
+    }
+    return packages.array;
+}
+
 NSURL *CydiaRepositoryPublicWebsite(NSURL *URL) { return PublicPurchaseURL(URL); }
 NSURL *CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL *packageWebsite) {
     NSURL *website = PublicPurchaseURL(packageWebsite);
@@ -46,6 +63,13 @@ NSURL *CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL *packageWebsite) {
 - (instancetype)initWithInfo:(NSDictionary *)info signedIn:(BOOL)signedIn
                    supported:(BOOL)supported downloadAvailable:(BOOL)downloadAvailable
                  purchaseURL:(NSURL *)purchaseURL {
+    return [self initWithInfo:info signedIn:signedIn supported:supported downloadAvailable:downloadAvailable
+        downloadSupported:supported purchaseAvailable:NO purchaseURL:purchaseURL];
+}
+- (instancetype)initWithInfo:(NSDictionary *)info signedIn:(BOOL)signedIn
+                   supported:(BOOL)supported downloadAvailable:(BOOL)downloadAvailable
+           downloadSupported:(BOOL)downloadSupported purchaseAvailable:(BOOL)purchaseAvailable
+                 purchaseURL:(NSURL *)purchaseURL {
     if ((self = [super init])) {
         _state = CydiaRepositoryPackageStateUnknown;
         if (!supported) { _state = CydiaRepositoryPackageStateUnavailable; return self; }
@@ -58,15 +82,29 @@ NSURL *CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL *packageWebsite) {
         id success = info[@"success"];
         bool successful(false);
         if (success != nil && (!JSONBoolean(success, &successful) || !successful)) return self;
-        if (!available) { _state = CydiaRepositoryPackageStateUnavailable; return self; }
+        _available = available;
+        id price = info[@"price"];
+        if ([price isKindOfClass:NSString.class] && [price length] > 0 && [price length] <= 128 &&
+            [price rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location == NSNotFound)
+            _price = [price copy];
+        if (!available) {
+            if (signedIn && JSONBoolean(info[@"purchased"], &purchased) && purchased) {
+                _purchased = YES; _state = CydiaRepositoryPackageStateOwnedUnavailable;
+            } else _state = CydiaRepositoryPackageStateUnavailable;
+            return self;
+        }
         if (!signedIn) { _state = CydiaRepositoryPackageStateSignIn; return self; }
         if (!JSONBoolean(info[@"purchased"], &purchased)) return self;
+        _purchased = purchased;
         if (purchased) {
-            _state = downloadAvailable ? CydiaRepositoryPackageStateDownload : CydiaRepositoryPackageStateOwned;
+            _state = downloadAvailable && downloadSupported ? CydiaRepositoryPackageStateDownload : CydiaRepositoryPackageStateOwned;
             return self;
         }
         _purchaseURL = PublicPurchaseURL(purchaseURL);
-        _state = _purchaseURL != nil ? CydiaRepositoryPackageStateBuy : CydiaRepositoryPackageStateNotPurchased;
+        /* The provider may expose account reading while explicitly declining
+         * Cydia archive access. Do not encourage a charge in that state. */
+        _state = downloadSupported && ((_price != nil && purchaseAvailable) || _purchaseURL != nil) ?
+            CydiaRepositoryPackageStateBuy : CydiaRepositoryPackageStateNotPurchased;
     }
     return self;
 }

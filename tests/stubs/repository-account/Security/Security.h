@@ -12,6 +12,18 @@
 #define kSecValueData CFSTR("data")
 #define kSecAttrAccessible CFSTR("accessible")
 #define kSecAttrAccessibleWhenUnlockedThisDeviceOnly CFSTR("unlocked-device-only")
+#define kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly CFSTR("passcode-device-only")
+#define kSecAttrAccessControl CFSTR("access-control")
+#define kSecUseAuthenticationContext CFSTR("authentication-context")
+#define kSecUseOperationPrompt CFSTR("operation-prompt")
+#define kSecUseAuthenticationUI CFSTR("authentication-ui")
+#define kSecUseAuthenticationUIFail CFSTR("authentication-ui-fail")
+typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
+    kSecAccessControlUserPresence = 1 << 0,
+};
+#define SecAccessControlCreateWithFlags CydiaTestSecAccessControlCreateWithFlags
+SecAccessControlRef CydiaTestSecAccessControlCreateWithFlags(CFAllocatorRef allocator,
+    CFTypeRef protection, SecAccessControlCreateFlags flags, CFErrorRef *error);
 #define SecItemCopyMatching CydiaTestSecItemCopyMatching
 #define SecItemUpdate CydiaTestSecItemUpdate
 #define SecItemAdd CydiaTestSecItemAdd

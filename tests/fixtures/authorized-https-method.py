@@ -39,7 +39,9 @@ while True:
         continue
     uri = fields.get("URI", "")
     try:
-        if not header.startswith("600 ") or uri != "https://authorized.invalid/archive.deb?token=fixture":
+        if not header.startswith("600 ") or uri not in (
+                "https://authorized.invalid/archive.deb?token=fixture",
+                "https://authorized.invalid/archive.deb?token=renewed"):
             raise ValueError("Unexpected fixture request")
         destination = Path(fields["Filename"])
         cache = Path(os.environ["CYDIA_APT_AUTHORIZED_CACHE"]).resolve()
@@ -48,6 +50,15 @@ while True:
                 not directory.name.startswith(".cydia-authorized.") or
                 stat.S_IMODE(directory.stat().st_mode) != 0o700 or directory.is_symlink()):
             raise ValueError("Acquisition did not use a private staging destination")
+        mode = os.environ.get("CYDIA_APT_AUTHORIZED_FAILURE", "")
+        if mode == "network" or mode == "reject" or (mode == "expire" and uri.endswith("token=fixture")):
+            with open(os.environ["CYDIA_APT_AUTHORIZED_MARKER"], "a", encoding="ascii") as marker:
+                marker.write("network\n" if mode == "network" else "rejected\n")
+            message("400 URI Failure", URI=uri, Message="Fixture acquisition rejection", **{
+                "FailReason": "ConnectionTimedOut" if mode == "network" else "HttpError403",
+                "Transient-Failure": "false",
+            })
+            continue
         source = Path(os.environ["CYDIA_APT_AUTHORIZED_PAYLOAD"])
         payload = source.read_bytes()
         hashes = {name + "-Hash": hashlib.new(algorithm, payload).hexdigest()
@@ -56,6 +67,8 @@ while True:
         hashes["Checksum-FileSize-Hash"] = str(len(payload))
         message("200 URI Start", URI=uri, Size=len(payload))
         shutil.copyfile(source, destination)
+        if mode == "hash":
+            destination.write_bytes(bytes([payload[0] ^ 1]) + payload[1:])
         with open(os.environ["CYDIA_APT_AUTHORIZED_MARKER"], "a", encoding="ascii") as marker:
             marker.write("private\n")
         message("201 URI Done", URI=uri, Filename=str(destination), Size=len(payload), **hashes)

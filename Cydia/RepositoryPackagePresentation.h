@@ -6,6 +6,9 @@ NS_ASSUME_NONNULL_BEGIN
  * documented vendor buy page bound to that vendor's source is recognized. */
 NSURL * _Nullable CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL * _Nullable packageWebsite);
 NSURL * _Nullable CydiaRepositoryPublicWebsite(NSURL * _Nullable URL);
+/* Provider-owned package IDs only. No local package lookup can confer an
+ * entitlement from another repository with the same package name. */
+NSArray<NSString *> * _Nullable CydiaRepositoryPurchasedPackageIdentifiers(NSDictionary * _Nullable info);
 typedef NS_ENUM(NSUInteger, CydiaRepositoryPackageState) {
     CydiaRepositoryPackageStateUnknown,
     CydiaRepositoryPackageStateUnavailable,
@@ -14,6 +17,7 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPackageState) {
     CydiaRepositoryPackageStateDownload,
     CydiaRepositoryPackageStateOwned,
     CydiaRepositoryPackageStateNotPurchased,
+    CydiaRepositoryPackageStateOwnedUnavailable,
 };
 
 /* Presentation only. No transport, credentials, archive grants or mutation
@@ -23,11 +27,21 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPackageState) {
 @interface CydiaRepositoryPackagePresentation : NSObject
 @property(nonatomic, readonly) CydiaRepositoryPackageState state;
 @property(nonatomic, copy, readonly, nullable) NSURL *purchaseURL;
+@property(nonatomic, copy, readonly, nullable) NSString *price;
+@property(nonatomic, readonly) BOOL purchased;
+@property(nonatomic, readonly) BOOL available;
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithInfo:(nullable NSDictionary *)info
                     signedIn:(BOOL)signedIn
                    supported:(BOOL)supported
            downloadAvailable:(BOOL)downloadAvailable
+                 purchaseURL:(nullable NSURL *)purchaseURL;
+- (instancetype)initWithInfo:(nullable NSDictionary *)info
+                    signedIn:(BOOL)signedIn
+                   supported:(BOOL)supported
+           downloadAvailable:(BOOL)downloadAvailable
+           downloadSupported:(BOOL)downloadSupported
+           purchaseAvailable:(BOOL)purchaseAvailable
                  purchaseURL:(nullable NSURL *)purchaseURL;
 @end
 NS_ASSUME_NONNULL_END

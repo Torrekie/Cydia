@@ -3,6 +3,8 @@
 #import "Cydia/AppState.h"
 #import <AuthenticationServices/AuthenticationServices.h>
 #import <Security/Security.h>
+#import <LocalAuthentication/LocalAuthentication.h>
+#import <CommonCrypto/CommonDigest.h>
 #include <sys/utsname.h>
 
 NSString *CydiaAccountLocalize(NSString *key) {
@@ -10,12 +12,26 @@ NSString *CydiaAccountLocalize(NSString *key) {
 }
 static NSError *AccountError(CydiaAccountError code) {
     NSString *key = code == CydiaAccountErrorUnsupported ? @"ACCOUNT_UNSUPPORTED" :
-        code == CydiaAccountErrorAuthentication ? @"ACCOUNT_SIGN_IN_REQUIRED" : @"ACCOUNT_REQUEST_FAILED";
+        code == CydiaAccountErrorAuthentication ? @"ACCOUNT_SIGN_IN_REQUIRED" :
+        code == CydiaAccountErrorClientPolicy ? @"ACCOUNT_CLIENT_POLICY" :
+        code == CydiaAccountErrorBotFilter ? @"ACCOUNT_FILTERED" :
+        code == CydiaAccountErrorCancelled ? @"ACCOUNT_CANCELLED" :
+        code == CydiaAccountErrorReauthentication ? @"ACCOUNT_REAUTHENTICATE" :
+        code == CydiaAccountErrorOfferChanged ? @"ACCOUNT_OFFER_CHANGED" :
+        code == CydiaAccountErrorProviderChanged ? @"ACCOUNT_PROVIDER_CHANGED" :
+        code == CydiaAccountErrorPurchasePending ? @"ACCOUNT_PURCHASE_PENDING" :
+        code == CydiaAccountErrorPurchaseUnknown ? @"ACCOUNT_PURCHASE_UNKNOWN" : @"ACCOUNT_REQUEST_FAILED";
     return [NSError errorWithDomain:@"CydiaRepositoryAccount" code:code
         userInfo:@{NSLocalizedDescriptionKey: CydiaAccountLocalize(key)}];
 }
 static BOOL SecureURL(NSURL *URL) {
-    return [URL.scheme.lowercaseString isEqual:@"https"] && URL.host.length != 0 &&
+    NSString *text = URL.absoluteString, *decoded = text.stringByRemovingPercentEncoding;
+    return text.length > 0 && text.length <= 8192 && decoded != nil &&
+        [text rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location == NSNotFound &&
+        [decoded rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location == NSNotFound &&
+        ![text containsString:@"\\"] && ![decoded containsString:@"\\"] &&
+        [URL.scheme.lowercaseString isEqual:@"https"] && URL.host.length != 0 &&
+        (!URL.port || (URL.port.integerValue > 0 && URL.port.integerValue <= 65535)) &&
         URL.user == nil && URL.password == nil && URL.fragment == nil;
 }
 NSString *CydiaAccountOrigin(NSURL *URL) {
@@ -30,6 +46,31 @@ static NSString *String(id value) {
 }
 static NSURL *URLValue(id value) {
     NSString *text = String(value); return text ? [NSURL URLWithString:text] : nil;
+}
+static BOOL JSONBooleanIs(id value, BOOL expected) {
+    return [value isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID() &&
+        [value boolValue] == expected;
+}
+static BOOL SuccessfulJSON(NSDictionary *object) {
+    return object && (!object[@"error"] || object[@"error"] == NSNull.null) &&
+        (!object[@"success"] || JSONBooleanIs(object[@"success"], YES));
+}
+static dispatch_queue_t CredentialQueue(void) {
+    static dispatch_queue_t queue; static dispatch_once_t once;
+    dispatch_once(&once, ^{ queue = dispatch_queue_create("com.saurik.Cydia.repository-credentials", DISPATCH_QUEUE_SERIAL); });
+    return queue;
+}
+static NSUserDefaults *AccountDefaults(void) {
+#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+    static NSUserDefaults *defaults; static dispatch_once_t once;
+    dispatch_once(&once, ^{ defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.saurik.Cydia.repository-account-fixtures"]; });
+    return defaults;
+#else
+    return NSUserDefaults.standardUserDefaults;
+#endif
+}
+static BOOL HostIs(NSURL *URL, NSString *host) {
+    return [URL.host.lowercaseString isEqual:host] || [URL.host.lowercaseString hasSuffix:[@"." stringByAppendingString:host]];
 }
 static NSDictionary *DeviceFields(void) {
 #if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
@@ -58,9 +99,9 @@ static NSDictionary *Credentials(CydiaRepositoryAccount *account) {
     id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
     return [object isKindOfClass:NSDictionary.class] ? object : nil;
 }
-static BOOL StoreToken(CydiaRepositoryAccount *account, NSString *token) {
+static BOOL StoreToken(CydiaRepositoryAccount *account, NSString *token, NSString *mode) {
     NSDictionary *query = KeyQuery(account);
-    NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"token": token} options:0 error:nil];
+    NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"token": token, @"purchase_auth": mode} options:0 error:nil];
     NSDictionary *values = @{(__bridge id)kSecValueData: data,
         (__bridge id)kSecAttrAccessible: (__bridge id)kSecAttrAccessibleWhenUnlockedThisDeviceOnly};
     OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)values);
@@ -74,6 +115,26 @@ static BOOL ForgetToken(CydiaRepositoryAccount *account) {
     OSStatus status = SecItemDelete((__bridge CFDictionaryRef)KeyQuery(account));
     return status == errSecSuccess || status == errSecItemNotFound;
 }
+static NSDictionary *SecretQuery(CydiaRepositoryAccount *account) {
+    NSMutableDictionary *query = [KeyQuery(account) mutableCopy];
+    query[(__bridge id)kSecAttrService] = @"com.saurik.Cydia.repository-account.v1.purchase";
+    return query;
+}
+static BOOL ForgetCredentials(CydiaRepositoryAccount *account) {
+    OSStatus status = SecItemDelete((__bridge CFDictionaryRef)SecretQuery(account));
+    return ForgetToken(account) && (status == errSecSuccess || status == errSecItemNotFound);
+}
+static BOOL StoreSecret(CydiaRepositoryAccount *account, NSString *secret) {
+    SecAccessControlRef control = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
+        kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, kSecAccessControlUserPresence, NULL);
+    if (!control) return NO;
+    NSMutableDictionary *item = [SecretQuery(account) mutableCopy];
+    item[(__bridge id)kSecAttrAccessControl] = CFBridgingRelease(control);
+    item[(__bridge id)kSecValueData] = [secret dataUsingEncoding:NSUTF8StringEncoding];
+    OSStatus removed = SecItemDelete((__bridge CFDictionaryRef)SecretQuery(account));
+    if (removed != errSecSuccess && removed != errSecItemNotFound) return NO;
+    return SecItemAdd((__bridge CFDictionaryRef)item, NULL) == errSecSuccess;
+}
 static NSString *AccountKey(CydiaRepositoryAccount *account) {
     return KeyQuery(account)[(__bridge id)kSecAttrAccount];
 }
@@ -81,18 +142,53 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
 @interface CydiaRepositoryAccount ()
 @property(nonatomic, copy, readwrite) NSURL *sourceURL, *providerURL;
 @property(nonatomic, copy, readwrite) NSString *name;
+@property(nonatomic, copy) NSString *token, *purchaseCredentialMode;
+@property(nonatomic, strong) NSUUID *credentialGeneration;
+@property(nonatomic, weak) CydiaRepositoryAccountService *service;
+@end
+@interface CydiaRepositoryAccountService (CredentialGeneration)
+- (NSUUID *)generationForAccount:(CydiaRepositoryAccount *)account advance:(BOOL)advance;
 @end
 @implementation CydiaRepositoryAccount
-- (BOOL)supportsAccountIntegration {
-    for (NSURL *URL in @[self.sourceURL, self.providerURL]) {
-        NSString *host = URL.host.lowercaseString;
-        if ([host isEqual:@"havoc.app"] || [host hasSuffix:@".havoc.app"]) return NO;
-    }
-    return YES;
+- (CydiaRepositoryCapabilities)capabilities {
+    CydiaRepositoryCapabilities value = CydiaRepositoryCapabilityLogin | CydiaRepositoryCapabilityEntitlements;
+    /* The published vendor policy excludes paid Cydia delivery. Discovery is
+     * still useful for reading an account; it does not override that policy. */
+    if (HostIs(self.sourceURL, @"havoc.app") || HostIs(self.providerURL, @"havoc.app")) return value;
+    return value | CydiaRepositoryCapabilityDirectPurchase | CydiaRepositoryCapabilityHostedCheckout |
+        CydiaRepositoryCapabilityDownload;
 }
-- (BOOL)signedIn { return self.supportsAccountIntegration && String(Credentials(self)[@"token"]) != nil; }
+- (BOOL)supportsAccountIntegration { return (self.capabilities & CydiaRepositoryCapabilityLogin) != 0; }
+- (NSString *)compatibilityNotice {
+    if (!(self.capabilities & CydiaRepositoryCapabilityDownload)) return CydiaAccountLocalize(@"ACCOUNT_CLIENT_POLICY");
+    if (HostIs(self.sourceURL, @"chariz.com") || HostIs(self.providerURL, @"chariz.com"))
+        return CydiaAccountLocalize(@"ACCOUNT_COMPATIBILITY_UNVERIFIED");
+    return nil;
+}
+- (BOOL)signedIn { return self.supportsAccountIntegration && _token.length != 0 &&
+    [_credentialGeneration isEqual:[_service generationForAccount:self advance:NO]]; }
 - (NSString *)description { return [NSString stringWithFormat:@"<RepositoryAccount %@>", CydiaAccountOrigin(self.sourceURL)]; }
 @end
+static NSString *CredentialBinding(CydiaRepositoryAccount *account) {
+    if (!account.token.length) return nil;
+    NSData *data = [[NSString stringWithFormat:@"%@\n%@", AccountKey(account), account.token] dataUsingEncoding:NSUTF8StringEncoding];
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH]; CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
+    NSMutableString *binding = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    for (unsigned char byte : digest) [binding appendFormat:@"%02x", byte];
+    return binding;
+}
+@interface CydiaRepositoryPurchaseResult ()
+@property(nonatomic, readwrite) CydiaRepositoryPurchaseState state;
+@property(nonatomic, copy, readwrite) NSDictionary *packageInfo;
+@property(nonatomic, strong, readwrite) NSError *error;
+@end
+@implementation CydiaRepositoryPurchaseResult
+- (instancetype)initPrivate { return [super init]; }
+@end
+static CydiaRepositoryPurchaseResult *PurchaseResult(CydiaRepositoryPurchaseState state, NSDictionary *info, NSError *error) {
+    CydiaRepositoryPurchaseResult *result = [[CydiaRepositoryPurchaseResult alloc] initPrivate];
+    result.state = state; result.packageInfo = info; result.error = error; return result;
+}
 @interface CydiaRepositoryDownloadGrant ()
 @property(nonatomic, copy, readwrite) NSURL *transportURL, *sourceURL;
 @property(nonatomic, copy, readwrite) NSString *package, *version, *architecture;
@@ -156,11 +252,85 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
 @property(nonatomic, copy) void (^authenticationCompletion)(NSError *);
 @property(nonatomic) BOOL receivedAuthenticationCallback;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, NSUUID *> *accountGenerations;
+@property(nonatomic, copy) void (^purchaseCompletion)(CydiaRepositoryPurchaseResult *);
+@property(nonatomic, strong) CydiaRepositoryAccount *purchaseAccount;
+@property(nonatomic, copy) NSString *purchasePackage;
+@property(nonatomic, strong) NSUUID *purchaseGeneration;
+@property(nonatomic, strong) LAContext *purchaseAuthenticationContext;
+@property(nonatomic, copy) BOOL (^purchaseSelectionValidator)(void);
 @end
 @implementation CydiaRepositoryAccountService
 + (instancetype)sharedService {
     static CydiaRepositoryAccountService *service; static dispatch_once_t once;
     dispatch_once(&once, ^{ service = [[self alloc] init]; }); return service;
+}
+- (NSArray<NSDictionary *> *)rememberedAccounts {
+    id value = [AccountDefaults() arrayForKey:@"RepositoryAccounts.v1"];
+    if (![value isKindOfClass:NSArray.class]) return @[];
+    NSMutableArray *result = [NSMutableArray array];
+    for (id entry in value) {
+        if (![entry isKindOfClass:NSDictionary.class]) continue;
+        NSURL *source = URLValue(entry[@"source"]), *provider = URLValue(entry[@"provider"]);
+        if (SecureURL(source) && !source.query && SecureURL(provider) && !provider.query && String(entry[@"name"]))
+            [result addObject:@{@"source": source.absoluteString, @"provider": provider.absoluteString, @"name": entry[@"name"]}];
+    }
+    return result;
+}
+- (void)rememberAccount:(CydiaRepositoryAccount *)account {
+    NSMutableArray *values = [[self rememberedAccounts] mutableCopy];
+    NSDictionary *entry = @{@"source": account.sourceURL.absoluteString, @"provider": account.providerURL.absoluteString, @"name": account.name};
+    [values removeObject:entry];
+    NSIndexSet *old = [values indexesOfObjectsPassingTest:^BOOL(NSDictionary *value, NSUInteger index, BOOL *stop) {
+        return [value[@"source"] isEqual:entry[@"source"]] && [value[@"provider"] isEqual:entry[@"provider"]];
+    }];
+    [values removeObjectsAtIndexes:old]; [values addObject:entry];
+    [AccountDefaults() setObject:values forKey:@"RepositoryAccounts.v1"];
+}
+- (void)removeRememberedAccount:(NSDictionary *)metadata completion:(void (^)(NSError *))completion {
+    if (![[self rememberedAccounts] containsObject:metadata]) { completion(AccountError(CydiaAccountErrorInvalidResponse)); return; }
+    CydiaRepositoryAccount *account = [CydiaRepositoryAccount new];
+    account.sourceURL = URLValue(metadata[@"source"]); account.providerURL = URLValue(metadata[@"provider"]); account.name = metadata[@"name"];
+    [self generationForAccount:account advance:YES];
+    if ([_authenticationAccountKey isEqual:AccountKey(account)]) {
+        ASWebAuthenticationSession *session = _authenticationSession;
+        if (_purchaseCompletion) [self finishPurchase:_sessionIdentity state:CydiaRepositoryPurchaseStateUnknown info:nil error:AccountError(CydiaAccountErrorPurchaseUnknown)];
+        else [self finishAuthentication:_sessionIdentity error:AccountError(CydiaAccountErrorCancelled)];
+        [session cancel];
+    }
+    dispatch_async(CredentialQueue(), ^{
+        BOOL removed = ForgetCredentials(account);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (removed) {
+                NSMutableArray *values = [[self rememberedAccounts] mutableCopy]; [values removeObject:metadata];
+                [AccountDefaults() setObject:values forKey:@"RepositoryAccounts.v1"];
+            }
+            completion(removed ? nil : AccountError(CydiaAccountErrorKeychain));
+        });
+    });
+}
+- (NSString *)purchaseKey:(NSString *)package account:(CydiaRepositoryAccount *)account {
+    return [NSString stringWithFormat:@"%@\n%@", AccountKey(account), package];
+}
+- (BOOL)hasUnresolvedPurchase:(NSString *)package account:(CydiaRepositoryAccount *)account {
+    NSDictionary *attempts = [AccountDefaults() dictionaryForKey:@"RepositoryPurchases.v1"];
+    return [attempts[[self purchaseKey:package account:account]] isKindOfClass:NSDictionary.class];
+}
+- (BOOL)recordPurchase:(NSString *)package account:(CydiaRepositoryAccount *)account value:(NSDictionary *)value {
+    NSMutableDictionary *attempts = [[AccountDefaults() dictionaryForKey:@"RepositoryPurchases.v1"] mutableCopy] ?: [NSMutableDictionary dictionary];
+    NSString *key = [self purchaseKey:package account:account];
+    if (value) attempts[key] = value; else [attempts removeObjectForKey:key];
+    [AccountDefaults() setObject:attempts forKey:@"RepositoryPurchases.v1"];
+    /* Persist before a possibly chargeable request. Losing this marker across a
+     * crash must not silently turn an uncertain purchase into a retry. */
+    return [AccountDefaults() synchronize];
+}
+- (void)settlePurchase:(NSString *)package account:(CydiaRepositoryAccount *)account {
+    NSDictionary *attempt = [AccountDefaults() dictionaryForKey:@"RepositoryPurchases.v1"][[self purchaseKey:package account:account]];
+    NSString *binding = CredentialBinding(account);
+    /* Another user's ownership cannot resolve a possibly submitted charge.
+     * v1 has no guaranteed stable account identifier, so a changed credential
+     * is conservatively unable to clear an earlier credential's uncertainty. */
+    if (binding && [attempt[@"credential"] isEqual:binding]) [self recordPurchase:package account:account value:nil];
 }
 - (NSUUID *)generationForAccount:(CydiaRepositoryAccount *)account advance:(BOOL)advance {
     @synchronized (self) {
@@ -182,7 +352,13 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
     if (!SecureURL(URL)) { completion(nil, nil, AccountError(CydiaAccountErrorUnsupported)); return; }
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:URL];
     request.HTTPMethod = body ? @"POST" : @"GET";
-    [request setValue:@"Cydia/2 RepositoryAccounts" forHTTPHeaderField:@"User-Agent"];
+#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+    NSString *version = @"fixture";
+#else
+    NSString *version = Cydia_ ?: [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown";
+#endif
+    [request setValue:[NSString stringWithFormat:@"Cydia/%@ RepositoryAccounts/1", version] forHTTPHeaderField:@"User-Agent"];
+    [request setValue:@"API" forHTTPHeaderField:@"Payment-Provider"];
     [request setValue:@"application/json, text/plain" forHTTPHeaderField:@"Accept"];
     if (body) {
         request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
@@ -201,16 +377,20 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
         BOOL current = [generation isEqual:[self generationForAccount:account advance:NO]];
         NSString *requestToken = String(body[@"token"]);
         if (requestToken && !current) { completion(nil, AccountError(CydiaAccountErrorAuthentication)); return; }
-        if (current && requestToken && [requestToken isEqual:String(Credentials(account)[@"token"])] &&
-            [object[@"invalidate"] respondsToSelector:@selector(boolValue)] && [object[@"invalidate"] boolValue]) {
-            ForgetToken(account); [self generationForAccount:account advance:YES];
+        if (current && requestToken && [requestToken isEqual:account.token] && JSONBooleanIs(object[@"invalidate"], YES)) {
+            account.token = nil; account.purchaseCredentialMode = nil;
+            [self generationForAccount:account advance:YES];
+            dispatch_async(CredentialQueue(), ^{ ForgetCredentials(account); });
         }
         if (error) { completion(nil, error); return; }
+        if (response.statusCode == 403 && !object) {
+            completion(nil, AccountError(CydiaAccountErrorBotFilter)); return;
+        }
         if (response.statusCode == 401 || response.statusCode == 403 || response.statusCode == 418) {
             completion(nil, AccountError(CydiaAccountErrorAuthentication)); return;
         }
         if (response.statusCode < 200 || response.statusCode >= 300 || !object ||
-            String(object[@"error"]) || (object[@"success"] && [object[@"success"] isEqual:@NO])) {
+            !SuccessfulJSON(object)) {
             completion(nil, AccountError(CydiaAccountErrorInvalidResponse)); return;
         }
         completion(object, nil);
@@ -218,7 +398,7 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
 }
 - (void)discoverSource:(NSURL *)source name:(NSString *)name completion:(void (^)(CydiaRepositoryAccount *, NSError *))completion {
     if (!SecureURL(source) || source.query) {
-        completion(nil, AccountError(CydiaAccountErrorUnsupported)); return;
+        completion(nil, AccountError(HostIs(source, @"havoc.app") ? CydiaAccountErrorClientPolicy : CydiaAccountErrorUnsupported)); return;
     }
     [self request:[source URLByAppendingPathComponent:@"payment_endpoint"] body:nil completion:
         ^(NSData *data, NSHTTPURLResponse *response, NSError *error) {
@@ -229,26 +409,39 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
             completion(nil, AccountError(CydiaAccountErrorUnsupported)); return;
         }
         if (response.statusCode != 200) {
-            completion(nil, AccountError(CydiaAccountErrorTransport)); return;
+            completion(nil, AccountError(response.statusCode == 403 ? CydiaAccountErrorBotFilter : CydiaAccountErrorTransport)); return;
         }
         if (!SecureURL(provider) || provider.query) {
-            completion(nil, AccountError(CydiaAccountErrorUnsupported)); return;
+            completion(nil, AccountError(CydiaAccountErrorInvalidResponse)); return;
         }
         CydiaRepositoryAccount *account = [[CydiaRepositoryAccount alloc] init];
-        account.sourceURL = source; account.providerURL = provider; account.name = name;
-        if (!account.supportsAccountIntegration) { completion(account, nil); return; }
+        account.sourceURL = source; account.providerURL = provider; account.name = name; account.service = self;
+        NSUUID *generation = [self generationForAccount:account advance:NO];
         [self JSON:@"info" account:account body:nil completion:^(NSDictionary *info, NSError *error) {
             if (!error && String(info[@"name"])) {
                 NSString *name = String(info[@"name"]);
                 account.name = [name substringToIndex:MIN(name.length, (NSUInteger)256)];
             }
-            completion(error ? nil : account, error);
+            if (error) { completion(nil, error); return; }
+            dispatch_async(CredentialQueue(), ^{
+                NSDictionary *credentials = Credentials(account);
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if ([generation isEqual:[self generationForAccount:account advance:NO]]) {
+                        account.credentialGeneration = generation;
+                        account.token = String(credentials[@"token"]);
+                        account.purchaseCredentialMode = String(credentials[@"purchase_auth"]) ?: @"legacy";
+                        if (account.token) [self rememberAccount:account];
+                    }
+                    completion(account, nil);
+                });
+            });
         }];
     }];
 }
 - (NSMutableDictionary *)bodyForAccount:(CydiaRepositoryAccount *)account requireToken:(BOOL)required {
     if (!account.supportsAccountIntegration) return nil;
-    NSDictionary *device = DeviceFields(); NSString *token = String(Credentials(account)[@"token"]);
+    if (account.token && ![account.credentialGeneration isEqual:[self generationForAccount:account advance:NO]]) return nil;
+    NSDictionary *device = DeviceFields(); NSString *token = account.token;
     if ((required && !token) || !device) return nil;
     NSMutableDictionary *body = [device mutableCopy]; if (token) body[@"token"] = token; return body;
 }
@@ -286,14 +479,16 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
                 if (item.value) fields[item.name] = item.value;
             }
             NSString *token = String(fields[@"token"]);
+            NSString *secret = String(fields[@"payment_secret"]);
             if (![parts.scheme.lowercaseString isEqual:@"sileo"] || ![parts.host isEqual:@"authentication_success"] ||
                 parts.path.length != 0 || parts.user || parts.password || parts.port || parts.fragment || duplicate ||
-                token.length == 0 || token.length > 8192) {
+                token.length == 0 || token.length > 8192 || secret.length > 8192) {
                 [self finishAuthentication:identity error:AccountError(CydiaAccountErrorInvalidResponse)]; return;
             }
             /* Keep the session identity live through server validation. A
              * sign-out or newer login invalidates this attempt before any token
-             * can be stored. Purchase secrets are deliberately not retained. */
+             * can be stored. Purchase authority is stored separately, with
+             * device-owner presence rather than a reusable plain credential. */
             NSMutableDictionary *body = [device mutableCopy]; body[@"token"] = token;
             [self JSON:@"user_info" account:account body:body completion:^(NSDictionary *info, NSError *failure) {
                 if (![self.sessionIdentity isEqual:identity]) return;
@@ -303,7 +498,25 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
                 if (failure || ![info[@"user"] isKindOfClass:NSDictionary.class]) {
                     [self finishAuthentication:identity error:failure ?: AccountError(CydiaAccountErrorInvalidResponse)]; return;
                 }
-                [self finishAuthentication:identity error:StoreToken(account, token) ? nil : AccountError(CydiaAccountErrorKeychain)];
+                dispatch_async(CredentialQueue(), ^{
+                    if (![generation isEqual:[self generationForAccount:account advance:NO]]) return;
+                    LAContext *context = [LAContext new]; NSError *authenticationError = nil;
+                    BOOL canProtectSecret = [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication error:&authenticationError];
+                    BOOL noPasscode = !canProtectSecret && [authenticationError.domain isEqual:LAErrorDomain] && authenticationError.code == LAErrorPasscodeNotSet;
+                    NSString *mode = secret && canProtectSecret ? @"protected" : (noPasscode ? @"hosted" : @"missing");
+                    BOOL saved = ForgetCredentials(account) && (!secret || !canProtectSecret || StoreSecret(account, secret)) &&
+                        StoreToken(account, token, mode);
+                    if (!saved) ForgetCredentials(account);
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (![self.sessionIdentity isEqual:identity] ||
+                            ![generation isEqual:[self generationForAccount:account advance:NO]]) return;
+                        if (saved) {
+                            account.token = token; account.purchaseCredentialMode = mode;
+                            account.credentialGeneration = generation; [self rememberAccount:account];
+                        }
+                        [self finishAuthentication:identity error:saved ? nil : AccountError(CydiaAccountErrorKeychain)];
+                    });
+                });
             }];
         });
     }];
@@ -315,13 +528,19 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
     [self generationForAccount:account advance:YES];
     if ([_authenticationAccountKey isEqual:AccountKey(account)]) {
         ASWebAuthenticationSession *session = _authenticationSession;
-        [self finishAuthentication:_sessionIdentity error:AccountError(CydiaAccountErrorAuthentication)];
+        if (_purchaseCompletion) [self finishPurchase:_sessionIdentity state:CydiaRepositoryPurchaseStateUnknown info:nil error:AccountError(CydiaAccountErrorPurchaseUnknown)];
+        else [self finishAuthentication:_sessionIdentity error:AccountError(CydiaAccountErrorAuthentication)];
         [session cancel];
     }
-    NSString *token = String(Credentials(account)[@"token"]);
-    if (!ForgetToken(account)) { completion(AccountError(CydiaAccountErrorKeychain)); return; }
-    if (!token || !account.supportsAccountIntegration) { completion(nil); return; }
-    [self JSON:@"sign_out" account:account body:@{@"token": token} completion:^(NSDictionary *value, NSError *error) { completion(error); }];
+    NSString *token = account.token; account.token = nil; account.purchaseCredentialMode = nil;
+    dispatch_async(CredentialQueue(), ^{
+        BOOL removed = ForgetCredentials(account);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!removed) { completion(AccountError(CydiaAccountErrorKeychain)); return; }
+            if (!token || !account.supportsAccountIntegration) { completion(nil); return; }
+            [self JSON:@"sign_out" account:account body:@{@"token": token} completion:^(NSDictionary *value, NSError *error) { completion(error); }];
+        });
+    });
 }
 - (void)userInfo:(CydiaRepositoryAccount *)account completion:(void (^)(NSDictionary *, NSError *))completion {
     if (!account.supportsAccountIntegration) { completion(nil, AccountError(CydiaAccountErrorUnsupported)); return; }
@@ -331,25 +550,40 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
 }
 - (NSString *)packagePath:(NSString *)package action:(NSString *)action {
     NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyz0123456789+.-"];
-    if (package.length == 0 || [package rangeOfCharacterFromSet:allowed.invertedSet].location != NSNotFound) return nil;
+    NSCharacterSet *initial = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyz0123456789"];
+    if (package.length < 2 || package.length > 256 || ![initial characterIsMember:[package characterAtIndex:0]] ||
+        [package rangeOfCharacterFromSet:allowed.invertedSet].location != NSNotFound) return nil;
     return [NSString stringWithFormat:@"package/%@/%@", package, action];
 }
 - (void)anonymousPackageInfo:(NSString *)package account:(CydiaRepositoryAccount *)account completion:(void (^)(NSDictionary *, NSError *))completion {
     NSString *path = [self packagePath:package action:@"info"];
     if (!path) { completion(nil, AccountError(CydiaAccountErrorInvalidResponse)); return; }
-    [self JSON:path account:account body:@{} completion:completion];
+    [self request:[account.providerURL URLByAppendingPathComponent:path] body:nil completion:^(NSData *data, NSHTTPURLResponse *response, NSError *error) {
+        if (!error && (response.statusCode == 404 || response.statusCode == 405 || response.statusCode == 501)) {
+            [self JSON:path account:account body:@{} completion:completion]; return;
+        }
+        id value = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        NSDictionary *info = [value isKindOfClass:NSDictionary.class] ? value : nil;
+        if (error || response.statusCode < 200 || response.statusCode >= 300 || !SuccessfulJSON(info)) {
+            completion(nil, error ?: AccountError(response.statusCode == 403 && !info ? CydiaAccountErrorBotFilter : CydiaAccountErrorInvalidResponse)); return;
+        }
+        completion(info, nil);
+    }];
 }
 - (void)packageInfo:(NSString *)package account:(CydiaRepositoryAccount *)account completion:(void (^)(NSDictionary *, NSError *))completion {
     NSString *path = [self packagePath:package action:@"info"];
     if (!account.supportsAccountIntegration) { completion(nil, AccountError(CydiaAccountErrorUnsupported)); return; }
     NSDictionary *body = [self bodyForAccount:account requireToken:YES];
     if (!path || !body) { completion(nil, AccountError(CydiaAccountErrorAuthentication)); return; }
-    [self JSON:path account:account body:body completion:completion];
+    [self JSON:path account:account body:body completion:^(NSDictionary *info, NSError *error) {
+        if (!error && JSONBooleanIs(info[@"purchased"], YES)) [self settlePurchase:package account:account];
+        completion(info, error);
+    }];
 }
 - (void)authorizePackage:(NSString *)package version:(NSString *)version architecture:(NSString *)architecture
     account:(CydiaRepositoryAccount *)account completion:(void (^)(CydiaRepositoryDownloadGrant *, NSError *))completion {
     package = [package copy]; version = [version copy]; architecture = [architecture copy];
-    if (!account.supportsAccountIntegration) { completion(nil, AccountError(CydiaAccountErrorUnsupported)); return; }
+    if (!(account.capabilities & CydiaRepositoryCapabilityDownload)) { completion(nil, AccountError(CydiaAccountErrorClientPolicy)); return; }
     NSString *path = [self packagePath:package action:@"authorize_download"];
     NSMutableDictionary *body = [self bodyForAccount:account requireToken:YES];
     if (!path || !body || version.length == 0 || architecture.length == 0) {
@@ -361,13 +595,221 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
         NSString *token = body[@"token"];
         BOOL leaksToken = [URL.absoluteString containsString:token] ||
             [URL.absoluteString.stringByRemovingPercentEncoding containsString:token];
-        if (error || !SecureURL(URL) || leaksToken || ![String(Credentials(account)[@"token"]) isEqual:token]) {
+        if (error || !SecureURL(URL) || leaksToken || ![account.token isEqual:token]) {
             completion(nil, error ?: AccountError(CydiaAccountErrorInvalidResponse)); return;
         }
         CydiaRepositoryDownloadGrant *grant = [[CydiaRepositoryDownloadGrant alloc] initPrivate];
         grant.transportURL = URL; grant.sourceURL = account.sourceURL; grant.package = package;
         grant.version = version; grant.architecture = architecture; grant.obtainedAt = [NSDate date];
         completion(grant, nil);
+    }];
+}
+- (BOOL)purchaseIsCurrent:(NSUUID *)identity {
+    if (![_sessionIdentity isEqual:identity] || !_purchaseCompletion) return NO;
+    if (![_purchaseGeneration isEqual:[self generationForAccount:_purchaseAccount advance:NO]]) {
+        BOOL submitted = [self hasUnresolvedPurchase:_purchasePackage account:_purchaseAccount];
+        [self finishPurchase:identity state:submitted ? CydiaRepositoryPurchaseStateUnknown : CydiaRepositoryPurchaseStateRejected
+            info:nil error:AccountError(submitted ? CydiaAccountErrorPurchaseUnknown : CydiaAccountErrorAuthentication)];
+        return NO;
+    }
+    return YES;
+}
+- (void)finishPurchase:(NSUUID *)identity state:(CydiaRepositoryPurchaseState)state info:(NSDictionary *)info error:(NSError *)error {
+    if (![_sessionIdentity isEqual:identity] || !_purchaseCompletion) return;
+    void (^completion)(CydiaRepositoryPurchaseResult *) = _purchaseCompletion;
+    _purchaseCompletion = nil; _purchaseAccount = nil; _purchasePackage = nil; _purchaseGeneration = nil;
+    _purchaseSelectionValidator = nil;
+    [_purchaseAuthenticationContext invalidate]; _purchaseAuthenticationContext = nil;
+    _sessionIdentity = nil; _authenticationSession = nil; _presenter = nil; _authenticationAccountKey = nil;
+    _receivedAuthenticationCallback = NO;
+    dispatch_async(dispatch_get_main_queue(), ^{ completion(PurchaseResult(state, info, error)); });
+}
+- (void)cancelPurchaseForAccount:(CydiaRepositoryAccount *)account {
+    if (!_purchaseCompletion || ![AccountKey(account) isEqual:_authenticationAccountKey]) return;
+    BOOL submitted = [self hasUnresolvedPurchase:_purchasePackage account:_purchaseAccount];
+    ASWebAuthenticationSession *session = _authenticationSession;
+    [self finishPurchase:_sessionIdentity state:submitted ? CydiaRepositoryPurchaseStateUnknown : CydiaRepositoryPurchaseStateCancelled
+        info:nil error:AccountError(submitted ? CydiaAccountErrorPurchaseUnknown : CydiaAccountErrorCancelled)];
+    [session cancel];
+}
+- (void)verifyPurchase:(NSUUID *)identity fallback:(CydiaRepositoryPurchaseState)fallback {
+    if (![self purchaseIsCurrent:identity]) return;
+    CydiaRepositoryAccount *account = _purchaseAccount; NSString *package = _purchasePackage;
+    [self packageInfo:package account:account completion:^(NSDictionary *info, NSError *error) {
+        if (![self purchaseIsCurrent:identity]) return;
+        if (!error && JSONBooleanIs(info[@"purchased"], YES)) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateOwned info:info error:nil]; return;
+        }
+        CydiaRepositoryPurchaseState state = error ? CydiaRepositoryPurchaseStateUnknown : fallback;
+        [self finishPurchase:identity state:state info:info error:AccountError(state == CydiaRepositoryPurchaseStateUnknown ? CydiaAccountErrorPurchaseUnknown : CydiaAccountErrorPurchasePending)];
+    }];
+}
+- (void)checkout:(NSURL *)URL identity:(NSUUID *)identity {
+    if (![self purchaseIsCurrent:identity]) return;
+    _receivedAuthenticationCallback = NO;
+    _authenticationSession = [[ASWebAuthenticationSession alloc] initWithURL:URL callbackURLScheme:@"sileo"
+        completionHandler:^(NSURL *callback, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![self purchaseIsCurrent:identity] || self.receivedAuthenticationCallback) return;
+            self.receivedAuthenticationCallback = YES; self.authenticationSession = nil;
+            NSURLComponents *parts = callback ? [NSURLComponents componentsWithURL:callback resolvingAgainstBaseURL:NO] : nil;
+            BOOL valid = [parts.scheme.lowercaseString isEqual:@"sileo"] && [parts.host isEqual:@"payment_completed"] &&
+                parts.path.length == 0 && !parts.user && !parts.password && !parts.port && !parts.query && !parts.fragment;
+            /* A checkout cancellation does not establish whether the provider
+             * processed a payment. Always ask for fresh ownership, never retry. */
+            [self verifyPurchase:identity fallback:(valid || error) ? CydiaRepositoryPurchaseStatePending : CydiaRepositoryPurchaseStateUnknown];
+        });
+    }];
+    if (@available(iOS 13.0, *)) _authenticationSession.presentationContextProvider = self;
+    if (![_authenticationSession start]) [self verifyPurchase:identity fallback:CydiaRepositoryPurchaseStatePending];
+}
+- (BOOL)validatePurchaseSelection:(NSUUID *)identity {
+    if (![self purchaseIsCurrent:identity]) return NO;
+    if (_purchaseSelectionValidator && !_purchaseSelectionValidator()) {
+        [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:nil error:AccountError(CydiaAccountErrorUnavailable)];
+        return NO;
+    }
+    return YES;
+}
+- (void)postConfirmedPurchase:(NSUUID *)identity secret:(NSString *)secret version:(NSString *)version architecture:(NSString *)architecture price:(NSString *)price {
+    if (![self validatePurchaseSelection:identity]) return;
+    CydiaRepositoryAccount *account = _purchaseAccount; NSString *package = _purchasePackage;
+    NSMutableDictionary *body = [self bodyForAccount:account requireToken:YES];
+    if (!body) { [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:nil error:AccountError(CydiaAccountErrorAuthentication)]; return; }
+    if ([self hasUnresolvedPurchase:package account:account]) {
+        [self finishPurchase:identity state:CydiaRepositoryPurchaseStatePending info:nil error:AccountError(CydiaAccountErrorPurchasePending)]; return;
+    }
+    body[@"payment_secret"] = secret ?: (id)NSNull.null;
+    if (![self recordPurchase:package account:account value:@{@"version": version, @"architecture": architecture,
+        @"price": price, @"submitted": [NSDate date], @"credential": CredentialBinding(account)}]) {
+        [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:nil error:AccountError(CydiaAccountErrorKeychain)]; return;
+    }
+    NSString *path = [self packagePath:package action:@"purchase"];
+    [self request:[account.providerURL URLByAppendingPathComponent:path] body:body completion:^(NSData *data, NSHTTPURLResponse *response, NSError *error) {
+        if (![self purchaseIsCurrent:identity]) return;
+        id object = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        NSDictionary *info = [object isKindOfClass:NSDictionary.class] ? object : nil;
+        id status = info[@"status"];
+        BOOL valid = !error && response.statusCode >= 200 && response.statusCode < 300 &&
+            [status isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)status) != CFBooleanGetTypeID() &&
+            [status doubleValue] == [status integerValue] && [status integerValue] >= -1 && [status integerValue] <= 1 &&
+            ([status integerValue] == -1 || SuccessfulJSON(info));
+        if (!valid) {
+            [self verifyPurchase:identity fallback:CydiaRepositoryPurchaseStateUnknown]; return;
+        }
+        if ([status integerValue] == -1) {
+            [self recordPurchase:package account:account value:nil];
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:nil error:AccountError(CydiaAccountErrorInvalidResponse)]; return;
+        }
+        if ([status integerValue] == 0) { [self verifyPurchase:identity fallback:CydiaRepositoryPurchaseStatePending]; return; }
+        NSURL *URL = URLValue(info[@"url"]);
+        NSString *decoded = URL.absoluteString.stringByRemovingPercentEncoding;
+        BOOL leak = [URL.absoluteString containsString:body[@"token"]] || [decoded containsString:body[@"token"]] ||
+            (secret && ([URL.absoluteString containsString:secret] || [decoded containsString:secret]));
+        if (!SecureURL(URL) || leak || !(account.capabilities & CydiaRepositoryCapabilityHostedCheckout)) {
+            [self verifyPurchase:identity fallback:CydiaRepositoryPurchaseStateUnknown]; return;
+        }
+        [self checkout:URL identity:identity];
+    }];
+}
+- (void)submitConfirmedPurchase:(NSUUID *)identity secret:(NSString *)secret version:(NSString *)version architecture:(NSString *)architecture price:(NSString *)price {
+    if (![self validatePurchaseSelection:identity]) return;
+    CydiaRepositoryAccount *account = _purchaseAccount;
+    /* A source may move to another provider while authentication is open.
+     * Compare fresh public discovery without ever forwarding old credentials. */
+    [self request:[account.sourceURL URLByAppendingPathComponent:@"payment_endpoint"] body:nil completion:^(NSData *data, NSHTTPURLResponse *response, NSError *error) {
+        if (![self validatePurchaseSelection:identity]) return;
+        NSString *text = data.length <= 8192 ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+        NSURL *provider = URLValue([text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]);
+        if (error || response.statusCode != 200 || !SecureURL(provider) || provider.query) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:nil
+                error:error ?: AccountError(response.statusCode == 403 ? CydiaAccountErrorBotFilter : CydiaAccountErrorProviderChanged)]; return;
+        }
+        if (![provider isEqual:account.providerURL]) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:nil error:AccountError(CydiaAccountErrorProviderChanged)]; return;
+        }
+        [self postConfirmedPurchase:identity secret:secret version:version architecture:architecture price:price];
+    }];
+}
+- (void)submitPurchase:(NSUUID *)identity secret:(NSString *)secret version:(NSString *)version architecture:(NSString *)architecture price:(NSString *)price {
+    if (![self purchaseIsCurrent:identity]) return;
+    if (!secret) { [self submitConfirmedPurchase:identity secret:nil version:version architecture:architecture price:price]; return; }
+    /* Device-owner authentication may take time. Re-read the offer after that
+     * wait and before posting any charge, still bound to the confirmed price. */
+    [self packageInfo:_purchasePackage account:_purchaseAccount completion:^(NSDictionary *info, NSError *error) {
+        if (![self purchaseIsCurrent:identity]) return;
+        if (!error && JSONBooleanIs(info[@"purchased"], YES)) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateOwned info:info error:nil]; return;
+        }
+        if (error || !JSONBooleanIs(info[@"available"], YES) || ![String(info[@"price"]) isEqual:price]) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:info
+                error:error ?: AccountError(!JSONBooleanIs(info[@"available"], YES) ? CydiaAccountErrorUnavailable : CydiaAccountErrorOfferChanged)]; return;
+        }
+        [self submitConfirmedPurchase:identity secret:secret version:version architecture:architecture price:price];
+    }];
+}
+- (void)purchasePackage:(NSString *)package version:(NSString *)version architecture:(NSString *)architecture price:(NSString *)price
+    account:(CydiaRepositoryAccount *)account presenter:(UIViewController *)presenter completion:(void (^)(CydiaRepositoryPurchaseResult *))completion {
+    [self purchasePackage:package version:version architecture:architecture price:price account:account presenter:presenter
+        selectionIsCurrent:nil completion:completion];
+}
+- (void)purchasePackage:(NSString *)package version:(NSString *)version architecture:(NSString *)architecture price:(NSString *)price
+    account:(CydiaRepositoryAccount *)account presenter:(UIViewController *)presenter selectionIsCurrent:(BOOL (^)(void))selectionIsCurrent
+    completion:(void (^)(CydiaRepositoryPurchaseResult *))completion {
+    package = [package copy]; version = [version copy]; architecture = [architecture copy]; price = [price copy];
+    if (!(account.capabilities & CydiaRepositoryCapabilityDirectPurchase)) {
+        completion(PurchaseResult(CydiaRepositoryPurchaseStateRejected, nil, AccountError(CydiaAccountErrorClientPolicy))); return;
+    }
+    if (_sessionIdentity || !presenter.view.window || ![self packagePath:package action:@"purchase"] ||
+        version.length == 0 || architecture.length == 0 || price.length == 0 || price.length > 256) {
+        completion(PurchaseResult(CydiaRepositoryPurchaseStateRejected, nil, AccountError(CydiaAccountErrorUnavailable))); return;
+    }
+    NSUUID *identity = [NSUUID UUID];
+    _sessionIdentity = identity; _presenter = presenter; _authenticationAccountKey = AccountKey(account);
+    _purchaseAccount = account; _purchasePackage = package; _purchaseCompletion = completion;
+    _purchaseGeneration = [self generationForAccount:account advance:NO];
+    _purchaseSelectionValidator = [selectionIsCurrent copy];
+    if (![self validatePurchaseSelection:identity]) return;
+    [self packageInfo:package account:account completion:^(NSDictionary *info, NSError *error) {
+        if (![self purchaseIsCurrent:identity]) return;
+        if (!error && JSONBooleanIs(info[@"purchased"], YES)) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateOwned info:info error:nil]; return;
+        }
+        if (error || !JSONBooleanIs(info[@"available"], YES)) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:info error:error ?: AccountError(CydiaAccountErrorUnavailable)]; return;
+        }
+        if ([self hasUnresolvedPurchase:package account:account]) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStatePending info:info error:AccountError(CydiaAccountErrorPurchasePending)]; return;
+        }
+        if (![String(info[@"price"]) isEqual:price]) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:info error:AccountError(CydiaAccountErrorOfferChanged)]; return;
+        }
+        NSString *mode = account.purchaseCredentialMode;
+        if ([mode isEqual:@"hosted"]) {
+            [self submitPurchase:identity secret:nil version:version architecture:architecture price:price]; return;
+        }
+        if (![mode isEqual:@"protected"]) {
+            [self finishPurchase:identity state:CydiaRepositoryPurchaseStateRejected info:info error:AccountError(CydiaAccountErrorReauthentication)]; return;
+        }
+        LAContext *context = [LAContext new]; self.purchaseAuthenticationContext = context;
+        dispatch_async(CredentialQueue(), ^{
+            NSMutableDictionary *query = [SecretQuery(account) mutableCopy];
+            query[(__bridge id)kSecReturnData] = @YES; query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+            query[(__bridge id)kSecUseOperationPrompt] = CydiaAccountLocalize(@"ACCOUNT_AUTHORIZE_PURCHASE");
+            query[(__bridge id)kSecUseAuthenticationContext] = context;
+            CFTypeRef value = NULL;
+            OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &value);
+            NSData *data = value ? CFBridgingRelease(value) : nil;
+            NSString *secret = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (![self purchaseIsCurrent:identity]) return;
+                if (status != errSecSuccess || secret.length == 0 || secret.length > 8192) {
+                    CydiaAccountError code = status == errSecUserCanceled || status == errSecAuthFailed ? CydiaAccountErrorCancelled : CydiaAccountErrorReauthentication;
+                    [self finishPurchase:identity state:code == CydiaAccountErrorCancelled ? CydiaRepositoryPurchaseStateCancelled : CydiaRepositoryPurchaseStateRejected info:info error:AccountError(code)]; return;
+                }
+                [self submitPurchase:identity secret:secret version:version architecture:architecture price:price];
+            });
+        });
     }];
 }
 @end
