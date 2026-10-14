@@ -1,8 +1,6 @@
 /* Native package support and command-line package notice. */
 "SUPPORT_TITLE" = "Hỗ trợ";
 "SUPPORT_WEBSITE_NOTICE" = "Gói này có trang web hỗ trợ kỹ thuật. Vui lòng đọc thông tin trên trang đó.";
-"SUPPORT_PAYMENT_NOTICE" = "Với câu hỏi về khoản thanh toán trong Cydia Store, hãy liên hệ trực tiếp với tác giả Cydia. Nhà phát triển gói này có thể không giúp được về vấn đề thanh toán.";
-"SUPPORT_PRODUCT_NOTICE" = "Chủ sở hữu Cydia không thể giúp giải đáp về cách hoạt động của gói này. Hãy liên hệ với nhà phát triển hoặc nghệ sĩ bên dưới.";
 "SUPPORT_AUTHOR_NOTICE" = "Để được trợ giúp về cách hoạt động của gói, hãy liên hệ với nhà phát triển hoặc nghệ sĩ của gói.";
 "SUPPORT_MAINTAINER_NOTICE" = "Để được trợ giúp về vấn đề cài đặt, hãy liên hệ với người duy trì gói.";
 "CONSOLE_TITLE" = "Dòng lệnh";

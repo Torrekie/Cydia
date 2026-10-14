@@ -1,8 +1,6 @@
 /* Native package support and command-line package notice. */
 "SUPPORT_TITLE" = "دعم";
 "SUPPORT_WEBSITE_NOTICE" = "تتوفر لهذه الحزمة صفحة ويب للدعم الفني. يُرجى قراءتها.";
-"SUPPORT_PAYMENT_NOTICE" = "للأسئلة المتعلقة بالدفع في Cydia Store، تواصل مباشرةً مع مؤلف Cydia. من غير المرجح أن يتمكن مطور هذه الحزمة من مساعدتك في مسائل الدفع.";
-"SUPPORT_PRODUCT_NOTICE" = "لا يستطيع مالك Cydia مساعدتك في الأسئلة المتعلقة بكيفية عمل هذه الحزمة. تواصل مع المطور أو الفنان أدناه.";
 "SUPPORT_AUTHOR_NOTICE" = "تواصل مع مطور الحزمة أو الفنان للحصول على مساعدة بشأن كيفية عملها.";
 "SUPPORT_MAINTAINER_NOTICE" = "تواصل مع القائم على صيانة الحزمة للحصول على مساعدة في مشكلات التثبيت.";
 "CONSOLE_TITLE" = "طرفية";

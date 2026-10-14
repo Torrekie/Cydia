@@ -130,17 +130,6 @@ UIImage *SupportRowImage(void) {
         ]];
     }
 
-    if ([_viewModel isCommercial]) {
-        [sections addObject:@[
-            @{ @"kind": @"body", @"text":
-                SupportLocalized(@"SUPPORT_PAYMENT_NOTICE") },
-            @{ @"kind": @"body", @"text":
-                SupportLocalized(@"SUPPORT_PRODUCT_NOTICE") },
-            @{ @"kind": @"link", @"title": @"Cydia",
-               @"detail": @"Jay Freeman (saurik)",
-               @"url": MailtoURL(@"saurik@saurik.com", @"C", _viewModel) }
-        ]];
-    }
     if ([[_viewModel authorName] length] != 0) {
         [sections addObject:@[
             @{ @"kind": @"body", @"text":

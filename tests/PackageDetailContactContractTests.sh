@@ -101,5 +101,8 @@ printf '%s\n' "$support_dispatch" | grep -Fq 'CydiaExternalURLRouteURL(destinati
 grep -Fq 'MailtoURL([_viewModel authorAddress], @"A", _viewModel)' "$support" &&
     grep -Fq 'MailtoURL([_viewModel maintainerAddress], @"M", _viewModel)' "$support" ||
     fail "Support no longer distinguishes software author from package maintainer"
+if grep -Eq 'SUPPORT_PAYMENT_NOTICE|SUPPORT_PRODUCT_NOTICE|saurik@saurik[.]com' "$support"; then
+    fail "repository payment support still redirects to the retired Cydia Store owner"
+fi
 
 echo "[verify-package-detail-contact][ ok ] contact row is localized and fail-closed"

@@ -1,8 +1,6 @@
 /* Native package support and command-line package notice. */
 "SUPPORT_TITLE" = "サポート";
 "SUPPORT_WEBSITE_NOTICE" = "このパッケージには技術サポート用のウェブサイトがあります。そちらをご覧ください。";
-"SUPPORT_PAYMENT_NOTICE" = "Cydia Store での支払いに関する質問は、Cydia の作者に直接お問い合わせください。このパッケージの開発者は、支払いの問題には対応できない可能性があります。";
-"SUPPORT_PRODUCT_NOTICE" = "Cydia の所有者は、このパッケージの動作に関する質問には対応できません。以下の開発者またはアーティストにお問い合わせください。";
 "SUPPORT_AUTHOR_NOTICE" = "パッケージの動作については、その開発者またはアーティストにお問い合わせください。";
 "SUPPORT_MAINTAINER_NOTICE" = "インストールの問題については、パッケージのメンテナーにお問い合わせください。";
 "CONSOLE_TITLE" = "コンソール";
