@@ -1098,6 +1098,15 @@ static void ReadOnlyAccessPreparation(void) {
     Respond(Take(service, @"/payment_endpoint"), nil, 404); AwaitAccess(legacy);
     Main(^{ Require(legacy.result.state == CydiaRepositoryAccessStateNotRequired && legacy.result.error == nil &&
         service.requests.count == 0 && deviceCalls == 0, "legacy repository was forced into account/download authorization"); });
+    for (NSInteger status : {404, 410, 501}) {
+        Reset(); Main(^{ service = [FixtureService new]; });
+        auto restricted = BeginAccess(service, [NSURL URLWithString:@"https://havoc.app/"]);
+        Respond(Take(service, @"/payment_endpoint"), nil, status); AwaitAccess(restricted);
+        Main(^{ Require(restricted.result.state == CydiaRepositoryAccessStateUnsupported &&
+            restricted.result.error.code == CydiaAccountErrorClientPolicy && service.requests.count == 0 &&
+            deviceCalls == 0 && secretReads == 0,
+            "missing payment discovery downgraded a known restricted vendor to anonymous acquisition"); });
+    }
     for (NSDictionary *offer in @[@{@"available": @YES, @"free": @YES}, @{@"available": @YES, @"price": @0}]) {
         Reset(); Main(^{ service = [FixtureService new]; });
         auto free = BeginAccess(service, source);

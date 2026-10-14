@@ -188,14 +188,16 @@ EOF
 printf 'parent fixture\n' >archive-build/archive-parent/usr/share/archive-parent/payload
 printf 'rootless fixture\n' >archive-build/archive-layout-dependency/var/jb/usr/share/archive-layout-dependency/payload
 printf 'authorized fixture\n' >archive-build/archive-authorized/usr/share/archive-authorized/payload
-for package in archive-parent archive-layout-dependency archive-authorized; do
+for package in archive-parent archive-layout-dependency; do
     testsuccess dpkg-deb --root-owner-group -Zgzip --build "archive-build/$package" "aptarchive/pool/archive-policy/${package}_1_all.deb"
 done
 (cd aptarchive && aptftparchive packages pool/archive-policy) >>aptarchive/dists/unstable/main/binary-amd64/Packages
-# The commercial fixture uses an absolute network Filename, while its source
-# and integrity still come from the actual selected local fixture index.
-sed -i 's|^Filename: pool/archive-policy/archive-authorized_1_all.deb$|Filename: https://authorized.invalid/archive.deb|' \
-    aptarchive/dists/unstable/main/binary-amd64/Packages
+testsuccess dpkg-deb --root-owner-group -Zgzip --build archive-build/archive-authorized \
+    aptarchive/pool/archive-policy/archive-authorized_1_all.deb
+# APT resolves Filename relative to the source, including strings resembling
+# absolute URLs. Give this package its own real network source and index;
+# the private HTTPS method below serves authorized payloads without a network.
+(cd aptarchive && aptftparchive packages pool/archive-policy/archive-authorized_1_all.deb) >authorized-Packages
 export CYDIA_APT_PREFLIGHT_DPKG_MARKER="$TMPWORKINGDIRECTORY/dpkg-was-invoked"
 export CYDIA_APT_PREFLIGHT_DPKG_SENTINEL="$TMPWORKINGDIRECTORY/rootdir/usr/bin/cydia-dpkg-sentinel"
 cat >"$CYDIA_APT_PREFLIGHT_DPKG_SENTINEL" <<'EOF'
@@ -221,6 +223,8 @@ Pin: version *
 Pin-Priority: -1
 EOF
 setupaptarchive
+printf 'deb [trusted=yes] https://authorized.invalid/ ./\n' >rootdir/etc/apt/sources.list.d/authorized.list
+cp authorized-Packages rootdir/var/lib/apt/lists/authorized.invalid_._Packages
 # The backend opens the archive lock before constructing acquire items. The
 # application initializes this cache directory; the isolated fixture must too.
 mkdir -p rootdir/var/cache/apt/archives/partial

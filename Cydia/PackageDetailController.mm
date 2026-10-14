@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #include "Cydia/PackageDetailController.h"
+#import "Cydia/PackageDetailController+Accounts.h"
 #import "Cydia/RepositoryAccountsController.h"
 #import "Cydia/RepositoryPackagePresentation.h"
 #import "Cydia/RepositoryAccountService.h"
@@ -1117,54 +1118,7 @@ dispatch:
 
 - (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action {
     if ([action kind] == CydiaPackageDetailModifyActionKindAccount) {
-        CydiaPackageDetailViewModel *selection = _viewModel;
-        CydiaPackageDetailModifyAction *download = nil;
-        for (CydiaPackageDetailModifyAction *candidate in selection.modifyActions) {
-            switch (candidate.kind) {
-                case CydiaPackageDetailModifyActionKindInstall:
-                case CydiaPackageDetailModifyActionKindUpgrade:
-                case CydiaPackageDetailModifyActionKindDowngrade:
-                case CydiaPackageDetailModifyActionKindReinstall:
-                    download = candidate;
-                    break;
-                default: break;
-            }
-            if (download != nil) break;
-        }
-        __weak PackageDetailController *weakSelf = self;
-        void (^downloadAction)(void) = nil;
-        BOOL (^selectionIsCurrent)(void) = nil;
-        if (download != nil) selectionIsCurrent = ^BOOL {
-            PackageDetailController *self = weakSelf;
-            if (!self || self.viewModel != selection ||
-                ![self.navigationController.viewControllers containsObject:self]) return NO;
-            Database *database = [Database sharedInstance];
-            if (!database.repositoryAuthorizedDownloadsSupported) return NO;
-            Package *package = [database packageWithName:selection.identity];
-            if (!package) return NO;
-            CydiaPackageDetailViewModel *current = [[CydiaPackageDetailViewModel alloc]
-                initWithPackage:package registeredArchitectures:package.registeredArchitectures
-                versionArchitecture:selection.architecture];
-            return CydiaPackageDetailCanPerformAction(selection, current, download.kind);
-        };
-        if (download != nil) downloadAction = ^{
-            PackageDetailController *self = weakSelf;
-            if (self == nil || self.viewModel != selection ||
-                ![self.navigationController.viewControllers containsObject:self]) return;
-            [self.navigationController popToViewController:self animated:YES];
-            [self selectModifyAction:download];
-        };
-        BOOL engineSupported = [Database sharedInstance].repositoryAuthorizedDownloadsSupported;
-        RepositoryAccountsController *controller = [[RepositoryAccountsController alloc]
-            initWithSourceURL:[NSURL URLWithString:_viewModel.source.repositoryURLString]
-            name:_viewModel.source.name package:_viewModel.baseIdentity ?: _viewModel.identity
-            packageName:selection.displayName version:selection.fullVersion architecture:selection.architecture
-            downloadAction:downloadAction purchaseURL:CydiaRepositoryPurchaseWebsite(
-                [NSURL URLWithString:selection.source.repositoryURLString],
-                selection.homepageURLString ? [NSURL URLWithString:selection.homepageURLString] : nil)
-            selectionIsCurrent:selectionIsCurrent];
-        controller.downloadEngineUnsupported = !engineSupported;
-        [self.navigationController pushViewController:controller animated:YES];
+        [self showRepositoryAccount];
         return;
     }
     if ([action kind] != CydiaPackageDetailModifyActionKindVersions) {

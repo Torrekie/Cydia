@@ -188,6 +188,24 @@ NSError *Error(NSString *text) {
         });
     });
 }
+- (void)validatePackageSelectionForEra:(unsigned)era completion:(void (^)(BOOL))completion {
+    // A standalone product has no transaction review yet. Compare the cache's
+    // original protected snapshot before allowing its purchase to be sent.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        BOOL current(NO);
+        if ([self beginSettingsChange]) @try {
+            current = era_ == era && [self canChangePackages] && [self repositoryAuthorizedDownloadsSupported] && transactionSnapshot_ &&
+                [transactionSnapshot_ isEqualToString:CurrentTransactionSnapshot()];
+        } @finally { [self endSettingsChange]; }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            BOOL sameEra(NO);
+            if ([self beginSettingsChange]) @try {
+                sameEra = era_ == era && [self repositoryAuthorizedDownloadsSupported];
+            } @finally { [self endSettingsChange]; }
+            if (completion) completion(current && sameEra);
+        });
+    });
+}
 - (BOOL)approveConfirmationReview:(CydiaTransactionReview *)review {
     if (![self beginSettingsChange]) return NO;
     BOOL accepted(NO);

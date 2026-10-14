@@ -457,7 +457,8 @@ static CydiaRepositoryPurchaseResult *PurchaseResult(CydiaRepositoryPurchaseStat
         NSURL *provider = URLValue([text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]);
         if (error) { completion(nil, error); return; }
         if (response.statusCode == 404 || response.statusCode == 410 || response.statusCode == 501) {
-            completion(nil, AccountError(CydiaAccountErrorUnsupported)); return;
+            completion(nil, AccountError(HostIs(source, @"havoc.app") ? CydiaAccountErrorClientPolicy :
+                CydiaAccountErrorUnsupported)); return;
         }
         if (response.statusCode != 200) {
             completion(nil, AccountError(response.statusCode == 403 ? CydiaAccountErrorBotFilter : CydiaAccountErrorTransport)); return;

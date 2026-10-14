@@ -11,6 +11,7 @@
 #include <apt-pkg/pkgsystem.h>
 #include <apt-pkg/progress.h>
 #include <apt-pkg/strutl.h>
+#include <algorithm>
 #include <cstdlib>
 #include <cerrno>
 #include <fcntl.h>
@@ -481,7 +482,9 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
     const std::string cache(_config->FindDir("Dir::Cache::Archives") + "archive-authorized_1_all.deb");
     Require(access(cache.c_str(), F_OK) != 0, "authorized acquisition fixture started with a cached payload");
     const SourceListData sources(backend.sourceList());
-    Require(sources.success && sources.uris.size() == 1, "authorized fixture has an ambiguous source identity");
+    const std::string selectedSource("https://authorized.invalid/");
+    Require(sources.success && std::count(sources.uris.begin(), sources.uris.end(), selectedSource) == 1,
+        "authorized fixture network source is missing or ambiguous");
     unsigned authorizations(0);
     unsigned renewalRequests(0);
     bool renewalFixture(false), revokeOnRenewal(false);
@@ -489,7 +492,7 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
         const std::function<bool()> &) {
         ++authorizations;
         if (renewalFixture) ++renewalRequests;
-        Require(request.sourceURL == sources.uris.front() && request.package == "archive-authorized" &&
+        Require(request.sourceURL == selectedSource && request.package == "archive-authorized" &&
             request.version == "1" && request.architecture == "all",
             "authorized download lost selected repository or exact package identity");
         RepositoryArchiveAuthorizationResult result;
@@ -514,7 +517,7 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
         "authorized acquisition fixture could not prepare its exact independent package");
     std::vector<RepositoryArchiveAccessRequest> accessRequests;
     Require(backend.preparedRepositoryAccessRequests(&accessRequests) && accessRequests.size() == 1 &&
-        accessRequests.front().sourceURL == sources.uris.front() && accessRequests.front().package == "archive-authorized" &&
+        accessRequests.front().sourceURL == selectedSource && accessRequests.front().package == "archive-authorized" &&
         accessRequests.front().routingIdentity == "archive-authorized" && accessRequests.front().version == "1" &&
         accessRequests.front().architecture == "all" && authorizations == 0,
         "account preparation guessed a candidate, changed exact source/version/architecture or requested credentials");
