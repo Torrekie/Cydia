@@ -112,14 +112,13 @@ grep -Fq 'viewIfLoaded.window' "$controller" ||
     fail "Home appearance does not inspect the attached window trait"
 grep -Fq 'cell.backgroundView' "$table_appearance" ||
     fail "Home rows do not own the grouped background surface"
-grep -Fq 'cell.contentView.backgroundColor' "$table_appearance" ||
-    fail "Home rows do not synchronize their content surface"
-grep -Fq 'UIBackgroundConfiguration' "$table_appearance" ||
-    fail "Home rows do not configure iOS 14 background surfaces"
-grep -Fq 'backgroundConfiguration' "$table_appearance" ||
-    fail "Home rows do not assign the iOS 14 background configuration"
-grep -Fq '@available(iOS 14.0' "$table_appearance" ||
-    fail "Home iOS 14 background path is not availability guarded"
+grep -Fq 'cell.contentView.backgroundColor = UIColor.clearColor' "$table_appearance" ||
+    fail "Home content masks UIKit's selected background"
+grep -Fq 'cell.backgroundView = surface' "$table_appearance" ||
+    fail "Home rows do not own their resting surface on every appearance update"
+if grep -Fq 'cell.backgroundConfiguration =' "$table_appearance"; then
+    fail "Home rows override UIKit's state-dependent selection background"
+fi
 grep -Fq 'willDisplayCell' "$controller" ||
     fail "Home rows do not refresh their surface after UIKit display styling"
 will_display_body=$(sed -n '/willDisplayCell:/,/^}/p' "$controller")

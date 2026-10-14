@@ -3,6 +3,7 @@
 #include "Cydia/TableViewCompatibility.h"
 #include "Cydia/UIRouteContext.h"
 #include "Cydia/UIColor+Cydia.h"
+#include "Cydia/HomeTableAppearance.h"
 #include "Cydia/NativeAccessibilityTrace.h"
 #include "Cydia/URLProtocolPolicy.h"
 #include "CyteKit/Localize.h"
@@ -196,17 +197,12 @@
 }
 - (void)applyCellAppearance:(CydiaExtensionsCell *)cell {
     UITraitCollection *traits = self.traitCollection;
-    UIColor *background = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:traits];
-    cell.backgroundColor = background; cell.contentView.backgroundColor = UIColor.clearColor;
+    HomeApplyCellSurface(cell, CydiaColorRoleCellBackground, traits);
     cell.tintColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent traitCollection:traits];
     cell.nameLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:traits];
     for (UILabel *label in @[cell.authorLabel, cell.summaryLabel])
         label.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:traits];
     cell.badgeLabel.textColor = cell.tintColor;
-    if (@available(iOS 14.0, *)) {
-        UIBackgroundConfiguration *configuration = [UIBackgroundConfiguration listGroupedCellConfiguration];
-        configuration.backgroundColor = background; cell.backgroundConfiguration = configuration;
-    }
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
     CydiaExtensionsCell *cell = [[CydiaExtensionsCell alloc] init];

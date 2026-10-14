@@ -212,6 +212,8 @@ modern_state=$modern_data/tmp/cydia-appearance-probe.plist
 wait_for_style "$modern_state" light 1 || fail "modern light trait was not reported"
 palette=$(read_state "$modern_state" paletteAssertions || true)
 [ "$palette" = "true" ] || fail "explicit light/dark palette assertions failed"
+press=$(read_state "$modern_state" pressAssertions || true)
+[ "$press" = "true" ] || fail "light whole-row press/selection assertions failed"
 light_updates=$(read_state "$modern_state" updates)
 light_package=$(read_state "$modern_state" packageBackgroundLuminance)
 light_section=$(read_state "$modern_state" sectionBackgroundLuminance)
@@ -237,6 +239,8 @@ else
 fi
 wait_for_style "$modern_state" dark $((light_updates + 1)) ||
     fail "already-visible probe did not receive a live dark trait update"
+press=$(read_state "$modern_state" pressAssertions || true)
+[ "$press" = "true" ] || fail "dark whole-row press/selection assertions failed"
 dark_package=$(read_state "$modern_state" packageBackgroundLuminance)
 dark_section=$(read_state "$modern_state" sectionBackgroundLuminance)
 dark_source=$(read_state "$modern_state" sourceBackgroundLuminance)
@@ -280,6 +284,8 @@ if [ -n "$ios12_udid" ]; then
     wait_for_style "$ios12_state" light 1 || fail "iOS 12 light fallback was not reported"
     palette=$(read_state "$ios12_state" paletteAssertions || true)
     [ "$palette" = "true" ] || fail "iOS 12 explicit trait fallback assertions failed"
+    press=$(read_state "$ios12_state" pressAssertions || true)
+    [ "$press" = "true" ] || fail "iOS 12 whole-row press/selection assertions failed"
     ios12_loading=$(read_state "$ios12_state" loadingBackgroundLuminance)
     ios12_native=$(read_state "$ios12_state" nativeSurfaceBackgroundLuminance)
     ios12_native_label=$(read_state "$ios12_state" nativeSurfaceLabelLuminance)

@@ -7,6 +7,7 @@
 #include "Cydia/UIRouteContext.h"
 #include "Cydia/ExternalURLPolicy.h"
 #include "Cydia/UIColor+Cydia.h"
+#include "Cydia/HomeTableAppearance.h"
 #include "Cydia/NativeAccessibilityTrace.h"
 #include "CyteKit/Localize.h"
 
@@ -809,9 +810,7 @@ static NSAttributedString *GuideAttributedText(NSString *text, UIFont *font,
 - (void)applyAppearanceToCell:(UITableViewCell *)cell {
     UITraitCollection *traits = self.traitCollection;
     CydiaGuideTableCell *guideCell = (CydiaGuideTableCell *)cell;
-    UIColor *background = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:traits];
-    cell.backgroundColor = background;
-    cell.contentView.backgroundColor = UIColor.clearColor;
+    HomeApplyCellSurface(cell, CydiaColorRoleCellBackground, traits);
     /* Attributed labels own their primary/secondary span colors. Reapplying
      * UILabel.textColor would flatten resource URL subtitles; trait changes
      * reload the cells above and rebuild those spans with the current roles. */
@@ -828,13 +827,6 @@ static NSAttributedString *GuideAttributedText(NSString *text, UIFont *font,
         NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle),
     };
     cell.tintColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent traitCollection:traits];
-    /* UIKit 14 background configurations otherwise repaint a cell after its
-     * delegate colors. iOS12/13 use the explicit backgrounds above. */
-    if (@available(iOS 14.0, *)) {
-        UIBackgroundConfiguration *configuration = [UIBackgroundConfiguration listGroupedCellConfiguration];
-        configuration.backgroundColor = background;
-        cell.backgroundConfiguration = configuration;
-    }
 }
 
 - (void)applyColorAppearance {

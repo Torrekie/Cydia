@@ -208,7 +208,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     UIColor *color([UIColor cydiaColorForRole:CydiaColorRoleBackground
                               traitCollection:self.traitCollection]);
     [self setBackgroundColor:color];
-    [self.content setBackgroundColor:color];
+    [self.content setBackgroundColor:UIColor.clearColor];
     [indicator_ setColor:[UIColor cydiaColorForRole:CydiaColorRoleFolderLabel
                                     traitCollection:self.traitCollection]];
 }
@@ -268,7 +268,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 - (SourceCell *) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
         [self applyColorAppearance];
-        [self.content setOpaque:YES];
+        [self.content setOpaque:NO];
 
         indicator_ = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGraySmall];
         [indicator_ setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin];// | UIViewAutoresizingFlexibleBottomMargin];
@@ -300,7 +300,7 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool highlighted(self.highlighted);
+    bool highlighted([self highlighted]);
     float width(rect.size.width);
 
     if (icon_ != nil) {
@@ -321,11 +321,11 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
         CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
-    if (!highlighted)
+    if (!highlighted || kCFCoreFoundationVersionNumber >= 800)
         CydiaSetColor(CydiaColorRoleLabel, self.traitCollection);
     [origin_ drawAtPoint:CGPointMake(52, 8) forWidth:(width - 49) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
 
-    if (!highlighted)
+    if (!highlighted || kCFCoreFoundationVersionNumber >= 800)
         CydiaSetColor(CydiaColorRoleSecondaryLabel, self.traitCollection);
     [label_ drawAtPoint:CGPointMake(52, 29) forWidth:(width - 49) withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
 }

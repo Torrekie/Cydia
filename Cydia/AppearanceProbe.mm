@@ -8,6 +8,7 @@
 #include "Cydia/Appearance.h"
 #include "Cydia/AppState.h"
 #include "Cydia/ConfirmationControllerProbe.h"
+#include "Cydia/HomeTableAppearance.h"
 #include "Cydia/LoadingView.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/PackageDetailControllerProbe.h"
@@ -43,10 +44,6 @@
 - (id) initWithControlledTraits:(BOOL)controlledTraits;
 @end
 
-@interface PackageCell (CydiaAppearanceProbe)
-- (void) configureAppearanceProbe;
-@end
-
 @interface CydiaAppearanceProbeApplication : UIResponder <UIApplicationDelegate>
 @property(nonatomic, strong) UIWindow *window;
 @end
@@ -78,6 +75,99 @@ static BOOL ProbePaletteAssertions(void) {
 }
 
 static BOOL ProbePalettePassed;
+
+static BOOL ProbeTransparent(UIColor *color) {
+    return color == nil || CGColorGetAlpha(color.CGColor) < 0.01;
+}
+
+static UIColor *ProbeCellSurface(UITableViewCell *cell) {
+    UIColor *background(cell.backgroundView.backgroundColor);
+    return ProbeTransparent(background) ? cell.backgroundColor : background;
+}
+
+/* Rasterize only in memory. Both samples lie below the content and arrow so
+ * text/icon differences cannot masquerade as a whole-row press background. */
+static CGFloat ProbeCellPixel(UITableViewCell *cell, CGPoint point) {
+    unsigned char pixel[4] = {};
+    CGColorSpaceRef space(CGColorSpaceCreateDeviceRGB());
+    CGContextRef context(CGBitmapContextCreate(pixel, 1, 1, 8, 4, space,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big));
+    CGColorSpaceRelease(space);
+    if (context == NULL)
+        return -1;
+    CGContextTranslateCTM(context, -point.x, -point.y);
+    [cell.layer renderInContext:context];
+    CGContextRelease(context);
+    return pixel[3] < 250 ? -1 : (pixel[0] + pixel[1] + pixel[2]) / 765.0;
+}
+
+static BOOL ProbeCellPress(UITableViewCell *cell) {
+    if (cell == nil || cell.selectionStyle == UITableViewCellSelectionStyleNone)
+        return NO;
+    const BOOL oldHighlighted(cell.isHighlighted), oldSelected(cell.isSelected);
+    const BOOL custom([cell isKindOfClass:[CyteTableViewCell class]]);
+    __block BOOL passed(YES);
+    [UIView performWithoutAnimation:^{
+        [cell setHighlighted:NO animated:NO];
+        [cell setSelected:NO animated:NO];
+        [cell layoutIfNeeded];
+        const CGRect bounds(cell.bounds);
+        const CGFloat y(CGRectGetHeight(bounds) - 4);
+        const CGPoint center(CGPointMake(CGRectGetMidX(cell.contentView.frame), y));
+        const CGPoint trailing(CGPointMake(CGRectGetWidth(bounds) - 8, y));
+        const CGFloat normalCenter(ProbeCellPixel(cell, center));
+        const CGFloat normalTrailing(ProbeCellPixel(cell, trailing));
+        passed = normalCenter >= 0 && normalTrailing >= 0 &&
+            ProbeTransparent(cell.contentView.backgroundColor);
+        if (custom) {
+            CyteTableViewCell *drawingCell((CyteTableViewCell *)cell);
+            passed = passed && !drawingCell.content.opaque &&
+                ProbeTransparent(drawingCell.content.backgroundColor) && !drawingCell.highlighted;
+        }
+
+        [cell setHighlighted:YES animated:NO];
+        [cell layoutIfNeeded];
+        const CGFloat pressedCenter(ProbeCellPixel(cell, center));
+        const CGFloat pressedTrailing(ProbeCellPixel(cell, trailing));
+        passed = passed && cell.isHighlighted && !cell.isSelected &&
+            pressedCenter >= 0 && pressedTrailing >= 0 &&
+            fabs(normalCenter - pressedCenter) > 0.02 &&
+            fabs(normalTrailing - pressedTrailing) > 0.02 &&
+            fabs(pressedCenter - pressedTrailing) < 0.03;
+        if (custom)
+            passed = passed && [(CyteTableViewCell *)cell highlighted];
+
+        [cell setSelected:YES animated:NO];
+        [cell setHighlighted:NO animated:NO];
+        [cell layoutIfNeeded];
+        const CGFloat selectedCenter(ProbeCellPixel(cell, center));
+        const CGFloat selectedTrailing(ProbeCellPixel(cell, trailing));
+        passed = passed && !cell.isHighlighted && cell.isSelected &&
+            selectedCenter >= 0 && selectedTrailing >= 0 &&
+            fabs(normalCenter - selectedCenter) > 0.02 &&
+            fabs(normalTrailing - selectedTrailing) > 0.02 &&
+            fabs(selectedCenter - selectedTrailing) < 0.03;
+        if (custom)
+            passed = passed && [(CyteTableViewCell *)cell highlighted];
+
+        [cell setSelected:NO animated:NO];
+        [cell layoutIfNeeded];
+        passed = passed && !cell.isHighlighted && !cell.isSelected &&
+            fabs(normalCenter - ProbeCellPixel(cell, center)) < 0.01 &&
+            fabs(normalTrailing - ProbeCellPixel(cell, trailing)) < 0.01;
+        if (custom)
+            passed = passed && ![(CyteTableViewCell *)cell highlighted];
+        if (!passed)
+            NSLog(@"CydiaAppearanceProbe %@ press samples normal %.3f/%.3f, highlighted %.3f/%.3f, selected %.3f/%.3f; transparent content %d",
+                NSStringFromClass(cell.class), normalCenter, normalTrailing, pressedCenter,
+                pressedTrailing, selectedCenter, selectedTrailing,
+                ProbeTransparent(cell.contentView.backgroundColor));
+        [cell setSelected:oldSelected animated:NO];
+        [cell setHighlighted:oldHighlighted animated:NO];
+        [cell layoutIfNeeded];
+    }];
+    return passed;
+}
 
 static void EnsureProbeMetrics(void) {
     if (ScreenScale_ <= 0)
@@ -232,6 +322,7 @@ static void EnsureProbeMetrics(void) {
     UITableViewCell *loadingCell_;
     CydiaLoadingView *loadingView_;
     UITableViewCell *nativeSurfaceCell_;
+    UITableViewCell *selectableSurfaceCell_;
     UILabel *nativeSurfaceLabel_;
     NSArray<UIView *> *swatches_;
     NSArray<UILabel *> *swatchLabels_;
@@ -303,7 +394,10 @@ static void EnsureProbeMetrics(void) {
     tableView_.tableHeaderView = headerView_;
 
     packageCell_ = [[PackageCell alloc] init];
-    [packageCell_ configureAppearanceProbe];
+    [packageCell_ setLibraryItemName:@"Semantic Package Row"
+        description:@"Already-visible custom drawing updates live"
+        source:@"Cydia Appearance Probe" architectureCaption:nil
+        icon:[UIImage imageNamed:@"folder.png"] price:@"$1.99" unavailable:NO];
 
     sectionCell_ = [[SectionCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"AppearanceProbeSection"];
     [sectionCell_ setSection:nil editing:NO];
@@ -313,6 +407,7 @@ static void EnsureProbeMetrics(void) {
         sourceCell_ = [[sourceClass alloc] initWithFrame:CGRectZero reuseIdentifier:@"AppearanceProbeSource"];
         if ([sourceCell_ respondsToSelector:@selector(setAllSource)])
             [sourceCell_ performSelector:@selector(setAllSource)];
+        sourceCell_.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     }
 
     loadingCell_ = [[UITableViewCell alloc] initWithFrame:CGRectMake(0, 0, 320, 72)
@@ -333,6 +428,12 @@ static void EnsureProbeMetrics(void) {
     nativeSurfaceLabel_.adjustsFontForContentSizeCategory = YES;
     nativeSurfaceLabel_.numberOfLines = 0;
     nativeSurfaceLabel_.accessibilityIdentifier = @"appearance.native-surface.label";
+
+    selectableSurfaceCell_ = [[UITableViewCell alloc]
+        initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"AppearanceProbeSelectableSurface"];
+    selectableSurfaceCell_.textLabel.text = @"Native UIKit Selectable Surface";
+    selectableSurfaceCell_.selectionStyle = UITableViewCellSelectionStyleDefault;
+    selectableSurfaceCell_.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
     [tableView_ reloadData];
     [self updateProbeAppearance];
@@ -398,6 +499,8 @@ static void EnsureProbeMetrics(void) {
     nativeSurfaceCell_.contentView.backgroundColor =
         nativeSurfaceCell_.backgroundColor;
     nativeSurfaceLabel_.textColor = labelColor;
+    HomeApplyCellSurface(selectableSurfaceCell_, CydiaColorRoleCellBackground, self.traitCollection);
+    selectableSurfaceCell_.textLabel.textColor = labelColor;
     for (NSUInteger index(0); index != [swatches_ count]; ++index) {
         UIView *swatch([swatches_ objectAtIndex:index]);
         CydiaColorRole role = index == 0 ? CydiaColorRoleBackground :
@@ -419,14 +522,37 @@ static void EnsureProbeMetrics(void) {
 }
 
 - (void) writeProbeState {
+    [tableView_ layoutIfNeeded];
+    BOOL pressAssertions(nativeSurfaceCell_.selectionStyle == UITableViewCellSelectionStyleNone);
+    for (UITableViewCell *cell in @[packageCell_, sectionCell_, sourceCell_ ?: (id)[NSNull null], selectableSurfaceCell_]) {
+        if (![cell isKindOfClass:[UITableViewCell class]]) {
+            pressAssertions = NO;
+            continue;
+        }
+        /* A small phone may not yet have displayed the last row. Give that
+         * same real cell usable geometry without scrolling the table. */
+        const CGRect originalFrame(cell.frame);
+        const BOOL needsGeometry(CGRectGetWidth(cell.bounds) < 44 || CGRectGetHeight(cell.bounds) < 44);
+        if (needsGeometry) {
+            CGFloat height(cell == sectionCell_ ? 50 : cell == sourceCell_ ? 58 : 74);
+            cell.frame = CGRectMake(0, 0, CGRectGetWidth(tableView_.bounds), height);
+        }
+        BOOL passed(ProbeCellPress(cell));
+        if (needsGeometry)
+            cell.frame = originalFrame;
+        pressAssertions = pressAssertions && passed;
+        NSLog(@"CydiaAppearanceProbe %@ whole-row press: %@", NSStringFromClass(cell.class),
+            passed ? @"PASS" : @"FAIL");
+    }
     UIUserInterfaceStyle style(self.traitCollection.userInterfaceStyle);
     NSDictionary *state = @{
         @"style": style == UIUserInterfaceStyleDark ? @"dark" : @"light",
         @"updates": @(appearanceUpdateCount_),
         @"paletteAssertions": @(ProbePalettePassed),
-        @"packageBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(packageCell_.content.backgroundColor) * 1000)),
-        @"sectionBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(sectionCell_.content.backgroundColor) * 1000)),
-        @"sourceBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(sourceCell_.content.backgroundColor) * 1000)),
+        @"pressAssertions": @(pressAssertions),
+        @"packageBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(ProbeCellSurface(packageCell_)) * 1000)),
+        @"sectionBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(ProbeCellSurface(sectionCell_)) * 1000)),
+        @"sourceBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(ProbeCellSurface(sourceCell_)) * 1000)),
         @"loadingBackgroundLuminance": @((NSInteger) lround(ProbeLuminance(loadingView_.backgroundColor) * 1000)),
         @"nativeSurfaceReady": @(nativeSurfaceLabel_.superview != nil &&
             [nativeSurfaceLabel_.text length] != 0),
@@ -443,7 +569,7 @@ static void EnsureProbeMetrics(void) {
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void) tableView;
     (void) section;
-    return 5;
+    return 6;
 }
 
 - (CGFloat) tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
@@ -479,7 +605,8 @@ static void EnsureProbeMetrics(void) {
         case 1: return sectionCell_;
         case 2: return sourceCell_;
         case 3: return loadingCell_;
-        default: return nativeSurfaceCell_;
+        case 4: return nativeSurfaceCell_;
+        default: return selectableSurfaceCell_;
     }
 }
 

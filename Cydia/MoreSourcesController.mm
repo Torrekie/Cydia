@@ -3,6 +3,7 @@
 #import "Cydia/TableViewCompatibility.h"
 #import "Cydia/MoreSourcesModel.h"
 #import "Cydia/UIColor+Cydia.h"
+#import "Cydia/HomeTableAppearance.h"
 #import "Cydia/NativeAccessibilityTrace.h"
 #import "Cydia/UIRouteContext.h"
 #import "CyteKit/Localize.h"
@@ -184,15 +185,10 @@ static NSString *MoreSourcesSetting(NSString *key) {
                 size:cell.body.font.pointSize] range:NSMakeRange(0, heading.location)];
         cell.body.attributedText = text;
     }
-    UIColor *background = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground traitCollection:self.traitCollection];
-    cell.backgroundColor = background; cell.contentView.backgroundColor = UIColor.clearColor;
+    HomeApplyCellSurface(cell, CydiaColorRoleCellBackground, self.traitCollection);
     cell.body.textColor = [UIColor cydiaColorForRole:action && !enabled ? CydiaColorRoleSecondaryLabel :
         CydiaColorRoleLabel traitCollection:self.traitCollection];
     cell.tintColor = self.view.tintColor;
-    if (@available(iOS 14.0, *)) {
-        UIBackgroundConfiguration *config = [UIBackgroundConfiguration listGroupedCellConfiguration];
-        config.backgroundColor = background; cell.backgroundConfiguration = config;
-    }
     cell.accessibilityLabel = cell.body.text;
     cell.accessibilityIdentifier = action ? [@"cydia.home.more-sources." stringByAppendingString:path.row == 0 ? @"sources" : @"advanced"] :
         [NSString stringWithFormat:@"cydia.home.more-sources.text.%ld.%ld", (long)path.section, (long)path.row];

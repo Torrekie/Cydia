@@ -278,8 +278,13 @@ static BOOL HomeProbeColorIsTransparent(UIColor *color) {
 static BOOL HomeProbeBackgroundConfigurationSynchronized(UITableViewCell *cell) {
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
     if (@available(iOS 14.0, *)) {
-        if (cell == nil || cell.backgroundConfiguration == nil ||
-            cell.backgroundConfiguration.backgroundColor == nil)
+        if (cell == nil)
+            return NO;
+        // A legacy backgroundView intentionally clears the modern configuration
+        // so UIKit retains its default selected background and fade animation.
+        if (cell.backgroundConfiguration == nil)
+            return cell.backgroundView != nil && cell.backgroundView.backgroundColor != nil;
+        if (cell.backgroundConfiguration.backgroundColor == nil)
             return NO;
         UIColor *reference(cell.backgroundColor);
         if (HomeProbeColorIsTransparent(reference))

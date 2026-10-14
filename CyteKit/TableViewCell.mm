@@ -33,6 +33,9 @@
 - (id) initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame]) != nil) {
         [self setNeedsDisplayOnBoundsChange:YES];
+        self.opaque = NO;
+        self.backgroundColor = UIColor.clearColor;
+        self.userInteractionEnabled = NO;
     } return self;
 }
 
@@ -60,12 +63,12 @@
 
 @implementation CyteTableViewCell {
     _H<CyteTableViewCellContentView, 1> content_;
-    bool highlighted_;
 }
 
 - (instancetype) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
     if ((self = [super initWithFrame:frame reuseIdentifier:reuseIdentifier]) != nil) {
         UIView *content([self contentView]);
+        content.backgroundColor = UIColor.clearColor;
         CGRect bounds([content bounds]);
 
         self.content = [[CyteTableViewCellContentView alloc] initWithFrame:bounds];
@@ -76,16 +79,12 @@
     } return self;
 }
 
-- (void) _updateHighlightColorsForView:(UIView *)view highlighted:(BOOL)highlighted {
-    if (view == (UIView *) content_)
-        highlighted_ = highlighted;
-
-    [super _updateHighlightColorsForView:view highlighted:highlighted];
+- (void) setHighlighted:(BOOL)highlighted animated:(BOOL)animated {
+    [super setHighlighted:highlighted animated:animated];
+    [content_ setNeedsDisplay];
 }
 
 - (void) setSelected:(BOOL)selected animated:(BOOL)animated {
-    highlighted_ = selected;
-
     [super setSelected:selected animated:animated];
     [content_ setNeedsDisplay];
 }
@@ -99,7 +98,7 @@
 }
 
 - (bool) highlighted {
-    return highlighted_;
+    return [super isHighlighted] || [super isSelected];
 }
 
 @end

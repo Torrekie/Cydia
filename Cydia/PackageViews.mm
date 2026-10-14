@@ -66,13 +66,13 @@
         color = [UIColor cydiaColorForRole:CydiaColorRoleRemovingBackground
                             traitCollection:self.traitCollection];
     [self setBackgroundColor:color];
-    [self.content setBackgroundColor:color];
+    [self.content setBackgroundColor:UIColor.clearColor];
 }
 
 - (PackageCell *) init {
     CGRect frame(CGRectMake(0, 0, 320, 74));
     if ((self = [super initWithFrame:frame reuseIdentifier:@"Package"]) != nil) {
-        [self.content setOpaque:YES];
+        [self.content setOpaque:NO];
     } return self;
 }
 
@@ -222,7 +222,7 @@
     /* The custom content view follows UIKit's accessory-aware contentView.
      * Ordinary package rows retain their historical whole-cell geometry. */
     const CGFloat width(CGRectGetWidth(self.content.bounds));
-    const BOOL selected(self.highlighted && kCFCoreFoundationVersionNumber < 800);
+    const BOOL selected([self highlighted] && kCFCoreFoundationVersionNumber < 800);
     const CydiaColorRole primary(selected ? CydiaColorRoleSelectedLabel :
         unavailable_ ? CydiaColorRoleSecondaryLabel : CydiaColorRoleLabel);
     const CydiaColorRole secondary(selected ? CydiaColorRoleSelectedLabel : CydiaColorRoleSecondaryLabel);
@@ -259,7 +259,7 @@
 }
 
 - (void) drawSummaryContentRect:(CGRect)rect {
-    bool highlighted(self.highlighted);
+    bool highlighted([self highlighted]);
     float width([self bounds].size.width);
 
     if (icon_ != nil) {
@@ -293,7 +293,7 @@
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
         CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
-    if (!highlighted)
+    if (!highlighted || kCFCoreFoundationVersionNumber >= 800)
         CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(36, 8) forWidth:(width - (placard_ == nil ? 68 : 94)) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
     if ([architectureCaption_ length] != 0) {
@@ -307,7 +307,7 @@
 }
 
 - (void) drawNormalContentRect:(CGRect)rect {
-    bool highlighted(self.highlighted);
+    bool highlighted([self highlighted]);
     float width([self bounds].size.width);
 
     if (icon_ != nil) {
@@ -341,7 +341,7 @@
     if (highlighted && kCFCoreFoundationVersionNumber < 800)
         CydiaSetColor(CydiaColorRoleSelectedLabel, self.traitCollection);
 
-    if (!highlighted)
+    if (!highlighted || kCFCoreFoundationVersionNumber >= 800)
         CydiaSetColor(commercial_ ? CydiaColorRoleCommercialLabel : CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(48, 8) forWidth:(width - (placard_ == nil ? 80 : 106)) withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
     CGFloat architectureOffset([architectureCaption_ length] == 0 ? 0 : 17);
@@ -353,7 +353,7 @@
     }
     [source_ drawAtPoint:CGPointMake(58, 29 + architectureOffset) forWidth:(width - 95) withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
 
-    if (!highlighted)
+    if (!highlighted || kCFCoreFoundationVersionNumber >= 800)
         CydiaSetColor(commercial_ ? CydiaColorRoleCommercialSecondaryLabel : CydiaColorRoleSecondaryLabel, self.traitCollection);
     [description_ drawAtPoint:CGPointMake(12, 46 + architectureOffset) forWidth:(width - 46) withFont:Font14_ lineBreakMode:NSLineBreakByTruncatingTail];
 
@@ -378,7 +378,7 @@
     UIColor *color([UIColor cydiaColorForRole:CydiaColorRoleBackground
                               traitCollection:self.traitCollection]);
     [self setBackgroundColor:color];
-    [self.content setBackgroundColor:color];
+    [self.content setBackgroundColor:UIColor.clearColor];
 }
 
 - (id) initWithFrame:(CGRect)frame reuseIdentifier:(NSString *)reuseIdentifier {
@@ -431,7 +431,7 @@
     }
 
     [self setAccessoryType:editing ? UITableViewCellAccessoryNone : UITableViewCellAccessoryDisclosureIndicator];
-    [self setSelectionStyle:editing ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleBlue];
+    [self setSelectionStyle:editing ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault];
 
     [self.content setNeedsDisplay];
 }
@@ -448,7 +448,7 @@
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    bool highlighted(self.highlighted && !editing_);
+    bool highlighted([self highlighted] && !editing_);
 
     [icon_ drawInRect:CGRectMake(7, 7, 32, 32)];
 
@@ -459,7 +459,7 @@
     if (editing_)
         width -= 9 + [switch_ frame].size.width;
 
-    if (!highlighted)
+    if (!highlighted || kCFCoreFoundationVersionNumber >= 800)
         CydiaSetColor(CydiaColorRoleLabel, self.traitCollection);
     [name_ drawAtPoint:CGPointMake(48, 12) forWidth:(width - 58) withFont:Font18_ lineBreakMode:NSLineBreakByTruncatingTail];
 

@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/HomeStorageController.h"
 #import "Cydia/UIColor+Cydia.h"
+#import "Cydia/HomeTableAppearance.h"
 #import "Cydia/NativeAccessibilityTrace.h"
 #import "CyteKit/Localize.h"
 #include <dirent.h>
@@ -212,17 +213,9 @@ static NSString *StoragePercent(unsigned long long bytes, unsigned long long tot
     }
 }
 - (void)applyAppearanceToCell:(UITableViewCell *)cell {
-    UIColor *background = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground
-                                     traitCollection:self.traitCollection];
-    cell.backgroundColor = background;
-    cell.contentView.backgroundColor = background;
+    HomeApplyCellSurface(cell, CydiaColorRoleCellBackground, self.traitCollection);
     cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
     cell.detailTextLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel traitCollection:self.traitCollection];
-    if (@available(iOS 14.0, *)) {
-        UIBackgroundConfiguration *configuration = [UIBackgroundConfiguration listGroupedCellConfiguration];
-        configuration.backgroundColor = background;
-        cell.backgroundConfiguration = configuration;
-    }
 }
 - (void)applyAppearance {
     _table.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleGroupedBackground traitCollection:self.traitCollection];

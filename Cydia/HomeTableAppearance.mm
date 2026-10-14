@@ -5,12 +5,9 @@
 
 #include "Cydia/HomeTableAppearance.h"
 
-/* UITableViewStyleGrouped may install an internal, trait-bound background
- * view after -cellForRowAtIndexPath:.  Keeping only cell.backgroundColor then
- * leaves that view stuck in the previous appearance (the root/table can be
- * light while the rows remain dark).  iOS 14's backgroundConfiguration takes
- * precedence over backgroundView, so update that configuration when present;
- * older systems retain the app-owned plain surface fallback. */
+/* Own only the resting surface. Opaque content or a fixed background
+ * configuration masks UIKit's selected background and its press/fade states.
+ * Assigning backgroundView also clears backgroundConfiguration on iOS 14+. */
 void HomeApplyCellSurface(UITableViewCell *cell,
                           CydiaColorRole role,
                           UITraitCollection *traits) {
@@ -26,31 +23,16 @@ void HomeApplyCellSurface(UITableViewCell *cell,
     }
 #endif
     cell.backgroundColor = background;
-    cell.contentView.backgroundColor = background;
-
-#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
-    if (@available(iOS 14.0, *)) {
-        UIBackgroundConfiguration *configuration(cell.backgroundConfiguration);
-        if (configuration == nil)
-            configuration = [UIBackgroundConfiguration clearConfiguration];
-        /* A stale transformer can resolve the previously active dark color
-         * after this method returns.  Use the concrete trait-resolved color
-         * and make the configuration honor it as-is. */
-        configuration.backgroundColorTransformer = nil;
-        configuration.backgroundColor = background;
-        cell.backgroundConfiguration = configuration;
-        return;
-    }
-#endif
+    cell.contentView.backgroundColor = UIColor.clearColor;
 
     UIView *surface(cell.backgroundView);
     if (surface == nil || surface.tag != 0xC1D1A) {
         surface = [[UIView alloc] init];
         surface.tag = 0xC1D1A;
         surface.userInteractionEnabled = NO;
-        cell.backgroundView = surface;
     }
     surface.backgroundColor = background;
+    cell.backgroundView = surface;
 }
 
 void HomeApplyTableSurface(UITableView *table, UIColor *background,
