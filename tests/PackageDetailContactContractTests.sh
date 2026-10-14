@@ -8,6 +8,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 source="$root/Cydia/PackageDetailController.mm"
 support="$root/Cydia/PackageSupportController.mm"
+support_header="$root/Cydia/PackageSupportController.h"
 package="$root/Cydia/PackageControllers.mm"
 
 fail() {
@@ -87,6 +88,11 @@ test "$guard_line" -lt "$identifier_line" ||
 grep -Fq 'CydiaPackageDetailNavigationKindContact' "$package" &&
     grep -Fq '[application presentModalViewController:page force:NO];' "$package" ||
     fail "package contact lost its native Support modal navigation boundary"
+grep -Fq 'initWithViewModel:self.viewModel' "$package" &&
+    grep -Fq 'initWithViewModel:(CydiaPackageDetailViewModel *)viewModel' "$support_header" &&
+    grep -Fq 'if (_snapshotOnly) return nil;' "$support" &&
+    grep -Fq 'if (!_snapshotOnly) {' "$support" ||
+    fail "package support must preserve the visible source snapshot across navigation and Reload"
 support_dispatch=$(sed -n '/- (void)tableView:.*didSelectRowAtIndexPath:/,/^- (void)traitCollectionDidChange:/p' "$support")
 printf '%s\n' "$support_dispatch" | grep -Fq 'CydiaExternalURLRouteURL(destination)' &&
     printf '%s\n' "$support_dispatch" | grep -Fq '[CydiaUIRouteContext trustedNativeContext]' &&

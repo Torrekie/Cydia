@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "שינויים זמניים בחבילות";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "ייתכן שגרסאות החבילות המותקנות האלה יהיו זמנית במצב ״לא מוגדר״. הפעולות הבאות המוצגות כאן חייבות להסתיים לפני ש-Cydia ישלים את התהליך.";
-
-"PACKAGE_TAGS" = "תגיות";
-"PACKAGE_SPONSOR" = "נותן חסות";
-"PACKAGE_ICON" = "סמל";

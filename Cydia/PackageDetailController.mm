@@ -9,7 +9,6 @@
 #import "Cydia/RepositoryAccountService.h"
 #import "Cydia/RepositoryIdentity.h"
 #include "Cydia/PackageDetailDepictionCell.h"
-#include "Cydia/PackageDetailMetadata.h"
 
 #include "Cydia/Appearance.h"
 #include "Cydia/Database.h"
@@ -27,7 +26,6 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailSectionKind) {
     CydiaPackageDetailSectionKindQueue,
     CydiaPackageDetailSectionKindActions,
     CydiaPackageDetailSectionKindAccount,
-    CydiaPackageDetailSectionKindMetadata,
     CydiaPackageDetailSectionKindWarnings,
     CydiaPackageDetailSectionKindDepiction,
     CydiaPackageDetailSectionKindDescription,
@@ -120,10 +118,8 @@ NSString *FooterDetail(CydiaPackageDetailViewModel *viewModel) {
 }
 
 NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
-    /* The legacy package page always opened its support popup.  The popup
-     * then selected the author/maintainer mail address (or package support
-     * URL), preserving the old page boundary instead of handing a raw
-     * mailto to the external URL controller. */
+    /* Preserve the support-popup action for every package. The owner presents
+     * that existing native controller with this exact selection's snapshot. */
     if ([[viewModel identity] length] == 0)
         return nil;
     if ([viewModel contactKind] == CydiaPackageDetailContactKindPackageSupport &&
@@ -310,7 +306,6 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 @property(nonatomic, strong) UIView *packageFooterView;
 @property(nonatomic, strong) UILabel *packageFooterLabel;
 @property(nonatomic, copy) NSArray<NSNumber *> *sections;
-@property(nonatomic, copy) NSArray<NSDictionary *> *metadataRows;
 @property(nonatomic) BOOL depictionEligible;
 @property(nonatomic, strong) PackageDepictionView *depictionView;
 @property(nonatomic, strong) CydiaPackageDepictionCell *depictionCell;
@@ -443,23 +438,19 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 
 - (void)rebuildSections {
     NSMutableArray<NSNumber *> *sections([NSMutableArray array]);
-    _metadataRows = _viewModel.readOnly ? CydiaPackageDetailMetadataRows(_viewModel) : @[];
     if ([_viewModel modeLocalizationKey] != nil)
         [sections addObject:@(CydiaPackageDetailSectionKindQueue)];
-    if (!_viewModel.readOnly) [sections addObject:@(CydiaPackageDetailSectionKindActions)];
+    [sections addObject:@(CydiaPackageDetailSectionKindActions)];
     if (!_viewModel.readOnly && _viewModel.isCommercial && _viewModel.source.repositoryURLString.length)
         [sections addObject:@(CydiaPackageDetailSectionKindAccount)];
     if ([[_viewModel warnings] count] != 0)
         [sections addObject:@(CydiaPackageDetailSectionKindWarnings)];
-    if (_metadataRows.count) [sections addObject:@(CydiaPackageDetailSectionKindMetadata)];
-    if (_viewModel.readOnly && _depictionEligible && _viewModel.displayDescription.length)
-        [sections addObject:@(CydiaPackageDetailSectionKindDescription)];
     if (_depictionEligible) {
         [sections addObject:@(CydiaPackageDetailSectionKindDepiction)];
     } else {
         if ([[_viewModel displayDescription] length] != 0)
             [sections addObject:@(CydiaPackageDetailSectionKindDescription)];
-        if (!_viewModel.readOnly && [[_viewModel homepageURLString] length] != 0)
+        if ([[_viewModel homepageURLString] length] != 0)
             [sections addObject:@(CydiaPackageDetailSectionKindHomepage)];
     }
     if ([_viewModel isInstalled])
@@ -715,7 +706,6 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
     switch ([self sectionKind:section]) {
-        case CydiaPackageDetailSectionKindMetadata: return _metadataRows.count;
         case CydiaPackageDetailSectionKindQueue:
         case CydiaPackageDetailSectionKindDepiction:
         case CydiaPackageDetailSectionKindDescription:
@@ -792,14 +782,17 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
     cell.detailTextLabel.numberOfLines = 1;
     cell.textLabel.text = nil;
+    cell.textLabel.enabled = YES;
     cell.detailTextLabel.text = nil;
     cell.imageView.image = nil;
+    cell.imageView.alpha = 1.0;
     cell.imageView.accessibilityIdentifier = nil;
     cell.accessoryType = UITableViewCellAccessoryNone;
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     cell.accessibilityIdentifier = nil;
     cell.accessibilityLabel = nil;
     cell.accessibilityValue = nil;
+    cell.accessibilityTraits = UIAccessibilityTraitNone;
     cell.backgroundColor = [UIColor cydiaColorForRole:CydiaColorRoleCellBackground
                                       traitCollection:self.traitCollection];
     cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleLabel
@@ -852,6 +845,15 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         cell.textLabel.text = UCLocalize("CHANGE_PACKAGE_SETTINGS");
         SetLegacyPackageRowImage(cell, @"settings.png");
         cell.accessibilityIdentifier = @"cydia.package.action.settings";
+        if (_viewModel.readOnly) {
+            // Retain the familiar row while denying package preference writes.
+            cell.textLabel.enabled = NO;
+            cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleSecondaryLabel
+                traitCollection:self.traitCollection];
+            cell.imageView.alpha = 0.4;
+            cell.accessibilityTraits = UIAccessibilityTraitNotEnabled;
+            return;
+        }
     } else if (row == 1) {
         cell.textLabel.text = ContactTitle(_viewModel);
         cell.detailTextLabel.text = [_viewModel contactName];
@@ -887,8 +889,6 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     CydiaPackageDetailSectionKind kind([self sectionKind:indexPath.section]);
-    if (kind == CydiaPackageDetailSectionKindMetadata)
-        return CydiaPackageDetailMetadataCell(tableView, _metadataRows[indexPath.row], self.traitCollection);
     if (kind == CydiaPackageDetailSectionKindAccount) {
         UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"CydiaPackageAccount"];
         if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"CydiaPackageAccount"];
@@ -959,7 +959,6 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
             break;
         case CydiaPackageDetailSectionKindDepiction:
         case CydiaPackageDetailSectionKindAccount:
-        case CydiaPackageDetailSectionKindMetadata:
             break;
         case CydiaPackageDetailSectionKindHomepage:
             cell.textLabel.text = UCLocalize("MORE_INFORMATION");
@@ -1003,7 +1002,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         cell.accessibilityLabel = cell.textLabel.text;
     if ([cell.detailTextLabel.text length] != 0)
         cell.accessibilityValue = cell.detailTextLabel.text;
-    cell.accessibilityTraits = cell.selectionStyle == UITableViewCellSelectionStyleNone ?
+    cell.accessibilityTraits |= cell.selectionStyle == UITableViewCellSelectionStyleNone ?
         UIAccessibilityTraitStaticText : UIAccessibilityTraitButton;
     return cell;
 }
@@ -1063,18 +1062,14 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     CydiaPackageDetailNavigationKind navigationKind;
     NSString *URLString(nil);
     NSString *identifier(nil);
-    if (kind == CydiaPackageDetailSectionKindMetadata) {
-        URLString = _metadataRows[indexPath.row][@"url"];
-        if (!URLString.length) return;
-        navigationKind = [URLString.lowercaseString hasPrefix:@"mailto:"] ?
-            CydiaPackageDetailNavigationKindContact : CydiaPackageDetailNavigationKindHomepage;
-    } else if (kind == CydiaPackageDetailSectionKindAccount) {
+    if (kind == CydiaPackageDetailSectionKindAccount) {
         for (CydiaPackageDetailModifyAction *action in _viewModel.modifyActions) {
             if (action.kind == CydiaPackageDetailModifyActionKindAccount) { [self selectModifyAction:action]; break; }
         }
         return;
     } else if (kind == CydiaPackageDetailSectionKindActions) {
         if (indexPath.row == 0) {
+            if (_viewModel.readOnly) return;
             navigationKind = CydiaPackageDetailNavigationKindSettings;
             URLString = [NSString stringWithFormat:@"cydia://package/%@/settings",
                                                    [_viewModel identity]];

@@ -35,6 +35,7 @@
 #include "Cydia/PackageDetailViewModel.h"
 #include "Cydia/PackageLegacyIconLoader.h"
 #include "Cydia/PackageRecordIconLoader.h"
+#include "Cydia/PackageSupportController.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/PackageUnavailableController.h"
 #include "Cydia/Section.h"
@@ -475,6 +476,26 @@ NSURL *PackageRouteURL(NSString *URLString) {
     if (controller != self)
         return;
     id<CYPackageControllerApplicationDelegate> application((id)[self delegate]);
+    if (self.viewModel.readOnly &&
+        (kind == CydiaPackageDetailNavigationKindSettings ||
+         kind == CydiaPackageDetailNavigationKindFiles ||
+         kind == CydiaPackageDetailNavigationKindApplication))
+        return;
+    if (kind == CydiaPackageDetailNavigationKindContact) {
+        if ([URLString length] == 0) return;
+        PackageSupportController *page(repositoryURL_ != nil || self.viewModel.readOnly ?
+            [[PackageSupportController alloc] initWithViewModel:self.viewModel] :
+            [[PackageSupportController alloc] initWithDatabase:database_ package:name_]);
+        if (page == nil) return;
+        [page setDelegate:application];
+        /* A repository-scoped selection must not resolve to another source.
+         * Ordinary package support retains its existing database Reload. */
+        if ([application respondsToSelector:@selector(presentModalViewController:force:)])
+            [application presentModalViewController:page force:NO];
+        else
+            [self.navigationController pushViewController:page animated:YES];
+        return;
+    }
     if (kind == CydiaPackageDetailNavigationKindApplication) {
         if ([identifier length] != 0 &&
             [application respondsToSelector:@selector(launchApplicationWithIdentifier:suspended:)])
@@ -522,14 +543,6 @@ NSURL *PackageRouteURL(NSString *URLString) {
     if (page == nil)
         return;
     [page setDelegate:application];
-    if (kind == CydiaPackageDetailNavigationKindContact &&
-        [application respondsToSelector:@selector(presentModalViewController:force:)]) {
-        /* Legacy package support used a modal web shell with Close and
-         * Reload controls.  Keep that navigation boundary while replacing
-         * its body with the native Support controller. */
-        [application presentModalViewController:page force:NO];
-        return;
-    }
     [self.navigationController pushViewController:page animated:YES];
 }
 

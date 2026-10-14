@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Thay đổi tạm thời đối với gói";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Các phiên bản gói đã cài đặt này có thể tạm thời chuyển sang trạng thái chưa được cấu hình. Các thao tác tiếp theo hiển thị ở đây phải hoàn tất trước khi Cydia kết thúc quá trình xử lý.";
-
-"PACKAGE_TAGS" = "Thẻ";
-"PACKAGE_SPONSOR" = "Nhà tài trợ";
-"PACKAGE_ICON" = "Biểu tượng";

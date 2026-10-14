@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Temporary package changes";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "These installed package versions may temporarily become unconfigured. The follow-up operations shown here must finish before Cydia completes.";
-
-"PACKAGE_TAGS" = "Tags";
-"PACKAGE_SPONSOR" = "Sponsor";
-"PACKAGE_ICON" = "Icon";

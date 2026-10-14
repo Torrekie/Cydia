@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Geçici Paket Değişiklikleri";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Bu yüklü paket sürümleri geçici olarak yapılandırılmamış duruma geçebilir. Cydia işlemi tamamlamadan önce burada gösterilen sonraki işlemlerin bitmesi gerekir.";
-
-"PACKAGE_TAGS" = "Etiketler";
-"PACKAGE_SPONSOR" = "Sponsor";
-"PACKAGE_ICON" = "Simge";

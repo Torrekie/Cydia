@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Tillfälliga paketändringar";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Dessa installerade paketversioner kan tillfälligt få statusen ”inte konfigurerad”. De uppföljande åtgärder som visas här måste slutföras innan Cydia avslutar processen.";
-
-"PACKAGE_TAGS" = "Taggar";
-"PACKAGE_SPONSOR" = "Sponsor";
-"PACKAGE_ICON" = "Ikon";

@@ -72,6 +72,7 @@ UIImage *SupportRowImage(void) {
 @property(nonatomic, weak) Database *database;
 @property(nonatomic, copy) NSString *packageIdentity;
 @property(nonatomic, strong) CydiaPackageDetailViewModel *viewModel;
+@property(nonatomic) BOOL snapshotOnly;
 @property(nonatomic, copy) NSArray<NSArray<NSDictionary *> *> *sections;
 @property(nonatomic, strong) UITableView *tableView;
 @end
@@ -83,12 +84,22 @@ UIImage *SupportRowImage(void) {
     Package *package([database packageWithName:identity]);
     CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc]
         initWithPackage:package]);
-    if (model == nil)
-        return nil;
-    if ((self = [super init]) != nil) {
+    if (model == nil) return nil;
+    if ((self = [self initWithViewModel:model]) != nil) {
         _database = database;
         _packageIdentity = [identity copy];
-        _viewModel = model;
+        _snapshotOnly = NO;
+    }
+    return self;
+}
+
+- (nullable instancetype)initWithViewModel:(CydiaPackageDetailViewModel *)viewModel {
+    if (viewModel == nil)
+        return nil;
+    if ((self = [super init]) != nil) {
+        _packageIdentity = [viewModel.identity copy];
+        _viewModel = viewModel;
+        _snapshotOnly = YES;
         self.title = SupportLocalized(@"SUPPORT_TITLE");
         [self rebuildSections];
     }
@@ -96,6 +107,7 @@ UIImage *SupportRowImage(void) {
 }
 
 - (NSURL *)navigationURL {
+    if (_snapshotOnly) return nil;
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@/support",
         [_viewModel identity]]];
 }
@@ -173,13 +185,13 @@ UIImage *SupportRowImage(void) {
 
 - (void)reloadData {
     [super reloadData];
-    Package *package([_database packageWithName:_packageIdentity]);
-    CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc]
-        initWithPackage:package]);
-    if (model != nil) {
-        _viewModel = model;
-        [self rebuildSections];
+    if (!_snapshotOnly) {
+        Package *package([_database packageWithName:_packageIdentity]);
+        CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc]
+            initWithPackage:package]);
+        if (model != nil) _viewModel = model;
     }
+    [self rebuildSections];
     [_tableView reloadData];
 }
 

@@ -13,6 +13,11 @@
 #include <ctime>
 #include <iostream>
 
+// The application owns section localization; verify records use that boundary.
+NSString *LocalizeSection(NSString *section) {
+    return [@"Localized: " stringByAppendingString:section];
+}
+
 void Require(bool condition, const char *message) {
     if (!condition) {
         std::cerr << "[verify-package-detail-view-model][FAIL] " << message << std::endl;
@@ -698,6 +703,7 @@ void TestReadonlyRepositorySnapshot() {
     RequireString(model.displayDescription, @"Long repository description\nSecond line",
         "readonly detail lost multiline repository description");
     RequireString(model.rawSection, @"System", "readonly detail lost source section");
+    RequireString(model.localizedSection, @"Localized: System", "repository detail bypassed normal section localization");
     RequireString(model.depictionURLString, @"https://repo.example/depiction?package=runtime",
         "readonly detail rejected safe repository depiction");
     RequireString(model.homepageURLString, @"https://example.test/runtime", "readonly detail lost safe homepage");
@@ -710,7 +716,8 @@ void TestReadonlyRepositorySnapshot() {
     RequireString(model.iconURLString, @"https://repo.example/runtime.png", "readonly detail lost the public package icon");
     Require([model.tags isEqual:@[@"cydia::commercial", @"purpose::console"]], "readonly detail lost inert package tags");
     RequireString(model.source.repositoryURLString, @"https://repo.example/ios/", "readonly detail broadened source scope");
-    Require(model.isCommercial && !model.isInstalled && !model.isUpgradable && !model.isConsolePackage &&
+    Require(model.isConsolePackage, "repository Tag did not enable the normal console information row");
+    Require(model.isCommercial && !model.isInstalled && !model.isUpgradable &&
         model.aptIdentity == nil && model.dpkgIdentity == nil && model.modifyActions.count == 0 &&
         model.primaryModifyTitleLocalizationKey == nil && model.applications.count == 0 && model.warnings.count == 1,
         "readonly detail invented package actions, local state, or executable identity");

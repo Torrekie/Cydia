@@ -125,8 +125,19 @@ grep -Fq 'if (_depictionEligible)' "$source" ||
     fail "validated depiction does not replace the native description branch"
 grep -Fq 'if ([[_viewModel displayDescription] length] != 0)' "$source" ||
     fail "depiction-less native description fallback disappeared"
-grep -Fq 'if (!_viewModel.readOnly && [[_viewModel homepageURLString] length] != 0)' "$source" ||
+grep -Fq 'if ([[_viewModel homepageURLString] length] != 0)' "$source" ||
     fail "depiction-less native homepage fallback disappeared"
+
+# Unsupported records must use the ordinary native rows, not a second layout.
+grep -Fqx '    [sections addObject:@(CydiaPackageDetailSectionKindActions)];' "$source" ||
+    fail "repository records do not share the existing package action section"
+if grep -Eq 'PackageDetailMetadata|SectionKindMetadata|readOnly && _depictionEligible' "$source"; then
+    fail "repository records still use a separate metadata presentation"
+fi
+for token in 'if (_viewModel.readOnly) return;' 'UIAccessibilityTraitNotEnabled' \
+        'cell.textLabel.enabled = YES' 'cell.imageView.alpha = 1.0'; do
+    grep -Fq "$token" "$source" || fail "readonly settings guard or reused-cell reset missing: $token"
+done
 
 for specification in \
         'settings.png:155abaf5717499f4434da0366c21192276958d99f43c521d34fd1e81054c77a0' \

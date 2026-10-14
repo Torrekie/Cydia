@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "软件包临时更改";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "这些已安装的软件包版本可能会暂时进入未配置状态。这里列出的后续操作必须完成，Cydia 才会结束本次处理。";
-
-"PACKAGE_TAGS" = "标签";
-"PACKAGE_SPONSOR" = "赞助者";
-"PACKAGE_ICON" = "图标";

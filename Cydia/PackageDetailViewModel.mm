@@ -9,6 +9,9 @@
 
 #include <ctime>
 
+// Shared with Package.longSection; no mutable Package is needed for a record.
+NSString *LocalizeSection(NSString *section);
+
 @protocol CydiaPackageDetailAddressSource <NSObject>
 - (nullable NSString *)name;
 - (nullable NSString *)address;
@@ -547,7 +550,7 @@ NSDictionary *SourceSnapshot(id source) {
             _architectureCaption = [CydiaPackageArchitectureCaption(_architecture, architectures) copy];
             _multiArch = RepositoryField(record, "Multi-Arch", 128);
             _rawSection = RepositoryField(record, "Section", 512);
-            _localizedSection = [_rawSection copy];
+            _localizedSection = _rawSection == nil ? nil : [LocalizeSection(_rawSection) copy];
             _shortDescription = RepositoryText(record.shortDescription, 4096);
             _longDescription = RepositoryText(record.longDescription, 65536, YES) ?:
                 RepositoryField(record, "Description", 65536, YES);
@@ -598,6 +601,7 @@ NSDictionary *SourceSnapshot(id source) {
             }
             _tags = RepositoryTags(tags);
             _commercial = [_tags containsObject:@"cydia::commercial"];
+            _consolePackage = [_tags containsObject:@"purpose::console"];
             if (architectures.count && !availability.architectures.empty() && !availability.hasCompatibleVersion)
                 _warnings = @[ActionText(@"PACKAGE_ARCHITECTURE_UNSUPPORTED")];
             else if (!availability.hasDownloadableVersion)

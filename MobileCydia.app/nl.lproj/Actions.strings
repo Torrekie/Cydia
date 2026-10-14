@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Tijdelijke pakketwijzigingen";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Deze geïnstalleerde pakketversies kunnen tijdelijk de status ‘niet geconfigureerd’ krijgen. De hier getoonde vervolgacties moeten voltooid zijn voordat Cydia de verwerking afrondt.";
-
-"PACKAGE_TAGS" = "Tags";
-"PACKAGE_SPONSOR" = "Sponsor";
-"PACKAGE_ICON" = "Pictogram";

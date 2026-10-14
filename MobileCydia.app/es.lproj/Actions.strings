@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Cambios temporales en los paquetes";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Estas versiones de paquetes instaladas pueden pasar temporalmente al estado «sin configurar». Las operaciones posteriores que se muestran aquí deben finalizar antes de que Cydia termine el proceso.";
-
-"PACKAGE_TAGS" = "Etiquetas";
-"PACKAGE_SPONSOR" = "Patrocinador";
-"PACKAGE_ICON" = "Icono";

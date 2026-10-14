@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "套件暫時變更";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "這些已安裝的套件版本可能會暫時進入未設定狀態。這裡列出的後續操作必須完成，Cydia 才會結束本次處理。";
-
-"PACKAGE_TAGS" = "標籤";
-"PACKAGE_SPONSOR" = "贊助者";
-"PACKAGE_ICON" = "圖示";

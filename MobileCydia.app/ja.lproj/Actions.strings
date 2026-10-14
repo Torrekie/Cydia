@@ -34,7 +34,3 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "パッケージの一時的な変更";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "これらのインストール済みパッケージのバージョンは、一時的に未設定の状態になる場合があります。Cydia が処理を完了するには、ここに表示される後続の操作が完了する必要があります。";
-
-"PACKAGE_TAGS" = "タグ";
-"PACKAGE_SPONSOR" = "スポンサー";
-"PACKAGE_ICON" = "アイコン";
