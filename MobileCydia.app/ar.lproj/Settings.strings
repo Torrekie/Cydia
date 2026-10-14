@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "استخدام إعدادات APT المحدد";
 "SECURITY_DISTRIBUTION_DETAIL" = "اتباع إعدادات الأمان لمحرك APT النشط.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "تنطبق هذه الخيارات على محرك APT الذي يستخدمه Cydia حاليًا. يقرأ APT المضمّن إعدادات التوزيعة، لكنه قد يتصرف بشكل مختلف عن APT الذي توفره التوزيعة.";
+
+"REPOSITORY_IDENTITY" = "هوية الوصول إلى المصادر";
+"REPOSITORY_IDENTITY_HELP" = "اختر User-Agent الذي يُرسل إلى المصادر ومزودي الحسابات.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (الافتراضي)";
+"IDENTITY_CUSTOM" = "مخصص";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "أدخل User-Agent";
+"IDENTITY_CUSTOM_HELP" = "استخدم من 1 إلى 512 محرف ASCII قابلًا للطباعة، من دون مسافات في البداية أو النهاية.";
+"IDENTITY_INVALID" = "أدخل User-Agent صالحًا يتكون من 1 إلى 512 محرف ASCII قابلًا للطباعة، من دون مسافات في البداية أو النهاية.";
+"IDENTITY_SAVE_FAILED" = "تعذر حفظ هوية الوصول إلى المصادر.";
+"IDENTITY_PREVIEW" = "معاينة User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "الحسابات: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "المصادر والتنزيلات: %@";
+"IDENTITY_EXTERNAL_HELP" = "ينطبق على طلبات الحسابات في Cydia والتنزيلات التي يديرها Cydia. قد يستمر مزود APT خارجي في استخدام User-Agent الخاص به.";
+"IDENTITY_APPLY_HELP" = "تُطبّق التغييرات على عمليات المستودعات وطلبات الحسابات الجديدة دون إعادة تشغيل Cydia.";

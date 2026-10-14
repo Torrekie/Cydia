@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "선택한 APT 설정 사용";
 "SECURITY_DISTRIBUTION_DETAIL" = "현재 APT 엔진의 보안 설정을 따릅니다.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "이 옵션은 Cydia가 현재 사용하는 APT 엔진에 적용됩니다. 내장 APT는 배포판 설정을 읽지만, 배포판이 제공하는 APT와 다르게 동작할 수 있습니다.";
+
+"REPOSITORY_IDENTITY" = "소스 접속 식별 정보";
+"REPOSITORY_IDENTITY_HELP" = "소스와 계정 제공업체에 보낼 User-Agent를 선택하세요.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia(기본값)";
+"IDENTITY_CUSTOM" = "사용자 지정";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "User-Agent 입력";
+"IDENTITY_CUSTOM_HELP" = "인쇄 가능한 ASCII 문자 1~512자를 사용하고 앞뒤에 공백을 넣지 마세요.";
+"IDENTITY_INVALID" = "인쇄 가능한 ASCII 문자 1~512자를 사용하고 앞뒤에 공백을 넣지 않은 유효한 User-Agent를 입력하세요.";
+"IDENTITY_SAVE_FAILED" = "소스 접속 식별 정보를 저장할 수 없습니다.";
+"IDENTITY_PREVIEW" = "User-Agent 미리보기";
+"IDENTITY_ACCOUNT_PREVIEW" = "계정: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "소스 및 다운로드: %@";
+"IDENTITY_EXTERNAL_HELP" = "Cydia 계정 요청과 Cydia가 관리하는 다운로드에 적용됩니다. 외부 APT 제공업체는 자체 User-Agent를 계속 사용할 수 있습니다.";
+"IDENTITY_APPLY_HELP" = "Cydia를 다시 시작하지 않아도 새 저장소 작업 및 계정 요청에 변경 사항이 적용됩니다.";

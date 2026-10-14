@@ -44,11 +44,24 @@
     bool installing_;
     bool removing_;
     bool summarized_;
+    bool libraryItem_;
+    bool unavailable_;
+    _H<NSString> price_;
 }
 
 - (PackageCell *) init;
 + (NSString *) architectureCaptionForPackage:(Package *)package;
 - (void) setPackage:(Package *)package asSummary:(bool)summary;
+/* Copied display values only. Source is the repository's human-readable name;
+ * no Package, APT handle, or acquisition action is retained. Library rows keep
+ * the normal 73-point height; architecture shares the repository subtitle. */
+- (void) setLibraryItemName:(NSString *)name
+               description:(NSString *)description
+                    source:(NSString *)source
+       architectureCaption:(NSString *)architectureCaption
+                      icon:(UIImage *)icon
+                     price:(NSString *)price
+               unavailable:(BOOL)unavailable;
 - (void) drawContentRect:(CGRect)rect;
 
 @end

@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Chưa mua";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Đã mua, nhưng hiện không có sẵn từ nguồn này.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Đã mua. Hiện không có gói nào từ nguồn này được chọn để cài đặt. Hãy xem các phiên bản và tùy chọn ưu tiên nguồn.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Đã mua. Không có phiên bản nào từ nguồn này hỗ trợ các kiến trúc được cấu hình trên thiết bị này.";
+"ACCOUNT_ITEM_NO_VERSION" = "Đã mua. Hiện không có phiên bản nào có thể tải về từ nguồn này.";
 "ACCOUNT_NO_PURCHASES" = "Không tìm thấy mục đã mua.";
 "ACCOUNT_CHECK_PURCHASE" = "Kiểm tra trạng thái mua";
 "ACCOUNT_PURCHASE_CONFIRM" = "Mua %@ với giá %@ từ %@ (%@)? Việc mua sẽ thêm gói vào tài khoản tại nhà cung cấp này. Cài đặt là một bước riêng.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "Nhà cung cấp chưa xác nhận giao dịch mua. Hãy kiểm tra trạng thái mua hoặc liên hệ nhà cung cấp. Cydia sẽ không gửi yêu cầu mua khác.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Chưa rõ kết quả mua. Hãy kiểm tra trạng thái mua hoặc liên hệ nhà cung cấp trước khi thanh toán lại. Cydia sẽ không lặp lại yêu cầu mua.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Mục đã mua và tài khoản";
-"ACCOUNT_CLIENT_POLICY" = "Nhà cung cấp này hiện không hỗ trợ tải gói trả phí trong Cydia. Hãy kiểm tra các trình quản lý gói được hỗ trợ trước khi mua.";
+"ACCOUNT_CLIENT_POLICY" = "Nhà cung cấp không cho phép thao tác này đối với tài khoản hoặc thiết bị này.";
 "ACCOUNT_FILTERED" = "Nhà cung cấp đã chặn yêu cầu này. Hãy kiểm tra trạng thái dịch vụ hoặc liên hệ bộ phận hỗ trợ.";
 "ACCOUNT_CANCELLED" = "Đã hủy cấp quyền mua. Chưa gửi yêu cầu mua nào.";
 "ACCOUNT_REAUTHENTICATE" = "Đăng nhập lại để cấp quyền mua an toàn. Bạn vẫn có thể dùng phiên đăng nhập hiện tại để kiểm tra tài khoản.";
 "ACCOUNT_OFFER_CHANGED" = "Giá đã thay đổi. Hãy xem giá mới trước khi mua.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Nhà cung cấp này đã hướng dẫn người dùng Cydia sử dụng trình quản lý gói khác. Truy cập được tài khoản không đảm bảo việc thanh toán hoặc tải gói trả phí sẽ hoạt động.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Cấp quyền cho giao dịch mua từ kho gói này đã được xác nhận.";
 "ACCOUNT_SOURCES" = "Nguồn";
 "ACCOUNT_LINKED_ACCOUNTS" = "Tài khoản đã liên kết";

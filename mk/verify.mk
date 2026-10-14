@@ -1246,7 +1246,7 @@ verify-ui-restoration-state: $(UI_RESTORATION_STATE_TEST)
 
 $(PACKAGE_DETAIL_VIEW_MODEL_TEST): tests/PackageDetailViewModelTests.mm \
 		Cydia/PackageDetailViewModel.h Cydia/PackageDetailViewModel.mm \
-		Cydia/PackageArchitecturePresentation.h
+		Cydia/PackageArchitecturePresentation.h Cydia/AptCompatibility.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
 		tests/PackageDetailViewModelTests.mm Cydia/PackageDetailViewModel.mm \
@@ -1256,10 +1256,13 @@ verify-package-detail-view-model: $(PACKAGE_DETAIL_VIEW_MODEL_TEST)
 	@$<
 
 $(BUILD_DIR)/tests/RepositoryPackagePresentationTests: tests/RepositoryPackagePresentationTests.mm \
-		Cydia/RepositoryPackagePresentation.h Cydia/RepositoryPackagePresentation.mm
+		Cydia/RepositoryPackagePresentation.h Cydia/RepositoryPackagePresentation.mm \
+		Cydia/RepositoryLibraryItem.h Cydia/RepositoryLibraryItem.mm \
+		Cydia/PackageArchitecturePresentation.h Cydia/AptCompatibility.hpp
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -Wall -Wextra -I. \
 		tests/RepositoryPackagePresentationTests.mm Cydia/RepositoryPackagePresentation.mm \
+		Cydia/RepositoryLibraryItem.mm \
 		-framework Foundation -o $@
 
 verify-repository-package-presentation: $(BUILD_DIR)/tests/RepositoryPackagePresentationTests
@@ -1270,11 +1273,14 @@ verify: verify-repository-package-presentation
 REPOSITORY_ACCOUNT_SERVICE_TEST := $(BUILD_DIR)/tests/RepositoryAccountServiceTests
 $(REPOSITORY_ACCOUNT_SERVICE_TEST): tests/RepositoryAccountServiceTests.mm \
 		Cydia/RepositoryAccountService.mm Cydia/RepositoryAccountService.h \
+		Cydia/RepositoryIdentity.h Cydia/RepositoryIdentity.hpp Cydia/RepositoryIdentity.mm Cydia/RepositoryIdentityValues.cpp \
+		Cydia/SettingsStore.mm Cydia/SettingsStore.h Cydia/RepositorySecurityPolicy.cpp \
 		$(wildcard tests/stubs/repository-account/*/*.h)
 	@mkdir -p $(dir $@)
 	@$(host_cxx) $(host_cxx_flags) -std=gnu++11 -fobjc-arc -fblocks -Wall -Wextra \
 		-DCYDIA_REPOSITORY_ACCOUNT_TESTING=1 -Itests/stubs/repository-account -I. \
 		tests/RepositoryAccountServiceTests.mm Cydia/RepositoryAccountService.mm \
+		Cydia/RepositoryIdentity.mm Cydia/RepositoryIdentityValues.cpp Cydia/SettingsStore.mm Cydia/RepositorySecurityPolicy.cpp \
 		-framework Foundation -o $@
 
 verify-repository-account-service: $(REPOSITORY_ACCOUNT_SERVICE_TEST)

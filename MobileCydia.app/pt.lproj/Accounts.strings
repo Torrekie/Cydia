@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Não comprado";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Comprado, mas indisponível nesta fonte no momento.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Comprado. Nenhum pacote desta fonte está selecionado para instalação no momento. Confira as versões e as preferências de fontes.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Comprado. Nenhuma versão desta fonte oferece suporte às arquiteturas configuradas neste dispositivo.";
+"ACCOUNT_ITEM_NO_VERSION" = "Comprado. No momento, não há nenhuma versão disponível para download nesta fonte.";
 "ACCOUNT_NO_PURCHASES" = "Nenhuma compra encontrada.";
 "ACCOUNT_CHECK_PURCHASE" = "Verificar status da compra";
 "ACCOUNT_PURCHASE_CONFIRM" = "Comprar %@ por %@ de %@ (%@)? A compra adiciona o pacote à conta deste provedor. A instalação é uma etapa separada.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "O provedor ainda não confirmou a compra. Verifique o status da compra ou entre em contato com o provedor. O Cydia não enviará outra solicitação de compra.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "O resultado da compra é desconhecido. Verifique o status da compra ou entre em contato com o provedor antes de pagar novamente. O Cydia não repetirá a solicitação de compra.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Compras e conta";
-"ACCOUNT_CLIENT_POLICY" = "Este provedor não oferece suporte a downloads pagos no Cydia no momento. Verifique os gerenciadores de pacotes compatíveis antes de comprar.";
+"ACCOUNT_CLIENT_POLICY" = "O provedor não permite esta operação para esta conta ou dispositivo.";
 "ACCOUNT_FILTERED" = "O provedor bloqueou esta solicitação. Verifique o status do serviço ou entre em contato com o suporte.";
 "ACCOUNT_CANCELLED" = "A autorização de compra foi cancelada. Nenhuma solicitação de compra foi enviada.";
 "ACCOUNT_REAUTHENTICATE" = "Entre novamente para autorizar compras com segurança. Seu acesso atual ainda permite consultar sua conta.";
 "ACCOUNT_OFFER_CHANGED" = "O preço mudou. Confira o preço atualizado antes de comprar.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Este provedor orientou os usuários do Cydia a usar outro gerenciador de pacotes. O acesso à conta não garante que o pagamento ou os downloads pagos funcionem.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Autorizar esta compra confirmada do repositório.";
 "ACCOUNT_SOURCES" = "Fontes";
 "ACCOUNT_LINKED_ACCOUNTS" = "Contas vinculadas";

@@ -2,6 +2,7 @@
 #include "Cydia/SourcePreflight.hpp"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/KeyringImport.hpp"
+#include "Cydia/RepositoryUserAgentScope.hpp"
 
 #include <apt-pkg/acquire.h>
 #include <apt-pkg/acquire-item.h>
@@ -83,6 +84,7 @@ struct ConfigurationScope {
     Configuration isolated;
     explicit ConfigurationScope(const std::string &root) : original(_config) {
         CopyConfiguration(original->Tree(NULL), &isolated);
+        Internal::ApplyRepositoryUserAgent(isolated);
         /* Resolve inherited file paths before dropping RootDir, so private
          * temporary paths stay physical while trust, auth.conf and methods
          * retain their effective administrator-selected locations. */

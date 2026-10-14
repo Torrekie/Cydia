@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "Χρήση ρυθμίσεων του επιλεγμένου APT";
 "SECURITY_DISTRIBUTION_DETAIL" = "Τήρηση των ρυθμίσεων ασφαλείας της ενεργής μηχανής APT.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Αυτές οι επιλογές ισχύουν για τη μηχανή APT που χρησιμοποιεί το Cydia. Το ενσωματωμένο APT διαβάζει τις ρυθμίσεις της διανομής, αλλά μπορεί να συμπεριφέρεται διαφορετικά από το APT της διανομής.";
+
+"REPOSITORY_IDENTITY" = "Ταυτότητα πρόσβασης σε πηγές";
+"REPOSITORY_IDENTITY_HELP" = "Επιλέξτε το User-Agent που αποστέλλεται στις πηγές και στους παρόχους λογαριασμών.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (Προεπιλογή)";
+"IDENTITY_CUSTOM" = "Προσαρμοσμένο";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "Εισαγάγετε User-Agent";
+"IDENTITY_CUSTOM_HELP" = "Χρησιμοποιήστε 1–512 εκτυπώσιμους χαρακτήρες ASCII χωρίς κενά στην αρχή ή στο τέλος.";
+"IDENTITY_INVALID" = "Εισαγάγετε έγκυρο User-Agent με 1–512 εκτυπώσιμους χαρακτήρες ASCII χωρίς κενά στην αρχή ή στο τέλος.";
+"IDENTITY_SAVE_FAILED" = "Δεν ήταν δυνατή η αποθήκευση της ταυτότητας πρόσβασης σε πηγές.";
+"IDENTITY_PREVIEW" = "Προεπισκόπηση User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "Λογαριασμοί: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Πηγές και λήψεις: %@";
+"IDENTITY_EXTERNAL_HELP" = "Ισχύει για τα αιτήματα λογαριασμών του Cydia και τις λήψεις που διαχειρίζεται το Cydia. Ένας εξωτερικός πάροχος APT ενδέχεται να διατηρεί το δικό του User-Agent.";
+"IDENTITY_APPLY_HELP" = "Οι αλλαγές ισχύουν για νέες λειτουργίες αποθετηρίων και αιτήματα λογαριασμών χωρίς επανεκκίνηση του Cydia.";

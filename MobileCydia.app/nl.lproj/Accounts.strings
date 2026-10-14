@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Niet gekocht";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Gekocht, maar momenteel niet beschikbaar via deze bron.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Gekocht. Er is momenteel geen pakket uit deze bron geselecteerd voor installatie. Bekijk de versies en bronvoorkeuren.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Gekocht. Geen enkele versie uit deze bron ondersteunt de architecturen die op dit apparaat zijn ingesteld.";
+"ACCOUNT_ITEM_NO_VERSION" = "Gekocht. Er is momenteel geen downloadbare versie beschikbaar via deze bron.";
 "ACCOUNT_NO_PURCHASES" = "Geen aankopen gevonden.";
 "ACCOUNT_CHECK_PURCHASE" = "Aankoopstatus controleren";
 "ACCOUNT_PURCHASE_CONFIRM" = "%@ voor %@ kopen bij %@ (%@)? De aankoop voegt het pakket toe aan het account bij deze aanbieder. De installatie is een aparte stap.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "De aanbieder heeft de aankoop nog niet bevestigd. Controleer de aankoopstatus of neem contact op met de aanbieder. Cydia verzendt geen nieuw aankoopverzoek.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Het resultaat van de aankoop is onbekend. Controleer de aankoopstatus of neem contact op met de aanbieder voordat je opnieuw betaalt. Cydia herhaalt het aankoopverzoek niet.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Aankopen en account";
-"ACCOUNT_CLIENT_POLICY" = "Deze aanbieder ondersteunt momenteel geen betaalde downloads in Cydia. Controleer vóór de aankoop welke pakketbeheerders worden ondersteund.";
+"ACCOUNT_CLIENT_POLICY" = "De aanbieder staat deze bewerking voor dit account of apparaat niet toe.";
 "ACCOUNT_FILTERED" = "De aanbieder heeft dit verzoek geblokkeerd. Controleer de servicestatus of neem contact op met de ondersteuning.";
 "ACCOUNT_CANCELLED" = "De toestemming voor de aankoop is geannuleerd. Er is geen aankoopverzoek verzonden.";
 "ACCOUNT_REAUTHENTICATE" = "Log opnieuw in om aankopen veilig goed te keuren. Met je bestaande login kun je nog steeds je account controleren.";
 "ACCOUNT_OFFER_CHANGED" = "De prijs is gewijzigd. Bekijk de nieuwe prijs voordat je koopt.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Deze aanbieder verwijst Cydia-gebruikers naar een andere pakketbeheerder. Toegang tot het account garandeert niet dat betalen of betaalde downloads werken.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Deze bevestigde aankoop bij de pakketbron goedkeuren.";
 "ACCOUNT_SOURCES" = "Bronnen";
 "ACCOUNT_LINKED_ACCOUNTS" = "Gekoppelde accounts";

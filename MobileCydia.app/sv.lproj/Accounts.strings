@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Inte köpt";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Köpt, men för närvarande inte tillgängligt från den här källan.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Köpt. Inget paket från den här källan är för närvarande valt för installation. Granska versionerna och källinställningarna.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Köpt. Ingen version från den här källan stöder de arkitekturer som är konfigurerade på den här enheten.";
+"ACCOUNT_ITEM_NO_VERSION" = "Köpt. Det finns för närvarande ingen version att hämta från den här källan.";
 "ACCOUNT_NO_PURCHASES" = "Inga köp hittades.";
 "ACCOUNT_CHECK_PURCHASE" = "Kontrollera köpstatus";
 "ACCOUNT_PURCHASE_CONFIRM" = "Köpa %@ för %@ från %@ (%@)? Köpet lägger till paketet i kontot hos den här leverantören. Installationen är ett separat steg.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "Leverantören har ännu inte bekräftat köpet. Kontrollera köpstatus eller kontakta leverantören. Cydia skickar ingen ny köpförfrågan.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Resultatet av köpet är okänt. Kontrollera köpstatus eller kontakta leverantören innan du betalar igen. Cydia upprepar inte köpförfrågan.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Köp och konto";
-"ACCOUNT_CLIENT_POLICY" = "Den här leverantören stöder för närvarande inte betalda hämtningar i Cydia. Kontrollera vilka pakethanterare som stöds innan du köper.";
+"ACCOUNT_CLIENT_POLICY" = "Leverantören tillåter inte den här åtgärden för det här kontot eller den här enheten.";
 "ACCOUNT_FILTERED" = "Leverantören blockerade förfrågan. Kontrollera tjänstens status eller kontakta supporten.";
 "ACCOUNT_CANCELLED" = "Godkännandet av köpet avbröts. Ingen köpförfrågan skickades.";
 "ACCOUNT_REAUTHENTICATE" = "Logga in igen för att godkänna köp säkert. Din befintliga inloggning kan fortfarande användas för att kontrollera kontot.";
 "ACCOUNT_OFFER_CHANGED" = "Priset har ändrats. Kontrollera det uppdaterade priset innan du köper.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Den här leverantören hänvisar Cydia-användare till en annan pakethanterare. Kontoåtkomst garanterar inte att betalning eller betalda hämtningar fungerar.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Godkänn det här bekräftade köpet från paketkällan.";
 "ACCOUNT_SOURCES" = "Källor";
 "ACCOUNT_LINKED_ACCOUNTS" = "Länkade konton";

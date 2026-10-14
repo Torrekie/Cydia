@@ -19,6 +19,13 @@ BOOL CydiaSetRepositorySecurityPreference(NSString *value);
 NSString *CydiaRuntimeProviderPreference(void);
 BOOL CydiaSetRuntimeProviderPreference(NSString *value);
 
+/* Repository identity is an app preference, never an apt.conf edit. Custom
+ * strings must be printable ASCII, 1–512 bytes, without outer whitespace. */
+NSString *CydiaRepositoryIdentityPreference(void);
+NSString *CydiaCustomRepositoryUserAgentPreference(void);
+NSDictionary<NSString *, NSString *> *CydiaRepositoryIdentityPreferences(void);
+BOOL CydiaSetRepositoryIdentityPreference(NSString *identity, NSString *customUserAgent);
+
 NS_ASSUME_NONNULL_END
 
 #endif

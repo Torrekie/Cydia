@@ -1,8 +1,12 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/SettingsStore.h"
 #include "Cydia/RepositorySecurityPolicy.hpp"
+#include "Cydia/RepositoryIdentity.hpp"
 
 namespace {
+#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+NSMutableDictionary *CydiaRepositoryIdentityTestSettings;
+#endif
 NSObject *SettingsLock() {
     static NSObject *lock;
     static dispatch_once_t once;
@@ -11,10 +15,15 @@ NSObject *SettingsLock() {
 }
 
 NSMutableDictionary *ReadSettings() {
+#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+    // Foundation fixtures never read or change the user's real preferences.
+    return CydiaRepositoryIdentityTestSettings ? [CydiaRepositoryIdentityTestSettings mutableCopy] : [NSMutableDictionary dictionary];
+#else
     id value(CFBridgingRelease(CFPreferencesCopyAppValue(
         CFSTR("CydiaSettings"), CFSTR("com.saurik.Cydia"))));
     return [value isKindOfClass:[NSDictionary class]] ? [value mutableCopy] :
         [NSMutableDictionary dictionary];
+#endif
 }
 
 bool IsSecurityPreference(id value) {
@@ -25,6 +34,10 @@ bool IsSecurityPreference(id value) {
 }
 
 BOOL WriteSettings(NSDictionary *settings) {
+#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+    CydiaRepositoryIdentityTestSettings = [settings mutableCopy];
+    return YES;
+#else
     id previous(CFBridgingRelease(CFPreferencesCopyAppValue(
         CFSTR("CydiaSettings"), CFSTR("com.saurik.Cydia"))));
     CFPreferencesSetAppValue(CFSTR("CydiaSettings"), (__bridge CFPropertyListRef)settings,
@@ -34,6 +47,7 @@ BOOL WriteSettings(NSDictionary *settings) {
     CFPreferencesSetAppValue(CFSTR("CydiaSettings"), (__bridge CFPropertyListRef)previous,
         CFSTR("com.saurik.Cydia"));
     return NO;
+#endif
 }
 }
 
@@ -76,6 +90,40 @@ BOOL CydiaSetRuntimeProviderPreference(NSString *value) {
     @synchronized (SettingsLock()) {
         NSMutableDictionary *settings(ReadSettings());
         settings[@"RuntimeProvider"] = value;
+        return WriteSettings(settings);
+    }
+}
+
+NSDictionary<NSString *, NSString *> *CydiaRepositoryIdentityPreferences() {
+    @synchronized (SettingsLock()) {
+        NSDictionary *settings(ReadSettings());
+        id identity = settings[@"RepositoryIdentity"], custom = settings[@"RepositoryCustomUserAgent"];
+        const char *identityBytes = [identity isKindOfClass:NSString.class] ? [identity UTF8String] : nullptr;
+        const char *customBytes = [custom isKindOfClass:NSString.class] ? [custom UTF8String] : nullptr;
+        const std::string customText = customBytes ? std::string(customBytes, [custom lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) : std::string();
+        if (!CydiaRuntime::ValidRepositoryUserAgent(customText)) custom = @"";
+        if (!identityBytes || !CydiaRuntime::ValidRepositoryIdentity(std::string(identityBytes,
+            [identity lengthOfBytesUsingEncoding:NSUTF8StringEncoding])) ||
+            ([identity isEqual:@"custom"] && [custom length] == 0)) identity = @"cydia";
+        return @{@"identity": identity, @"custom": custom};
+    }
+}
+NSString *CydiaRepositoryIdentityPreference() { return CydiaRepositoryIdentityPreferences()[@"identity"]; }
+NSString *CydiaCustomRepositoryUserAgentPreference() { return CydiaRepositoryIdentityPreferences()[@"custom"]; }
+BOOL CydiaSetRepositoryIdentityPreference(NSString *identity, NSString *custom) {
+    if (![identity isKindOfClass:NSString.class] || ![custom isKindOfClass:NSString.class]) return NO;
+    identity = [identity copy]; custom = [custom copy];
+    if ([identity lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 6 ||
+        [custom lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 512) return NO;
+    const char *identityBytes = identity.UTF8String, *customBytes = custom.UTF8String;
+    if (!identityBytes || !customBytes || !CydiaRuntime::ValidRepositoryIdentity(std::string(identityBytes,
+        [identity lengthOfBytesUsingEncoding:NSUTF8StringEncoding]))) return NO;
+    const std::string customText(customBytes, [custom lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
+    if ((!customText.empty() || [identity isEqual:@"custom"]) && !CydiaRuntime::ValidRepositoryUserAgent(customText)) return NO;
+    @synchronized (SettingsLock()) {
+        NSMutableDictionary *settings(ReadSettings());
+        settings[@"RepositoryIdentity"] = identity;
+        settings[@"RepositoryCustomUserAgent"] = custom;
         return WriteSettings(settings);
     }
 }

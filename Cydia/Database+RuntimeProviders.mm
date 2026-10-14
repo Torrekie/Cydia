@@ -101,6 +101,15 @@ NSError *Error(NSString *text) {
 @end
 
 @implementation Database (RuntimeProviderInternal)
+- (CydiaAPT::RepositoryPackageAvailabilityData)repositoryPackageAvailability:(NSString *)name sourceURL:(NSURL *)sourceURL {
+    CydiaAPT::RepositoryPackageAvailabilityData result;
+    if (![self beginSettingsChange]) return result;
+    @try {
+        if (apt_ && runtime_ && runtime_->ready() && name.length && sourceURL.absoluteString.length)
+            result = apt_->repositoryPackageAvailability(name.UTF8String, sourceURL.absoluteString.UTF8String);
+    } @finally { [self endSettingsChange]; }
+    return result;
+}
 - (void)initializeRuntimeProvider {
     runtimeStatusLock_ = [[NSObject alloc] init];
     runtime_ = new CydiaAPT::RuntimeProviderCoordinator();

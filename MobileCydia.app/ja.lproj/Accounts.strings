@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "未購入";
 "ACCOUNT_OWNED_UNAVAILABLE" = "購入済みですが、このソースからは現在入手できません。";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "購入済みです。現在、インストール対象としてこのソースのパッケージは選択されていません。バージョンとソースの優先設定を確認してください。";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "購入済みです。このソースには、このデバイスに設定されているアーキテクチャに対応するバージョンがありません。";
+"ACCOUNT_ITEM_NO_VERSION" = "購入済みです。このソースには現在ダウンロード可能なバージョンがありません。";
 "ACCOUNT_NO_PURCHASES" = "購入済み項目が見つかりません。";
 "ACCOUNT_CHECK_PURCHASE" = "購入状況を確認";
 "ACCOUNT_PURCHASE_CONFIRM" = "%@ を %@ で %@（%@）から購入しますか？購入すると、このサービスのアカウントにパッケージが追加されます。インストールは別途行います。";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "サービス側で購入がまだ確認されていません。購入状況を確認するか、サービスにお問い合わせください。Cydia は別の購入リクエストを送信しません。";
 "ACCOUNT_PURCHASE_UNKNOWN" = "購入結果が不明です。再度支払う前に、購入状況を確認するか、サービスにお問い合わせください。Cydia は購入リクエストを再送信しません。";
 "ACCOUNT_PURCHASE_OPTIONS" = "購入済み項目とアカウント";
-"ACCOUNT_CLIENT_POLICY" = "このサービスは現在、Cydia での有料パッケージのダウンロードに対応していません。購入前に、対応するパッケージマネージャーを確認してください。";
+"ACCOUNT_CLIENT_POLICY" = "このサービスは、このアカウントまたはデバイスでのこの操作を許可していません。";
 "ACCOUNT_FILTERED" = "サービスがこのリクエストをブロックしました。稼働状況を確認するか、サポートにお問い合わせください。";
 "ACCOUNT_CANCELLED" = "購入の認証をキャンセルしました。購入リクエストは送信されていません。";
 "ACCOUNT_REAUTHENTICATE" = "購入を安全に認証するには、再度サインインしてください。現在のサインイン状態でもアカウントの確認はできます。";
 "ACCOUNT_OFFER_CHANGED" = "価格が変更されました。購入前に、新しい価格を確認してください。";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "このサービスは Cydia ユーザーに別のパッケージマネージャーを案内しています。アカウントにアクセスできても、決済や有料ダウンロードが利用できるとは限りません。";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "確認したパッケージの購入を認証します。";
 "ACCOUNT_SOURCES" = "ソース";
 "ACCOUNT_LINKED_ACCOUNTS" = "連携済みアカウント";

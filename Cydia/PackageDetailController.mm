@@ -7,6 +7,7 @@
 #import "Cydia/RepositoryAccountsController.h"
 #import "Cydia/RepositoryPackagePresentation.h"
 #import "Cydia/RepositoryAccountService.h"
+#import "Cydia/RepositoryIdentity.h"
 #include "Cydia/PackageDetailDepictionCell.h"
 
 #include "Cydia/Appearance.h"
@@ -314,6 +315,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 @property(nonatomic) BOOL depictionAccessibilityFocusSeeded;
 @property(nonatomic, strong) CydiaRepositoryPackagePresentation *repositoryPresentation;
 @property(nonatomic, copy) NSString *repositoryAccountNotice;
+@property(nonatomic, copy) NSString *repositoryRequestUserAgent;
 @property(nonatomic) NSUInteger repositoryRequestGeneration;
 @property(nonatomic) BOOL repositoryInfoLoading, repositoryInfoLoaded;
 /* CyteViewController.delegate remains the application coordinator.  Keep the
@@ -431,6 +433,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 }
 
 - (NSURL *)navigationURL {
+    if (_viewModel.readOnly) return nil;
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@",
                                                           [_viewModel identity]]];
 }
@@ -439,8 +442,8 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
     NSMutableArray<NSNumber *> *sections([NSMutableArray array]);
     if ([_viewModel modeLocalizationKey] != nil)
         [sections addObject:@(CydiaPackageDetailSectionKindQueue)];
-    [sections addObject:@(CydiaPackageDetailSectionKindActions)];
-    if (_viewModel.isCommercial && _viewModel.source.repositoryURLString.length)
+    if (!_viewModel.readOnly) [sections addObject:@(CydiaPackageDetailSectionKindActions)];
+    if (!_viewModel.readOnly && _viewModel.isCommercial && _viewModel.source.repositoryURLString.length)
         [sections addObject:@(CydiaPackageDetailSectionKindAccount)];
     if ([[_viewModel warnings] count] != 0)
         [sections addObject:@(CydiaPackageDetailSectionKindWarnings)];
@@ -624,12 +627,18 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self applyColorAppearance];
+    if (![_repositoryRequestUserAgent isEqual:CydiaRepositoryUserAgent()]) {
+        _repositoryInfoLoading = NO; _repositoryInfoLoaded = NO;
+        _repositoryPresentation = nil; _repositoryAccountNotice = nil;
+        ++_repositoryRequestGeneration;
+    }
     if (!_repositoryInfoLoading && !_repositoryInfoLoaded) [self loadRepositoryPackagePrice];
 }
 
 - (void)loadRepositoryPackagePrice {
     CydiaPackageDetailViewModel *selection = _viewModel;
-    if (!selection.isCommercial || !selection.source.repositoryURLString.length) return;
+    if (selection.readOnly || !selection.isCommercial || !selection.source.repositoryURLString.length) return;
+    _repositoryRequestUserAgent = CydiaRepositoryUserAgent();
     _repositoryInfoLoading = YES;
     NSUInteger generation = ++_repositoryRequestGeneration;
     __weak PackageDetailController *weakSelf = self;
@@ -638,7 +647,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         completion:^(CydiaRepositoryAccount *account, NSError *error) {
         PackageDetailController *self = weakSelf;
         if (!self || self.repositoryRequestGeneration != generation || self.viewModel != selection) return;
-        self.repositoryAccountNotice = account.compatibilityNotice ?: error.localizedDescription;
+        self.repositoryAccountNotice = error.localizedDescription;
         if (!account || !account.supportsAccountIntegration) {
             self.repositoryInfoLoading = NO; self.repositoryInfoLoaded = YES; [self reloadRepositoryPackageRow]; return;
         }
@@ -653,7 +662,7 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
                 signedIn:NO supported:account.supportsAccountIntegration downloadAvailable:NO
                 downloadSupported:(account.capabilities & CydiaRepositoryCapabilityDownload) != 0
                 purchaseAvailable:NO purchaseURL:nil];
-            if (packageError) self.repositoryAccountNotice = account.compatibilityNotice ?: packageError.localizedDescription;
+            if (packageError) self.repositoryAccountNotice = packageError.localizedDescription;
             [self reloadRepositoryPackageRow];
         }];
     }];

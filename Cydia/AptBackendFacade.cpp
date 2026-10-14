@@ -94,6 +94,11 @@ PackageLookupResult AptBackend::lookupPackage(const std::string &name, const std
     return implementation_->lookupPackage(name, preferredArchitecture);
 }
 
+RepositoryPackageAvailabilityData AptBackend::repositoryPackageAvailability(const std::string &name,
+        const std::string &sourceURL) {
+    return implementation_->repositoryPackageAvailability(name, sourceURL);
+}
+
 PackageHandle AptBackend::packageHandle(const std::string &name, const std::string &preferredArchitecture) {
     return implementation_->packageHandle(name, preferredArchitecture);
 }

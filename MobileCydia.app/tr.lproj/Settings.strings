@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "Seçilen APT ayarlarını kullan";
 "SECURITY_DISTRIBUTION_DETAIL" = "Etkin APT motorunun güvenlik ayarlarını uygula.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Bu seçenekler Cydia’nın kullandığı APT motoruna uygulanır. Yerleşik APT, dağıtım ayarlarını okur ancak dağıtımın kendi APT’sinden farklı davranabilir.";
+
+"REPOSITORY_IDENTITY" = "Kaynaklara Erişim Kimliği";
+"REPOSITORY_IDENTITY_HELP" = "Kaynaklara ve hesap sağlayıcılarına gönderilecek User-Agent değerini seçin.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (Varsayılan)";
+"IDENTITY_CUSTOM" = "Özel";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "Bir User-Agent girin";
+"IDENTITY_CUSTOM_HELP" = "Başında veya sonunda boşluk olmadan 1–512 yazdırılabilir ASCII karakteri kullanın.";
+"IDENTITY_INVALID" = "Başında veya sonunda boşluk olmayan, 1–512 yazdırılabilir ASCII karakterinden oluşan geçerli bir User-Agent girin.";
+"IDENTITY_SAVE_FAILED" = "Kaynaklara erişim kimliği kaydedilemedi.";
+"IDENTITY_PREVIEW" = "User-Agent Önizlemesi";
+"IDENTITY_ACCOUNT_PREVIEW" = "Hesaplar: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Kaynaklar ve indirmeler: %@";
+"IDENTITY_EXTERNAL_HELP" = "Cydia hesap isteklerine ve Cydia tarafından yönetilen indirmelere uygulanır. Harici bir APT sağlayıcısı kendi User-Agent değerini kullanmaya devam edebilir.";
+"IDENTITY_APPLY_HELP" = "Değişiklikler Cydia yeniden başlatılmadan yeni depo işlemlerine ve hesap isteklerine uygulanır.";

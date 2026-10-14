@@ -8,6 +8,7 @@
  */
 
 #include "Cydia/AptBackendInternal.hpp"
+#include "Cydia/RepositoryUserAgentScope.hpp"
 #include "Cydia/AptCompatibilityInternal.hpp"
 #include "Cydia/AptRuntime.hpp"
 #include "Cydia/PackageArchiveReader.hpp"
@@ -454,6 +455,7 @@ FetchResultData AptBackend::runFetcher(int pulseInterval) {
     FetchResultData result;
     if (fetcher_ == NULL)
         return result;
+    RepositoryUserAgentScope identity;
 
     bool staged = false;
     if (!StageAuthorizedArchives(*fetcher_, *status_, preparedArchives_, &result, &staged, pulseInterval))
@@ -514,6 +516,7 @@ PackageManagerResult AptBackend::runPackageManager(int statusFd, FetchResultData
 }
 
 UpdateResultData AptBackend::updateLists(pkgAcquireStatus &status, int pulseInterval) {
+    RepositoryUserAgentScope identity;
     UpdateResultData result;
     pkgSourceList list;
     if (!list.ReadMainList())

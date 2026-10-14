@@ -291,6 +291,22 @@ struct PackageSnapshot {
     PackageSnapshot();
 };
 
+/* Read-only facts from this repository's cached package records. Unknown
+ * means the source/cache metadata could not be inspected, not unowned. These
+ * values never select an archive or authorize an installation. The owned
+ * record describes the architecture-preferred newest cached source version,
+ * independently of APT's candidate and installation eligibility. */
+struct RepositoryPackageAvailabilityData {
+    bool known = false;
+    std::string displayName;
+    std::string version;
+    std::string architecture;
+    PackageRecordData record;
+    std::vector<std::string> architectures;
+    bool hasCompatibleVersion = false;
+    bool hasDownloadableVersion = false;
+};
+
 struct RelationClauseData {
     std::string package;
     std::string comparison;

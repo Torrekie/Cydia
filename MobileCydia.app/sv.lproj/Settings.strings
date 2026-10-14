@@ -116,3 +116,17 @@
 "SECURITY_DISTRIBUTION" = "Använd inställningarna för vald APT";
 "SECURITY_DISTRIBUTION_DETAIL" = "Följ säkerhetsinställningarna för den aktiva APT-motorn.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Dessa val gäller den APT-motor som Cydia använder. Inbyggd APT läser distributionens inställningar, men kan fungera annorlunda än distributionens egen APT.";
+
+"REPOSITORY_IDENTITY" = "Identitet vid källåtkomst";
+"REPOSITORY_IDENTITY_HELP" = "Välj den User-Agent som skickas till källor och kontoleverantörer.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (standard)";
+"IDENTITY_CUSTOM" = "Egen";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "Ange en User-Agent";
+"IDENTITY_CUSTOM_HELP" = "Använd 1–512 utskrivbara ASCII-tecken utan blanksteg i början eller slutet.";
+"IDENTITY_INVALID" = "Ange en giltig User-Agent med 1–512 utskrivbara ASCII-tecken utan blanksteg i början eller slutet.";
+"IDENTITY_SAVE_FAILED" = "Identiteten vid källåtkomst kunde inte sparas.";
+"IDENTITY_PREVIEW" = "Förhandsvisning av User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "Konton: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Källor och hämtningar: %@";
+"IDENTITY_EXTERNAL_HELP" = "Gäller Cydias kontoförfrågningar och hämtningar som hanteras av Cydia. En extern APT-leverantör kan fortsätta använda sin egen User-Agent.";
+"IDENTITY_APPLY_HELP" = "Ändringarna gäller nya arkivåtgärder och kontoförfrågningar utan att starta om Cydia.";

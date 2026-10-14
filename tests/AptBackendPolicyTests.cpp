@@ -105,6 +105,104 @@ const CydiaAPT::RelationClauseData *Clause(const std::vector<CydiaAPT::RelationD
     return NULL;
 }
 
+void CheckRepositoryPackageAvailability(CydiaAPT::Internal::AptBackend &backend,
+        CydiaAPT::PackageHandle selected) {
+    using namespace CydiaAPT;
+    const PackageSnapshot candidate(backend.packageSnapshot(selected));
+    std::string sourceURL;
+    for (const SourceHandle source : backend.sourceHandles()) {
+        const auto files(backend.sourceFileIDs(source));
+        if (std::find(files.begin(), files.end(), candidate.sourceFileID) != files.end())
+            sourceURL = backend.sourceSnapshot(source).uri;
+    }
+    Require(!sourceURL.empty() && sourceURL != "https://authorized.invalid/",
+        "availability fixture did not expose distinct repository sources");
+    const TransactionData before(backend.transactionData());
+    const PackageStateData selection(backend.packageState(selected));
+    const CacheStateSummary counts(backend.cacheState());
+
+    const auto available(backend.repositoryPackageAvailability("target", sourceURL));
+    Require(available.known && available.displayName == "target" &&
+        available.architectures == std::vector<std::string>{"amd64"} &&
+        available.hasCompatibleVersion && available.hasDownloadableVersion,
+        "same-source compatible package availability was lost");
+    Require(available.version == "3" && available.architecture == "amd64" &&
+        available.record.Field("Package") == "target" && available.record.Field("Version") == "3" &&
+        available.record.Field("Architecture") == "amd64" && !available.record.raw.empty() &&
+        !available.record.shortDescription.empty() && !available.record.Field("Description").empty(),
+        "read-only display record did not retain the highest source version and exact control identity");
+    const auto other(backend.repositoryPackageAvailability("target", "https://authorized.invalid/"));
+    Require(other.known && other.displayName == "target" && other.architectures.empty() &&
+        !other.hasCompatibleVersion && !other.hasDownloadableVersion && other.version.empty() &&
+        other.architecture.empty() && other.record.fields.empty() && other.record.raw.empty(),
+        "availability borrowed another repository's package metadata");
+    const auto authorized(backend.repositoryPackageAvailability("archive-authorized", "https://authorized.invalid/"));
+    Require(authorized.known && authorized.architectures == std::vector<std::string>{"all"} &&
+        authorized.hasCompatibleVersion && authorized.hasDownloadableVersion,
+        "distinct repository or architecture-independent record was not inspectable");
+    const auto missing(backend.repositoryPackageAvailability("missing-library-item", sourceURL));
+    Require(missing.known && missing.architectures.empty() && !missing.hasCompatibleVersion &&
+        !missing.hasDownloadableVersion, "known missing package became unknown or downloadable");
+    const auto unsupported(backend.repositoryPackageAvailability("unsupported", sourceURL));
+    Require(unsupported.known && unsupported.architectures == std::vector<std::string>{"armhf"} &&
+        !unsupported.hasCompatibleVersion && !unsupported.hasDownloadableVersion &&
+        unsupported.version == "1" && unsupported.architecture == "armhf" &&
+        unsupported.record.Field("Package") == "unsupported" &&
+        unsupported.record.Field("Architecture") == "armhf" && !unsupported.record.shortDescription.empty(),
+        "unsupported cached architecture was hidden or authorized for installation");
+    const auto foreign(backend.repositoryPackageAvailability("foreign-only", sourceURL));
+    Require(foreign.known && foreign.architectures == std::vector<std::string>{"i386"} &&
+        foreign.hasCompatibleVersion && foreign.hasDownloadableVersion,
+        "configured foreign architecture required a native policy candidate");
+    const auto named(backend.repositoryPackageAvailability("portable-config", sourceURL));
+    Require(named.known && named.displayName == "New native configuration",
+        "availability borrowed an installed record's old display name");
+    Require(named.version == "2" && named.architecture == "amd64" &&
+        named.record.Field("Name") == named.displayName &&
+        named.record.Field("Icon") == "https://fixture.invalid/portable-config.png" &&
+        named.record.Field("Depiction") == "https://fixture.invalid/portable-config" &&
+        named.record.Field("Homepage") == "https://fixture.invalid/",
+        "same-source presentation fields were omitted or borrowed from a different record");
+    const auto mixed(backend.repositoryPackageAvailability("same-version-layout", sourceURL));
+    Require(mixed.known && mixed.version == "1" && mixed.architecture == "amd64" &&
+        mixed.displayName == "Same-version native" && mixed.record.Field("Name") == mixed.displayName,
+        "read-only display record did not prefer native over an architecture-independent sibling");
+    const auto newest(backend.repositoryPackageAvailability("unsupported-installed", sourceURL));
+    Require(newest.known && newest.version == "2" && newest.architecture == "armhf" &&
+        newest.record.Field("Version") == "2", "unsupported display record borrowed the older installed version");
+    const auto otherName(backend.repositoryPackageAvailability("portable-config", "https://authorized.invalid/"));
+    Require(otherName.known && otherName.displayName == "portable-config" && otherName.architectures.empty() &&
+        otherName.record.fields.empty(),
+        "availability borrowed another repository's display name");
+    const auto pinned(backend.repositoryPackageAvailability("negative-only", sourceURL));
+    Require(pinned.known && pinned.hasCompatibleVersion && pinned.hasDownloadableVersion,
+        "read-only availability depended on an eligible policy candidate");
+    Require(!backend.repositoryPackageAvailability("target", "https://not-configured.invalid/").known &&
+        !backend.repositoryPackageAvailability("target:any", sourceURL).known,
+        "uninspectable source or architecture selector was reported as known repository availability");
+
+    const TransactionData after(backend.transactionData());
+    const PackageStateData retained(backend.packageState(selected));
+    const CacheStateSummary retainedCounts(backend.cacheState());
+    Require(before.installs == after.installs && before.reinstalls == after.reinstalls &&
+        before.upgrades == after.upgrades && before.downgrades == after.downgrades &&
+        before.removes == after.removes && before.purges == after.purges &&
+        before.packages.size() == after.packages.size() && before.issues.size() == after.issues.size() &&
+        selection.mode == retained.mode && selection.downgrade == retained.downgrade &&
+        selection.policyCandidate == retained.policyCandidate &&
+        counts.installs == retainedCounts.installs && counts.deletes == retainedCounts.deletes &&
+        counts.broken == retainedCounts.broken &&
+        backend.packageSnapshot(backend.packageHandle("target", "amd64")).version == candidate.version,
+        "read-only repository availability changed the selected transaction or policy candidate");
+    for (const auto &entry : before.packages) {
+        const auto match(after.packages.find(entry.first));
+        Require(match != after.packages.end() && match->second.version == entry.second.version &&
+            match->second.identity.aptName == entry.second.identity.aptName &&
+            match->second.identity.versionArchitecture == entry.second.identity.versionArchitecture,
+            "repository availability changed a queued package's exact version or architecture");
+    }
+}
+
 void CheckMultiarch(CydiaAPT::Internal::AptBackend &backend) {
     using namespace CydiaAPT;
     Require(backend.lookupPackage("foreign-only", "amd64").status == PackageLookupStatus::NoEligibleVersion &&
@@ -728,6 +826,7 @@ int main(int argc, char **) {
     Require(backend.packageState(installed).installedVersion, "installed version was not identified");
 
     Require(backend.installPackage(target), "lower policy candidate could not be queued");
+    CheckRepositoryPackageAvailability(backend, target);
     state = backend.packageState(target);
     Require(state.mode == "DOWNGRADE" && state.downgrade, "policy downgrade was mislabeled as an upgrade");
     CydiaAPT::TransactionData transaction(backend.transactionData());

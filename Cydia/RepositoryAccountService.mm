@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Torrekie; SPDX-License-Identifier: GPL-3.0-or-later */
 #import "Cydia/RepositoryAccountService.h"
+#import "Cydia/RepositoryIdentity.h"
 #import "Cydia/AppState.h"
 #import <AuthenticationServices/AuthenticationServices.h>
 #import <Security/Security.h>
@@ -166,20 +167,12 @@ static NSString *AccountKey(CydiaRepositoryAccount *account) {
 @end
 @implementation CydiaRepositoryAccount
 - (CydiaRepositoryCapabilities)capabilities {
-    CydiaRepositoryCapabilities value = CydiaRepositoryCapabilityLogin | CydiaRepositoryCapabilityEntitlements;
-    /* The published vendor policy excludes paid Cydia delivery. Discovery is
-     * still useful for reading an account; it does not override that policy. */
-    if (HostIs(self.sourceURL, @"havoc.app") || HostIs(self.providerURL, @"havoc.app")) return value;
-    return value | CydiaRepositoryCapabilityDirectPurchase | CydiaRepositoryCapabilityHostedCheckout |
-        CydiaRepositoryCapabilityDownload;
+    // A discovered v1 service exposes the same protocol operations regardless
+    // of its hostname. The provider answers authorization for each request.
+    return CydiaRepositoryCapabilityLogin | CydiaRepositoryCapabilityEntitlements |
+        CydiaRepositoryCapabilityDirectPurchase | CydiaRepositoryCapabilityHostedCheckout | CydiaRepositoryCapabilityDownload;
 }
 - (BOOL)supportsAccountIntegration { return (self.capabilities & CydiaRepositoryCapabilityLogin) != 0; }
-- (NSString *)compatibilityNotice {
-    if (!(self.capabilities & CydiaRepositoryCapabilityDownload)) return CydiaAccountLocalize(@"ACCOUNT_CLIENT_POLICY");
-    if (HostIs(self.sourceURL, @"chariz.com") || HostIs(self.providerURL, @"chariz.com"))
-        return CydiaAccountLocalize(@"ACCOUNT_COMPATIBILITY_UNVERIFIED");
-    return nil;
-}
 - (BOOL)signedIn { return self.supportsAccountIntegration && _token.length != 0 &&
     [_credentialGeneration isEqual:[_service generationForAccount:self advance:NO]]; }
 - (NSString *)description { return [NSString stringWithFormat:@"<RepositoryAccount %@>", CydiaAccountOrigin(self.sourceURL)]; }
@@ -398,12 +391,7 @@ static CydiaRepositoryPurchaseResult *PurchaseResult(CydiaRepositoryPurchaseStat
     if (!SecureURL(URL)) { completion(nil, nil, AccountError(CydiaAccountErrorUnsupported)); return; }
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:URL];
     request.HTTPMethod = body ? @"POST" : @"GET";
-#if defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
-    NSString *version = @"fixture";
-#else
-    NSString *version = Cydia_ ?: [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown";
-#endif
-    [request setValue:[NSString stringWithFormat:@"Cydia/%@ RepositoryAccounts/1", version] forHTTPHeaderField:@"User-Agent"];
+    [request setValue:CydiaRepositoryUserAgent() forHTTPHeaderField:@"User-Agent"];
     [request setValue:@"API" forHTTPHeaderField:@"Payment-Provider"];
     [request setValue:@"application/json, text/plain" forHTTPHeaderField:@"Accept"];
     if (body) {
@@ -449,7 +437,7 @@ static CydiaRepositoryPurchaseResult *PurchaseResult(CydiaRepositoryPurchaseStat
 }
 - (void)discoverSource:(NSURL *)source name:(NSString *)name completion:(void (^)(CydiaRepositoryAccount *, NSError *))completion {
     if (!SecureURL(source) || source.query) {
-        completion(nil, AccountError(HostIs(source, @"havoc.app") ? CydiaAccountErrorClientPolicy : CydiaAccountErrorUnsupported)); return;
+        completion(nil, AccountError(CydiaAccountErrorUnsupported)); return;
     }
     [self request:[source URLByAppendingPathComponent:@"payment_endpoint"] body:nil completion:
         ^(NSData *data, NSHTTPURLResponse *response, NSError *error) {
@@ -457,8 +445,7 @@ static CydiaRepositoryPurchaseResult *PurchaseResult(CydiaRepositoryPurchaseStat
         NSURL *provider = URLValue([text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]);
         if (error) { completion(nil, error); return; }
         if (response.statusCode == 404 || response.statusCode == 410 || response.statusCode == 501) {
-            completion(nil, AccountError(HostIs(source, @"havoc.app") ? CydiaAccountErrorClientPolicy :
-                CydiaAccountErrorUnsupported)); return;
+            completion(nil, AccountError(CydiaAccountErrorUnsupported)); return;
         }
         if (response.statusCode != 200) {
             completion(nil, AccountError(response.statusCode == 403 ? CydiaAccountErrorBotFilter : CydiaAccountErrorTransport)); return;

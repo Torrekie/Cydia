@@ -12,7 +12,7 @@ recovery_worker_sources := \
     Cydia/AptProviderServerTransport.cpp Cydia/AptProviderArchiveAuthorization.cpp Cydia/AptWorkerAcquireStatus.cpp \
     Cydia/PackageIdentity.cpp Cydia/PackageArchivePolicy.cpp Cydia/PackageArchiveReader.cpp \
     Cydia/SourcePreflight.cpp Cydia/SourceDocument.cpp Cydia/SourceDocumentStore.cpp \
-    Cydia/SourceDocumentCommit.cpp Cydia/KeyringImport.cpp Cydia/RepositorySecurityPolicy.cpp
+    Cydia/SourceDocumentCommit.cpp Cydia/KeyringImport.cpp Cydia/RepositorySecurityPolicy.cpp Cydia/RepositoryIdentityValues.cpp
 recovery_worker_objects := $(addprefix $(OBJECT_DIR)/,$(recovery_worker_sources:.cpp=.o))
 recovery_worker_objects += $(OBJECT_DIR)/Cydia/LockdownServices.o $(apt_http_object)
 recovery_worker_entry := $(OBJECT_DIR)/recovery/main.o

@@ -29,6 +29,9 @@ namespace Internal {
 class PackageRegistry;
 class SourceRegistry;
 
+// Own a parser's exact control record before another lookup moves its cursor.
+PackageRecordData ReadPackageRecord(pkgRecords::Parser &parser);
+
 struct PreparedArchiveData {
     CydiaPackages::ArchiveIdentity identity;
     std::string package;
@@ -98,6 +101,8 @@ class AptBackend {
     UpdateResultData updateLists(pkgAcquireStatus &status, int pulseInterval);
     std::vector<PackageHandle> packageHandles();
     PackageLookupResult lookupPackage(const std::string &name, const std::string &preferredArchitecture);
+    RepositoryPackageAvailabilityData repositoryPackageAvailability(const std::string &name,
+        const std::string &sourceURL);
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture);
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle);
     std::vector<PackageHandle> versionHandles(PackageHandle handle);

@@ -5,6 +5,7 @@
 
 #import "Cydia/PackageDetailViewModel.h"
 #import "Cydia/PackageArchitecturePresentation.h"
+#include "Cydia/AptCompatibility.hpp"
 
 #include <ctime>
 
@@ -15,7 +16,7 @@
 
 BOOL CydiaPackageDetailCanPerformAction(CydiaPackageDetailViewModel *selected,
     CydiaPackageDetailViewModel *current, CydiaPackageDetailModifyActionKind kind) {
-    if (selected == nil || current == nil) return NO;
+    if (selected == nil || current == nil || selected.readOnly || current.readOnly) return NO;
     auto equal = [](id left, id right) { return left == right || [left isEqual:right]; };
     if (!equal(selected.identity, current.identity) ||
         !equal(selected.fullVersion, current.fullVersion) ||
@@ -156,6 +157,38 @@ NSString *URLStringOrNil(id value) {
     if ([value isKindOfClass:[NSURL class]])
         value = [value absoluteString];
     return StringOrNil(value);
+}
+
+NSString *RepositoryText(id value, NSUInteger limit, BOOL multiline = NO) {
+    if (![value isKindOfClass:NSString.class] || [value length] == 0 || [value length] > limit)
+        return nil;
+    NSMutableCharacterSet *controls([NSCharacterSet.controlCharacterSet mutableCopy]);
+    if (multiline) [controls removeCharactersInString:@"\n\r\t"];
+    return [value rangeOfCharacterFromSet:controls].location == NSNotFound ? [value copy] : nil;
+}
+
+NSString *RepositoryText(const std::string &value, NSUInteger limit, BOOL multiline = NO) {
+    if (value.empty() || value.size() > limit * 4) return nil;
+    return RepositoryText([[NSString alloc] initWithBytes:value.data() length:value.size()
+        encoding:NSUTF8StringEncoding], limit, multiline);
+}
+
+NSString *RepositoryField(const CydiaAPT::PackageRecordData &record, const char *name,
+    NSUInteger limit = 4096, BOOL multiline = NO) {
+    const auto field(record.fields.find(name));
+    return field == record.fields.end() ? nil : RepositoryText(field->second, limit, multiline);
+}
+
+NSString *RepositoryURLString(id value) {
+    NSString *text(RepositoryText([value isKindOfClass:NSURL.class] ? [value absoluteString] : value, 8192));
+    NSURLComponents *parts(text == nil ? nil : [NSURLComponents componentsWithString:text]);
+    NSString *decoded(text.stringByRemovingPercentEncoding);
+    if (parts == nil || !([parts.scheme.lowercaseString isEqual:@"https"] ||
+        [parts.scheme.lowercaseString isEqual:@"http"]) || !parts.host.length ||
+        parts.user != nil || parts.password != nil || decoded == nil ||
+        [decoded rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound ||
+        (parts.port != nil && (parts.port.integerValue < 1 || parts.port.integerValue > 65535))) return nil;
+    return text;
 }
 
 NSArray<NSString *> *StringArray(id value) {
@@ -328,6 +361,7 @@ NSDictionary *SourceSnapshot(id source) {
 
 @interface CydiaPackageDetailSource ()
 - (instancetype)initWithSource:(id<CydiaPackageDetailSourceSource>)source;
+- (instancetype)initWithRepositoryURLString:(NSString *)URLString name:(NSString *)name;
 @end
 
 @implementation CydiaPackageDetailSource
@@ -340,6 +374,15 @@ NSDictionary *SourceSnapshot(id source) {
         _sourceDescription = StringOrNil([source shortDescription]);
         _host = StringOrNil([source host]);
         _iconURLString = URLStringOrNil([source iconURL]);
+    }
+    return self;
+}
+
+- (instancetype)initWithRepositoryURLString:(NSString *)URLString name:(NSString *)name {
+    if ((self = [super init]) != nil) {
+        _repositoryURLString = [URLString copy];
+        _host = [[[NSURL URLWithString:URLString] host] copy];
+        _name = RepositoryText(name, 512) ?: _host ?: @"";
     }
     return self;
 }
@@ -429,6 +472,96 @@ NSDictionary *SourceSnapshot(id source) {
 
 @implementation CydiaPackageDetailViewModel
 
+- (nullable instancetype)initWithRepositoryPackage:(const CydiaAPT::RepositoryPackageAvailabilityData &)availability
+                                      identifier:(NSString *)identifier
+                                       sourceURL:(NSURL *)sourceURL
+                                      sourceName:(NSString *)sourceName
+                        registeredArchitectures:(NSArray<NSString *> *)architectures {
+    NSString *identity(RepositoryText(identifier, 256));
+    NSString *URLString(RepositoryURLString(sourceURL));
+    if (identity == nil || URLString == nil) return nil;
+    if ((self = [super init]) != nil) {
+        _readOnly = YES;
+        _identity = identity;
+        _baseIdentity = identity;
+        _displayName = (availability.known ? RepositoryText(availability.displayName, 512) : nil) ?: identity;
+        _source = [[CydiaPackageDetailSource alloc] initWithRepositoryURLString:URLString name:sourceName];
+        _contactKind = CydiaPackageDetailContactKindPackageSupport;
+        _applications = @[];
+        _modifyActions = @[];
+        _warnings = @[[[NSBundle mainBundle] localizedStringForKey:@"ACCOUNT_ITEM_NOT_IN_SOURCE"
+            value:@"No selected local package from this repository. Refresh sources to check availability." table:@"Accounts"]];
+
+        NSMutableDictionary *fields([NSMutableDictionary dictionary]);
+        NSMutableArray<NSString *> *tags([NSMutableArray array]);
+        if (availability.known) {
+            const auto &record(availability.record);
+            _displayName = RepositoryText(availability.displayName, 512) ?:
+                RepositoryText(record.displayName, 512) ?: RepositoryField(record, "Name", 512) ?: identity;
+            _fullVersion = RepositoryText(availability.version, 256) ?: RepositoryField(record, "Version", 256);
+            _latestVersion = _fullVersion;
+            _architecture = RepositoryText(availability.architecture, 128) ?: RepositoryField(record, "Architecture", 128);
+            _architectureCaption = [CydiaPackageArchitectureCaption(_architecture, architectures) copy];
+            _multiArch = RepositoryField(record, "Multi-Arch", 128);
+            _rawSection = RepositoryField(record, "Section", 512);
+            _localizedSection = [_rawSection copy];
+            _shortDescription = RepositoryText(record.shortDescription, 4096);
+            _longDescription = RepositoryText(record.longDescription, 65536, YES) ?:
+                RepositoryField(record, "Description", 65536, YES);
+            _displayDescription = [_longDescription ?: _shortDescription copy];
+            _homepageURLString = RepositoryURLString(RepositoryField(record, "Homepage", 8192)) ?:
+                RepositoryURLString(RepositoryField(record, "Website", 8192));
+            _depictionURLString = RepositoryURLString(RepositoryField(record, "Depiction", 8192));
+            _supportURLString = RepositoryURLString(RepositoryField(record, "Support", 8192)) ?:
+                RepositoryURLString(RepositoryField(record, "Bugs", 8192));
+            for (const std::string &value : record.tags) {
+                NSString *tag(RepositoryText(value, 256));
+                if (tag != nil && ![tags containsObject:tag]) [tags addObject:tag];
+            }
+            _commercial = [tags containsObject:@"cydia::commercial"];
+            if (architectures.count && !availability.architectures.empty() && !availability.hasCompatibleVersion)
+                _warnings = @[ActionText(@"PACKAGE_ARCHITECTURE_UNSUPPORTED")];
+            else if (!availability.hasDownloadableVersion)
+                _warnings = @[ActionText(@"PACKAGE_VERSION_UNAVAILABLE")];
+
+            /* Preserve only inert, source-scoped display fields. Archive paths,
+             * local state and APT/dpkg identities do not enter this facade. */
+            NSString *description(RepositoryField(record, "Description", 65536, YES));
+            if (description != nil) fields[@"Description"] = description;
+        }
+        fields[@"Package"] = _identity;
+        fields[@"Name"] = _displayName;
+        if (_fullVersion != nil) fields[@"Version"] = _fullVersion;
+        if (_architecture != nil) fields[@"Architecture"] = _architecture;
+        if (_rawSection != nil) fields[@"Section"] = _rawSection;
+        if (_multiArch != nil) fields[@"Multi-Arch"] = _multiArch;
+        if (_homepageURLString != nil) fields[@"Homepage"] = _homepageURLString;
+        if (_depictionURLString != nil) fields[@"Depiction"] = _depictionURLString;
+        if (_supportURLString != nil) fields[@"Support"] = _supportURLString;
+        NSDictionary *source(@{@"rooturi": URLString, @"name": _source.name,
+            @"host": _source.host ?: @""});
+        NSDictionary *values(@{
+            @"id": _identity, @"baseId": _baseIdentity, @"name": _displayName,
+            @"latest": _latestVersion ?: NSNull.null, @"architecture": _architecture ?: NSNull.null,
+            @"longDescription": _longDescription ?: NSNull.null,
+            @"shortDescription": _shortDescription ?: NSNull.null,
+            @"section": _rawSection ?: NSNull.null, @"longSection": _localizedSection ?: NSNull.null,
+            @"multiArch": _multiArch ?: NSNull.null, @"homepage": _homepageURLString ?: NSNull.null,
+            @"depiction": _depictionURLString ?: NSNull.null, @"support": _supportURLString ?: NSNull.null,
+            @"installed": NSNull.null, @"mode": NSNull.null, @"state": NSNull.null,
+            @"selection": NSNull.null, @"warnings": _warnings,
+        });
+        _legacyDepictionSnapshot = @{
+            @"package": @{@"values": values, @"fields": [fields copy], @"tags": [tags copy],
+                @"source": source, @"applications": @[], @"relations": @[]},
+            @"source": source, @"preferredLanguages": [NSLocale preferredLanguages] ?: @[],
+            @"localeIdentifier": NSLocale.currentLocale.localeIdentifier ?: @"en_US",
+            @"supports": @[@"depiction", @"window.cydia", @"ios12"],
+        };
+    }
+    return self;
+}
+
 - (nullable instancetype)initWithPackage:(Package *)package {
     return [self initWithPackage:package registeredArchitectures:@[]];
 }
@@ -455,6 +588,7 @@ NSDictionary *SourceSnapshot(id source) {
         return nil;
 
     if ((self = [super init]) != nil) {
+        _readOnly = NO;
         _identity = [identity copy];
         _baseIdentity = [baseIdentity copy];
         _aptIdentity = [aptIdentity copy];

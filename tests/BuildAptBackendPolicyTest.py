@@ -10,6 +10,7 @@ import pathlib
 import re
 import shlex
 import subprocess
+import sys
 
 
 def main():
@@ -34,6 +35,10 @@ def main():
                "Cydia/RepositorySecurityPolicy.cpp"]
     def compile_driver(driver_sources, name, sanitize=False, extra_link_flags=(), extra_compile_flags=()):
         driver_sources = list(driver_sources)
+        if any(source in driver_sources for source in ["Cydia/AptBackendOperations.cpp",
+                "Cydia/AptAuthorizedArchives.cpp", "Cydia/SourcePreflight.cpp"]):
+            if "Cydia/RepositoryIdentityValues.cpp" not in driver_sources:
+                driver_sources.append("Cydia/RepositoryIdentityValues.cpp")
         if any(source in driver_sources for source in ["Cydia/AptProviderTransactionOwner.cpp",
                 "Cydia/AptProviderTransactionService.cpp", "Cydia/AptProviderNativeDpkgAuthority.cpp"]):
             for source in ["Cydia/AptProviderConffilePolicy.cpp", "Cydia/AptProviderConffilePolicyValues.cpp",
@@ -84,7 +89,8 @@ def main():
         command += list(extra_compile_flags)
         command += ["-Wall", "-Wextra", "-I" + str(project),
                     "-I" + str(build / "include"), "-I" + str(project / "apt64")]
-        command += [str(project / source) for source in driver_sources] + inputs + list(extra_link_flags) + [
+        identity_link = ["-framework", "CoreFoundation"] if sys.platform == "darwin" and "Cydia/RepositoryIdentityValues.cpp" in driver_sources else []
+        command += [str(project / source) for source in driver_sources] + inputs + list(extra_link_flags) + identity_link + [
             "-pthread", "-o", str(build / name)]
         subprocess.run(command, cwd=build, check=True)
 

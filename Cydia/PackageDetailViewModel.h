@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 @class Package;
+namespace CydiaAPT { struct RepositoryPackageAvailabilityData; }
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -108,6 +109,9 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 @property(nonatomic, copy, readonly, nullable) NSString *longDescription;
 @property(nonatomic, copy, readonly, nullable) NSString *displayDescription;
 @property(nonatomic, readonly) uint64_t installedSizeBytes;
+/* A repository-only record can be inspected without a selectable Package.
+ * It never supplies modification, installed-state, or account authority. */
+@property(nonatomic, readonly) BOOL readOnly;
 
 @property(nonatomic, copy, readonly, nullable) NSString *modeLocalizationKey;
 @property(nonatomic, copy, readonly) NSArray<NSString *> *warnings;
@@ -154,6 +158,11 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 - (nullable instancetype)initWithPackage:(Package *)package
                registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
                     versionArchitecture:(nullable NSString *)versionArchitecture NS_DESIGNATED_INITIALIZER;
+- (nullable instancetype)initWithRepositoryPackage:(const CydiaAPT::RepositoryPackageAvailabilityData &)availability
+                                      identifier:(NSString *)identifier
+                                       sourceURL:(NSURL *)sourceURL
+                                      sourceName:(NSString *)sourceName
+                        registeredArchitectures:(NSArray<NSString *> *)architectures NS_DESIGNATED_INITIALIZER;
 
 @end
 

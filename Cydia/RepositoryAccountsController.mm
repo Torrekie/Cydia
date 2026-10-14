@@ -2,10 +2,15 @@
 #import "Cydia/RepositoryAccountsController.h"
 #import "Cydia/RepositoryAccountService.h"
 #import "Cydia/RepositoryPackagePresentation.h"
+#import "Cydia/RepositoryLibraryItem.h"
+#import "Cydia/RepositoryIdentity.h"
+#import "Cydia/PackageArchitecturePresentation.h"
+#include "Cydia/AptRuntime.hpp"
 #import <SafariServices/SafariServices.h>
 #import "Cydia/Database.h"
 #import "Cydia/Package.h"
 #import "Cydia/PackageControllers.h"
+#import "Cydia/PackageViews.h"
 #import "Cydia/Source.h"
 #import "Cydia/UIColor+Cydia.h"
 #import "CyteKit/Localize.h"
@@ -25,7 +30,13 @@
 @property(nonatomic, copy) NSURL *recoveryURL;
 @property(nonatomic, strong) CydiaRepositoryPackagePresentation *packagePresentation;
 @property(nonatomic, copy) NSArray<NSString *> *purchasedItems;
-@property(nonatomic, copy) NSDictionary<NSString *, NSString *> *localItems;
+@property(nonatomic, copy) NSDictionary<NSString *, CydiaRepositoryLibraryItem *> *localItems;
+@property(nonatomic, copy) NSDictionary<NSString *, NSString *> *libraryDescriptions;
+@property(nonatomic, copy) NSDictionary<NSString *, UIImage *> *libraryIcons;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *libraryPrices;
+@property(nonatomic, strong) NSMutableSet<NSString *> *libraryPriceAttempts;
+@property(nonatomic, copy) NSString *libraryUserAgent;
+@property(nonatomic) NSUInteger libraryGeneration, libraryPriceRequests;
 @property(nonatomic, copy) NSDictionary *rememberedMetadata;
 @property(nonatomic, copy) NSString *localPackageIdentity;
 @property(nonatomic, strong) NSDate *lastChecked;
@@ -115,9 +126,16 @@
 }
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    if (![_libraryUserAgent isEqual:CydiaRepositoryUserAgent()]) [self resetLibraryPrices];
     if (!_sourceURL) [self loadSourceChoices];
     else if (!_loaded && !_busy) [self loadAccount];
     else if (_loaded && !_busy && _signedIn) [self refreshAccount];
+}
+- (void)resetLibraryPrices {
+    ++_libraryGeneration; _libraryPriceRequests = 0;
+    _libraryPrices = [NSMutableDictionary dictionary];
+    _libraryPriceAttempts = [NSMutableSet set];
+    _libraryUserAgent = CydiaRepositoryUserAgent();
 }
 - (void)beginLoading {
     _busy = YES; _status = nil; ++_requestGeneration; [_table reloadData];
@@ -134,6 +152,7 @@
 }
 - (void)loadAccount {
     if (_busy || !_sourceURL) return;
+    [self resetLibraryPrices];
     _providerCurrent = NO; _packagePresentation = nil; [self beginLoading];
     NSUInteger generation = _requestGeneration;
     __weak RepositoryAccountsController *weakSelf = self;
@@ -141,7 +160,7 @@
         completion:^(CydiaRepositoryAccount *account, NSError *error) {
         RepositoryAccountsController *self = weakSelf; if (!self || self.requestGeneration != generation) return;
         BOOL changedProvider = self.account != nil && account != nil && ![self.account.providerURL isEqual:account.providerURL];
-        if (changedProvider) { self.purchasedItems = nil; self.lastChecked = nil; self.purchaseStatus = nil; self.recoveryURL = nil; }
+        if (changedProvider) { self.purchasedItems = nil; self.lastChecked = nil; self.purchaseStatus = nil; self.recoveryURL = nil; [self resetLibraryPrices]; }
         self.busy = NO; self.loaded = YES; self.providerCurrent = account != nil && error == nil;
         self.rememberedProviderChanged = account != nil && self.rememberedMetadata != nil &&
             ![self.rememberedMetadata[@"provider"] isEqual:account.providerURL.absoluteString];
@@ -159,14 +178,65 @@
     /* Snapshot once after refresh, never repeat APT model lookups while cells
      * scroll. An identical package name at another source is not this item. */
     NSMutableDictionary *items = [NSMutableDictionary dictionary];
+    NSMutableDictionary *descriptions = [NSMutableDictionary dictionary], *icons = [NSMutableDictionary dictionary];
     Database *database = [Database sharedInstance];
+    NSArray *architectures = CydiaPackageRegisteredArchitectureNames(CydiaAPT::RegisteredArchitectures());
     for (NSString *identifier in _purchasedItems) {
         Package *package = [database packageWithName:identifier];
-        if (![[package.source rooturi] isEqual:_sourceURL.absoluteString]) continue;
-        if (!package.versionAvailable || !package.architectureSupported) continue;
-        items[identifier] = package.name ?: identifier;
+        BOOL sameSource = [[package.source rooturi] isEqual:_sourceURL.absoluteString];
+        const auto availability = [database repositoryPackageAvailability:identifier sourceURL:_sourceURL];
+        items[identifier] = [[CydiaRepositoryLibraryItem alloc] initWithIdentifier:identifier availability:availability
+            selectedName:package.name selectedRouteIdentity:package.id selectedVersion:package.fullVersion
+            selectedArchitecture:package.architecture selectedFromSource:sameSource
+            versionAvailable:package.versionAvailable architectureSupported:package.architectureSupported
+            registeredArchitectures:architectures];
+        NSString *description = availability.known ? [[NSString alloc] initWithBytes:availability.record.shortDescription.data()
+            length:availability.record.shortDescription.size() encoding:NSUTF8StringEncoding] : nil;
+        if (!description.length && sameSource) description = [package shortDescription];
+        if (description.length && description.length <= 4096 &&
+            [description rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location == NSNotFound)
+            descriptions[identifier] = description;
+        UIImage *icon = sameSource ? [package icon] : nil;
+        if (icon) icons[identifier] = icon;
     }
     _localItems = [items copy];
+    _libraryDescriptions = [descriptions copy]; _libraryIcons = [icons copy];
+}
+- (BOOL)isLibraryPath:(NSIndexPath *)path {
+    return _sourceURL && !_package.length && path.section == 1 && (NSUInteger)path.row < _purchasedItems.count;
+}
+- (void)loadVisibleLibraryPrices {
+    if (_busy || !_signedIn || !_providerCurrent || !_account.supportsAccountIntegration || _package.length) return;
+    for (NSIndexPath *path in _table.indexPathsForVisibleRows) {
+        if (_libraryPriceRequests >= 2) break;
+        if (![self isLibraryPath:path]) continue;
+        NSString *identifier = _purchasedItems[path.row];
+        if ([_libraryPriceAttempts containsObject:identifier]) continue;
+        [_libraryPriceAttempts addObject:identifier]; ++_libraryPriceRequests;
+        NSUInteger generation = _libraryGeneration; CydiaRepositoryAccount *account = _account;
+        __weak RepositoryAccountsController *weakSelf = self;
+        [[CydiaRepositoryAccountService sharedService] packageInfo:identifier account:account completion:^(NSDictionary *info, NSError *error) {
+            RepositoryAccountsController *self = weakSelf;
+            if (!self || self.libraryGeneration != generation || self.account != account) return;
+            --self.libraryPriceRequests;
+            CydiaRepositoryPackagePresentation *presentation = [[CydiaRepositoryPackagePresentation alloc]
+                initWithInfo:error ? nil : info signedIn:account.signedIn supported:YES
+                downloadAvailable:NO purchaseURL:nil];
+            self.libraryPrices[identifier] = presentation.isFree ? CydiaAccountLocalize(@"ACCOUNT_FREE") : presentation.price ?: @"—";
+            for (NSIndexPath *visible in self.table.indexPathsForVisibleRows) {
+                if ([self isLibraryPath:visible] && [self.purchasedItems[visible.row] isEqual:identifier])
+                    [self.table reloadRowsAtIndexPaths:@[visible] withRowAnimation:UITableViewRowAnimationNone];
+            }
+            [self loadVisibleLibraryPrices];
+        }];
+    }
+}
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)path {
+    if ([self isLibraryPath:path]) dispatch_async(dispatch_get_main_queue(), ^{ [self loadVisibleLibraryPrices]; });
+}
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
+    if (![self isLibraryPath:path]) return UITableViewAutomaticDimension;
+    return 73;
 }
 - (void)refreshAccount {
     if (_busy || !_account || !_providerCurrent) return;
@@ -187,7 +257,7 @@
             if (items != nil) { self.purchasedItems = items; self.lastChecked = [NSDate date]; self.libraryStale = NO; [self updateLocalItems]; }
             else { self.libraryStale = YES; self.status = CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED"); }
         } else self.libraryStale = YES;
-        if (!self.signedIn) { self.purchasedItems = nil; self.lastChecked = nil; self.userName = nil; }
+        if (!self.signedIn) { self.purchasedItems = nil; self.lastChecked = nil; self.userName = nil; [self resetLibraryPrices]; }
         [self updateRecoveryFromError:error];
         [self.table reloadData];
         if (self.package.length && !error) [self refreshPackage];
@@ -258,7 +328,6 @@
         NSMutableArray *messages = [NSMutableArray array];
         if (_downloadEngineUnsupported && !_packagePresentation.isFree) [messages addObject:CydiaAccountLocalize(@"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED")];
         if (_rememberedProviderChanged || _providerChangedDuringPurchase) [messages addObject:CydiaAccountLocalize(@"ACCOUNT_PROVIDER_CHANGED")];
-        if (_account.compatibilityNotice.length) [messages addObject:_account.compatibilityNotice];
         if (!_busy && _status.length) [messages addObject:_status];
         if (!_busy && _account.supportsAccountIntegration && !_signedIn) [messages addObject:CydiaAccountLocalize(@"ACCOUNT_SIGN_IN_REQUIRED")];
         return [messages componentsJoinedByString:@"\n\n"];
@@ -269,12 +338,29 @@
             return CydiaAccountLocalize(@"ACCOUNT_PURCHASE_UNKNOWN");
         return _version.length ? [NSString stringWithFormat:@"%@ · %@", _version, _architecture ?: @""] : nil;
     }
-    if (!_lastChecked) return nil;
+    NSMutableArray *messages = [NSMutableArray array];
+    if (!_lastChecked) return [messages componentsJoinedByString:@"\n\n"];
     NSDateFormatter *format = [[NSDateFormatter alloc] init]; format.dateStyle = NSDateFormatterShortStyle; format.timeStyle = NSDateFormatterShortStyle;
     NSString *checked = [NSString stringWithFormat:CydiaAccountLocalize(@"ACCOUNT_LAST_CHECKED"), [format stringFromDate:_lastChecked]];
-    return _libraryStale ? [NSString stringWithFormat:@"%@\n%@", CydiaAccountLocalize(@"ACCOUNT_LIBRARY_STALE"), checked] : checked;
+    if (_libraryStale) [messages addObject:CydiaAccountLocalize(@"ACCOUNT_LIBRARY_STALE")];
+    [messages addObject:checked];
+    return [messages componentsJoinedByString:@"\n\n"];
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
+    if ([self isLibraryPath:path]) {
+        NSString *identifier = _purchasedItems[path.row];
+        CydiaRepositoryLibraryItem *item = _localItems[identifier];
+        PackageCell *cell = (PackageCell *)[tableView dequeueReusableCellWithIdentifier:@"Package"];
+        if (!cell) cell = [[PackageCell alloc] init];
+        [cell setLibraryItemName:item.displayName ?: identifier description:_libraryDescriptions[identifier]
+            source:_sourceName ?: _sourceURL.host
+            architectureCaption:item.architectureCaption icon:_libraryIcons[identifier]
+            price:_libraryPrices[identifier] ?: @"…" unavailable:item.state != CydiaRepositoryLibraryItemStateAvailable];
+        cell.userInteractionEnabled = !_busy;
+        cell.accessibilityIdentifier = [@"cydia.repository.account.item." stringByAppendingString:identifier];
+        cell.accessibilityHint = item.state == CydiaRepositoryLibraryItemStateAvailable ? nil : CydiaAccountLocalize(item.statusLocalizationKey);
+        return cell;
+    }
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"account"];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"account"];
     cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
@@ -353,12 +439,6 @@
         cell.accessibilityIdentifier = @"cydia.repository.account.product";
         if (actionable) cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         }
-    } else if (_purchasedItems.count) {
-        NSString *identifier = _purchasedItems[path.row];
-        cell.textLabel.text = _localItems[identifier] ?: identifier;
-        cell.detailTextLabel.text = _localItems[identifier] ? CydiaAccountLocalize(@"ACCOUNT_OWNED") : CydiaAccountLocalize(@"ACCOUNT_ITEM_NOT_IN_SOURCE");
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault;
-        cell.accessibilityIdentifier = [@"cydia.repository.account.item." stringByAppendingString:identifier];
     } else cell.textLabel.text = CydiaAccountLocalize(_purchasedItems ? @"ACCOUNT_NO_PURCHASES" : @"ACCOUNT_CHECK_AGAIN");
     if (cell.selectionStyle == UITableViewCellSelectionStyleDefault) {
         cell.textLabel.textColor = [UIColor cydiaColorForRole:CydiaColorRoleAccent traitCollection:self.traitCollection];
@@ -381,6 +461,7 @@
             if (!error) {
                 self.authenticationFailed = NO; self.purchasedItems = nil; self.lastChecked = nil;
                 self.userName = nil; self.localItems = nil; self.recoveryURL = nil;
+                [self resetLibraryPrices];
             }
             [self updateRecoveryFromError:error];
             [self.table reloadData]; if (!error) [self refreshAccount];
@@ -460,14 +541,15 @@
     if (_purchaseInProgress) [[CydiaRepositoryAccountService sharedService] cancelPurchaseForAccount:_account];
 }
 - (void)showOwnedItem:(NSString *)identifier {
-    Package *package = [[Database sharedInstance] packageWithName:identifier];
-    BOOL sameSource = [[package.source rooturi] isEqual:_sourceURL.absoluteString];
-    /* A library item without this source's current supported candidate remains
-     * visible for ownership checks, without a route to another repo's copy. */
-    RepositoryAccountsController *controller = [[RepositoryAccountsController alloc]
-        initWithSourceURL:_sourceURL name:_sourceName package:identifier
-        packageName:sameSource ? package.name : identifier version:sameSource ? package.fullVersion : nil
-        architecture:sameSource ? package.architecture : nil downloadAction:nil purchaseURL:nil];
+    [self updateLocalItems];
+    CydiaRepositoryLibraryItem *item = _localItems[identifier];
+    CYPackageController *controller = [[CYPackageController alloc] initWithDatabase:[Database sharedInstance]
+        forPackage:item.routeIdentity ?: identifier withReferrer:nil repositoryURL:_sourceURL];
+    if (!controller) return;
+    NSString *price = _libraryPrices[identifier];
+    controller.navigationItem.prompt = price.length && ![price isEqual:@"—"] ?
+        [NSString stringWithFormat:@"%@ · %@", CydiaAccountLocalize(@"ACCOUNT_OWNED"), price] : CydiaAccountLocalize(@"ACCOUNT_OWNED");
+    [controller setDelegate:self.delegate];
     [self.navigationController pushViewController:controller animated:YES];
 }
 - (void)forgetRememberedAccount {
@@ -488,6 +570,7 @@
                 self.rememberedMetadata = nil; self.purchasedItems = nil; self.lastChecked = nil;
                 self.userName = nil; self.signedIn = NO; self.account = nil;
                 self.recoveryURL = nil;
+                [self resetLibraryPrices];
             }
             [self.table reloadData];
         }];
@@ -550,6 +633,7 @@
             self.busy = NO; self.signedIn = self.account.signedIn; self.userName = nil; self.packagePresentation = nil;
             self.purchasedItems = nil; self.lastChecked = nil; self.purchaseStatus = nil;
             self.recoveryURL = nil;
+            [self resetLibraryPrices];
             if (!error) self.authenticationFailed = NO;
             self.status = error.localizedDescription; [self.table reloadData];
             if (!error && self.package.length) [self refreshPackage];

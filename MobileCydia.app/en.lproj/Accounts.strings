@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Not purchased";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Purchased, but currently unavailable from this source.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Purchased. No package from this source is currently selected for installation. Review its versions and source preferences.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Purchased. No version from this source supports this device’s configured architectures.";
+"ACCOUNT_ITEM_NO_VERSION" = "Purchased. No downloadable version is currently available from this source.";
 "ACCOUNT_NO_PURCHASES" = "No purchases found.";
 "ACCOUNT_CHECK_PURCHASE" = "Check Purchase Status";
 "ACCOUNT_PURCHASE_CONFIRM" = "Buy %@ for %@ from %@ (%@)? Buying adds the package to this provider’s account. Installation is a separate step.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "The provider has not confirmed ownership yet. Check purchase status or contact the provider. Cydia will not send another purchase request.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "The purchase result is unknown. Check purchase status or contact the provider before paying again. Cydia will not repeat the purchase request.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Purchases and Account";
-"ACCOUNT_CLIENT_POLICY" = "This provider does not currently support paid downloads in Cydia. Check its supported package managers before purchasing.";
+"ACCOUNT_CLIENT_POLICY" = "The provider does not allow this operation for this account or device.";
 "ACCOUNT_FILTERED" = "The provider blocked this request. Check its service status or contact its support.";
 "ACCOUNT_CANCELLED" = "Purchase authorization was canceled. No purchase request was sent.";
 "ACCOUNT_REAUTHENTICATE" = "Sign in again to authorize purchases securely. Your existing login can still be used to check your account.";
 "ACCOUNT_OFFER_CHANGED" = "The price changed. Review the updated price before buying.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "This provider has directed Cydia users to another package manager. Account access does not guarantee that checkout or paid downloads will work.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Authorize this confirmed repository purchase.";
 "ACCOUNT_SOURCES" = "Sources";
 "ACCOUNT_LINKED_ACCOUNTS" = "Linked Accounts";

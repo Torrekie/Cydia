@@ -6,6 +6,7 @@
 #import "Cydia/KeyringImportController.h"
 #import "Cydia/RepositoryAccountsController.h"
 #import "Cydia/RepositoryAccountService.h"
+#import "Cydia/RepositoryIdentityController.h"
 #import "Cydia/Database.h"
 #import "Cydia/DatabaseRuntimeInternal.h"
 #import "Cydia/CydiaDelegate.h"
@@ -195,17 +196,22 @@ static NSString *SecurityValue(Database *database) {
     }
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return 3; }
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 4 : 1; }
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section { return section == 0 ? 5 : 1; }
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section { return section == 0 ? UCLocalize("SOURCES") : nil; }
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell(SettingsCell(table));
     if (path.section == 0) {
-        NSArray *keys(@[@"REPOSITORY_SETTINGS", @"REPOSITORY_SECURITY", @"KEY_IMPORT", @"ACCOUNTS"]);
-        NSArray *identifiers(@[@"cydia.settings.repositories", @"cydia.settings.security", @"cydia.settings.key-import", @"cydia.settings.accounts"]);
+        NSArray *keys(@[@"REPOSITORY_SETTINGS", @"REPOSITORY_SECURITY", @"KEY_IMPORT", @"ACCOUNTS", @"REPOSITORY_IDENTITY"]);
+        NSArray *identifiers(@[@"cydia.settings.repositories", @"cydia.settings.security", @"cydia.settings.key-import", @"cydia.settings.accounts", @"cydia.settings.identity"]);
         cell.textLabel.text = path.row == 3 ? CydiaAccountLocalize(@"ACCOUNTS") : SettingText(keys[path.row]);
         cell.accessibilityIdentifier = identifiers[path.row];
         if (path.row == 0) cell.detailTextLabel.text = SettingText(@"REPOSITORY_SETTINGS_HELP");
         if (path.row == 1) cell.detailTextLabel.text = SecurityValue(self.database);
+        if (path.row == 4) {
+            NSString *identity = CydiaRepositoryIdentityPreference();
+            cell.detailTextLabel.text = [identity isEqual:@"sileo"] ? @"Sileo" : [identity isEqual:@"zebra"] ? @"Zebra" :
+                SettingText([identity isEqual:@"custom"] ? @"IDENTITY_CUSTOM" : @"IDENTITY_CYDIA_DEFAULT");
+        }
     } else if (path.section == 1) {
         cell.textLabel.text = SettingText(@"ADVANCED_SETTINGS");
         cell.detailTextLabel.text = SettingText(@"ADVANCED_SETTINGS_HELP");
@@ -224,6 +230,7 @@ static NSString *SecurityValue(Database *database) {
     else if (path.row == 0) controller = [[CydiaRepositorySettingsController alloc] initWithDatabase:self.database advancedAccess:NO];
     else if (path.row == 1) controller = [[CydiaRepositorySecurityController alloc] initWithDatabase:self.database];
     else if (path.row == 3) controller = [[RepositoryAccountsController alloc] init];
+    else if (path.row == 4) controller = [[CydiaRepositoryIdentityController alloc] init];
     else controller = [[CydiaKeyringImportController alloc] initWithDatabase:self.database];
     controller.delegate = self.delegate;
     [self.navigationController pushViewController:controller animated:YES];

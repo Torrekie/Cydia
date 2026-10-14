@@ -7,6 +7,7 @@
 #import "Cydia/CydiaDelegate.h"
 #import "Cydia/Database.h"
 #import "Cydia/RuntimeProviderStatus.h"
+#import "Cydia/RepositoryIdentity.h"
 #import "Cydia/LegacyUICompatibilityNativeCaller.h"
 #import "Cydia/SectionControllers.h"
 #import "Cydia/AdvancedSettingsController.h"
@@ -222,12 +223,11 @@ static NSString *DefinitionScope(CydiaSourceDefinition *row) {
 - (void) _setSource:(NSURL *) url {
     @autoreleasepool {
 
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url
+        cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:10];
+    [request setValue:CydiaRepositoryDownloadUserAgent() forHTTPHeaderField:@"User-Agent"];
     if (NSData *data = [NSURLConnection
-        sendSynchronousRequest:[NSURLRequest
-            requestWithURL:url
-            cachePolicy:NSURLRequestUseProtocolCachePolicy
-            timeoutInterval:10
-        ]
+        sendSynchronousRequest:request
 
         returningResponse:NULL
         error:NULL

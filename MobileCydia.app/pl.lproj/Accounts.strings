@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Nie kupiono";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Kupiono, ale pakiet jest obecnie niedostępny w tym źródle.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Kupiono. Żaden pakiet z tego źródła nie jest obecnie wybrany do instalacji. Sprawdź jego wersje i preferencje źródeł.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Kupiono. Żadna wersja z tego źródła nie obsługuje architektur skonfigurowanych na tym urządzeniu.";
+"ACCOUNT_ITEM_NO_VERSION" = "Kupiono. Obecnie w tym źródle nie ma wersji dostępnej do pobrania.";
 "ACCOUNT_NO_PURCHASES" = "Nie znaleziono zakupów.";
 "ACCOUNT_CHECK_PURCHASE" = "Sprawdź stan zakupu";
 "ACCOUNT_PURCHASE_CONFIRM" = "Kupić %@ za %@ u %@ (%@)? Zakup dodaje pakiet do konta u tego dostawcy. Instalacja jest osobnym krokiem.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "Dostawca nie potwierdził jeszcze zakupu. Sprawdź stan zakupu lub skontaktuj się z dostawcą. Cydia nie wyśle kolejnego żądania zakupu.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Wynik zakupu jest nieznany. Sprawdź stan zakupu lub skontaktuj się z dostawcą, zanim zapłacisz ponownie. Cydia nie powtórzy żądania zakupu.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Zakupy i konto";
-"ACCOUNT_CLIENT_POLICY" = "Ten dostawca nie obsługuje obecnie płatnych pobrań w Cydii. Przed zakupem sprawdź obsługiwane menedżery pakietów.";
+"ACCOUNT_CLIENT_POLICY" = "Dostawca nie zezwala na tę operację dla tego konta lub urządzenia.";
 "ACCOUNT_FILTERED" = "Dostawca zablokował to żądanie. Sprawdź stan usługi lub skontaktuj się z pomocą techniczną.";
 "ACCOUNT_CANCELLED" = "Autoryzacja zakupu została anulowana. Nie wysłano żądania zakupu.";
 "ACCOUNT_REAUTHENTICATE" = "Zaloguj się ponownie, aby bezpiecznie autoryzować zakupy. Obecne logowanie nadal umożliwia sprawdzanie konta.";
 "ACCOUNT_OFFER_CHANGED" = "Cena się zmieniła. Sprawdź nową cenę przed zakupem.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Ten dostawca skierował użytkowników Cydii do innego menedżera pakietów. Dostęp do konta nie gwarantuje działania płatności lub płatnych pobrań.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Autoryzuj ten potwierdzony zakup z repozytorium.";
 "ACCOUNT_SOURCES" = "Źródła";
 "ACCOUNT_LINKED_ACCOUNTS" = "Powiązane konta";

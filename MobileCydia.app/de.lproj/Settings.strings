@@ -117,3 +117,17 @@
 "SECURITY_DISTRIBUTION" = "Einstellungen des gewählten APT verwenden";
 "SECURITY_DISTRIBUTION_DETAIL" = "Den Sicherheitseinstellungen der aktiven APT-Engine folgen.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Diese Optionen gelten für die von Cydia verwendete APT-Engine. Das mitgelieferte APT liest die Distributionseinstellungen, kann sich aber anders verhalten als deren eigenes APT.";
+
+"REPOSITORY_IDENTITY" = "Identität für Paketquellen";
+"REPOSITORY_IDENTITY_HELP" = "Wähle den User-Agent, der an Paketquellen und Kontoanbieter gesendet wird.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (Standard)";
+"IDENTITY_CUSTOM" = "Benutzerdefiniert";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "User-Agent eingeben";
+"IDENTITY_CUSTOM_HELP" = "Verwende 1–512 druckbare ASCII-Zeichen ohne Leerzeichen am Anfang oder Ende.";
+"IDENTITY_INVALID" = "Gib einen gültigen User-Agent mit 1–512 druckbaren ASCII-Zeichen ohne Leerzeichen am Anfang oder Ende ein.";
+"IDENTITY_SAVE_FAILED" = "Die Identität für Paketquellen konnte nicht gespeichert werden.";
+"IDENTITY_PREVIEW" = "User-Agent-Vorschau";
+"IDENTITY_ACCOUNT_PREVIEW" = "Konten: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Paketquellen und Downloads: %@";
+"IDENTITY_EXTERNAL_HELP" = "Gilt für Kontoanfragen von Cydia und von Cydia verwaltete Downloads. Ein externer APT-Anbieter verwendet möglicherweise weiterhin seinen eigenen User-Agent.";
+"IDENTITY_APPLY_HELP" = "Änderungen gelten für neue Repository-Vorgänge und Kontoanfragen, ohne Cydia neu zu starten.";

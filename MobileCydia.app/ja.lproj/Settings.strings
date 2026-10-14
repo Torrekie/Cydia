@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "選択中の APT の設定を使用";
 "SECURITY_DISTRIBUTION_DETAIL" = "現在使用している APT エンジンのセキュリティ設定に従います。";
 "REPOSITORY_SECURITY_ENGINE_EX" = "これらの選択は Cydia が現在使用している APT エンジンに適用されます。内蔵 APT はディストリビューションの設定を読み込みますが、そのディストリビューションの APT とは動作が異なる場合があります。";
+
+"REPOSITORY_IDENTITY" = "ソースへのアクセス識別情報";
+"REPOSITORY_IDENTITY_HELP" = "ソースとアカウントサービスに送信する User-Agent を選択します。";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia（デフォルト）";
+"IDENTITY_CUSTOM" = "カスタム";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "User-Agent を入力";
+"IDENTITY_CUSTOM_HELP" = "印字可能な ASCII 文字を 1～512 文字使用し、先頭と末尾にスペースを入れないでください。";
+"IDENTITY_INVALID" = "印字可能な ASCII 文字を 1～512 文字使用し、先頭と末尾にスペースを入れずに、有効な User-Agent を入力してください。";
+"IDENTITY_SAVE_FAILED" = "ソースへのアクセス識別情報を保存できませんでした。";
+"IDENTITY_PREVIEW" = "User-Agent のプレビュー";
+"IDENTITY_ACCOUNT_PREVIEW" = "アカウント：%@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "ソースとダウンロード：%@";
+"IDENTITY_EXTERNAL_HELP" = "Cydia のアカウントリクエストと、Cydia が管理するダウンロードに適用されます。外部の APT プロバイダは独自の User-Agent を使用し続ける場合があります。";
+"IDENTITY_APPLY_HELP" = "変更は Cydia を再起動せずに、新しいリポジトリ操作とアカウントリクエストに適用されます。";

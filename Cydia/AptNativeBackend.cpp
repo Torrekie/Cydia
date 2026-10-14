@@ -71,6 +71,9 @@ public:
 
     PackageLookupResult lookupPackage(const std::string &name, const std::string &preferredArchitecture) override { return embedded_.lookupPackage(name, preferredArchitecture); }
 
+    RepositoryPackageAvailabilityData repositoryPackageAvailability(const std::string &name,
+            const std::string &sourceURL) override { return embedded_.repositoryPackageAvailability(name, sourceURL); }
+
     PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture) override { return embedded_.packageHandle(name, preferredArchitecture); }
 
     std::vector<PackageHandle> downgradeHandles(PackageHandle handle) override { return embedded_.downgradeHandles(handle); }

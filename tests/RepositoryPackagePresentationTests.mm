@@ -1,4 +1,7 @@
 #import "Cydia/RepositoryPackagePresentation.h"
+#import "Cydia/RepositoryLibraryItem.h"
+#import "Cydia/PackageArchitecturePresentation.h"
+#include "Cydia/AptCompatibility.hpp"
 #include <cstdio>
 #include <cstdlib>
 
@@ -16,8 +19,127 @@ static CydiaRepositoryPackagePresentation *NativePresent(NSDictionary *info, BOO
         supported:YES downloadAvailable:YES downloadSupported:downloadSupported
         purchaseAvailable:purchaseAvailable purchaseURL:nil];
 }
+static CydiaRepositoryLibraryItem *LibraryItem(const CydiaAPT::RepositoryPackageAvailabilityData &availability,
+    BOOL selectedFromSource = YES, NSString *architecture = @"iphoneos-arm64",
+    NSArray<NSString *> *registered = @[@"iphoneos-arm64"], BOOL versionAvailable = YES,
+    BOOL architectureSupported = YES, NSString *name = @"Selected Product", NSString *route = @"com.example.product",
+    NSString *version = @"2.0") {
+    return [[CydiaRepositoryLibraryItem alloc] initWithIdentifier:@"com.example.product" availability:availability
+        selectedName:name selectedRouteIdentity:route selectedVersion:version selectedArchitecture:architecture
+        selectedFromSource:selectedFromSource versionAvailable:versionAvailable
+        architectureSupported:architectureSupported registeredArchitectures:registered];
+}
+static void CheckLibraryItems() {
+    CydiaAPT::RepositoryPackageAvailabilityData source;
+    source.known = true;
+    source.displayName = "Source Product";
+    source.architectures = {"iphoneos-arm64"};
+    source.hasCompatibleVersion = true;
+    source.hasDownloadableVersion = true;
+    auto native = LibraryItem(source);
+    Require(native.state == CydiaRepositoryLibraryItemStateAvailable &&
+        [native.statusLocalizationKey isEqual:@"ACCOUNT_OWNED"] &&
+        [native.displayName isEqual:@"Source Product"] && [native.routeIdentity isEqual:@"com.example.product"] &&
+        [native.version isEqual:@"2.0"] && native.architectureCaption == nil,
+        "source-scoped native library item lost ordinary selectable presentation");
+
+    auto elsewhere = LibraryItem(source, NO, @"iphoneos-arm64", @[@"iphoneos-arm64", @"iphoneos-arm"], YES, YES,
+        @"Other Repository Product", @"com.example.product:iphoneos-arm64", @"99.0");
+    Require(elsewhere.state == CydiaRepositoryLibraryItemStateNotSelected &&
+        [elsewhere.statusLocalizationKey isEqual:@"ACCOUNT_ITEM_NOT_IN_SOURCE"] &&
+        [elsewhere.displayName isEqual:@"Source Product"] && elsewhere.routeIdentity == nil &&
+        elsewhere.version == nil && elsewhere.architectureCaption == nil,
+        "another source's selected package supplied a library name, architecture, version, or route");
+    source.displayName.clear();
+    Require([LibraryItem(source).displayName isEqual:@"Selected Product"] &&
+        [LibraryItem(source, NO).displayName isEqual:@"com.example.product"],
+        "selected name fallback escaped the exact repository boundary");
+
+    CydiaAPT::RepositoryPackageAvailabilityData unsupported(source);
+    unsupported.displayName = "Unsupported Source Product";
+    unsupported.architectures = {"iphoneos-arm"};
+    unsupported.hasCompatibleVersion = false;
+    unsupported.hasDownloadableVersion = false;
+    auto unsupportedItem = LibraryItem(unsupported, NO);
+    Require(unsupportedItem.state == CydiaRepositoryLibraryItemStateUnsupportedArchitecture &&
+        [unsupportedItem.statusLocalizationKey isEqual:@"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED"] &&
+        [unsupportedItem.displayName isEqual:@"Unsupported Source Product"] && unsupportedItem.routeIdentity == nil &&
+        [unsupportedItem.architectureCaption isEqual:CydiaPackageArchitectureCaption(@"iphoneos-arm", @[@"iphoneos-arm64"])],
+        "unsupported-only source was hidden or borrowed the globally selected native architecture");
+
+    CydiaAPT::RepositoryPackageAvailabilityData independent(source);
+    independent.architectures = {"all"};
+    auto all = LibraryItem(independent, YES, @"all");
+    Require(all.state == CydiaRepositoryLibraryItemStateAvailable && all.architectureCaption == nil &&
+        [all.routeIdentity isEqual:@"com.example.product"],
+        "Architecture: all became incompatible, qualified, or noisy on a single-architecture system");
+
+    CydiaAPT::RepositoryPackageAvailabilityData foreign(source);
+    foreign.architectures = {"iphoneos-arm"};
+    NSArray<NSString *> *multiarch = @[@"iphoneos-arm64", @"iphoneos-arm"];
+    auto additional = LibraryItem(foreign, YES, @"iphoneos-arm", multiarch, YES, YES,
+        @"Selected Product", @"com.example.product:iphoneos-arm");
+    Require(additional.state == CydiaRepositoryLibraryItemStateAvailable &&
+        [additional.routeIdentity isEqual:@"com.example.product:iphoneos-arm"] &&
+        [additional.architectureCaption isEqual:CydiaPackageArchitectureCaption(@"iphoneos-arm", multiarch)],
+        "supported foreign item lost its existing architecture caption or qualified identity");
+
+    CydiaAPT::RepositoryPackageAvailabilityData unknown;
+    auto missing = LibraryItem(unknown, NO, @"iphoneos-arm", multiarch, YES, NO);
+    Require(missing.state == CydiaRepositoryLibraryItemStateUnknown &&
+        [missing.statusLocalizationKey isEqual:@"ACCOUNT_ITEM_NOT_IN_SOURCE"] &&
+        [missing.displayName isEqual:@"com.example.product"] && missing.architectureCaption == nil &&
+        missing.routeIdentity == nil && missing.version == nil,
+        "unknown repository metadata invented architecture incompatibility or a selected-source route");
+    CydiaAPT::RepositoryPackageAvailabilityData noVersion(source);
+    auto external = LibraryItem(unknown);
+    Require(external.state == CydiaRepositoryLibraryItemStateAvailable && external.routeIdentity.length != 0,
+        "an existing provider lost same-source current package navigation without optional metadata support");
+    Require(LibraryItem(unsupported, NO, @"iphoneos-arm64", @[]).state == CydiaRepositoryLibraryItemStateUnknown,
+        "unknown dpkg architecture registration invented an incompatibility claim");
+    noVersion.hasDownloadableVersion = false;
+    auto unavailable = LibraryItem(noVersion);
+    Require(unavailable.state == CydiaRepositoryLibraryItemStateNoDownloadableVersion &&
+        [unavailable.statusLocalizationKey isEqual:@"ACCOUNT_ITEM_NO_VERSION"] && unavailable.routeIdentity == nil,
+        "source without a downloadable compatible version retained an actionable route");
+    Require(LibraryItem(source, YES, @"iphoneos-arm64", @[@"iphoneos-arm64"], NO).routeIdentity == nil &&
+        LibraryItem(source, YES, @"iphoneos-arm64", @[@"iphoneos-arm64"], YES, NO).routeIdentity == nil,
+        "unavailable or unsupported current selection became a library route");
+
+    NSMutableString *identifier = [NSMutableString stringWithString:@"com.example.product"];
+    NSMutableString *name = [NSMutableString stringWithString:@"Copied Product"];
+    NSMutableString *route = [NSMutableString stringWithString:@"com.example.product:iphoneos-arm"];
+    NSMutableString *version = [NSMutableString stringWithString:@"3.0"];
+    NSMutableString *architecture = [NSMutableString stringWithString:@"iphoneos-arm"];
+    NSMutableArray *registered = [NSMutableArray arrayWithArray:multiarch];
+    CydiaAPT::RepositoryPackageAvailabilityData copied(source);
+    auto snapshot = [[CydiaRepositoryLibraryItem alloc] initWithIdentifier:identifier availability:copied
+        selectedName:name selectedRouteIdentity:route selectedVersion:version selectedArchitecture:architecture
+        selectedFromSource:YES versionAvailable:YES architectureSupported:YES registeredArchitectures:registered];
+    NSString *caption = snapshot.architectureCaption;
+    copied.displayName = "Copied Source Product";
+    auto sourceSnapshot = LibraryItem(copied, NO);
+    [identifier appendString:@".changed"]; [name appendString:@" Changed"]; [route appendString:@".changed"];
+    [version appendString:@".changed"]; [architecture appendString:@".changed"]; [registered removeAllObjects];
+    copied.displayName = "Changed"; copied.architectures.clear(); copied.hasDownloadableVersion = false;
+    Require([snapshot.identifier isEqual:@"com.example.product"] && [snapshot.displayName isEqual:@"Copied Product"] &&
+        [snapshot.routeIdentity isEqual:@"com.example.product:iphoneos-arm"] && [snapshot.version isEqual:@"3.0"] &&
+        [snapshot.architectureCaption isEqual:caption] && snapshot.state == CydiaRepositoryLibraryItemStateAvailable &&
+        [sourceSnapshot.displayName isEqual:@"Copied Source Product"],
+        "library snapshot retained mutable caller or availability state");
+
+    source.displayName = "Unsafe\nName";
+    Require([LibraryItem(source, YES, @"iphoneos-arm64", @[@"iphoneos-arm64"], YES, YES, @"Safe Product").displayName
+        isEqual:@"Safe Product"], "control-bearing source display name bypassed sanitization");
+    source.displayName.assign(513, 'x');
+    auto sanitized = LibraryItem(source, YES, @"iphoneos-arm64", @[@"iphoneos-arm64"], YES, YES,
+        @"Unsafe\nSelected", @"com.example.product\nother", @"2.0\nother");
+    Require([sanitized.displayName isEqual:@"com.example.product"] && sanitized.routeIdentity == nil && sanitized.version == nil,
+        "excessive or control-bearing library values survived the copied presentation boundary");
+}
 int main() {
     @autoreleasepool {
+        CheckLibraryItems();
         NSURL *source = [NSURL URLWithString:@"https://repo.chariz.com/"];
         Require([CydiaRepositorySourceDisplayURL([NSURL URLWithString:@"https://user:password@repo.example/suite/rootless/?token=secret#private"])
             isEqual:@"https://repo.example/suite/rootless/"], "source display lost repository scope or exposed credentials");

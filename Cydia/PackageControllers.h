@@ -44,6 +44,7 @@
     __weak Database *database_;
     _H<Package> package_;
     _H<NSString> name_;
+    _H<NSURL> repositoryURL_;
     bool commercial_;
     std::vector<std::pair<_H<NSString>, _H<NSString>>> buttons_;
     _H<UIActionSheet> sheet_;
@@ -56,6 +57,9 @@
 }
 
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer;
+/* A purchased-library route must retain its owning repository across refresh. */
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer
+         repositoryURL:(NSURL *)repositoryURL;
 
 @end
 

@@ -26,6 +26,8 @@
 #include <cstring>
 #include <limits>
 #include <algorithm>
+#include <set>
+#include <utility>
 
 namespace {
 
@@ -135,6 +137,13 @@ class SourceRegistry {
 };
 
 namespace {
+
+unsigned ArchitecturePreference(const std::string &architecture) {
+    const auto &registered(RegisteredArchitectures());
+    if (!registered.empty() && architecture == registered.front()) return 0;
+    if (architecture == "all") return 1;
+    return std::find(registered.begin(), registered.end(), architecture) != registered.end() ? 2 : 3;
+}
 
 MultiArchMode GetMultiArchMode(pkgCache::VerIterator version) {
     if (version.end())
@@ -484,6 +493,72 @@ PackageLookupResult AptBackend::lookupPackage(const std::string &name, const std
     return result;
 }
 
+RepositoryPackageAvailabilityData AptBackend::repositoryPackageAvailability(const std::string &name,
+        const std::string &sourceURL) {
+    RepositoryPackageAvailabilityData result;
+    pkgCache *packageCache(static_cast<pkgCache *>(cache_));
+    const PackageSelector selector(ParsePackageSelector(name));
+    if (!selector.valid() || selector.kind != PackageSelectorKind::Default || sourceURL.empty() ||
+        static_cast<pkgDepCache *>(cache_) == NULL || records_ == NULL || list_ == NULL ||
+        packageCache == NULL || packageCache->VS == NULL || _error->PendingError())
+        return result;
+
+    // Resolve provenance directly. Ordinary package handles may choose a
+    // different repository's identical version; this query creates no handle.
+    std::set<std::uint32_t> sourceFiles;
+    for (pkgCache::PkgFileIterator file(packageCache->FileBegin()); !file.end(); ++file) {
+        if (file.Flagged(pkgCache::Flag::NotSource)) continue;
+        pkgIndexFile *index(NULL);
+        if (!list_->FindIndex(file, index)) continue;
+        if (dynamic_cast<debPackagesIndex *>(index) == NULL) continue;
+        const auto *debian(dynamic_cast<pkgDebianIndexTargetFile *>(index));
+        if (debian != NULL && debian->GetIndexTarget().Option(IndexTarget::REPO_URI) == sourceURL)
+            sourceFiles.insert(file->ID);
+    }
+    if (sourceFiles.empty() || _error->PendingError()) return result;
+    result.known = true;
+    result.displayName = selector.baseName;
+    const pkgCache::GrpIterator group(packageCache->FindGrp(selector.baseName));
+    if (group.end()) return result;
+
+    std::set<std::string> architectures;
+    unsigned preference(4);
+    for (pkgCache::PkgIterator package(group.PackageList()); !package.end(); package = group.NextPkg(package)) {
+        for (pkgCache::VerIterator version(package.VersionList()); !version.end(); ++version) {
+            for (pkgCache::VerFileIterator file(version.FileList()); !file.end(); ++file) {
+                if (sourceFiles.count(file.File()->ID) == 0) continue;
+                PackageRecordData record(ReadPackageRecord(records_->Lookup(file)));
+                // Stale/unreadable records are unknown, never another cursor's
+                // metadata or evidence that the purchased item disappeared.
+                if (_error->PendingError() || record.Field("Package") != selector.baseName ||
+                    record.Field("Version") != version.VerStr() || record.Field("Architecture") != version.Arch())
+                    return RepositoryPackageAvailabilityData();
+                const std::string architecture(version.Arch());
+                architectures.insert(architecture);
+                if (IsArchitectureSupported(architecture)) {
+                    result.hasCompatibleVersion = true;
+                    if (!record.Field("Filename").empty()) result.hasDownloadableVersion = true;
+                }
+
+                // Presentation follows architecture preference, then Debian
+                // version ordering. It neither changes nor implies eligibility
+                // under APT's candidate, pins, dependencies or archive policy.
+                const unsigned rank(ArchitecturePreference(architecture));
+                if (rank > preference || (rank == preference &&
+                    packageCache->VS->CmpVersion(version.VerStr(), result.version) <= 0)) continue;
+                preference = rank;
+                result.version = version.VerStr();
+                result.architecture = architecture;
+                result.displayName = record.Field("Name");
+                if (result.displayName.empty()) result.displayName = selector.baseName;
+                result.record = std::move(record);
+            }
+        }
+    }
+    result.architectures.assign(architectures.begin(), architectures.end());
+    return result;
+}
+
 PackageHandle AptBackend::packageHandle(const std::string &name, const std::string &preferredArchitecture) {
     const PackageLookupResult result(lookupPackage(name, preferredArchitecture));
     return result.status == PackageLookupStatus::Found ? result.handle : PackageHandle();
@@ -521,12 +596,14 @@ std::vector<PackageHandle> AptBackend::versionHandles(PackageHandle handle) {
 }
 
 CydiaAPT::PackageRecordData AptBackend::recordData(PackageHandle handle) {
-    CydiaAPT::PackageRecordData data;
     PackageRegistry::Entry *entry(FindPackage(packages_.get(), handle));
     if (records_ == NULL || entry == NULL || entry->file.end())
-        return data;
+        return PackageRecordData();
+    return ReadPackageRecord(records_->Lookup(entry->file));
+}
 
-    pkgRecords::Parser &parser(records_->Lookup(entry->file));
+PackageRecordData ReadPackageRecord(pkgRecords::Parser &parser) {
+    PackageRecordData data;
     ParserView record(parser);
 
     static const char * const fieldNames[] = {

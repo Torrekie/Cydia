@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "尚未購買";
 "ACCOUNT_OWNED_UNAVAILABLE" = "已購買，但此軟體來源目前無法提供。";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "已購買。目前未選擇從此軟體來源安裝套件。請檢視版本及軟體來源偏好設定。";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "已購買。此軟體來源沒有任何版本支援此裝置已設定的架構。";
+"ACCOUNT_ITEM_NO_VERSION" = "已購買。此軟體來源目前沒有可下載的版本。";
 "ACCOUNT_NO_PURCHASES" = "找不到已購項目。";
 "ACCOUNT_CHECK_PURCHASE" = "檢查購買狀態";
 "ACCOUNT_PURCHASE_CONFIRM" = "以 %2$@ 的價格從 %3$@（%4$@）購買 %1$@？購買後，此套件將歸入供應商處的帳號。安裝需另外進行。";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "供應商尚未確認購買資格。請檢查購買狀態或聯絡供應商。Cydia 不會再次傳送購買請求。";
 "ACCOUNT_PURCHASE_UNKNOWN" = "購買結果未知。再次付款前，請檢查購買狀態或聯絡供應商。Cydia 不會重複傳送購買請求。";
 "ACCOUNT_PURCHASE_OPTIONS" = "已購項目與帳號";
-"ACCOUNT_CLIENT_POLICY" = "此供應商目前不支援在 Cydia 中下載付費套件。購買前，請查看其支援的套件管理器。";
+"ACCOUNT_CLIENT_POLICY" = "供應商不允許對此帳號或裝置執行此操作。";
 "ACCOUNT_FILTERED" = "供應商封鎖了此請求。請查看其服務狀態或聯絡其支援團隊。";
 "ACCOUNT_CANCELLED" = "購買授權已取消。未傳送購買請求。";
 "ACCOUNT_REAUTHENTICATE" = "請重新登入以安全地授權購買。現有登入仍可用於查看帳號。";
 "ACCOUNT_OFFER_CHANGED" = "價格已變更。購買前，請查看更新後的價格。";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "此供應商已指引 Cydia 使用者使用其他套件管理器。能夠存取帳號並不保證結帳或付費下載可用。";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "授權已確認的套件購買。";
 "ACCOUNT_SOURCES" = "來源";
 "ACCOUNT_LINKED_ACCOUNTS" = "已連結帳號";

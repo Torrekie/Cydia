@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Não comprado";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Comprado, mas atualmente indisponível nesta fonte.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Comprado. Nenhum pacote desta fonte está atualmente selecionado para instalação. Verifique as versões e as preferências de fontes.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Comprado. Nenhuma versão desta fonte suporta as arquiteturas configuradas neste dispositivo.";
+"ACCOUNT_ITEM_NO_VERSION" = "Comprado. De momento, não existe nesta fonte nenhuma versão disponível para transferência.";
 "ACCOUNT_NO_PURCHASES" = "Não foram encontradas compras.";
 "ACCOUNT_CHECK_PURCHASE" = "Verificar estado da compra";
 "ACCOUNT_PURCHASE_CONFIRM" = "Comprar %@ por %@ a %@ (%@)? A compra adiciona o pacote à conta deste prestador. A instalação é um passo separado.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "O prestador ainda não confirmou a compra. Verifique o estado da compra ou contacte o prestador. O Cydia não enviará outro pedido de compra.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "O resultado da compra é desconhecido. Verifique o estado da compra ou contacte o prestador antes de pagar novamente. O Cydia não repetirá o pedido de compra.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Compras e conta";
-"ACCOUNT_CLIENT_POLICY" = "Este prestador não suporta atualmente transferências pagas no Cydia. Verifique quais os gestores de pacotes suportados antes de comprar.";
+"ACCOUNT_CLIENT_POLICY" = "O prestador não permite esta operação para esta conta ou dispositivo.";
 "ACCOUNT_FILTERED" = "O prestador bloqueou este pedido. Consulte o estado do serviço ou contacte o apoio ao cliente.";
 "ACCOUNT_CANCELLED" = "A autorização de compra foi cancelada. Não foi enviado nenhum pedido de compra.";
 "ACCOUNT_REAUTHENTICATE" = "Inicie sessão novamente para autorizar compras em segurança. A sessão atual continua a permitir consultar a sua conta.";
 "ACCOUNT_OFFER_CHANGED" = "O preço mudou. Verifique o preço atualizado antes de comprar.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Este prestador encaminhou os utilizadores do Cydia para outro gestor de pacotes. O acesso à conta não garante que o pagamento ou as transferências pagas funcionem.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Autorizar esta compra confirmada do repositório.";
 "ACCOUNT_SOURCES" = "Fontes";
 "ACCOUNT_LINKED_ACCOUNTS" = "Contas associadas";

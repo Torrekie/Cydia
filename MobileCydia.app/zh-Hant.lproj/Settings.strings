@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "使用所選 APT 的設定";
 "SECURITY_DISTRIBUTION_DETAIL" = "遵循目前 APT 引擎的安全設定。";
 "REPOSITORY_SECURITY_ENGINE_EX" = "這些選項適用於 Cydia 目前使用的 APT 引擎。內建 APT 會讀取發行源的設定，但其行為可能與發行源提供的 APT 不同。";
+
+"REPOSITORY_IDENTITY" = "軟體來源存取識別";
+"REPOSITORY_IDENTITY_HELP" = "選擇傳送給軟體來源和帳號供應商的 User-Agent。";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia（預設）";
+"IDENTITY_CUSTOM" = "自訂";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "輸入 User-Agent";
+"IDENTITY_CUSTOM_HELP" = "使用 1–512 個可列印 ASCII 字元，開頭和結尾不能有空格。";
+"IDENTITY_INVALID" = "請輸入有效的 User-Agent：使用 1–512 個可列印 ASCII 字元，開頭和結尾不能有空格。";
+"IDENTITY_SAVE_FAILED" = "無法儲存軟體來源存取識別。";
+"IDENTITY_PREVIEW" = "User-Agent 預覽";
+"IDENTITY_ACCOUNT_PREVIEW" = "帳號：%@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "軟體來源與下載：%@";
+"IDENTITY_EXTERNAL_HELP" = "適用於 Cydia 的帳號請求和由 Cydia 管理的下載。外部 APT 提供方可能仍使用自己的 User-Agent。";
+"IDENTITY_APPLY_HELP" = "變更將套用至新的軟體源操作和帳號請求，無需重新啟動 Cydia。";

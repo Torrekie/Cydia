@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "שימוש בהגדרות ה־APT שנבחר";
 "SECURITY_DISTRIBUTION_DETAIL" = "השתמש בהגדרות האבטחה של מנוע APT הפעיל.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "אפשרויות אלה חלות על מנוע APT שבו Cydia משתמש כעת. מנוע APT המובנה קורא את הגדרות ההפצה, אך עשוי להתנהג אחרת ממנוע APT שההפצה מספקת.";
+
+"REPOSITORY_IDENTITY" = "זהות הגישה למקורות";
+"REPOSITORY_IDENTITY_HELP" = "יש לבחור את ה־User-Agent שיישלח למקורות ולספקי החשבונות.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (ברירת מחדל)";
+"IDENTITY_CUSTOM" = "מותאם אישית";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "יש להזין User-Agent";
+"IDENTITY_CUSTOM_HELP" = "יש להשתמש ב־1–512 תווי ASCII ניתנים להדפסה, ללא רווחים בתחילת הטקסט או בסופו.";
+"IDENTITY_INVALID" = "יש להזין User-Agent תקין הכולל 1–512 תווי ASCII ניתנים להדפסה, ללא רווחים בתחילת הטקסט או בסופו.";
+"IDENTITY_SAVE_FAILED" = "לא ניתן לשמור את זהות הגישה למקורות.";
+"IDENTITY_PREVIEW" = "תצוגה מקדימה של User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "חשבונות: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "מקורות והורדות: %@";
+"IDENTITY_EXTERNAL_HELP" = "חל על בקשות החשבון של Cydia ועל הורדות המנוהלות באמצעות Cydia. ספק APT חיצוני עשוי להמשיך להשתמש ב־User-Agent משלו.";
+"IDENTITY_APPLY_HELP" = "השינויים חלים על פעולות מאגרים ובקשות חשבון חדשות ללא הפעלה מחדש של Cydia.";

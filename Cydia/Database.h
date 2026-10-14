@@ -103,6 +103,7 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 
 - (FILE *) input;
 - (CydiaAPT::PackageLookupResult) lookupPackage:(NSString *)name;
+- (CydiaAPT::RepositoryPackageAvailabilityData)repositoryPackageAvailability:(NSString *)name sourceURL:(NSURL *)sourceURL;
 - (Package *) packageWithName:(NSString *)name;
 - (CydiaAPT::PackageSnapshot) packageSnapshot:(CydiaAPT::PackageHandle)handle;
 - (CydiaAPT::PackageRecordData) packageRecord:(CydiaAPT::PackageHandle)handle;

@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "Dùng cài đặt của APT đã chọn";
 "SECURITY_DISTRIBUTION_DETAIL" = "Tuân theo cài đặt bảo mật của bộ máy APT đang hoạt động.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Các lựa chọn này áp dụng cho bộ máy APT mà Cydia đang dùng. APT tích hợp đọc cài đặt của bản phân phối, nhưng có thể hoạt động khác với APT do bản phân phối cung cấp.";
+
+"REPOSITORY_IDENTITY" = "Danh tính truy cập nguồn";
+"REPOSITORY_IDENTITY_HELP" = "Chọn User-Agent được gửi đến các nguồn và nhà cung cấp tài khoản.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (Mặc định)";
+"IDENTITY_CUSTOM" = "Tùy chỉnh";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "Nhập User-Agent";
+"IDENTITY_CUSTOM_HELP" = "Dùng từ 1 đến 512 ký tự ASCII in được, không có dấu cách ở đầu hoặc cuối.";
+"IDENTITY_INVALID" = "Nhập User-Agent hợp lệ gồm 1–512 ký tự ASCII in được, không có dấu cách ở đầu hoặc cuối.";
+"IDENTITY_SAVE_FAILED" = "Không thể lưu danh tính truy cập nguồn.";
+"IDENTITY_PREVIEW" = "Xem trước User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "Tài khoản: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Nguồn và tải về: %@";
+"IDENTITY_EXTERNAL_HELP" = "Áp dụng cho các yêu cầu tài khoản của Cydia và nội dung tải về do Cydia quản lý. Nhà cung cấp APT bên ngoài có thể tiếp tục dùng User-Agent riêng.";
+"IDENTITY_APPLY_HELP" = "Các thay đổi áp dụng cho thao tác kho và yêu cầu tài khoản mới mà không cần khởi động lại Cydia.";

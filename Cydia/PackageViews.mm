@@ -39,6 +39,9 @@
 #if TARGET_OS_SIMULATOR
 - (void) configureAppearanceProbe {
     summarized_ = false;
+    libraryItem_ = false;
+    unavailable_ = false;
+    price_ = nil;
     name_ = @"Semantic Package Row";
     source_ = @"From Cydia Appearance Probe";
     description_ = @"Already-visible custom drawing updates live";
@@ -86,12 +89,26 @@
 }
 
 - (void) setPackage:(Package *)package asSummary:(bool)summary {
+    if (libraryItem_) {
+        self.accessoryView = nil;
+        self.accessoryType = UITableViewCellAccessoryNone;
+        self.selectionStyle = UITableViewCellSelectionStyleDefault;
+        self.accessibilityTraits = UIAccessibilityTraitNone;
+        self.userInteractionEnabled = YES;
+    }
     summarized_ = summary;
+    libraryItem_ = false;
+    unavailable_ = false;
+    price_ = nil;
+    self.accessibilityValue = nil;
+    self.accessibilityHint = nil;
+    self.accessibilityIdentifier = nil;
 
     icon_ = nil;
     name_ = nil;
     architectureCaption_ = nil;
     description_ = nil;
+    commercial_ = false;
     source_ = nil;
     badge_ = nil;
     placard_ = nil;
@@ -161,6 +178,84 @@
     [self applyColorAppearance];
     [self setNeedsDisplay];
     [self.content setNeedsDisplay];
+}
+
+- (void) setLibraryItemName:(NSString *)name
+               description:(NSString *)description
+                    source:(NSString *)source
+       architectureCaption:(NSString *)architectureCaption
+                      icon:(UIImage *)icon
+                     price:(NSString *)price
+               unavailable:(BOOL)unavailable {
+    [self setPackage:nil asSummary:false];
+    libraryItem_ = true;
+    unavailable_ = unavailable;
+    name_ = [name isKindOfClass:NSString.class] ? [name copy] : @"";
+    description_ = [description isKindOfClass:NSString.class] ? [description copy] : nil;
+    architectureCaption_ = [architectureCaption isKindOfClass:NSString.class] ? [architectureCaption copy] : nil;
+    source_ = [source isKindOfClass:NSString.class] && source.length != 0 ?
+        [NSString stringWithFormat:UCLocalize("FROM"), source] : nil;
+    price_ = [price isKindOfClass:NSString.class] ? [price copy] : nil;
+    icon_ = [icon isKindOfClass:UIImage.class] ? icon : [UIImage imageNamed:@"folder.png"];
+    self.accessoryView = nil;
+    self.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    self.selectionStyle = UITableViewCellSelectionStyleDefault;
+    self.userInteractionEnabled = YES;
+    self.isAccessibilityElement = YES;
+    self.accessibilityTraits = UIAccessibilityTraitButton;
+    NSMutableArray<NSString *> *values([NSMutableArray array]);
+    for (NSString *value in @[(NSString *)price_ ?: @"", (NSString *)source_ ?: @"", (NSString *)description_ ?: @""])
+        if (value.length != 0) [values addObject:value];
+    self.accessibilityValue = [values componentsJoinedByString:@", "];
+    [self applyColorAppearance];
+    [self setNeedsDisplay];
+    [self.content setNeedsDisplay];
+}
+
+- (void) prepareForReuse {
+    [super prepareForReuse];
+    [self setPackage:nil asSummary:false];
+}
+
+- (void) drawLibraryContentRect:(CGRect)rect {
+    (void)rect;
+    /* The custom content view follows UIKit's accessory-aware contentView.
+     * Ordinary package rows retain their historical whole-cell geometry. */
+    const CGFloat width(CGRectGetWidth(self.content.bounds));
+    const BOOL selected(self.highlighted && kCFCoreFoundationVersionNumber < 800);
+    const CydiaColorRole primary(selected ? CydiaColorRoleSelectedLabel :
+        unavailable_ ? CydiaColorRoleSecondaryLabel : CydiaColorRoleLabel);
+    const CydiaColorRole secondary(selected ? CydiaColorRoleSelectedLabel : CydiaColorRoleSecondaryLabel);
+    if (icon_ != nil) {
+        CGSize size([(UIImage *)icon_ size]);
+        while (size.width > 32 || size.height > 32) {
+            size.width /= 2; size.height /= 2;
+        }
+        [icon_ drawInRect:Retina(CGRectMake(25 - size.width / 2, 25 - size.height / 2,
+            size.width, size.height)) blendMode:kCGBlendModeNormal alpha:unavailable_ ? 0.55 : 1.0];
+    }
+    CGFloat titleRight(width - 12);
+    if ([price_ length] != 0) {
+        const CGFloat priceWidth(MIN([price_ sizeWithFont:Font14_].width,
+            MAX(0.0, MIN(100.0, width * 0.3))));
+        CydiaSetColor(primary, self.traitCollection);
+        [price_ drawInRect:CGRectMake(width - 12 - priceWidth, 11, priceWidth, 20)
+            withFont:Font14_ lineBreakMode:NSLineBreakByTruncatingTail alignment:NSTextAlignmentRight];
+        titleRight -= priceWidth + 10;
+    }
+    CydiaSetColor(primary, self.traitCollection);
+    [name_ drawAtPoint:CGPointMake(48, 8) forWidth:MAX(0.0, titleRight - 48)
+        withFont:Font18Bold_ lineBreakMode:NSLineBreakByTruncatingTail];
+    NSString *subtitle(source_);
+    if ([architectureCaption_ length] != 0)
+        subtitle = [source_ length] == 0 ? (NSString *)architectureCaption_ :
+            [NSString stringWithFormat:@"%@ · %@", (NSString *)architectureCaption_, (NSString *)source_];
+    CydiaSetColor([architectureCaption_ length] != 0 || unavailable_ ? secondary : primary, self.traitCollection);
+    [subtitle drawAtPoint:CGPointMake(58, 29) forWidth:MAX(0.0, width - 70)
+        withFont:Font12_ lineBreakMode:NSLineBreakByTruncatingTail];
+    CydiaSetColor(secondary, self.traitCollection);
+    [description_ drawAtPoint:CGPointMake(12, 46) forWidth:MAX(0.0, width - 24)
+        withFont:Font14_ lineBreakMode:NSLineBreakByTruncatingTail];
 }
 
 - (void) drawSummaryContentRect:(CGRect)rect {
@@ -267,7 +362,9 @@
 }
 
 - (void) drawContentRect:(CGRect)rect {
-    if (summarized_)
+    if (libraryItem_)
+        [self drawLibraryContentRect:rect];
+    else if (summarized_)
         [self drawSummaryContentRect:rect];
     else
         [self drawNormalContentRect:rect];

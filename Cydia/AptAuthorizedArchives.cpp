@@ -2,6 +2,7 @@
 #include "Cydia/AptBackendInternal.hpp"
 #include "Cydia/RepositoryArchiveAuthorization.hpp"
 #include "Cydia/RedactedURL.hpp"
+#include "Cydia/RepositoryUserAgentScope.hpp"
 
 #include <apt-pkg/acquire-item.h>
 #include <apt-pkg/configuration.h>
@@ -110,6 +111,7 @@ struct PrivateAcquisition {
         origin.Path = "/"; origin.User.clear(); origin.Password.clear();
         ready = AutoDetectProxy(origin);
         PrivateMethodConfiguration(original->Tree(NULL), configuration);
+        ApplyRepositoryUserAgent(configuration);
         configuration.Set("Debug::NoLocking", original->FindB("Debug::NoLocking", false));
     }
     ~PrivateAcquisition() { _config = original; }

@@ -7,6 +7,7 @@
 
 #import "Cydia/PackageDetailViewModel.h"
 #import "Cydia/PackageArchitecturePresentation.h"
+#include "Cydia/AptCompatibility.hpp"
 
 #include <cstdlib>
 #include <ctime>
@@ -285,6 +286,7 @@ void TestCompleteQualifiedSnapshotAndOwnership() {
     CydiaPackageDetailViewModel *model([[CydiaPackageDetailViewModel alloc]
         initWithPackage:(Package *)(id)package]);
     Require(model != nil, "qualified package did not produce a model");
+    Require(!model.readOnly, "ordinary Package snapshot became readonly");
     Require(package.parseCount == 1, "package metadata was not parsed exactly once");
     RequireString(model.identity, @"runtime:iphoneos-arm64", "qualified route identity changed");
     RequireString(model.baseIdentity, @"runtime", "base identity changed");
@@ -639,6 +641,101 @@ void TestDelayedAccountActionSelection() {
     Require(!CydiaPackageDetailCanPerformAction(selected, nil, install), "missing fresh snapshot accepted download");
 }
 
+void TestReadonlyRepositorySnapshot() {
+    CydiaAPT::RepositoryPackageAvailabilityData availability;
+    availability.known = true;
+    availability.displayName = "Repository Runtime";
+    availability.version = "2:1.1";
+    availability.architecture = "iphoneos-arm";
+    availability.architectures = {"iphoneos-arm"};
+    availability.record.displayName = "Lower Priority Record Name";
+    availability.record.shortDescription = "Short repository description";
+    availability.record.longDescription = "Long repository description\nSecond line";
+    availability.record.tags = {"cydia::commercial", "purpose::console"};
+    availability.record.fields = {
+        {"Package", "runtime"}, {"Version", "2:1.1"}, {"Architecture", "iphoneos-arm"},
+        {"Description", "Short repository description\n Long repository description"},
+        {"Section", "System"}, {"Multi-Arch", "foreign"},
+        {"Homepage", "https://example.test/runtime"},
+        {"Depiction", "https://repo.example/depiction?package=runtime"},
+        {"Filename", "pool/private-runtime.deb"}, {"SHA256", "not-acquisition-authority"},
+    };
+    availability.record.raw = "Package: runtime\nFilename: pool/private-runtime.deb\n";
+    NSMutableString *identifier([@"runtime" mutableCopy]);
+    NSMutableString *sourceName([@"Owned Repository" mutableCopy]);
+    NSMutableArray<NSString *> *architectures([NSMutableArray arrayWithObject:@"iphoneos-arm64"]);
+    NSURL *sourceURL([NSURL URLWithString:@"https://repo.example/ios/"]);
+    auto model = [[CydiaPackageDetailViewModel alloc] initWithRepositoryPackage:availability
+        identifier:identifier sourceURL:sourceURL sourceName:sourceName registeredArchitectures:architectures];
+    Require(model != nil && model.readOnly, "source-scoped unsupported record did not open readonly details");
+    RequireString(model.identity, @"runtime", "readonly detail identifier changed");
+    RequireString(model.displayName, @"Repository Runtime", "readonly detail lost source display name");
+    RequireString(model.fullVersion, @"2:1.1", "readonly detail lost exact epoch version");
+    RequireString(model.architecture, @"iphoneos-arm", "readonly detail borrowed another source architecture");
+    RequireString(model.architectureCaption,
+        CydiaPackageArchitectureCaption(@"iphoneos-arm", @[@"iphoneos-arm64"]),
+        "readonly detail did not reuse the unsupported architecture caption");
+    RequireString(model.displayDescription, @"Long repository description\nSecond line",
+        "readonly detail lost multiline repository description");
+    RequireString(model.rawSection, @"System", "readonly detail lost source section");
+    RequireString(model.depictionURLString, @"https://repo.example/depiction?package=runtime",
+        "readonly detail rejected safe repository depiction");
+    RequireString(model.homepageURLString, @"https://example.test/runtime", "readonly detail lost safe homepage");
+    RequireString(model.source.repositoryURLString, @"https://repo.example/ios/", "readonly detail broadened source scope");
+    Require(model.isCommercial && !model.isInstalled && !model.isUpgradable && !model.isConsolePackage &&
+        model.aptIdentity == nil && model.dpkgIdentity == nil && model.modifyActions.count == 0 &&
+        model.primaryModifyTitleLocalizationKey == nil && model.applications.count == 0 && model.warnings.count == 1,
+        "readonly detail invented package actions, local state, or executable identity");
+    NSDictionary *legacyPackage(model.legacyDepictionSnapshot[@"package"]);
+    RequireString(legacyPackage[@"fields"][@"Description"],
+        @"Short repository description\n Long repository description", "readonly depiction lost scoped display fields");
+    Require(legacyPackage[@"fields"][@"Filename"] == nil && legacyPackage[@"fields"][@"SHA256"] == nil &&
+        legacyPackage[@"record"] == nil && legacyPackage[@"values"][@"aptId"] == nil &&
+        legacyPackage[@"values"][@"dpkgId"] == nil,
+        "readonly depiction retained archive or executable lookup authority");
+
+    FakePackage *package(BasePackage(@"runtime"));
+    package.uninstalledValue = YES; package.architectureValue = @"iphoneos-arm";
+    FakePackageSource *source([FakePackageSource new]);
+    source.rootValue = sourceURL.absoluteString; package.sourceValue = source;
+    auto actionable = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    Require([ActionKinds(actionable) containsObject:@(CydiaPackageDetailModifyActionKindInstall)] &&
+        !CydiaPackageDetailCanPerformAction(model, actionable, CydiaPackageDetailModifyActionKindInstall),
+        "readonly detail later acquired mutation authority through a normal package snapshot");
+
+    NSString *caption(model.architectureCaption);
+    [identifier appendString:@".changed"]; [sourceName appendString:@" Changed"]; [architectures removeAllObjects];
+    availability.displayName = "Changed"; availability.version = "9.0"; availability.architecture = "changed";
+    availability.architectures.clear(); availability.record.fields.clear(); availability.record.tags.clear();
+    availability.record.longDescription = "Changed";
+    RequireString(model.displayName, @"Repository Runtime", "readonly detail retained mutable repository name");
+    RequireString(model.identity, @"runtime", "readonly detail retained mutable identifier");
+    RequireString(model.source.name, @"Owned Repository", "readonly detail retained mutable source name");
+    RequireString(model.fullVersion, @"2:1.1", "readonly detail retained mutable version");
+    RequireString(model.architectureCaption, caption, "readonly detail retained mutable architecture inputs");
+    RequireString(model.legacyDepictionSnapshot[@"package"][@"fields"][@"Section"], @"System",
+        "readonly detail retained mutable control record fields");
+
+    availability.known = false;
+    availability.record.fields["Depiction"] = "https://other.example/unknown";
+    auto unknown = [[CydiaPackageDetailViewModel alloc] initWithRepositoryPackage:availability
+        identifier:@"runtime" sourceURL:sourceURL sourceName:@"Owned Repository" registeredArchitectures:@[]];
+    RequireString(unknown.displayName, @"runtime", "unknown detail trusted incidental external display metadata");
+    Require(unknown.readOnly && unknown.architecture == nil && unknown.fullVersion == nil &&
+        unknown.depictionURLString == nil && unknown.warnings.count == 1 && unknown.modifyActions.count == 0,
+        "unknown repository detail invented metadata or modification authority, or omitted its availability notice");
+
+    availability.known = true; availability.displayName = "Unsafe\nName";
+    availability.record.displayName.clear(); availability.record.longDescription.clear();
+    availability.record.fields["Homepage"] = "file:///tmp/runtime";
+    availability.record.fields["Depiction"] = "https://repo.example/%0adepiction";
+    auto safe = [[CydiaPackageDetailViewModel alloc] initWithRepositoryPackage:availability
+        identifier:@"runtime" sourceURL:sourceURL sourceName:@"Owned Repository" registeredArchitectures:@[]];
+    RequireString(safe.displayName, @"runtime", "readonly detail displayed a control-bearing repository name");
+    Require(safe.homepageURLString == nil && safe.depictionURLString == nil,
+        "readonly detail accepted unsafe public metadata URLs");
+}
+
 int main() {
     @autoreleasepool {
         TestCompleteQualifiedSnapshotAndOwnership();
@@ -648,6 +745,7 @@ int main() {
         TestExactArchitectureAndEpochVersionChoices();
         TestNullabilityFallbackAndContactPriority();
         TestDelayedAccountActionSelection();
+        TestReadonlyRepositorySnapshot();
     }
     std::cout << "[verify-package-detail-view-model][ ok ] immutable package snapshot"
               << std::endl;

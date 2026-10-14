@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "尚未购买";
 "ACCOUNT_OWNED_UNAVAILABLE" = "已购买，但此软件源目前无法提供。";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "已购买。当前未选择此软件源的软件包版本进行安装。请检查版本及软件源偏好设置。";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "已购买。此软件源没有任何版本支持此设备已配置的架构。";
+"ACCOUNT_ITEM_NO_VERSION" = "已购买。此软件源目前没有可下载的版本。";
 "ACCOUNT_NO_PURCHASES" = "未找到已购项目。";
 "ACCOUNT_CHECK_PURCHASE" = "检查购买状态";
 "ACCOUNT_PURCHASE_CONFIRM" = "以 %2$@ 的价格从 %3$@（%4$@）购买 %1$@？购买后，此软件包将归入提供商处的账户。安装需另行进行。";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "提供商尚未确认购买资格。请检查购买状态或联系提供商。Cydia 不会再次发送购买请求。";
 "ACCOUNT_PURCHASE_UNKNOWN" = "购买结果未知。再次付款前，请检查购买状态或联系提供商。Cydia 不会重复发送购买请求。";
 "ACCOUNT_PURCHASE_OPTIONS" = "已购项目与账户";
-"ACCOUNT_CLIENT_POLICY" = "此提供商目前不支持在 Cydia 中下载付费软件包。购买前，请查看其支持的软件包管理器。";
+"ACCOUNT_CLIENT_POLICY" = "提供商不允许对此账户或设备执行此操作。";
 "ACCOUNT_FILTERED" = "提供商拦截了此请求。请查看其服务状态或联系其支持团队。";
 "ACCOUNT_CANCELLED" = "购买授权已取消。未发送购买请求。";
 "ACCOUNT_REAUTHENTICATE" = "请重新登录以安全地授权购买。现有登录仍可用于查看账户。";
 "ACCOUNT_OFFER_CHANGED" = "价格已变更。购买前，请查看更新后的价格。";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "此提供商已指引 Cydia 用户使用其他软件包管理器。能够访问账户并不保证结账或付费下载可用。";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "授权已确认的软件包购买。";
 "ACCOUNT_SOURCES" = "软件源";
 "ACCOUNT_LINKED_ACCOUNTS" = "已关联账户";

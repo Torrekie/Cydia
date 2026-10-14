@@ -46,7 +46,6 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryAccessState) {
 @property(nonatomic, readonly) BOOL supportsAccountIntegration;
 /* Protocol operations are distinct from proven vendor acceptance. */
 @property(nonatomic, readonly) CydiaRepositoryCapabilities capabilities;
-@property(nonatomic, copy, readonly, nullable) NSString *compatibilityNotice;
 @end
 
 @interface CydiaRepositoryPurchaseResult : NSObject

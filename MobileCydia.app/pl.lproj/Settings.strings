@@ -115,3 +115,17 @@
 "SECURITY_DISTRIBUTION" = "Używaj ustawień wybranego APT";
 "SECURITY_DISTRIBUTION_DETAIL" = "Stosuj ustawienia bezpieczeństwa aktywnego silnika APT.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Te opcje dotyczą silnika APT używanego przez Cydię. Wbudowany APT odczytuje ustawienia dystrybucji, ale może działać inaczej niż jej własny APT.";
+
+"REPOSITORY_IDENTITY" = "Tożsamość dla źródeł";
+"REPOSITORY_IDENTITY_HELP" = "Wybierz User-Agent wysyłany do źródeł i dostawców kont.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (domyślnie)";
+"IDENTITY_CUSTOM" = "Własny";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "Wprowadź User-Agent";
+"IDENTITY_CUSTOM_HELP" = "Użyj 1–512 drukowalnych znaków ASCII bez spacji na początku ani na końcu.";
+"IDENTITY_INVALID" = "Wprowadź prawidłowy User-Agent zawierający 1–512 drukowalnych znaków ASCII bez spacji na początku ani na końcu.";
+"IDENTITY_SAVE_FAILED" = "Nie udało się zapisać tożsamości dla źródeł.";
+"IDENTITY_PREVIEW" = "Podgląd User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "Konta: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Źródła i pobieranie: %@";
+"IDENTITY_EXTERNAL_HELP" = "Dotyczy żądań kont Cydii i pobierania zarządzanego przez Cydię. Zewnętrzny dostawca APT może nadal używać własnego ciągu User-Agent.";
+"IDENTITY_APPLY_HELP" = "Zmiany dotyczą nowych operacji na repozytoriach i żądań kont bez ponownego uruchamiania Cydii.";

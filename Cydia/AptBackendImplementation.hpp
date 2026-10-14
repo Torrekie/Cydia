@@ -39,6 +39,10 @@ public:
     virtual UpdateResultData updateLists(AcquireStatus &status, int pulseInterval) = 0;
     virtual std::vector<PackageHandle> packageHandles() = 0;
     virtual PackageLookupResult lookupPackage(const std::string &name, const std::string &preferredArchitecture) = 0;
+    // Optional parent-local inspection. Remote providers remain unknown; this
+    // must not add an IPC operation or silently substitute another backend.
+    virtual RepositoryPackageAvailabilityData repositoryPackageAvailability(const std::string &,
+        const std::string &) { return RepositoryPackageAvailabilityData(); }
     virtual PackageHandle packageHandle(const std::string &name, const std::string &preferredArchitecture) = 0;
     virtual std::vector<PackageHandle> downgradeHandles(PackageHandle handle) = 0;
     virtual std::vector<PackageHandle> versionHandles(PackageHandle handle) = 0;

@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Non acheté";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Acheté, mais actuellement indisponible sur cette source.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Acheté. Aucun paquet de cette source n’est actuellement sélectionné pour l’installation. Consultez ses versions et les préférences de sources.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Acheté. Aucune version de cette source ne prend en charge les architectures configurées sur cet appareil.";
+"ACCOUNT_ITEM_NO_VERSION" = "Acheté. Aucune version téléchargeable n’est actuellement disponible sur cette source.";
 "ACCOUNT_NO_PURCHASES" = "Aucun achat trouvé.";
 "ACCOUNT_CHECK_PURCHASE" = "Vérifier l’état de l’achat";
 "ACCOUNT_PURCHASE_CONFIRM" = "Acheter %@ pour %@ auprès de %@ (%@) ? L’achat ajoute le paquet au compte de ce prestataire. L’installation est une étape distincte.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "Le prestataire n’a pas encore confirmé l’achat. Vérifiez son état ou contactez le prestataire. Cydia n’enverra pas d’autre demande d’achat.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Le résultat de l’achat est inconnu. Vérifiez son état ou contactez le prestataire avant de payer à nouveau. Cydia ne répétera pas la demande d’achat.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Achats et compte";
-"ACCOUNT_CLIENT_POLICY" = "Ce prestataire ne prend actuellement pas en charge les téléchargements payants dans Cydia. Consultez les gestionnaires de paquets compatibles avant d’acheter.";
+"ACCOUNT_CLIENT_POLICY" = "Le prestataire n’autorise pas cette opération pour ce compte ou cet appareil.";
 "ACCOUNT_FILTERED" = "Le prestataire a bloqué cette demande. Consultez l’état de son service ou contactez son assistance.";
 "ACCOUNT_CANCELLED" = "L’autorisation d’achat a été annulée. Aucune demande d’achat n’a été envoyée.";
 "ACCOUNT_REAUTHENTICATE" = "Reconnectez-vous pour autoriser les achats en toute sécurité. Votre connexion actuelle permet toujours de consulter votre compte.";
 "ACCOUNT_OFFER_CHANGED" = "Le prix a changé. Consultez le nouveau prix avant d’acheter.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Ce prestataire dirige les utilisateurs de Cydia vers un autre gestionnaire de paquets. L’accès au compte ne garantit pas que le paiement ou les téléchargements payants fonctionneront.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Autoriser cet achat confirmé auprès du dépôt.";
 "ACCOUNT_SOURCES" = "Sources";
 "ACCOUNT_LINKED_ACCOUNTS" = "Comptes associés";

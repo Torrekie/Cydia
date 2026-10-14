@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "No comprado";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Comprado, pero no disponible actualmente en esta fuente.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Comprado. Actualmente no hay ningún paquete de esta fuente seleccionado para instalar. Revisa sus versiones y las preferencias de fuentes.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Comprado. Ninguna versión de esta fuente admite las arquitecturas configuradas en este dispositivo.";
+"ACCOUNT_ITEM_NO_VERSION" = "Comprado. Actualmente no hay ninguna versión disponible para descargar de esta fuente.";
 "ACCOUNT_NO_PURCHASES" = "No se encontraron compras.";
 "ACCOUNT_CHECK_PURCHASE" = "Comprobar estado de compra";
 "ACCOUNT_PURCHASE_CONFIRM" = "¿Comprar %@ por %@ a %@ (%@)? La compra añade el paquete a la cuenta de este proveedor. La instalación se realiza por separado.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "El proveedor todavía no ha confirmado la compra. Comprueba su estado o contacta con el proveedor. Cydia no enviará otra solicitud de compra.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Se desconoce el resultado de la compra. Comprueba su estado o contacta con el proveedor antes de volver a pagar. Cydia no repetirá la solicitud de compra.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Compras y cuenta";
-"ACCOUNT_CLIENT_POLICY" = "Este proveedor no admite actualmente descargas de pago en Cydia. Comprueba qué gestores de paquetes admite antes de comprar.";
+"ACCOUNT_CLIENT_POLICY" = "El proveedor no permite esta operación para esta cuenta o dispositivo.";
 "ACCOUNT_FILTERED" = "El proveedor bloqueó esta solicitud. Consulta el estado del servicio o contacta con su soporte.";
 "ACCOUNT_CANCELLED" = "Se canceló la autorización de compra. No se envió ninguna solicitud de compra.";
 "ACCOUNT_REAUTHENTICATE" = "Vuelve a iniciar sesión para autorizar las compras de forma segura. Tu sesión actual aún permite consultar tu cuenta.";
 "ACCOUNT_OFFER_CHANGED" = "El precio ha cambiado. Revisa el nuevo precio antes de comprar.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Este proveedor ha indicado a los usuarios de Cydia que utilicen otro gestor de paquetes. El acceso a la cuenta no garantiza que el pago o las descargas de pago funcionen.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Autorizar esta compra confirmada del repositorio.";
 "ACCOUNT_SOURCES" = "Fuentes";
 "ACCOUNT_LINKED_ACCOUNTS" = "Cuentas vinculadas";

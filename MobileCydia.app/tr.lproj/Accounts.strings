@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Satın alınmadı";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Satın alındı, ancak şu anda bu kaynakta kullanılamıyor.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Satın alındı. Şu anda bu kaynaktan hiçbir paket yükleme için seçilmiş değil. Sürümlerini ve kaynak tercihlerini inceleyin.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Satın alındı. Bu kaynaktaki hiçbir sürüm bu cihazda yapılandırılmış mimarileri desteklemiyor.";
+"ACCOUNT_ITEM_NO_VERSION" = "Satın alındı. Şu anda bu kaynakta indirilebilir bir sürüm bulunmuyor.";
 "ACCOUNT_NO_PURCHASES" = "Satın alınan öğe bulunamadı.";
 "ACCOUNT_CHECK_PURCHASE" = "Satın Alma Durumunu Denetle";
 "ACCOUNT_PURCHASE_CONFIRM" = "%@, %@ karşılığında %@ (%@) üzerinden satın alınsın mı? Satın alma, paketi bu sağlayıcıdaki hesaba ekler. Yükleme ayrı bir adımdır.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "Sağlayıcı satın almayı henüz doğrulamadı. Satın alma durumunu denetleyin veya sağlayıcıyla iletişime geçin. Cydia başka bir satın alma isteği göndermeyecek.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "Satın alma sonucu bilinmiyor. Yeniden ödeme yapmadan önce satın alma durumunu denetleyin veya sağlayıcıyla iletişime geçin. Cydia satın alma isteğini tekrarlamayacak.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Satın Alınanlar ve Hesap";
-"ACCOUNT_CLIENT_POLICY" = "Bu sağlayıcı şu anda Cydia’da ücretli indirmeleri desteklemiyor. Satın almadan önce desteklediği paket yöneticilerini denetleyin.";
+"ACCOUNT_CLIENT_POLICY" = "Sağlayıcı bu hesap veya cihaz için bu işleme izin vermiyor.";
 "ACCOUNT_FILTERED" = "Sağlayıcı bu isteği engelledi. Hizmet durumunu denetleyin veya destek birimiyle iletişime geçin.";
 "ACCOUNT_CANCELLED" = "Satın alma yetkilendirmesi iptal edildi. Satın alma isteği gönderilmedi.";
 "ACCOUNT_REAUTHENTICATE" = "Satın almaları güvenli biçimde yetkilendirmek için yeniden giriş yapın. Mevcut girişiniz hesabınızı denetlemek için hâlâ kullanılabilir.";
 "ACCOUNT_OFFER_CHANGED" = "Fiyat değişti. Satın almadan önce güncel fiyatı inceleyin.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Bu sağlayıcı Cydia kullanıcılarını başka bir paket yöneticisine yönlendiriyor. Hesaba erişim, ödemenin veya ücretli indirmelerin çalışacağını garanti etmez.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Bu onaylanmış depo satın almasını yetkilendirin.";
 "ACCOUNT_SOURCES" = "Kaynaklar";
 "ACCOUNT_LINKED_ACCOUNTS" = "Bağlı Hesaplar";

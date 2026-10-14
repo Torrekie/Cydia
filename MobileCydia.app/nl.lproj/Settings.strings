@@ -117,3 +117,17 @@
 "SECURITY_DISTRIBUTION" = "Instellingen van de gekozen APT gebruiken";
 "SECURITY_DISTRIBUTION_DETAIL" = "Volg de beveiligingsinstellingen van de actieve APT-engine.";
 "REPOSITORY_SECURITY_ENGINE_EX" = "Deze opties gelden voor de APT-engine die Cydia gebruikt. De meegeleverde APT leest de distributie-instellingen, maar kan zich anders gedragen dan de eigen APT van de distributie.";
+
+"REPOSITORY_IDENTITY" = "Identiteit voor brontoegang";
+"REPOSITORY_IDENTITY_HELP" = "Kies de User-Agent die naar bronnen en accountaanbieders wordt verzonden.";
+"IDENTITY_CYDIA_DEFAULT" = "Cydia (standaard)";
+"IDENTITY_CUSTOM" = "Aangepast";
+"IDENTITY_CUSTOM_PLACEHOLDER" = "Voer een User-Agent in";
+"IDENTITY_CUSTOM_HELP" = "Gebruik 1–512 afdrukbare ASCII-tekens zonder spaties aan het begin of einde.";
+"IDENTITY_INVALID" = "Voer een geldige User-Agent in met 1–512 afdrukbare ASCII-tekens zonder spaties aan het begin of einde.";
+"IDENTITY_SAVE_FAILED" = "De identiteit voor brontoegang kon niet worden opgeslagen.";
+"IDENTITY_PREVIEW" = "Voorbeeld van User-Agent";
+"IDENTITY_ACCOUNT_PREVIEW" = "Accountverzoeken: %@";
+"IDENTITY_DOWNLOAD_PREVIEW" = "Bronnen en downloads: %@";
+"IDENTITY_EXTERNAL_HELP" = "Van toepassing op accountverzoeken van Cydia en downloads die door Cydia worden beheerd. Een externe APT-aanbieder kan zijn eigen User-Agent blijven gebruiken.";
+"IDENTITY_APPLY_HELP" = "Wijzigingen gelden voor nieuwe repositorybewerkingen en accountverzoeken zonder Cydia opnieuw te starten.";

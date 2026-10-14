@@ -23,6 +23,7 @@
 #include "Cydia/PackageControllers.h"
 
 #include "Cydia/Appearance.h"
+#include "Cydia/AptRuntime.hpp"
 #include "Cydia/AppState.h"
 #include "Cydia/Collation.hpp"
 #include "Cydia/CydiaDelegate.h"
@@ -36,6 +37,7 @@
 #include "Cydia/PackageViews.h"
 #include "Cydia/PackageUnavailableController.h"
 #include "Cydia/Section.h"
+#include "Cydia/Source.h"
 #include "Cydia/UIRouteContext.h"
 #define ProfileTimes 0
 #include "Cydia/Profile.hpp"
@@ -163,6 +165,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
 }
 
 - (NSURL *) navigationURL {
+    if (repositoryURL_ != nil || self.viewModel.readOnly) return nil;
     return [NSURL URLWithString:[NSString stringWithFormat:@"cydia://package/%@", (id) name_]];
 }
 
@@ -172,8 +175,16 @@ NSURL *PackageRouteURL(NSString *URLString) {
      * immutable route identity immediately before every mutating action so a
      * visible button cannot silently become a no-op after that refresh. */
     Package *current([database_ packageWithName:name_]);
+    if (self.viewModel.readOnly || (repositoryURL_ != nil &&
+        (![[current.source rooturi] isEqual:[repositoryURL_ absoluteString]] ||
+         !current.versionAvailable || !current.architectureSupported))) {
+        [self reloadData]; return nil;
+    }
+    NSString *currentSource(current.source.rooturi);
+    NSString *displayedSource(self.viewModel.source.repositoryURLString);
     if (current == nil || ![[current fullVersion] isEqualToString:[[self viewModel] fullVersion]] ||
-        ![[current architecture] isEqual:[[self viewModel] architecture]]) {
+        ![[current architecture] isEqual:[[self viewModel] architecture]] ||
+        (currentSource != displayedSource && ![currentSource isEqual:displayedSource])) {
         /* A refresh may replace the candidate or make a formerly unique
          * selector ambiguous. Show that new state before accepting a click. */
         [self reloadData];
@@ -277,12 +288,20 @@ NSURL *PackageRouteURL(NSString *URLString) {
 }
 
 - (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer {
+    return [self initWithDatabase:database forPackage:name withReferrer:referrer repositoryURL:nil];
+}
+
+- (id) initWithDatabase:(Database *)database forPackage:(NSString *)name withReferrer:(NSString *)referrer
+         repositoryURL:(NSURL *)repositoryURL {
     (void) referrer;
     Package *package([database packageWithName:name]);
+    if (repositoryURL && (![[package.source rooturi] isEqual:repositoryURL.absoluteString] ||
+        !package.versionAvailable || !package.architectureSupported)) package = nil;
     CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
         [[CydiaPackageDetailViewModel alloc] initWithPackage:package
             registeredArchitectures:[package registeredArchitectures]
             versionArchitecture:PackageVersionArchitectureFilter(name, package)]);
+    if (!viewModel && repositoryURL) viewModel = [self repositoryOnlyModelForDatabase:database name:name URL:repositoryURL];
     if (viewModel == nil)
         return nil;
     if ((self = [super initWithViewModel:viewModel
@@ -290,8 +309,19 @@ NSURL *PackageRouteURL(NSString *URLString) {
                                 delegate:self]) != nil) {
         database_ = database;
         name_ = [name copy];
+        repositoryURL_ = [repositoryURL copy];
         [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
     } return self;
+}
+
+- (CydiaPackageDetailViewModel *)repositoryOnlyModelForDatabase:(Database *)database name:(NSString *)name URL:(NSURL *)URL {
+    const auto selector(CydiaAPT::ParsePackageSelector([name UTF8String]));
+    if (!selector.valid()) return nil;
+    NSString *identifier = [NSString stringWithUTF8String:selector.baseName.c_str()];
+    const auto availability([database repositoryPackageAvailability:identifier sourceURL:URL]);
+    return [[CydiaPackageDetailViewModel alloc] initWithRepositoryPackage:availability identifier:identifier
+        sourceURL:URL sourceName:self.viewModel.source.name ?: URL.host
+        registeredArchitectures:CydiaPackageRegisteredArchitectureNames(CydiaAPT::RegisteredArchitectures())];
 }
 
 - (void)dealloc {
@@ -317,10 +347,14 @@ NSURL *PackageRouteURL(NSString *URLString) {
     [sheet_ dismissWithClickedButtonIndex:[sheet_ cancelButtonIndex] animated:YES];
     sheet_ = nil;
     Package *package([database_ packageWithName:name_]);
+    if (repositoryURL_ != nil && (![[package.source rooturi] isEqual:[repositoryURL_ absoluteString]] ||
+        !package.versionAvailable || !package.architectureSupported)) package = nil;
     CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
         [[CydiaPackageDetailViewModel alloc] initWithPackage:package
             registeredArchitectures:[package registeredArchitectures]
             versionArchitecture:PackageVersionArchitectureFilter(name_, package)]);
+    if (!viewModel && repositoryURL_ != nil)
+        viewModel = [self repositoryOnlyModelForDatabase:database_ name:name_ URL:repositoryURL_];
     [self bindLegacyCompatibilitySessionForPackage:package];
     if (viewModel != nil) {
         [self synchronizeLegacyStateWithPackage:package viewModel:viewModel];
@@ -331,7 +365,8 @@ NSURL *PackageRouteURL(NSString *URLString) {
         [self updateWithViewModel:viewModel
                        headerIcon:[package icon]
                        reloadTable:NO];
-        [self startLegacyAlternateIconLoadForViewModel:viewModel];
+        if (viewModel.readOnly) [self cancelLegacyAlternateIconLoad];
+        else [self startLegacyAlternateIconLoadForViewModel:viewModel];
     } else {
         [self cancelLegacyAlternateIconLoad];
         package_ = nil;

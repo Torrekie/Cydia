@@ -1,6 +1,8 @@
 /* Exercises the production account-service implementation with test-only
  * platform substitutes. All identifiers and tokens below are synthetic. */
 #import "Cydia/RepositoryAccountService.h"
+#import "Cydia/RepositoryIdentity.h"
+#import "Cydia/SettingsStore.h"
 #import <AuthenticationServices/AuthenticationServices.h>
 #import <Security/Security.h>
 #import <LocalAuthentication/LocalAuthentication.h>
@@ -10,6 +12,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
+#if !defined(CYDIA_REPOSITORY_ACCOUNT_TESTING)
+#error "Repository account fixtures require isolated test platform and preference storage."
+#endif
 
 static NSMutableDictionary<NSString *, NSData *> *credentialData;
 static NSMutableArray<ASWebAuthenticationSession *> *browserSessions;
@@ -583,21 +588,12 @@ static void UnsupportedIntegrationAndInvalidDiscovery(void) {
         Require(account.supportsAccountIntegration && !account.signedIn &&
             (account.capabilities & CydiaRepositoryCapabilityLogin) &&
             (account.capabilities & CydiaRepositoryCapabilityEntitlements) &&
-            !(account.capabilities & CydiaRepositoryCapabilityDirectPurchase) &&
-            !(account.capabilities & CydiaRepositoryCapabilityDownload) && account.compatibilityNotice.length != 0,
-            "vendor policy was confused with missing account protocol");
-        __block NSUInteger completed = 0;
-        [service authorizePackage:@"fixture.package" version:@"1" architecture:@"iphoneos-arm64" account:account
-            completion:^(CydiaRepositoryDownloadGrant *grant, NSError *error) {
-            Require(grant == nil && error.code == CydiaAccountErrorClientPolicy, "vendor policy allowed paid archive"); ++completed;
-        }];
-        [service purchasePackage:@"fixture.package" version:@"1" architecture:@"iphoneos-arm64" price:@"$1.99"
-            account:account presenter:Presenter() completion:^(CydiaRepositoryPurchaseResult *result) {
-            Require(result.state == CydiaRepositoryPurchaseStateRejected && result.error.code == CydiaAccountErrorClientPolicy,
-                "known unsupported paid client proceeded to purchase"); ++completed;
-        }];
-        Require(completed == 2 && browserSessions.count == 0 && service.requests.count == 0 && deviceCalls == 0,
-            "unsupported paid integration touched browser/transport/device fields");
+            (account.capabilities & CydiaRepositoryCapabilityDirectPurchase) &&
+            (account.capabilities & CydiaRepositoryCapabilityHostedCheckout) &&
+            (account.capabilities & CydiaRepositoryCapabilityDownload),
+            "a valid v1 provider was restricted by its hostname instead of operation responses");
+        Require(browserSessions.count == 0 && service.requests.count == 0 && deviceCalls == 0,
+            "protocol discovery implicitly authenticated or purchased");
     });
 }
 @interface FixturePurchase : NSObject
@@ -1102,10 +1098,10 @@ static void ReadOnlyAccessPreparation(void) {
         Reset(); Main(^{ service = [FixtureService new]; });
         auto restricted = BeginAccess(service, [NSURL URLWithString:@"https://havoc.app/"]);
         Respond(Take(service, @"/payment_endpoint"), nil, status); AwaitAccess(restricted);
-        Main(^{ Require(restricted.result.state == CydiaRepositoryAccessStateUnsupported &&
-            restricted.result.error.code == CydiaAccountErrorClientPolicy && service.requests.count == 0 &&
+        Main(^{ Require(restricted.result.state == CydiaRepositoryAccessStateNotRequired &&
+            restricted.result.error == nil && service.requests.count == 0 &&
             deviceCalls == 0 && secretReads == 0,
-            "missing payment discovery downgraded a known restricted vendor to anonymous acquisition"); });
+            "a missing protocol was replaced with a hardcoded vendor restriction"); });
     }
     for (NSDictionary *offer in @[@{@"available": @YES, @"free": @YES}, @{@"available": @YES, @"price": @0}]) {
         Reset(); Main(^{ service = [FixtureService new]; });
@@ -1136,11 +1132,13 @@ static void ReadOnlyAccessPreparation(void) {
     Main(^{ Require(signIn.result.state == CydiaRepositoryAccessStateSignIn && deviceCalls == 0 &&
         browserSessions.count == 0 && service.requests.count == 0, "read-only license preparation initiated login automatically"); });
     Reset(); Main(^{ service = [FixtureService new]; });
-    auto unsupported = BeginAccess(service, [NSURL URLWithString:@"https://havoc.app/"]);
-    Respond(AccessDiscovery(service, @"https://havoc.app/api/sileo/"), Offer(NO)); AwaitAccess(unsupported);
-    Main(^{ Require(unsupported.result.state == CydiaRepositoryAccessStateUnsupported &&
-        unsupported.result.error.code == CydiaAccountErrorClientPolicy && deviceCalls == 0 && service.requests.count == 0,
-        "known unsupported vendor preparation advertised paid delivery or prompted for login"); });
+    auto provider = BeginAccess(service, [NSURL URLWithString:@"https://havoc.app/"]);
+    Respond(AccessDiscovery(service, @"https://havoc.app/api/sileo/"), Offer(NO)); AwaitAccess(provider);
+    Main(^{ Require(provider.result.state == CydiaRepositoryAccessStateSignIn &&
+        [provider.result.error.domain isEqual:@"CydiaRepositoryAccount"] &&
+        provider.result.error.code == CydiaAccountErrorAuthentication &&
+        deviceCalls == 0 && browserSessions.count == 0 && service.requests.count == 0,
+        "a valid vendor protocol did not expose explicit user-controlled sign-in"); });
     for (NSDictionary *offer in @[@{@"available": @NO}, @{@"available": @1}, @{@"available": @YES, @"error": @YES}]) {
         Reset(); Main(^{ service = [FixtureService new]; });
         auto run = BeginAccess(service, source);
@@ -1391,7 +1389,52 @@ static void FreeConversionNeverChargesOrResolvesPayment(void) {
             "ordinary free-package refresh erased unresolved paid purchase marker"); });
     }
 }
+static void RepositoryIdentityPreferences(void) {
+    // SettingsStore uses an in-memory dictionary for this fixture; these
+    // assertions never consult or persist the Mac user's Cydia preferences.
+    Require([CydiaRepositoryIdentityPreference() isEqual:@"cydia"] &&
+        CydiaCustomRepositoryUserAgentPreference().length == 0, "repository identity default is not Cydia");
+    Require([CydiaRepositoryUserAgent() hasPrefix:@"Cydia"] &&
+        [CydiaRepositoryUserAgent() hasSuffix:@" RepositoryAccounts/1"] &&
+        [CydiaRepositoryDownloadUserAgent() hasPrefix:@"Cydia"], "Cydia identity did not render account/download headers");
+    NSString *custom = @"FixtureClient/1 (iPad; iOS/14.8)";
+    Require(CydiaSetRepositoryIdentityPreference(@"custom", custom) &&
+        [CydiaRepositoryUserAgent() isEqual:custom] && [CydiaRepositoryDownloadUserAgent() isEqual:custom],
+        "custom identity was not shared by account and archive HTTP");
+    const unichar nullBytes[] = {'F', 0, 'x'};
+    NSArray *invalid = @[@"", @" ", @" Fixture/1", @"Fixture/1 ", @"Fixture\t1", @"Fixture\r\nInjected: yes",
+        @"Fixture\n1", @"Fixture\r1", @"Fixture\177", @"自定义/1",
+        [NSString stringWithCharacters:nullBytes length:3],
+        [@"" stringByPaddingToLength:513 withString:@"x" startingAtIndex:0]];
+    for (NSString *candidate in invalid) {
+        Require(!CydiaValidCustomRepositoryUserAgent(candidate) &&
+            !CydiaSetRepositoryIdentityPreference(@"custom", candidate), "invalid custom identity was accepted");
+        Require([CydiaRepositoryIdentityPreference() isEqual:@"custom"] &&
+            [CydiaRepositoryUserAgent() isEqual:custom] && [CydiaRepositoryDownloadUserAgent() isEqual:custom],
+            "rejected custom identity changed the previous saved header");
+    }
+    Require(!CydiaSetRepositoryIdentityPreference(@"other", custom) &&
+        [CydiaRepositoryUserAgent() isEqual:custom], "unknown identity changed the saved header");
+    NSString *maximum = [@"" stringByPaddingToLength:512 withString:@"x" startingAtIndex:0];
+    Require(CydiaSetRepositoryIdentityPreference(@"custom", maximum) &&
+        [CydiaRepositoryUserAgent() isEqual:maximum], "512-byte custom identity boundary was rejected");
+    Require(CydiaSetRepositoryIdentityPreference(@"sileo", @"") &&
+        [CydiaRepositoryUserAgent() hasPrefix:@"Sileo/2.5.1 CoreFoundation/"] &&
+        [CydiaRepositoryUserAgent() rangeOfString:@" Darwin/"].location != NSNotFound &&
+        [CydiaRepositoryUserAgent() isEqual:CydiaRepositoryDownloadUserAgent()],
+        "released Sileo account/repository identity format changed");
+    Require(CydiaSetRepositoryIdentityPreference(@"zebra", @"") &&
+        [CydiaRepositoryUserAgent() hasPrefix:@"Zebra/1.1.37 ("] &&
+        [CydiaRepositoryUserAgent() rangeOfString:@"; iOS/"].location != NSNotFound &&
+        [CydiaRepositoryUserAgent() hasSuffix:@")"], "released Zebra account identity format changed");
+    Require([CydiaRepositoryDownloadUserAgent() isEqual:CydiaRepositoryUserAgent()] ||
+        [CydiaRepositoryDownloadUserAgent() isEqual:@"Telesphoreo (Zebra) APT-HTTP/1.0.592"],
+        "released Zebra repository/download identity format changed");
+    Require(CydiaSetRepositoryIdentityPreference(@"cydia", @"") &&
+        [CydiaRepositoryIdentityPreference() isEqual:@"cydia"], "fixture identity restoration failed");
+}
 static void Run(void) {
+    RepositoryIdentityPreferences();
     DiscoveryAndEndpointScope(); ValidAuthenticationAndReplay(); InvalidAuthenticationCallbacks();
     BrowserFailureAndCancellation(); LogoutAndNewLoginRaces(); LogoutBeforeBrowserCallback();
     StoreAndServerValidationFailures(); SuccessfulHTTPInvalidationRefusesNewCredentials();

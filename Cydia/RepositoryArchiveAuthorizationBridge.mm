@@ -53,9 +53,9 @@ void OwnedPackage(const std::shared_ptr<AuthorizationState> &state,
                   CydiaRepositoryAccount *account, NSString *package, NSString *version, NSString *architecture) {
     if (!Active(state)) return;
     if (!(account.capabilities & CydiaRepositoryCapabilityDownload)) {
-        // Discovery establishes a restricted provider. An unsupported client
-        // must not downgrade this package to anonymous Filename acquisition.
-        Finish(state, Status::Unsupported, account.compatibilityNotice ?: CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED")); return;
+        // An explicitly unsupported operation must not silently downgrade to
+        // anonymous Filename acquisition.
+        Finish(state, Status::Unsupported, CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED")); return;
     }
     if (!account.signedIn) {
         Finish(state, Status::AuthenticationRequired, CydiaAccountLocalize(@"ACCOUNT_SIGN_IN_REQUIRED")); return;

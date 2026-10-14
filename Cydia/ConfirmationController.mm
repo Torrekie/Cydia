@@ -545,7 +545,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
         case CydiaRepositoryAccessStateNotRequired: return CydiaAccountLocalize(@"ACCOUNT_ACCESS_READY");
         case CydiaRepositoryAccessStateSignIn: return CydiaAccountLocalize(@"ACCOUNT_SIGN_IN_REQUIRED");
         case CydiaRepositoryAccessStatePurchaseRequired: return CydiaAccountLocalize(@"ACCOUNT_NOT_PURCHASED");
-        case CydiaRepositoryAccessStateUnsupported: return result.account.compatibilityNotice ?: CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED");
+        case CydiaRepositoryAccessStateUnsupported: return result.error.localizedDescription ?: CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED");
         case CydiaRepositoryAccessStateUnavailable: return CydiaAccountLocalize(@"ACCOUNT_UNAVAILABLE");
         case CydiaRepositoryAccessStateFailed: return result.error.localizedDescription ?: CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED");
     }

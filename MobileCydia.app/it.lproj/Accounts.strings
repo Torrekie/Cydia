@@ -26,6 +26,8 @@
 "ACCOUNT_NOT_PURCHASED" = "Non acquistato";
 "ACCOUNT_OWNED_UNAVAILABLE" = "Acquistato, ma al momento non disponibile da questa sorgente.";
 "ACCOUNT_ITEM_NOT_IN_SOURCE" = "Acquistato. Al momento nessun pacchetto di questa sorgente è selezionato per l’installazione. Controlla le versioni e le preferenze delle sorgenti.";
+"ACCOUNT_ITEM_ARCHITECTURE_UNSUPPORTED" = "Acquistato. Nessuna versione di questa sorgente supporta le architetture configurate su questo dispositivo.";
+"ACCOUNT_ITEM_NO_VERSION" = "Acquistato. Al momento nessuna versione è disponibile per il download da questa sorgente.";
 "ACCOUNT_NO_PURCHASES" = "Nessun acquisto trovato.";
 "ACCOUNT_CHECK_PURCHASE" = "Verifica stato dell’acquisto";
 "ACCOUNT_PURCHASE_CONFIRM" = "Acquistare %@ per %@ da %@ (%@)? L’acquisto aggiunge il pacchetto all’account presso questo fornitore. L’installazione è un passaggio separato.";
@@ -36,12 +38,11 @@
 "ACCOUNT_PURCHASE_PENDING" = "Il fornitore non ha ancora confermato l’acquisto. Verifica lo stato dell’acquisto o contatta il fornitore. Cydia non invierà un’altra richiesta di acquisto.";
 "ACCOUNT_PURCHASE_UNKNOWN" = "L’esito dell’acquisto è sconosciuto. Verifica lo stato dell’acquisto o contatta il fornitore prima di pagare di nuovo. Cydia non ripeterà la richiesta di acquisto.";
 "ACCOUNT_PURCHASE_OPTIONS" = "Acquisti e account";
-"ACCOUNT_CLIENT_POLICY" = "Questo fornitore al momento non supporta i download a pagamento in Cydia. Verifica quali gestori di pacchetti supporta prima di acquistare.";
+"ACCOUNT_CLIENT_POLICY" = "Il fornitore non consente questa operazione per questo account o dispositivo.";
 "ACCOUNT_FILTERED" = "Il fornitore ha bloccato questa richiesta. Verifica lo stato del servizio o contatta l’assistenza.";
 "ACCOUNT_CANCELLED" = "L’autorizzazione all’acquisto è stata annullata. Non è stata inviata alcuna richiesta di acquisto.";
 "ACCOUNT_REAUTHENTICATE" = "Accedi nuovamente per autorizzare gli acquisti in sicurezza. L’accesso attuale permette ancora di verificare il tuo account.";
 "ACCOUNT_OFFER_CHANGED" = "Il prezzo è cambiato. Controlla il prezzo aggiornato prima di acquistare.";
-"ACCOUNT_COMPATIBILITY_UNVERIFIED" = "Questo fornitore ha indirizzato gli utenti di Cydia a un altro gestore di pacchetti. L’accesso all’account non garantisce che il pagamento o i download a pagamento funzionino.";
 "ACCOUNT_AUTHORIZE_PURCHASE" = "Autorizza questo acquisto confermato dal repository.";
 "ACCOUNT_SOURCES" = "Sorgenti";
 "ACCOUNT_LINKED_ACCOUNTS" = "Account collegati";

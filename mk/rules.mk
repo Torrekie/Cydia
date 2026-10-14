@@ -159,6 +159,7 @@ $(OBJECT_DIR)/%.o: %.mm $(header)
 	@$(cycc) $(plus) $(objc_arc) -c -o $@ $< $(flag)
 
 $(OBJECT_DIR)/Version.o: $(VERSION_HEADER)
+$(OBJECT_DIR)/Cydia/RepositoryIdentityValues.o: $(VERSION_HEADER)
 
 $(VERSION_HEADER): FORCE
 	@./version.sh --header $@ >/dev/null
