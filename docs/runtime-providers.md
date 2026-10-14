@@ -792,6 +792,11 @@ Keychain or vendor acceptance.
 Keep long-lived account tokens and purchase secrets in Keychain. Honor any
 protocol-required user authentication and disclose required device binding;
 do not send permanent device identifiers with every public metadata request.
+Package details reuse an existing login for the selected source to read its
+price and ownership, just as the purchased-items list does. Without a login,
+price lookup remains anonymous; opening details never starts device linking,
+purchases or archive authorization. The protocol's anonymous price lookup is
+optional, so rejection of an empty request is not evidence of a broken login.
 Bind an authorization grant to the source, account, package, version and
 selected package architecture, including foreign architectures. Obtain a
 short-lived HTTPS grant near download time. Reauthorization after expiry must

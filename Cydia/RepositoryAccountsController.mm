@@ -586,6 +586,7 @@
         RepositoryAccountsController *controller = [[RepositoryAccountsController alloc]
             initWithSourceURL:[NSURL URLWithString:source[@"url"]] name:source[@"name"] package:nil];
         controller.rememberedMetadata = source[@"metadata"];
+        [controller setDelegate:self.delegate];
         [self.navigationController pushViewController:controller animated:YES];
         return;
     }

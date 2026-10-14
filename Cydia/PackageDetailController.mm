@@ -649,20 +649,25 @@ NSString *ContactURLString(CydiaPackageDetailViewModel *viewModel) {
         if (!account || !account.supportsAccountIntegration) {
             self.repositoryInfoLoading = NO; self.repositoryInfoLoaded = YES; [self reloadRepositoryPackageRow]; return;
         }
-        /* Public package metadata does not send a token or device identifier.
-         * Ownership is checked only in the source-scoped account interface. */
-        [service anonymousPackageInfo:selection.baseIdentity ?: selection.identity account:account
-            completion:^(NSDictionary *info, NSError *packageError) {
+        /* Reuse an existing source-scoped login, as the purchased list does.
+         * Anonymous metadata is optional in the payment protocol: providers
+         * may require device fields even for a price lookup. Never begin
+         * device linking merely because a package detail page was opened. */
+        const BOOL signedIn = account.signedIn;
+        void (^completion)(NSDictionary *, NSError *) = ^(NSDictionary *info, NSError *packageError) {
             PackageDetailController *self = weakSelf;
             if (!self || self.repositoryRequestGeneration != generation || self.viewModel != selection) return;
             self.repositoryInfoLoading = NO; self.repositoryInfoLoaded = YES;
             self.repositoryPresentation = [[CydiaRepositoryPackagePresentation alloc] initWithInfo:packageError ? nil : info
-                signedIn:NO supported:account.supportsAccountIntegration downloadAvailable:NO
+                signedIn:signedIn supported:account.supportsAccountIntegration downloadAvailable:NO
                 downloadSupported:(account.capabilities & CydiaRepositoryCapabilityDownload) != 0
                 purchaseAvailable:NO purchaseURL:nil];
-            if (packageError) self.repositoryAccountNotice = packageError.localizedDescription;
+            self.repositoryAccountNotice = packageError.localizedDescription;
             [self reloadRepositoryPackageRow];
-        }];
+        };
+        NSString *package = selection.baseIdentity ?: selection.identity;
+        if (signedIn) [service packageInfo:package account:account completion:completion];
+        else [service anonymousPackageInfo:package account:account completion:completion];
     }];
 }
 - (void)reloadRepositoryPackageRow {
@@ -1138,6 +1143,10 @@ dispatch:
 
 - (void)selectModifyAction:(CydiaPackageDetailModifyAction *)action {
     if ([action kind] == CydiaPackageDetailModifyActionKindAccount) {
+        /* Login/logout in the account page must replace any cached price or
+         * anonymous error when returning to this package. */
+        _repositoryInfoLoading = NO; _repositoryInfoLoaded = NO;
+        ++_repositoryRequestGeneration;
         [self showRepositoryAccount];
         return;
     }

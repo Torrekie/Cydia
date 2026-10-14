@@ -61,6 +61,7 @@
             selection.homepageURLString ? [NSURL URLWithString:selection.homepageURLString] : nil)
         selectionIsCurrent:selectionIsCurrent prepareSelection:prepareSelection];
     controller.downloadEngineUnsupported = !database.repositoryAuthorizedDownloadsSupported;
+    [controller setDelegate:self.delegate];
     [self.navigationController pushViewController:controller animated:YES];
 }
 @end
