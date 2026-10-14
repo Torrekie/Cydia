@@ -196,7 +196,7 @@
     source_ = [source isKindOfClass:NSString.class] && source.length != 0 ?
         [NSString stringWithFormat:UCLocalize("FROM"), source] : nil;
     price_ = [price isKindOfClass:NSString.class] ? [price copy] : nil;
-    icon_ = [icon isKindOfClass:UIImage.class] ? icon : [UIImage imageNamed:@"folder.png"];
+    icon_ = [icon isKindOfClass:UIImage.class] ? icon : [UIImage imageNamed:@"unknown.png"];
     self.accessoryView = nil;
     self.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     self.selectionStyle = UITableViewCellSelectionStyleDefault;

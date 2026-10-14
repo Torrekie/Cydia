@@ -157,7 +157,11 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
                registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures;
 - (nullable instancetype)initWithPackage:(Package *)package
                registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
-                    versionArchitecture:(nullable NSString *)versionArchitecture NS_DESIGNATED_INITIALIZER;
+                    versionArchitecture:(nullable NSString *)versionArchitecture;
+- (nullable instancetype)initWithPackage:(Package *)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
+                    versionArchitecture:(nullable NSString *)versionArchitecture
+                   repositoryConstraint:(nullable NSURL *)repositoryConstraint NS_DESIGNATED_INITIALIZER;
 - (nullable instancetype)initWithRepositoryPackage:(const CydiaAPT::RepositoryPackageAvailabilityData &)availability
                                       identifier:(NSString *)identifier
                                        sourceURL:(NSURL *)sourceURL

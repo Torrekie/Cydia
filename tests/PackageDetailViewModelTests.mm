@@ -617,6 +617,19 @@ void TestDelayedAccountActionSelection() {
     FakePackageSource *source = [FakePackageSource new];
     source.keyValue = [@"source" mutableCopy]; source.rootValue = @"https://repo.example/";
     package.sourceValue = source;
+    FakePackage *sameVersion(BasePackage(@"runtime:iphoneos-arm64"));
+    sameVersion.sourceValue = source;
+    FakePackageSource *otherSource = [FakePackageSource new]; otherSource.rootValue = @"https://another.example/";
+    FakePackage *otherVersion(BasePackage(@"runtime:iphoneos-arm64")); otherVersion.sourceValue = otherSource;
+    package.downgradesValue = @[sameVersion, otherVersion];
+    NSURL *constraint = [NSURL URLWithString:source.rootValue];
+    auto scoped = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package
+        registeredArchitectures:@[@"iphoneos-arm64"] versionArchitecture:nil repositoryConstraint:constraint];
+    Require(scoped.modifyActions.lastObject.versions.count == 1,
+        "purchased source version picker included another repository's package");
+    Require([[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)otherVersion
+        registeredArchitectures:@[@"iphoneos-arm64"] versionArchitecture:nil repositoryConstraint:constraint] == nil,
+        "source-constrained snapshot accepted another repository's package");
     CydiaPackageDetailViewModel *(^snapshot)(void) = ^{
         return [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
     };

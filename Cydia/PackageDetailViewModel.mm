@@ -575,10 +575,19 @@ NSDictionary *SourceSnapshot(id source) {
 - (nullable instancetype)initWithPackage:(Package *)package
                registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
                     versionArchitecture:(nullable NSString *)versionArchitecture {
+    return [self initWithPackage:package registeredArchitectures:registeredArchitectures
+        versionArchitecture:versionArchitecture repositoryConstraint:nil];
+}
+
+- (nullable instancetype)initWithPackage:(Package *)package
+               registeredArchitectures:(NSArray<NSString *> *)registeredArchitectures
+                    versionArchitecture:(nullable NSString *)versionArchitecture
+                   repositoryConstraint:(nullable NSURL *)repositoryConstraint {
     if (package == nil)
         return nil;
     id<CydiaPackageDetailPackageSource> sourcePackage((id)package);
     [sourcePackage parse];
+    if (repositoryConstraint && ![[[sourcePackage source] rooturi] isEqual:repositoryConstraint.absoluteString]) return nil;
 
     NSString *identity(StringOrNil([sourcePackage id]));
     NSString *baseIdentity(StringOrNil([sourcePackage baseId]));
@@ -757,6 +766,7 @@ NSDictionary *SourceSnapshot(id source) {
         if ([legacyDowngrades isKindOfClass:[NSArray class]]) {
             for (id value in legacyDowngrades) {
                 id<CydiaPackageDetailPackageSource> versionPackage(value);
+                if (repositoryConstraint && ![[[versionPackage source] rooturi] isEqual:repositoryConstraint.absoluteString]) continue;
                 if ([versionPackage respondsToSelector:@selector(architectureSupported)] &&
                     ![versionPackage architectureSupported]) continue;
                 CydiaPackageDetailVersionChoice *choice(

@@ -202,7 +202,8 @@ NSURL *PackageRouteURL(NSString *URLString) {
     for (Package *version in [current availableVersions])
         if ([[version id] isEqualToString:[package id]] &&
             [[version fullVersion] isEqualToString:[package fullVersion]] &&
-            [[version architecture] isEqual:[package architecture]])
+            [[version architecture] isEqual:[package architecture]] &&
+            (repositoryURL_ == nil || [[version.source rooturi] isEqual:[repositoryURL_ absoluteString]]))
             return [self.delegate installPackage:version];
     [self reloadData];
 }
@@ -300,7 +301,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
     CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
         [[CydiaPackageDetailViewModel alloc] initWithPackage:package
             registeredArchitectures:[package registeredArchitectures]
-            versionArchitecture:PackageVersionArchitectureFilter(name, package)]);
+            versionArchitecture:PackageVersionArchitectureFilter(name, package) repositoryConstraint:repositoryURL]);
     if (!viewModel && repositoryURL) viewModel = [self repositoryOnlyModelForDatabase:database name:name URL:repositoryURL];
     if (viewModel == nil)
         return nil;
@@ -333,6 +334,12 @@ NSURL *PackageRouteURL(NSString *URLString) {
                                   viewModel:(CydiaPackageDetailViewModel *)viewModel {
     package_ = package;
     versions_ = [package availableVersions] ?: @[];
+    if (repositoryURL_ != nil) {
+        NSMutableArray *versions = [NSMutableArray array];
+        for (Package *version in (NSArray *)versions_)
+            if ([[version.source rooturi] isEqual:[repositoryURL_ absoluteString]]) [versions addObject:version];
+        versions_ = [versions copy];
+    }
     commercial_ = [viewModel isCommercial];
 
     buttons_.clear();
@@ -352,7 +359,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
     CydiaPackageDetailViewModel *viewModel(package == nil ? nil :
         [[CydiaPackageDetailViewModel alloc] initWithPackage:package
             registeredArchitectures:[package registeredArchitectures]
-            versionArchitecture:PackageVersionArchitectureFilter(name_, package)]);
+            versionArchitecture:PackageVersionArchitectureFilter(name_, package) repositoryConstraint:repositoryURL_]);
     if (!viewModel && repositoryURL_ != nil)
         viewModel = [self repositoryOnlyModelForDatabase:database_ name:name_ URL:repositoryURL_];
     [self bindLegacyCompatibilitySessionForPackage:package];
@@ -412,7 +419,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
      * candidate, a different source, or an action now blocked by a hold. */
     CydiaPackageDetailViewModel *fresh([[CydiaPackageDetailViewModel alloc]
         initWithPackage:package registeredArchitectures:[package registeredArchitectures]
-        versionArchitecture:PackageVersionArchitectureFilter(name_, package)]);
+        versionArchitecture:PackageVersionArchitectureFilter(name_, package) repositoryConstraint:repositoryURL_]);
     if (!CydiaPackageDetailCanPerformAction(self.viewModel, fresh, action.kind)) {
         [self reloadData]; return;
     }
@@ -440,7 +447,8 @@ NSURL *PackageRouteURL(NSString *URLString) {
     for (Package *version in [package availableVersions])
         if ([[version id] isEqualToString:[versionChoice identity]] &&
             [[version fullVersion] isEqualToString:[versionChoice fullVersion]] &&
-            [[version architecture] isEqual:[versionChoice architecture]])
+            [[version architecture] isEqual:[versionChoice architecture]] &&
+            (repositoryURL_ == nil || [[version.source rooturi] isEqual:[repositoryURL_ absoluteString]]))
             return [self.delegate installPackage:version];
     [self reloadData];
 }
