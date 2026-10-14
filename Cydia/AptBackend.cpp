@@ -616,7 +616,7 @@ PackageRecordData ReadPackageRecord(pkgRecords::Parser &parser) {
         "Maintainer", "Depends", "Pre-Depends", "Recommends", "Suggests",
         "Conflicts", "Replaces", "Provides", "Installed-Size", "Filename",
         "Size", "MD5sum", "SHA256", "Icon", "Depiction", "Homepage", "Website",
-        "Bugs", "Support", "Author", "Multi-Arch", "Maemo-Display-Name", "Tag",
+        "Bugs", "Support", "Author", "Sponsor", "Multi-Arch", "Maemo-Display-Name", "Tag",
     };
     for (size_t index(0); index != sizeof(fieldNames) / sizeof(fieldNames[0]); ++index)
         data.fields[fieldNames[index]] = record.field(fieldNames[index]);

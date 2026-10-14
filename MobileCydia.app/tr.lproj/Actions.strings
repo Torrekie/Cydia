@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "Ek · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "Mimariden bağımsız · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Desteklenmiyor · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Bu paketin mimarisi seçili paket yöneticisinde etkin değil.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Bu paketin kullanılabilir hiçbir sürümü, bu cihazda yapılandırılan mimarileri desteklemiyor.";
 "PACKAGE_VERSION_UNAVAILABLE" = "Seçilen paket sürümü artık kullanılamıyor. Paket bilgilerini yeniden yükleyip değişiklikleri inceleyin.";
 
 "PACKAGE_LOOKUP_TITLE" = "Paket kullanılamıyor";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Geçici Paket Değişiklikleri";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Bu yüklü paket sürümleri geçici olarak yapılandırılmamış duruma geçebilir. Cydia işlemi tamamlamadan önce burada gösterilen sonraki işlemlerin bitmesi gerekir.";
+
+"PACKAGE_TAGS" = "Etiketler";
+"PACKAGE_SPONSOR" = "Sponsor";
+"PACKAGE_ICON" = "Simge";

@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "Ytterligare · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "Arkitekturoberoende · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Stöds inte · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Paketets arkitektur är inte aktiverad i den valda pakethanteraren.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Ingen tillgänglig version av det här paketet stöder enhetens konfigurerade arkitekturer.";
 "PACKAGE_VERSION_UNAVAILABLE" = "Den valda paketversionen är inte längre tillgänglig. Läs in paketinformationen igen och granska ändringarna.";
 
 "PACKAGE_LOOKUP_TITLE" = "Paketet är inte tillgängligt";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Tillfälliga paketändringar";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Dessa installerade paketversioner kan tillfälligt få statusen ”inte konfigurerad”. De uppföljande åtgärder som visas här måste slutföras innan Cydia avslutar processen.";
+
+"PACKAGE_TAGS" = "Taggar";
+"PACKAGE_SPONSOR" = "Sponsor";
+"PACKAGE_ICON" = "Ikon";

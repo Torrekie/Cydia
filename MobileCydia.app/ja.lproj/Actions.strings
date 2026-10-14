@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "追加 · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "アーキテクチャ非依存 · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "未対応 · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "このパッケージのアーキテクチャは、選択したパッケージマネージャーで有効になっていません。";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "このパッケージには、このデバイスに設定されたアーキテクチャに対応する利用可能なバージョンがありません。";
 "PACKAGE_VERSION_UNAVAILABLE" = "選択したパッケージのバージョンは利用できなくなりました。パッケージ情報を再読み込みし、変更内容を確認してください。";
 
 "PACKAGE_LOOKUP_TITLE" = "パッケージを利用できません";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "パッケージの一時的な変更";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "これらのインストール済みパッケージのバージョンは、一時的に未設定の状態になる場合があります。Cydia が処理を完了するには、ここに表示される後続の操作が完了する必要があります。";
+
+"PACKAGE_TAGS" = "タグ";
+"PACKAGE_SPONSOR" = "スポンサー";
+"PACKAGE_ICON" = "アイコン";

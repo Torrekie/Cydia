@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "Supplémentaire · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "Indépendante de l’architecture · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Non prise en charge · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "L’architecture de ce paquet n’est pas activée dans le gestionnaire de paquets sélectionné.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Aucune version disponible de ce paquet ne prend en charge les architectures configurées sur cet appareil.";
 "PACKAGE_VERSION_UNAVAILABLE" = "La version sélectionnée du paquet n’est plus disponible. Rechargez les informations du paquet et vérifiez les modifications.";
 
 "PACKAGE_LOOKUP_TITLE" = "Paquet indisponible";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Modifications temporaires des paquets";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Ces versions de paquets installées peuvent passer temporairement à l’état non configuré. Les opérations suivantes affichées ici doivent être terminées avant que Cydia puisse achever le traitement.";
+
+"PACKAGE_TAGS" = "Étiquettes";
+"PACKAGE_SPONSOR" = "Sponsor";
+"PACKAGE_ICON" = "Icône";

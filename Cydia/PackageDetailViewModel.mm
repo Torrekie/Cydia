@@ -191,6 +191,48 @@ NSString *RepositoryURLString(id value) {
     return text;
 }
 
+NSDictionary *RepositoryAddress(NSString *value, BOOL resource = NO) {
+    NSString *text([RepositoryText(value, 4096) stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet]);
+    if (text.length == 0) return nil;
+    NSString *name(text), *candidate(text), *address(nil);
+    NSRange start([text rangeOfString:@"<"]), end([text rangeOfString:@">"]);
+    if (start.location != NSNotFound && end.location == text.length - 1 && end.location > start.location &&
+        [[text substringFromIndex:start.location + 1] rangeOfString:@"<"].location == NSNotFound) {
+        name = [[text substringToIndex:start.location] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        candidate = [[text substringWithRange:NSMakeRange(start.location + 1, end.location - start.location - 1)]
+            stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+    } else if (start.location != NSNotFound || end.location != NSNotFound) {
+        candidate = nil;
+    }
+    if (resource) address = RepositoryURLString(candidate);
+    else {
+        NSCharacterSet *invalid([NSCharacterSet characterSetWithCharactersInString:@" <>?&#%/:\\\t\r\n"]);
+        NSArray *parts([candidate componentsSeparatedByString:@"@"]);
+        if (parts.count == 2 && [parts[0] length] != 0 && [parts[1] length] != 0 &&
+            [candidate rangeOfCharacterFromSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].location == NSNotFound &&
+            [candidate rangeOfCharacterFromSet:invalid].location == NSNotFound)
+            address = [candidate copy];
+    }
+    if (name.length > 1 && [name hasPrefix:@"\""] && [name hasSuffix:@"\""])
+        name = [name substringWithRange:NSMakeRange(1, name.length - 2)];
+    name = RepositoryText(name, 512);
+    if (name == nil && address == nil) return nil;
+    NSMutableDictionary *result([NSMutableDictionary dictionary]);
+    if (name != nil) result[@"name"] = name;
+    if (address != nil) result[@"address"] = address;
+    return [result copy];
+}
+
+NSArray<NSString *> *RepositoryTags(id value) {
+    if (![value isKindOfClass:NSArray.class]) return @[];
+    NSMutableArray<NSString *> *tags([NSMutableArray array]);
+    for (id candidate in value) {
+        NSString *tag(RepositoryText(candidate, 256));
+        if (tag != nil && ![tags containsObject:tag]) [tags addObject:tag];
+    }
+    return [tags copy];
+}
+
 NSArray<NSString *> *StringArray(id value) {
     if (![value isKindOfClass:[NSArray class]])
         return @[];
@@ -489,6 +531,7 @@ NSDictionary *SourceSnapshot(id source) {
         _contactKind = CydiaPackageDetailContactKindPackageSupport;
         _applications = @[];
         _modifyActions = @[];
+        _tags = @[];
         _warnings = @[[[NSBundle mainBundle] localizedStringForKey:@"ACCOUNT_ITEM_NOT_IN_SOURCE"
             value:@"No selected local package from this repository. Refresh sources to check availability." table:@"Accounts"]];
 
@@ -514,11 +557,41 @@ NSDictionary *SourceSnapshot(id source) {
             _depictionURLString = RepositoryURLString(RepositoryField(record, "Depiction", 8192));
             _supportURLString = RepositoryURLString(RepositoryField(record, "Support", 8192)) ?:
                 RepositoryURLString(RepositoryField(record, "Bugs", 8192));
+            _iconURLString = RepositoryURLString(RepositoryField(record, "Icon", 8192));
+            NSString *author(RepositoryField(record, "Author"));
+            NSString *maintainer(RepositoryField(record, "Maintainer") ?: RepositoryText(record.maintainer, 4096));
+            NSString *sponsor(RepositoryField(record, "Sponsor"));
+            NSDictionary *authorValue(RepositoryAddress(author)), *maintainerValue(RepositoryAddress(maintainer));
+            NSDictionary *sponsorValue(RepositoryAddress(sponsor, YES));
+            _authorName = authorValue[@"name"]; _authorAddress = authorValue[@"address"];
+            _maintainerName = maintainerValue[@"name"]; _maintainerAddress = maintainerValue[@"address"];
+            _sponsorName = sponsorValue[@"name"]; _sponsorURLString = sponsorValue[@"address"];
+            if (authorValue != nil) {
+                _contactKind = CydiaPackageDetailContactKindAuthor;
+                _contactName = _authorName; _contactAddress = _authorAddress;
+            } else if (maintainerValue != nil) {
+                _contactKind = CydiaPackageDetailContactKindMaintainer;
+                _contactName = _maintainerName; _contactAddress = _maintainerAddress;
+            }
+            if (author != nil) fields[@"Author"] = author;
+            if (maintainer != nil) fields[@"Maintainer"] = maintainer;
+            if (_sponsorURLString != nil) fields[@"Sponsor"] = sponsor;
+            else if (_sponsorName != nil) fields[@"Sponsor"] = _sponsorName;
             for (const std::string &value : record.tags) {
                 NSString *tag(RepositoryText(value, 256));
                 if (tag != nil && ![tags containsObject:tag]) [tags addObject:tag];
             }
-            _commercial = [tags containsObject:@"cydia::commercial"];
+            NSString *tagField(RepositoryField(record, "Tag", 8192));
+            if (tagField != nil) {
+                fields[@"Tag"] = tagField;
+                if (tags.count == 0)
+                    for (NSString *value in [tagField componentsSeparatedByString:@","]) {
+                        NSString *tag([value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet]);
+                        if (tag.length != 0) [tags addObject:tag];
+                    }
+            }
+            _tags = RepositoryTags(tags);
+            _commercial = [_tags containsObject:@"cydia::commercial"];
             if (architectures.count && !availability.architectures.empty() && !availability.hasCompatibleVersion)
                 _warnings = @[ActionText(@"PACKAGE_ARCHITECTURE_UNSUPPORTED")];
             else if (!availability.hasDownloadableVersion)
@@ -538,6 +611,7 @@ NSDictionary *SourceSnapshot(id source) {
         if (_homepageURLString != nil) fields[@"Homepage"] = _homepageURLString;
         if (_depictionURLString != nil) fields[@"Depiction"] = _depictionURLString;
         if (_supportURLString != nil) fields[@"Support"] = _supportURLString;
+        if (_iconURLString != nil) fields[@"Icon"] = _iconURLString;
         NSDictionary *source(@{@"rooturi": URLString, @"name": _source.name,
             @"host": _source.host ?: @""});
         NSDictionary *values(@{
@@ -548,12 +622,21 @@ NSDictionary *SourceSnapshot(id source) {
             @"section": _rawSection ?: NSNull.null, @"longSection": _localizedSection ?: NSNull.null,
             @"multiArch": _multiArch ?: NSNull.null, @"homepage": _homepageURLString ?: NSNull.null,
             @"depiction": _depictionURLString ?: NSNull.null, @"support": _supportURLString ?: NSNull.null,
+            @"icon": _iconURLString ?: NSNull.null,
+            @"sponsor": _sponsorName != nil || _sponsorURLString != nil ?
+                (id)@{@"name": _sponsorName ?: @"", @"address": _sponsorURLString ?: (id)NSNull.null} : (id)NSNull.null,
             @"installed": NSNull.null, @"mode": NSNull.null, @"state": NSNull.null,
             @"selection": NSNull.null, @"warnings": _warnings,
         });
+        NSMutableDictionary *legacyPackage([@{@"values": values, @"fields": [fields copy], @"tags": _tags,
+            @"source": source, @"applications": @[], @"relations": @[]} mutableCopy]);
+        if (_authorName != nil || _authorAddress != nil)
+            legacyPackage[@"author"] = @{ @"name": _authorName ?: @"", @"address": _authorAddress ?: (id)NSNull.null };
+        if (_maintainerName != nil || _maintainerAddress != nil)
+            legacyPackage[@"maintainer"] = @{ @"name": _maintainerName ?: @"", @"address": _maintainerAddress ?: (id)NSNull.null };
+        if ([values[@"sponsor"] isKindOfClass:NSDictionary.class]) legacyPackage[@"sponsor"] = values[@"sponsor"];
         _legacyDepictionSnapshot = @{
-            @"package": @{@"values": values, @"fields": [fields copy], @"tags": [tags copy],
-                @"source": source, @"applications": @[], @"relations": @[]},
+            @"package": [legacyPackage copy],
             @"source": source, @"preferredLanguages": [NSLocale preferredLanguages] ?: @[],
             @"localeIdentifier": NSLocale.currentLocale.localeIdentifier ?: @"en_US",
             @"supports": @[@"depiction", @"window.cydia", @"ios12"],
@@ -664,6 +747,12 @@ NSDictionary *SourceSnapshot(id source) {
         _supportURLString = URLStringOrNil([sourcePackage support]);
         _homepageURLString = URLStringOrNil([sourcePackage homepage]);
         _depictionURLString = URLStringOrNil([sourcePackage depiction]);
+        _tags = RepositoryTags([sourcePackage respondsToSelector:@selector(tags)] ? [sourcePackage tags] : nil);
+        NSString *iconField([sourcePackage respondsToSelector:@selector(getField:)] ? [sourcePackage getField:@"Icon"] : nil);
+        NSString *sponsorField([sourcePackage respondsToSelector:@selector(getField:)] ? [sourcePackage getField:@"Sponsor"] : nil);
+        _iconURLString = RepositoryURLString(iconField);
+        NSDictionary *sponsor(RepositoryAddress(sponsorField, YES));
+        _sponsorName = sponsor[@"name"]; _sponsorURLString = sponsor[@"address"];
 
         NSMutableDictionary *legacyPackage([NSMutableDictionary dictionary]);
         NSDictionary *packageValues(@{
@@ -692,18 +781,20 @@ NSDictionary *SourceSnapshot(id source) {
             @"size": @(_installedSizeBytes),
             @"state": state ?: [NSNull null],
             @"support": _supportURLString ?: [NSNull null],
+            @"sponsor": sponsor ?: (id)NSNull.null,
             @"upgraded": @((long long) upgraded),
             @"warnings": _warnings ?: @[],
         });
         [legacyPackage setObject:packageValues forKey:@"values"];
+        if (sponsor != nil) legacyPackage[@"sponsor"] = sponsor;
         NSDictionary *author(AddressSnapshot([sourcePackage author]));
         if (author != nil)
             [legacyPackage setObject:author forKey:@"author"];
         NSDictionary *maintainer(AddressSnapshot([sourcePackage maintainer]));
         if (maintainer != nil)
             [legacyPackage setObject:maintainer forKey:@"maintainer"];
-        NSArray *tags([sourcePackage respondsToSelector:@selector(tags)] ?
-            PropertyListValue([sourcePackage tags], 0) : nil);
+        NSArray *tags([sourcePackage respondsToSelector:@selector(tags)] &&
+            [[sourcePackage tags] isKindOfClass:NSArray.class] ? _tags : nil);
         if (tags != nil)
             [legacyPackage setObject:tags forKey:@"tags"];
         NSArray *purposes([sourcePackage respondsToSelector:@selector(purposes)] ?
@@ -727,13 +818,16 @@ NSDictionary *SourceSnapshot(id source) {
                               @"Pre-Depends", @"Recommends", @"Suggests", @"Conflicts",
                               @"Replaces", @"Provides", @"Installed-Size", @"Filename",
                               @"Size", @"MD5sum", @"SHA256", @"Tag", @"Homepage",
-                              @"Depiction", @"Support", @"Author" ]);
+                              @"Depiction", @"Support", @"Author", @"Icon", @"Sponsor" ]);
         for (NSString *fieldName in fieldNames) {
             id field([sourcePackage respondsToSelector:@selector(getField:)] ?
                 PropertyListValue([sourcePackage getField:fieldName], 0) : nil);
             if (field != nil && field != [NSNull null])
                 [fields setObject:field forKey:fieldName];
         }
+        if (_sponsorURLString != nil) fields[@"Sponsor"] = RepositoryText(sponsorField, 4096);
+        else if (_sponsorName != nil) fields[@"Sponsor"] = _sponsorName;
+        else [fields removeObjectForKey:@"Sponsor"];
         [legacyPackage setObject:[fields copy] forKey:@"fields"];
 
         id<CydiaPackageDetailSourceSource> packageSource([sourcePackage source]);

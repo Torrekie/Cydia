@@ -136,6 +136,10 @@ typedef NS_ENUM(NSUInteger, CydiaPackageDetailModifyActionKind) {
 @property(nonatomic, copy, readonly, nullable) NSString *supportURLString;
 @property(nonatomic, copy, readonly, nullable) NSString *homepageURLString;
 @property(nonatomic, copy, readonly, nullable) NSString *depictionURLString;
+@property(nonatomic, copy, readonly) NSArray<NSString *> *tags;
+@property(nonatomic, copy, readonly, nullable) NSString *iconURLString;
+@property(nonatomic, copy, readonly, nullable) NSString *sponsorName;
+@property(nonatomic, copy, readonly, nullable) NSString *sponsorURLString;
 
 /* Immutable, property-list-shaped data used to seed the bounded repository
  * depiction facade.  It contains only the current package/source snapshot;

@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "Zusätzlich · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "Architekturunabhängig · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Nicht unterstützt · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Die Architektur dieses Pakets ist im ausgewählten Paketmanager nicht aktiviert.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Keine verfügbare Version dieses Pakets unterstützt die auf diesem Gerät konfigurierten Architekturen.";
 "PACKAGE_VERSION_UNAVAILABLE" = "Die ausgewählte Paketversion ist nicht mehr verfügbar. Lade die Paketinformationen neu und überprüfe die Änderungen.";
 
 "PACKAGE_LOOKUP_TITLE" = "Paket nicht verfügbar";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Vorübergehende Paketänderungen";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Diese installierten Paketversionen können vorübergehend in den Zustand „nicht konfiguriert“ wechseln. Die hier angezeigten Folgeaktionen müssen abgeschlossen sein, bevor Cydia den Vorgang abschließt.";
+
+"PACKAGE_TAGS" = "Tags";
+"PACKAGE_SPONSOR" = "Sponsor";
+"PACKAGE_ICON" = "Symbol";

@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "额外 · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "与架构无关 · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "不支持 · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "所选软件包管理器未启用此软件包的架构。";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "此软件包没有支持本设备已配置架构的可用版本。";
 "PACKAGE_VERSION_UNAVAILABLE" = "所选软件包版本已不可用。请重新载入软件包信息并检查更改。";
 
 "PACKAGE_LOOKUP_TITLE" = "软件包不可用";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "软件包临时更改";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "这些已安装的软件包版本可能会暂时进入未配置状态。这里列出的后续操作必须完成，Cydia 才会结束本次处理。";
+
+"PACKAGE_TAGS" = "标签";
+"PACKAGE_SPONSOR" = "赞助者";
+"PACKAGE_ICON" = "图标";

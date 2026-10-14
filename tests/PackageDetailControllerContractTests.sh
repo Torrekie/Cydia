@@ -125,7 +125,7 @@ grep -Fq 'if (_depictionEligible)' "$source" ||
     fail "validated depiction does not replace the native description branch"
 grep -Fq 'if ([[_viewModel displayDescription] length] != 0)' "$source" ||
     fail "depiction-less native description fallback disappeared"
-grep -Fq 'if ([[_viewModel homepageURLString] length] != 0)' "$source" ||
+grep -Fq 'if (!_viewModel.readOnly && [[_viewModel homepageURLString] length] != 0)' "$source" ||
     fail "depiction-less native homepage fallback disappeared"
 
 for specification in \

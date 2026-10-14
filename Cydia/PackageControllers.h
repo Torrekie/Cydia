@@ -37,6 +37,7 @@
 @class Database;
 @class Package;
 @class CydiaPackageLegacyIconLoader;
+@class CydiaPackageRecordIconLoader;
 @class CydiaLegacyUICompatibilityNativeSession;
 
 @interface CYPackageController : PackageDetailController
@@ -51,6 +52,7 @@
     _H<UIBarButtonItem> button_;
     _H<NSArray> versions_;
     _H<CydiaPackageLegacyIconLoader> legacyIconLoader_;
+    _H<CydiaPackageRecordIconLoader> recordIconLoader_;
     _H<NSString> legacyIconIdentity_;
     NSUInteger legacyIconGeneration_;
     __strong CydiaLegacyUICompatibilityNativeSession *legacyCompatibilitySession_;

@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "إضافي · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "مستقل عن البنية · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "غير مدعوم · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "بنية هذه الحزمة غير مفعّلة في مدير الحزم المحدد.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "لا يدعم أي إصدار متاح من هذه الحزمة البُنى المُهيّأة على هذا الجهاز.";
 "PACKAGE_VERSION_UNAVAILABLE" = "لم يعد إصدار الحزمة المحدد متاحًا. أعد تحميل معلومات الحزمة وراجع التغييرات.";
 
 "PACKAGE_LOOKUP_TITLE" = "الحزمة غير متاحة";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "تغييرات مؤقتة على الحزم";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "قد تنتقل هذه الإصدارات المثبتة من الحزم مؤقتًا إلى حالة عدم التهيئة. يجب إكمال العمليات اللاحقة المعروضة هنا قبل أن ينهي Cydia العملية.";
+
+"PACKAGE_TAGS" = "الوسوم";
+"PACKAGE_SPONSOR" = "الجهة الراعية";
+"PACKAGE_ICON" = "الأيقونة";

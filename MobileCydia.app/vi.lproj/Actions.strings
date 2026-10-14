@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "Bổ sung · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "Không phụ thuộc kiến trúc · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Không được hỗ trợ · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Kiến trúc của gói này chưa được bật trong trình quản lý gói đã chọn.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Không có phiên bản khả dụng nào của gói này hỗ trợ các kiến trúc đã cấu hình trên thiết bị này.";
 "PACKAGE_VERSION_UNAVAILABLE" = "Phiên bản gói đã chọn không còn khả dụng. Hãy tải lại thông tin gói và xem lại các thay đổi.";
 
 "PACKAGE_LOOKUP_TITLE" = "Gói không khả dụng";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Thay đổi tạm thời đối với gói";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Các phiên bản gói đã cài đặt này có thể tạm thời chuyển sang trạng thái chưa được cấu hình. Các thao tác tiếp theo hiển thị ở đây phải hoàn tất trước khi Cydia kết thúc quá trình xử lý.";
+
+"PACKAGE_TAGS" = "Thẻ";
+"PACKAGE_SPONSOR" = "Nhà tài trợ";
+"PACKAGE_ICON" = "Biểu tượng";

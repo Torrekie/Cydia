@@ -133,6 +133,7 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 @property(nonatomic, strong) id applicationsValue;
 @property(nonatomic, strong) id purposesValue;
 @property(nonatomic, strong) id tagsValue;
+@property(nonatomic, strong) NSDictionary *fieldsValue;
 @property(nonatomic, strong) id relationsValue;
 @property(nonatomic) time_t upgradedValue;
 @property(nonatomic, strong) id downgradesValue;
@@ -187,6 +188,7 @@ void RequireString(NSString *actual, NSString *expected, const char *message) {
 - (NSArray *)applications { return _applicationsValue; }
 - (NSArray *)purposes { return _purposesValue; }
 - (NSArray *)tags { return _tagsValue; }
+- (NSString *)getField:(NSString *)name { return _fieldsValue[name]; }
 - (NSArray *)relations { return _relationsValue; }
 - (time_t)upgraded { return _upgradedValue; }
 - (NSArray *)downgrades { return _downgradesValue; }
@@ -670,6 +672,11 @@ void TestReadonlyRepositorySnapshot() {
         {"Description", "Short repository description\n Long repository description"},
         {"Section", "System"}, {"Multi-Arch", "foreign"},
         {"Homepage", "https://example.test/runtime"},
+        {"Author", "\"Runtime Author\" <author@example.test>"},
+        {"Maintainer", "Runtime Packager <maintainer@example.test>"},
+        {"Sponsor", "Runtime Sponsor <http://sponsor.example/project?ref=runtime>"},
+        {"Icon", "https://repo.example/runtime.png"},
+        {"Tag", "cydia::commercial, purpose::console"},
         {"Depiction", "https://repo.example/depiction?package=runtime"},
         {"Filename", "pool/private-runtime.deb"}, {"SHA256", "not-acquisition-authority"},
     };
@@ -694,12 +701,27 @@ void TestReadonlyRepositorySnapshot() {
     RequireString(model.depictionURLString, @"https://repo.example/depiction?package=runtime",
         "readonly detail rejected safe repository depiction");
     RequireString(model.homepageURLString, @"https://example.test/runtime", "readonly detail lost safe homepage");
+    RequireString(model.authorName, @"Runtime Author", "readonly detail lost the independent author name");
+    RequireString(model.authorAddress, @"author@example.test", "readonly detail lost author mail address");
+    RequireString(model.maintainerName, @"Runtime Packager", "readonly detail conflated maintainer with author");
+    RequireString(model.maintainerAddress, @"maintainer@example.test", "readonly detail lost maintainer mail address");
+    RequireString(model.sponsorName, @"Runtime Sponsor", "readonly detail lost sponsor name");
+    RequireString(model.sponsorURLString, @"http://sponsor.example/project?ref=runtime", "Sponsor resource URI was treated as an email");
+    RequireString(model.iconURLString, @"https://repo.example/runtime.png", "readonly detail lost the public package icon");
+    Require([model.tags isEqual:@[@"cydia::commercial", @"purpose::console"]], "readonly detail lost inert package tags");
     RequireString(model.source.repositoryURLString, @"https://repo.example/ios/", "readonly detail broadened source scope");
     Require(model.isCommercial && !model.isInstalled && !model.isUpgradable && !model.isConsolePackage &&
         model.aptIdentity == nil && model.dpkgIdentity == nil && model.modifyActions.count == 0 &&
         model.primaryModifyTitleLocalizationKey == nil && model.applications.count == 0 && model.warnings.count == 1,
         "readonly detail invented package actions, local state, or executable identity");
     NSDictionary *legacyPackage(model.legacyDepictionSnapshot[@"package"]);
+    RequireString(legacyPackage[@"author"][@"address"], @"author@example.test", "readonly depiction lost structured author");
+    RequireString(legacyPackage[@"maintainer"][@"address"], @"maintainer@example.test", "readonly depiction lost structured maintainer");
+    RequireString(legacyPackage[@"sponsor"][@"address"], @"http://sponsor.example/project?ref=runtime", "readonly depiction lost structured sponsor");
+    RequireString(legacyPackage[@"values"][@"icon"], @"https://repo.example/runtime.png", "readonly depiction icon differed from safe metadata");
+    RequireString(legacyPackage[@"fields"][@"Sponsor"], @"Runtime Sponsor <http://sponsor.example/project?ref=runtime>",
+        "readonly depiction lost Sponsor's original control-field syntax");
+    RequireString(legacyPackage[@"fields"][@"Tag"], @"cydia::commercial, purpose::console", "readonly depiction lost raw Tag metadata");
     RequireString(legacyPackage[@"fields"][@"Description"],
         @"Short repository description\n Long repository description", "readonly depiction lost scoped display fields");
     Require(legacyPackage[@"fields"][@"Filename"] == nil && legacyPackage[@"fields"][@"SHA256"] == nil &&
@@ -728,6 +750,9 @@ void TestReadonlyRepositorySnapshot() {
     RequireString(model.architectureCaption, caption, "readonly detail retained mutable architecture inputs");
     RequireString(model.legacyDepictionSnapshot[@"package"][@"fields"][@"Section"], @"System",
         "readonly detail retained mutable control record fields");
+    RequireString(model.authorAddress, @"author@example.test", "readonly contact retained mutable control data");
+    RequireString(model.sponsorURLString, @"http://sponsor.example/project?ref=runtime", "readonly sponsor retained mutable control data");
+    Require(model.tags.count == 2, "readonly tags retained mutable control data");
 
     availability.known = false;
     availability.record.fields["Depiction"] = "https://other.example/unknown";
@@ -742,11 +767,59 @@ void TestReadonlyRepositorySnapshot() {
     availability.record.displayName.clear(); availability.record.longDescription.clear();
     availability.record.fields["Homepage"] = "file:///tmp/runtime";
     availability.record.fields["Depiction"] = "https://repo.example/%0adepiction";
+    availability.record.fields["Icon"] = "file:///tmp/runtime.png";
+    availability.record.fields["Sponsor"] = "Named Sponsor <javascript:alert(1)>";
+    availability.record.fields["Author"] = "Author <a?bcc=other@example.test>";
+    availability.record.fields["Maintainer"] = "Packager <maintainer@example.test>";
     auto safe = [[CydiaPackageDetailViewModel alloc] initWithRepositoryPackage:availability
         identifier:@"runtime" sourceURL:sourceURL sourceName:@"Owned Repository" registeredArchitectures:@[]];
     RequireString(safe.displayName, @"runtime", "readonly detail displayed a control-bearing repository name");
     Require(safe.homepageURLString == nil && safe.depictionURLString == nil,
         "readonly detail accepted unsafe public metadata URLs");
+    Require(safe.iconURLString == nil && safe.sponsorURLString == nil && safe.authorAddress == nil &&
+        safe.legacyDepictionSnapshot[@"package"][@"fields"][@"Icon"] == nil,
+        "readonly detail accepted an unsafe icon, sponsor, or mailto address");
+    RequireString(safe.sponsorName, @"Named Sponsor", "unsafe sponsor link erased its safe display name");
+    RequireString(safe.maintainerAddress, @"maintainer@example.test", "unsafe author erased independent safe maintainer metadata");
+    availability.record.fields["Author"] = "author@example.test";
+    availability.record.fields["Maintainer"] = "maintainer@example.test";
+    availability.record.fields["Sponsor"] = "https://sponsor.example/project?ref=runtime";
+    auto bare = [[CydiaPackageDetailViewModel alloc] initWithRepositoryPackage:availability
+        identifier:@"runtime" sourceURL:sourceURL sourceName:@"Owned Repository" registeredArchitectures:@[]];
+    RequireString(bare.authorAddress, @"author@example.test", "bare author email lost native clickability");
+    RequireString(bare.maintainerAddress, @"maintainer@example.test", "bare maintainer email lost native clickability");
+    RequireString(bare.sponsorURLString, @"https://sponsor.example/project?ref=runtime", "bare Sponsor URI lost native clickability");
+    RequireString(bare.legacyDepictionSnapshot[@"package"][@"author"][@"address"], @"author@example.test",
+        "bare contact email did not enter the readonly depiction snapshot");
+}
+
+void TestOrdinaryMetadataSnapshot() {
+    FakePackage *package(BasePackage(@"runtime"));
+    NSMutableString *icon([@"https://repo.example/icon.png" mutableCopy]);
+    NSMutableString *sponsor([@"Runtime Sponsor <https://sponsor.example/>" mutableCopy]);
+    NSMutableString *tag([@"purpose::utility" mutableCopy]);
+    package.fieldsValue = @{@"Icon": icon, @"Sponsor": sponsor};
+    package.tagsValue = [NSMutableArray arrayWithObjects:tag, @42, @"bad\ntag", nil];
+    auto model = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    RequireString(model.iconURLString, @"https://repo.example/icon.png", "ordinary detail lost safe public icon metadata");
+    RequireString(model.sponsorName, @"Runtime Sponsor", "ordinary detail lost Sponsor name");
+    RequireString(model.sponsorURLString, @"https://sponsor.example/", "ordinary detail lost Sponsor resource URI");
+    Require([model.tags isEqual:@[@"purpose::utility"]], "ordinary tags retained malformed values");
+    RequireString(model.legacyDepictionSnapshot[@"package"][@"values"][@"icon"], @"cydia://package-icon/runtime",
+        "new public icon metadata changed the ordinary package icon route");
+    [icon appendString:@".changed"]; [sponsor appendString:@" Changed"]; [tag appendString:@".changed"];
+    [(NSMutableArray *)package.tagsValue removeAllObjects];
+    RequireString(model.iconURLString, @"https://repo.example/icon.png", "ordinary icon metadata retained a mutable field");
+    RequireString(model.sponsorURLString, @"https://sponsor.example/", "ordinary Sponsor retained a mutable field");
+    Require([model.tags isEqual:@[@"purpose::utility"]], "ordinary tags retained mutable caller values");
+    package.fieldsValue = @{@"Icon": @"file:///Applications/Runtime.app/icon.png"};
+    auto localIcon = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    Require(localIcon.iconURLString == nil, "new public icon metadata accepted a local file URI");
+    RequireString(localIcon.legacyDepictionSnapshot[@"package"][@"fields"][@"Icon"],
+        @"file:///Applications/Runtime.app/icon.png", "ordinary depiction lost its original raw Icon field");
+    package.fieldsValue = @{@"Icon": @"https://user:secret@repo.example/icon.png", @"Sponsor": @"Sponsor <file:///tmp/site>"};
+    auto unsafe = [[CydiaPackageDetailViewModel alloc] initWithPackage:(Package *)(id)package];
+    Require(unsafe.iconURLString == nil && unsafe.sponsorURLString == nil, "ordinary detail accepted unsafe public metadata URLs");
 }
 
 int main() {
@@ -759,6 +832,7 @@ int main() {
         TestNullabilityFallbackAndContactPriority();
         TestDelayedAccountActionSelection();
         TestReadonlyRepositorySnapshot();
+        TestOrdinaryMetadataSnapshot();
     }
     std::cout << "[verify-package-detail-view-model][ ok ] immutable package snapshot"
               << std::endl;

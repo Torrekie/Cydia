@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "額外 · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "與架構無關 · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "不支援 · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "所選套件管理員尚未啟用此套件的架構。";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "此套件沒有支援本裝置已設定架構的可用版本。";
 "PACKAGE_VERSION_UNAVAILABLE" = "所選套件版本已無法取得。請重新載入套件資訊並檢查變更。";
 
 "PACKAGE_LOOKUP_TITLE" = "套件無法使用";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "套件暫時變更";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "這些已安裝的套件版本可能會暫時進入未設定狀態。這裡列出的後續操作必須完成，Cydia 才會結束本次處理。";
+
+"PACKAGE_TAGS" = "標籤";
+"PACKAGE_SPONSOR" = "贊助者";
+"PACKAGE_ICON" = "圖示";

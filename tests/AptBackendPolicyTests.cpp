@@ -161,6 +161,7 @@ void CheckRepositoryPackageAvailability(CydiaAPT::Internal::AptBackend &backend,
         named.record.Field("Name") == named.displayName &&
         named.record.Field("Icon") == "https://fixture.invalid/portable-config.png" &&
         named.record.Field("Depiction") == "https://fixture.invalid/portable-config" &&
+        named.record.Field("Sponsor") == "Fixture Sponsor <https://sponsor.invalid/>" &&
         named.record.Field("Homepage") == "https://fixture.invalid/",
         "same-source presentation fields were omitted or borrowed from a different record");
     const auto mixed(backend.repositoryPackageAvailability("same-version-layout", sourceURL));

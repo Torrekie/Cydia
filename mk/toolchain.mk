@@ -148,6 +148,7 @@ endif
 endif
 libs += -framework IOKit
 libs += -framework QuartzCore
+libs += -framework ImageIO
 libs += -framework SafariServices
 springboard_services_framework := $(firstword $(wildcard \
     $(sdk)/System/Library/PrivateFrameworks/SpringBoardServices.framework \

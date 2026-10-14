@@ -17,7 +17,7 @@
 "PACKAGE_ARCHITECTURE_FOREIGN" = "Aanvullend · %@";
 "PACKAGE_ARCHITECTURE_ALL" = "Architectuuronafhankelijk · %@";
 "PACKAGE_ARCHITECTURE_UNSUPPORTED_LABEL" = "Niet ondersteund · %@";
-"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "De architectuur van dit pakket is niet ingeschakeld in de geselecteerde pakketbeheerder.";
+"PACKAGE_ARCHITECTURE_UNSUPPORTED" = "Geen beschikbare versie van dit pakket ondersteunt de op dit apparaat geconfigureerde architecturen.";
 "PACKAGE_VERSION_UNAVAILABLE" = "De geselecteerde pakketversie is niet meer beschikbaar. Laad de pakketinformatie opnieuw en controleer de wijzigingen.";
 
 "PACKAGE_LOOKUP_TITLE" = "Pakket niet beschikbaar";
@@ -34,3 +34,7 @@
 
 "PACKAGE_TEMPORARY_CHANGES" = "Tijdelijke pakketwijzigingen";
 "PACKAGE_TEMPORARY_CHANGES_HELP" = "Deze geïnstalleerde pakketversies kunnen tijdelijk de status ‘niet geconfigureerd’ krijgen. De hier getoonde vervolgacties moeten voltooid zijn voordat Cydia de verwerking afrondt.";
+
+"PACKAGE_TAGS" = "Tags";
+"PACKAGE_SPONSOR" = "Sponsor";
+"PACKAGE_ICON" = "Pictogram";

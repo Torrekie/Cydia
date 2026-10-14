@@ -34,6 +34,7 @@
 #include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/PackageDetailViewModel.h"
 #include "Cydia/PackageLegacyIconLoader.h"
+#include "Cydia/PackageRecordIconLoader.h"
 #include "Cydia/PackageViews.h"
 #include "Cydia/PackageUnavailableController.h"
 #include "Cydia/Section.h"
@@ -133,6 +134,8 @@ NSURL *PackageRouteURL(NSString *URLString) {
 - (void)cancelLegacyAlternateIconLoad {
     ++legacyIconGeneration_;
     [legacyIconLoader_ cancel];
+    [recordIconLoader_ cancel];
+    recordIconLoader_ = nil;
     legacyIconLoader_ = nil;
     legacyIconIdentity_ = nil;
 }
@@ -143,6 +146,18 @@ NSURL *PackageRouteURL(NSString *URLString) {
     NSString *identity([viewModel baseIdentity] ?: [viewModel identity]);
     NSUInteger generation(legacyIconGeneration_);
     __weak CYPackageController *weakSelf(self);
+    if (viewModel.readOnly) {
+        NSURL *iconURL = viewModel.iconURLString.length ? [NSURL URLWithString:viewModel.iconURLString] : nil;
+        recordIconLoader_ = [[CydiaPackageRecordIconLoader alloc] initWithURL:iconURL
+            completion:^(UIImage *image) {
+                CYPackageController *strongSelf = weakSelf;
+                if (!strongSelf || generation != strongSelf->legacyIconGeneration_ || strongSelf.viewModel != viewModel) return;
+                strongSelf->recordIconLoader_ = nil;
+                if (image) [strongSelf updateHeaderIcon:image];
+            }];
+        [recordIconLoader_ start];
+        return;
+    }
     CydiaPackageLegacyIconLoader *loader([[CydiaPackageLegacyIconLoader alloc]
         initWithPackageIdentity:identity completion:^(UIImage *image) {
             CYPackageController *strongSelf(weakSelf);
@@ -372,8 +387,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
         [self updateWithViewModel:viewModel
                        headerIcon:[package icon]
                        reloadTable:NO];
-        if (viewModel.readOnly) [self cancelLegacyAlternateIconLoad];
-        else [self startLegacyAlternateIconLoadForViewModel:viewModel];
+        [self startLegacyAlternateIconLoadForViewModel:viewModel];
     } else {
         [self cancelLegacyAlternateIconLoad];
         package_ = nil;
@@ -405,6 +419,7 @@ NSURL *PackageRouteURL(NSString *URLString) {
     [super viewDidLoad];
     button_ = self.navigationItem.rightBarButtonItem;
     [self bindLegacyCompatibilitySessionForPackage:package_];
+    if (self.viewModel.readOnly) [self startLegacyAlternateIconLoadForViewModel:self.viewModel];
 }
 
 - (void)packageDetailController:(PackageDetailController *)controller
