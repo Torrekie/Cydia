@@ -557,7 +557,13 @@ NSDictionary *SourceSnapshot(id source) {
             _depictionURLString = RepositoryURLString(RepositoryField(record, "Depiction", 8192));
             _supportURLString = RepositoryURLString(RepositoryField(record, "Support", 8192)) ?:
                 RepositoryURLString(RepositoryField(record, "Bugs", 8192));
-            _iconURLString = RepositoryURLString(RepositoryField(record, "Icon", 8192));
+            NSString *iconField(RepositoryField(record, "Icon", 8192));
+            _iconURLString = RepositoryURLString(iconField);
+            NSURLComponents *iconParts(iconField ? [NSURLComponents componentsWithString:iconField] : nil);
+            if ([iconParts.scheme.lowercaseString isEqual:@"file"] && iconParts.user == nil && iconParts.password == nil &&
+                (iconParts.host.length == 0 || [iconParts.host.lowercaseString isEqual:@"localhost"]) &&
+                iconParts.path.length && iconParts.query == nil && iconParts.fragment == nil)
+                fields[@"Icon"] = iconField; // Display reference only; never a filesystem read or web-navigation grant.
             NSString *author(RepositoryField(record, "Author"));
             NSString *maintainer(RepositoryField(record, "Maintainer") ?: RepositoryText(record.maintainer, 4096));
             NSString *sponsor(RepositoryField(record, "Sponsor"));

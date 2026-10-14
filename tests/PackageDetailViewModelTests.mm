@@ -776,9 +776,10 @@ void TestReadonlyRepositorySnapshot() {
     RequireString(safe.displayName, @"runtime", "readonly detail displayed a control-bearing repository name");
     Require(safe.homepageURLString == nil && safe.depictionURLString == nil,
         "readonly detail accepted unsafe public metadata URLs");
-    Require(safe.iconURLString == nil && safe.sponsorURLString == nil && safe.authorAddress == nil &&
-        safe.legacyDepictionSnapshot[@"package"][@"fields"][@"Icon"] == nil,
+    Require(safe.iconURLString == nil && safe.sponsorURLString == nil && safe.authorAddress == nil,
         "readonly detail accepted an unsafe icon, sponsor, or mailto address");
+    RequireString(safe.legacyDepictionSnapshot[@"package"][@"fields"][@"Icon"], @"file:///tmp/runtime.png",
+        "readonly detail erased a static package Icon reference instead of disabling only its loader/link");
     RequireString(safe.sponsorName, @"Named Sponsor", "unsafe sponsor link erased its safe display name");
     RequireString(safe.maintainerAddress, @"maintainer@example.test", "unsafe author erased independent safe maintainer metadata");
     availability.record.fields["Author"] = "author@example.test";

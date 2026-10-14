@@ -72,7 +72,8 @@ NSArray<NSDictionary *> *CydiaPackageDetailMetadataRows(CydiaPackageDetailViewMo
     }
     AddRow(rows, @"tags", ActionText(@"PACKAGE_TAGS"), [tags.array componentsJoinedByString:@", "]);
     NSString *icon(WebURL(viewModel.iconURLString));
-    AddRow(rows, @"icon", ActionText(@"PACKAGE_ICON"), icon, icon);
+    NSString *iconReference(Text(viewModel.legacyDepictionSnapshot[@"package"][@"fields"][@"Icon"]));
+    AddRow(rows, @"icon", ActionText(@"PACKAGE_ICON"), iconReference ?: icon, icon);
     NSString *support(WebURL(viewModel.supportURLString));
     AddRow(rows, @"support", UCLocalize("PACKAGE_SUPPORT"), support, support);
     return [rows copy];
