@@ -192,6 +192,10 @@ for package in archive-parent archive-layout-dependency archive-authorized; do
     testsuccess dpkg-deb --root-owner-group -Zgzip --build "archive-build/$package" "aptarchive/pool/archive-policy/${package}_1_all.deb"
 done
 (cd aptarchive && aptftparchive packages pool/archive-policy) >>aptarchive/dists/unstable/main/binary-amd64/Packages
+# The commercial fixture uses an absolute network Filename, while its source
+# and integrity still come from the actual selected local fixture index.
+sed -i 's|^Filename: pool/archive-policy/archive-authorized_1_all.deb$|Filename: https://authorized.invalid/archive.deb|' \
+    aptarchive/dists/unstable/main/binary-amd64/Packages
 export CYDIA_APT_PREFLIGHT_DPKG_MARKER="$TMPWORKINGDIRECTORY/dpkg-was-invoked"
 export CYDIA_APT_PREFLIGHT_DPKG_SENTINEL="$TMPWORKINGDIRECTORY/rootdir/usr/bin/cydia-dpkg-sentinel"
 cat >"$CYDIA_APT_PREFLIGHT_DPKG_SENTINEL" <<'EOF'

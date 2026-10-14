@@ -1,2 +1,3 @@
 "CFBundleTypeName" = "Chiave pubblica OpenPGP";
 "OpenPGP Public Key" = "Chiave pubblica OpenPGP";
+"NSFaceIDUsageDescription" = "Cydia usa Face ID per autorizzare in modo sicuro gli acquisti dalle sorgenti dei pacchetti.";

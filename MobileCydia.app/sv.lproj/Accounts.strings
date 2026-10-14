@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Källor";
 "ACCOUNT_LINKED_ACCOUNTS" = "Länkade konton";
 "ACCOUNT_PROVIDER_CHANGED" = "Den här källan använder nu en annan betaltjänst. Tidigare köp och inloggningsuppgifter finns kvar hos den ursprungliga leverantören och överförs inte.";
+"ACCOUNT_PROVIDER_HELP" = "Hjälp från leverantören";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Öppna %@ för hjälp med det här kontot eller köpet.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "En tidigare köpförfrågan är fortfarande olöst. Kontrollera dess status hos leverantören. Cydia skickar ingen ny köpförfrågan.";
+"ACCOUNT_REVIEW_TITLE" = "Köp och kontoåtkomst";
+"ACCOUNT_REVIEW_HELP" = "Kontrollera kontoåtkomsten för paketen i den här installationen. Köp kräver din bekräftelse och installerar inte paket automatiskt. Varje källa hanterar sina egna köp.";
+"ACCOUNT_ACCESS_READY" = "Redo att hämtas";
+"ACCOUNT_REVIEW_REQUIRED" = "Lös problemen med kontoåtkomst för dessa paket innan du bekräftar installationen.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Tillbaka till installationsöversikten";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "Den valda paketmotorn kan inte hämta paket som kräver godkännande från källan. Välj en kompatibel motor i Inställningar innan du köper.";
+"ACCOUNT_FREE" = "Gratis";

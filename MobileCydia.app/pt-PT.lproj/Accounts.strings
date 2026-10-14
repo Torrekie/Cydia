@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Fontes";
 "ACCOUNT_LINKED_ACCOUNTS" = "Contas associadas";
 "ACCOUNT_PROVIDER_CHANGED" = "Esta fonte utiliza agora outro prestador de pagamentos. As compras e credenciais anteriores mantêm-se no prestador original e não são transferidas.";
+"ACCOUNT_PROVIDER_HELP" = "Ajuda do prestador";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Abra %@ para obter ajuda com esta conta ou compra.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "Um pedido de compra anterior continua por resolver. Verifique o seu estado junto do prestador. O Cydia não enviará outro pedido de compra.";
+"ACCOUNT_REVIEW_TITLE" = "Compras e acesso à conta";
+"ACCOUNT_REVIEW_HELP" = "Verifique o acesso à conta para os pacotes desta instalação. A compra exige a sua confirmação e não instala pacotes automaticamente. Cada fonte mantém as suas próprias compras.";
+"ACCOUNT_ACCESS_READY" = "Pronto para descarregar";
+"ACCOUNT_REVIEW_REQUIRED" = "Resolva o acesso à conta para estes pacotes antes de confirmar a instalação.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Voltar à revisão da instalação";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "O mecanismo de pacotes selecionado não pode descarregar pacotes que exigem autorização da fonte. Escolha um mecanismo compatível nas Definições antes de comprar.";
+"ACCOUNT_FREE" = "Grátis";

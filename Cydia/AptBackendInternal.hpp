@@ -84,6 +84,8 @@ class AptBackend {
     bool minimizeUpgrade();
     bool cleanArchives();
     bool prepareArchives();
+    bool preparedRepositoryAccessRequests(std::vector<RepositoryArchiveAccessRequest> *requests);
+    void releasePreparedArchiveLock();
     // Recording-only preview; independent of prepareArchives and manager_.
     // The caller holds the process-wide APT configuration/cache gate.
     RecoveryCaptureResult captureRecoveryReview(const RuntimeDescriptor &runtime,

@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "소스";
 "ACCOUNT_LINKED_ACCOUNTS" = "연결된 계정";
 "ACCOUNT_PROVIDER_CHANGED" = "이 소스의 결제 제공업체가 변경되었습니다. 이전 구입 항목과 인증 정보는 원래 제공업체에 남아 있으며 이전되지 않습니다.";
+"ACCOUNT_PROVIDER_HELP" = "제공업체 도움말";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "이 계정 또는 구입에 대한 도움말을 보려면 %@을(를) 여세요.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "이전 구입 요청이 아직 해결되지 않았습니다. 제공업체에 요청 상태를 확인하세요. Cydia는 다른 구입 요청을 전송하지 않습니다.";
+"ACCOUNT_REVIEW_TITLE" = "구입 및 계정 이용";
+"ACCOUNT_REVIEW_HELP" = "이번 설치에 포함된 패키지의 계정 이용 상태를 확인하세요. 구입하려면 확인이 필요하며, 패키지가 자동으로 설치되지는 않습니다. 각 소스는 구입 내역을 별도로 관리합니다.";
+"ACCOUNT_ACCESS_READY" = "다운로드 준비 완료";
+"ACCOUNT_REVIEW_REQUIRED" = "설치를 확인하기 전에 이 패키지들의 계정 이용 문제를 해결하세요.";
+"ACCOUNT_RETURN_TO_REVIEW" = "설치 검토로 돌아가기";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "선택한 패키지 백엔드는 소스의 승인이 필요한 패키지를 다운로드할 수 없습니다. 구입하기 전에 설정에서 호환되는 백엔드를 선택하세요.";
+"ACCOUNT_FREE" = "무료";

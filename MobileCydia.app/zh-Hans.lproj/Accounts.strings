@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "软件源";
 "ACCOUNT_LINKED_ACCOUNTS" = "已关联账户";
 "ACCOUNT_PROVIDER_CHANGED" = "此软件源现在使用其他支付服务提供商。先前的已购项目和凭据仍属于原提供商，不会转移。";
+"ACCOUNT_PROVIDER_HELP" = "提供商帮助";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "打开 %@，获取关于此账户或购买的帮助。";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "之前的一项购买请求尚未解决。请向提供商确认其状态。Cydia 不会再次发送购买请求。";
+"ACCOUNT_REVIEW_TITLE" = "购买与账户访问";
+"ACCOUNT_REVIEW_HELP" = "检查本次安装中各软件包的账户访问情况。购买需要你的确认，不会自动安装软件包。每个软件源的购买记录相互独立。";
+"ACCOUNT_ACCESS_READY" = "可以下载";
+"ACCOUNT_REVIEW_REQUIRED" = "请先解决这些软件包的账户访问问题，再确认安装。";
+"ACCOUNT_RETURN_TO_REVIEW" = "返回安装确认";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "当前选择的软件包后端无法下载需要软件源授权的软件包。请先在“设置”中选择兼容的后端，再进行购买。";
+"ACCOUNT_FREE" = "免费";

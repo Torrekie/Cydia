@@ -5,6 +5,7 @@
 NS_ASSUME_NONNULL_BEGIN
 NSString *CydiaAccountLocalize(NSString *key);
 NSString *CydiaAccountOrigin(NSURL *URL);
+extern NSString *const CydiaAccountRecoveryURLKey;
 typedef NS_ENUM(NSInteger, CydiaAccountError) {
     CydiaAccountErrorUnsupported = 1, CydiaAccountErrorTransport,
     CydiaAccountErrorInvalidResponse, CydiaAccountErrorAuthentication,
@@ -29,6 +30,12 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPurchaseState) {
     CydiaRepositoryPurchaseStatePending,
     CydiaRepositoryPurchaseStateUnknown,
 };
+typedef NS_ENUM(NSUInteger, CydiaRepositoryAccessState) {
+    CydiaRepositoryAccessStateReady, CydiaRepositoryAccessStateNotRequired,
+    CydiaRepositoryAccessStateSignIn, CydiaRepositoryAccessStatePurchaseRequired,
+    CydiaRepositoryAccessStateUnsupported, CydiaRepositoryAccessStateUnavailable,
+    CydiaRepositoryAccessStateFailed,
+};
 
 /* Owning source/provider snapshot. Discovery does not send account or device data. */
 @interface CydiaRepositoryAccount : NSObject
@@ -46,6 +53,16 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPurchaseState) {
 @property(nonatomic, readonly) CydiaRepositoryPurchaseState state;
 @property(nonatomic, copy, readonly, nullable) NSDictionary *packageInfo;
 @property(nonatomic, strong, readonly, nullable) NSError *error;
+- (instancetype)init NS_UNAVAILABLE;
+@end
+/* Read-only license preparation, never a download grant or an APT approval. */
+@interface CydiaRepositoryAccessResult : NSObject
+@property(nonatomic, readonly) CydiaRepositoryAccessState state;
+@property(nonatomic, strong, readonly, nullable) CydiaRepositoryAccount *account;
+@property(nonatomic, copy, readonly, nullable) NSDictionary *packageInfo;
+@property(nonatomic, strong, readonly, nullable) NSError *error;
+@property(nonatomic, copy, readonly) NSURL *sourceURL;
+@property(nonatomic, copy, readonly) NSString *package, *version, *architecture;
 - (instancetype)init NS_UNAVAILABLE;
 @end
 
@@ -70,6 +87,9 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPurchaseState) {
 - (BOOL)hasUnresolvedPurchase:(NSString *)package account:(CydiaRepositoryAccount *)account;
 - (void)discoverSource:(NSURL *)source name:(NSString *)name
            completion:(void (^)(CydiaRepositoryAccount * _Nullable, NSError * _Nullable))completion;
+- (void)preflightPackage:(NSString *)package version:(NSString *)version architecture:(NSString *)architecture
+                  source:(NSURL *)source name:(NSString *)name
+              completion:(void (^)(CydiaRepositoryAccessResult *))completion;
 /* Invoke only after the account UI explains the provider and obtains device-
  * linking consent. The auth session exclusively owns its callback. */
 - (void)signIn:(CydiaRepositoryAccount *)account presenter:(UIViewController *)presenter
@@ -93,6 +113,12 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPurchaseState) {
            architecture:(NSString *)architecture price:(NSString *)price
                 account:(CydiaRepositoryAccount *)account presenter:(UIViewController *)presenter
      selectionIsCurrent:(nullable BOOL (^)(void))selectionIsCurrent
+             completion:(void (^)(CydiaRepositoryPurchaseResult *))completion;
+- (void)purchasePackage:(NSString *)package version:(NSString *)version
+           architecture:(NSString *)architecture price:(NSString *)price
+                account:(CydiaRepositoryAccount *)account presenter:(UIViewController *)presenter
+     selectionIsCurrent:(nullable BOOL (^)(void))selectionIsCurrent
+       prepareSelection:(nullable void (^)(void (^)(BOOL)))prepareSelection
              completion:(void (^)(CydiaRepositoryPurchaseResult *))completion;
 - (void)authorizePackage:(NSString *)package version:(NSString *)version
            architecture:(NSString *)architecture account:(CydiaRepositoryAccount *)account

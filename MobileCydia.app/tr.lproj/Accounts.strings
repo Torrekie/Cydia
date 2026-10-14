@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Kaynaklar";
 "ACCOUNT_LINKED_ACCOUNTS" = "Bağlı Hesaplar";
 "ACCOUNT_PROVIDER_CHANGED" = "Bu kaynak artık farklı bir ödeme sağlayıcısı kullanıyor. Önceki satın alınanlar ve giriş bilgileri eski sağlayıcıda kalır; aktarılmaz.";
+"ACCOUNT_PROVIDER_HELP" = "Sağlayıcı Desteği";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Bu hesap veya satın alma için yardım almak üzere %@ adresini açın.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "Önceki bir satın alma isteği henüz sonuçlanmadı. Durumunu sağlayıcıdan kontrol edin. Cydia başka bir satın alma isteği göndermeyecek.";
+"ACCOUNT_REVIEW_TITLE" = "Satın Almalar ve Hesap Erişimi";
+"ACCOUNT_REVIEW_HELP" = "Bu kurulumdaki paketler için hesap erişimini denetleyin. Satın alma işlemi onayınızı gerektirir ve paketleri otomatik olarak yüklemez. Her kaynak kendi satın almalarını ayrı tutar.";
+"ACCOUNT_ACCESS_READY" = "İndirmeye Hazır";
+"ACCOUNT_REVIEW_REQUIRED" = "Kurulumu onaylamadan önce bu paketler için hesap erişimi sorunlarını çözün.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Kurulum İncelemesine Dön";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "Seçilen paket arka ucu, kaynağın yetkilendirmesini gerektiren paketleri indiremez. Satın almadan önce Ayarlar’da uyumlu bir arka uç seçin.";
+"ACCOUNT_FREE" = "Ücretsiz";

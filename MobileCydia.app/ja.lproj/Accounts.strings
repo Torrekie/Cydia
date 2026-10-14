@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "ソース";
 "ACCOUNT_LINKED_ACCOUNTS" = "連携済みアカウント";
 "ACCOUNT_PROVIDER_CHANGED" = "このソースの決済サービスが変更されました。以前の購入済み項目と認証情報は元のサービスに残り、移行されません。";
+"ACCOUNT_PROVIDER_HELP" = "サービスへのお問い合わせ";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "このアカウントや購入に関するヘルプを表示するには、%@ を開いてください。";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "以前の購入リクエストが未解決です。サービス側で状況を確認してください。Cydia は別の購入リクエストを送信しません。";
+"ACCOUNT_REVIEW_TITLE" = "購入とアカウントへのアクセス";
+"ACCOUNT_REVIEW_HELP" = "今回インストールするパッケージのアカウントへのアクセスを確認します。購入には確認が必要で、パッケージが自動的にインストールされることはありません。購入情報はソースごとに管理されます。";
+"ACCOUNT_ACCESS_READY" = "ダウンロード可能";
+"ACCOUNT_REVIEW_REQUIRED" = "インストールを確定する前に、これらのパッケージのアカウントへのアクセスを確認してください。";
+"ACCOUNT_RETURN_TO_REVIEW" = "インストール内容の確認に戻る";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "選択したパッケージ処理バックエンドは、ソースの認可が必要なパッケージをダウンロードできません。購入前に「設定」で対応するバックエンドを選択してください。";
+"ACCOUNT_FREE" = "無料";

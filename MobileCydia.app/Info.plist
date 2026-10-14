@@ -18,6 +18,9 @@
     <key>CFBundleName</key>
     <string>Cydia</string>
 
+    <key>NSFaceIDUsageDescription</key>
+    <string>Cydia uses Face ID to authorize repository purchases securely.</string>
+
     <key>CFBundlePackageType</key>
     <string>APPL</string>
 

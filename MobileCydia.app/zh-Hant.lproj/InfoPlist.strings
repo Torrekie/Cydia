@@ -1,2 +1,3 @@
 "CFBundleTypeName" = "OpenPGP 公鑰";
 "OpenPGP Public Key" = "OpenPGP 公鑰";
+"NSFaceIDUsageDescription" = "Cydia 使用 Face ID 安全地授權軟體來源中的購買。";

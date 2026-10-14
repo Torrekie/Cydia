@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "來源";
 "ACCOUNT_LINKED_ACCOUNTS" = "已連結帳號";
 "ACCOUNT_PROVIDER_CHANGED" = "此軟體來源現在使用其他付款服務供應商。先前的已購項目和憑證仍屬於原供應商，不會移轉。";
+"ACCOUNT_PROVIDER_HELP" = "供應商協助";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "開啟 %@，取得此帳號或購買的相關協助。";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "先前的一項購買請求尚未解決。請向供應商確認其狀態。Cydia 不會再次傳送購買請求。";
+"ACCOUNT_REVIEW_TITLE" = "購買與帳號存取";
+"ACCOUNT_REVIEW_HELP" = "檢查此次安裝中各套件的帳號存取狀態。購買需要你的確認，不會自動安裝套件。各軟體來源的購買紀錄相互獨立。";
+"ACCOUNT_ACCESS_READY" = "可以下載";
+"ACCOUNT_REVIEW_REQUIRED" = "請先解決這些套件的帳號存取問題，再確認安裝。";
+"ACCOUNT_RETURN_TO_REVIEW" = "返回安裝確認";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "目前選擇的套件後端無法下載需要軟體來源授權的套件。請先在「設定」中選擇相容的後端，再進行購買。";
+"ACCOUNT_FREE" = "免費";

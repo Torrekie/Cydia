@@ -37,6 +37,7 @@ struct SessionContext {
     std::shared_ptr<P::ArchiveEvidenceSnapshot> archives;
     AcquireStatus *progress = nullptr;
     bool closed = false, uncertain = false;
+    bool authorizedArchiveGrants = false;
     void Operation(AcquireStatus *status, int fd) {
         if (progress) progress->endProviderOperation();
         progress = status;
@@ -118,6 +119,10 @@ RemoteCandidate StartCandidate(AcquireStatus &progress, const RuntimeDescriptor 
     const bool started = capsule ? session->StartRecovery(executable, probe, hello, capsule, callbacks, RecoveryHandshakeMilliseconds) :
         session->Start(executable, probe, hello, callbacks);
     if (started && result.context->broker->BindSession(session->binding())) {
+        // Retain the admitted session/probe contract, not a Settings value or
+        // an unverified package claim. The parent broker requires it too.
+        result.context->authorizedArchiveGrants =
+            (session->info().capabilities & probe.info.capabilities & P::AuthorizedArchiveGrants) != 0;
         result.descriptor = runtime;
         result.descriptor.origin = capsule ? RuntimeDescriptorOrigin::RecoveryWorker : RuntimeDescriptorOrigin::External;
         auto &binding = result.descriptor.binding; const auto &admitted = session->binding();
@@ -431,6 +436,25 @@ bool RuntimeProviderCoordinator::CaptureReview(AptBackend &backend, TransactionD
         if (!state.captured && error) *error = "provider_deconfiguration_review_changed";
     }
     return state.captured;
+}
+bool RuntimeProviderCoordinator::CaptureRepositoryAccessRequests(AptBackend &backend,
+    std::vector<RepositoryArchiveAccessRequest> *requests, std::string *error) {
+    auto &state(*implementation_);
+    if (!requests || !state.captured || !ReviewUnchanged(backend)) {
+        if (error) *error = "provider_review_changed";
+        return false;
+    }
+    if (!remote()) return backend.preparedRepositoryAccessRequests(requests);
+    if (!state.context || !state.context->archives) {
+        if (error) *error = "provider_archive_evidence_missing";
+        return false;
+    }
+    return state.context->archives->RepositoryAccessRequests(state.reviewed, requests, {}, error);
+}
+bool RuntimeProviderCoordinator::repositoryAuthorizedDownloadsSupported() const {
+    const auto &state(*implementation_);
+    return !remote() ? state.initialized : state.context && !state.context->closed && !state.context->uncertain &&
+        state.context->authorizedArchiveGrants;
 }
 bool RuntimeProviderCoordinator::ApproveReview(AptBackend &backend, const std::set<std::uint64_t> &shownActions,
     const std::set<std::string> &shownWarnings, std::string *error, const std::string &shownEffectsIdentity,

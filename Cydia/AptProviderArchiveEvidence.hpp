@@ -2,6 +2,7 @@
 #ifndef Cydia_AptProviderArchiveEvidence_HPP
 #define Cydia_AptProviderArchiveEvidence_HPP
 #include "Cydia/AptProviderReview.hpp"
+#include "Cydia/AptBackend.hpp"
 #include <memory>
 
 namespace CydiaAPT { namespace Provider {
@@ -48,6 +49,11 @@ public:
     // account request from those exact records. No archive file is needed yet.
     bool AuthorizationRequest(const ArchiveManifest &requested,
         CydiaRuntime::RepositoryArchiveAuthorizationRequest *request, bool *commercial,
+        const std::function<bool()> &cancelled, std::string *error) const;
+    // Parent-only pre-confirmation account rows. Source/commercial identity
+    // comes from retained indexes; already verified local bytes need no login.
+    bool RepositoryAccessRequests(const ReviewedTransaction &review,
+        std::vector<RepositoryArchiveAccessRequest> *requests,
         const std::function<bool()> &cancelled, std::string *error) const;
     // Rechecks the retained source/index snapshot and returns only canonical
     // relationship fields from the exact reviewed Packages record. No archive

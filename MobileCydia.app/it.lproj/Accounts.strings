@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Sorgenti";
 "ACCOUNT_LINKED_ACCOUNTS" = "Account collegati";
 "ACCOUNT_PROVIDER_CHANGED" = "Questa sorgente ora usa un altro fornitore dei pagamenti. Gli acquisti e le credenziali precedenti restano presso il fornitore originale e non vengono trasferiti.";
+"ACCOUNT_PROVIDER_HELP" = "Assistenza del fornitore";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Apri %@ per ricevere assistenza su questo account o acquisto.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "Una richiesta di acquisto precedente è ancora irrisolta. Verificane lo stato con il fornitore. Cydia non invierà un’altra richiesta di acquisto.";
+"ACCOUNT_REVIEW_TITLE" = "Acquisti e accesso all’account";
+"ACCOUNT_REVIEW_HELP" = "Verifica l’accesso all’account per i pacchetti di questa installazione. Gli acquisti richiedono la tua conferma e non installano i pacchetti automaticamente. Ogni sorgente mantiene i propri acquisti.";
+"ACCOUNT_ACCESS_READY" = "Pronto per il download";
+"ACCOUNT_REVIEW_REQUIRED" = "Risolvi i problemi di accesso all’account per questi pacchetti prima di confermare l’installazione.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Torna alla verifica dell’installazione";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "Il backend dei pacchetti selezionato non può scaricare pacchetti che richiedono l’autorizzazione della sorgente. Scegli un backend compatibile nelle Impostazioni prima di acquistare.";
+"ACCOUNT_FREE" = "Gratis";

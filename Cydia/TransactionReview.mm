@@ -4,6 +4,7 @@
 #include "Cydia/PackageArchitecturePresentation.h"
 #include "Cydia/AptProviderTransactionRequest.hpp"
 #include <CommonCrypto/CommonDigest.h>
+#include <algorithm>
 
 std::string CydiaDeconfigurationReviewIdentity(const CydiaAPT::Provider::EffectReviewBundle &value) {
     std::string bytes;
@@ -66,13 +67,59 @@ NSString *ExactPackageName(const CydiaAPT::Provider::ExecutionPackage &package) 
     runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
     reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
     reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration {
+    return [self initWithTransaction:transaction providerReview:review runtimeOrigin:origin reviewedEffects:effects
+        reviewedDeconfiguration:deconfiguration repositoryAccessRequests:std::vector<CydiaAPT::RepositoryArchiveAccessRequest>()];
+}
+- (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
+    reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
+    reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration
+    repositoryAccessRequests:(const std::vector<CydiaAPT::RepositoryArchiveAccessRequest> &)requests {
+    return [self initWithTransaction:transaction providerReview:review runtimeOrigin:origin reviewedEffects:effects
+        reviewedDeconfiguration:deconfiguration repositoryAccessRequests:requests
+        repositoryAuthorizedDownloadsSupported:origin == CydiaAPT::RuntimeDescriptorOrigin::Embedded];
+}
+- (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)review
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
+    reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
+    reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration
+    repositoryAccessRequests:(const std::vector<CydiaAPT::RepositoryArchiveAccessRequest> &)requests
+    repositoryAuthorizedDownloadsSupported:(BOOL)supported {
     if ((self = [super init])) {
         using Origin = CydiaAPT::RuntimeDescriptorOrigin;
         if (origin != Origin::Embedded && origin != Origin::External && origin != Origin::RecoveryWorker) return nil;
         if ((origin == Origin::Embedded) != (review == nullptr)) return nil;
         _runtimeOrigin = origin;
+        _repositoryAuthorizedDownloadsSupported = supported;
         transaction_ = transaction;
         CydiaAPT::Provider::Encode(transaction_, &transactionBytes_);
+        NSMutableArray *accessRequests([NSMutableArray array]);
+        std::set<std::vector<std::string>> requestIdentities;
+        for (const auto &request : requests) {
+            const auto operation(transaction.packages.find(request.routingIdentity));
+            bool installation = false;
+            for (const auto group : {&transaction.installs, &transaction.reinstalls, &transaction.upgrades, &transaction.downgrades})
+                installation |= std::find(group->begin(), group->end(), request.routingIdentity) != group->end();
+            if (operation == transaction.packages.end() || operation->second.identity.baseName != request.package ||
+                operation->second.version != request.version ||
+                operation->second.identity.versionArchitecture != request.architecture || !installation || request.sourceURL.empty() ||
+                !requestIdentities.insert({request.sourceURL, request.package, request.version, request.architecture}).second) return nil;
+            const std::pair<NSString *, const std::string *> fields[] = {
+                {@"sourceURL", &request.sourceURL}, {@"sourceName", &request.sourceName},
+                {@"package", &request.package}, {@"routingIdentity", &request.routingIdentity},
+                {@"displayName", &request.displayName}, {@"version", &request.version}, {@"architecture", &request.architecture}};
+            NSMutableDictionary *row([NSMutableDictionary dictionary]);
+            for (const auto &field : fields) {
+                NSString *value([[NSString alloc] initWithBytes:field.second->data() length:field.second->size()
+                    encoding:NSUTF8StringEncoding]);
+                if (!value) return nil;
+                row[field.first] = value;
+            }
+            [accessRequests addObject:[row copy]];
+        }
+        _repositoryAccessRequests = [accessRequests copy];
         NSMutableArray *operations([NSMutableArray array]);
         NSArray<NSString *> *architectures(CydiaPackageRegisteredArchitectureNames(transaction.registeredArchitectures));
         if (review) for (const auto &action : review->execution.actions) {

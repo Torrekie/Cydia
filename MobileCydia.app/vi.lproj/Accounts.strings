@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Nguồn";
 "ACCOUNT_LINKED_ACCOUNTS" = "Tài khoản đã liên kết";
 "ACCOUNT_PROVIDER_CHANGED" = "Nguồn này hiện sử dụng nhà cung cấp thanh toán khác. Các mục đã mua và thông tin đăng nhập trước đây vẫn thuộc nhà cung cấp ban đầu và không được chuyển.";
+"ACCOUNT_PROVIDER_HELP" = "Trợ giúp từ nhà cung cấp";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Mở %@ để được trợ giúp về tài khoản hoặc giao dịch mua này.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "Một yêu cầu mua trước đó vẫn chưa được giải quyết. Hãy kiểm tra trạng thái của yêu cầu với nhà cung cấp. Cydia sẽ không gửi yêu cầu mua khác.";
+"ACCOUNT_REVIEW_TITLE" = "Giao dịch mua và quyền truy cập tài khoản";
+"ACCOUNT_REVIEW_HELP" = "Kiểm tra quyền truy cập tài khoản cho các gói trong lần cài đặt này. Việc mua cần có xác nhận của bạn và không tự động cài đặt gói. Mỗi nguồn quản lý các giao dịch mua riêng.";
+"ACCOUNT_ACCESS_READY" = "Sẵn sàng tải về";
+"ACCOUNT_REVIEW_REQUIRED" = "Giải quyết vấn đề truy cập tài khoản cho các gói này trước khi xác nhận cài đặt.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Quay lại xem xét cài đặt";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "Bộ xử lý gói đã chọn không thể tải về các gói cần được nguồn cho phép. Hãy chọn bộ xử lý tương thích trong Cài đặt trước khi mua.";
+"ACCOUNT_FREE" = "Miễn phí";

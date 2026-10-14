@@ -2,6 +2,7 @@
 #ifndef Cydia_TransactionReview_H
 #define Cydia_TransactionReview_H
 #import <Foundation/Foundation.h>
+#include "Cydia/AptBackend.hpp"
 #include "Cydia/AptProviderProtocol.hpp"
 #include "Cydia/AptProviderTriggerEffects.hpp"
 #include "Cydia/AptRuntimeDescriptor.hpp"
@@ -24,6 +25,10 @@ NSString *CydiaDeconfigurationReviewLocalize(NSString *key);
 @property(nonatomic, readonly) CydiaAPT::RuntimeDescriptorOrigin runtimeOrigin;
 @property(nonatomic, copy, readonly) NSArray<NSDictionary<NSString *, NSString *> *> *processingRows;
 @property(nonatomic, copy, readonly) NSArray<NSDictionary<NSString *, NSString *> *> *conditionalRows;
+// Exact network acquisitions requiring commercial account preparation. These
+// immutable rows are presentation only; final fetching obtains fresh grants.
+@property(nonatomic, copy, readonly) NSArray<NSDictionary<NSString *, NSString *> *> *repositoryAccessRequests;
+@property(nonatomic, readonly) BOOL repositoryAuthorizedDownloadsSupported;
 - (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
     providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)providerReview
     runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin;
@@ -36,6 +41,19 @@ NSString *CydiaDeconfigurationReviewLocalize(NSString *key);
     runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
     reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
     reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration;
+- (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)providerReview
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
+    reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
+    reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration
+    repositoryAccessRequests:(const std::vector<CydiaAPT::RepositoryArchiveAccessRequest> &)requests;
+- (instancetype)initWithTransaction:(const CydiaAPT::TransactionData &)transaction
+    providerReview:(const CydiaAPT::Provider::ReviewedTransaction *)providerReview
+    runtimeOrigin:(CydiaAPT::RuntimeDescriptorOrigin)origin
+    reviewedEffects:(const CydiaAPT::Provider::TriggerEffectEnvelope *)effects
+    reviewedDeconfiguration:(const std::shared_ptr<const CydiaAPT::Provider::EffectReviewBundle> &)deconfiguration
+    repositoryAccessRequests:(const std::vector<CydiaAPT::RepositoryArchiveAccessRequest> &)requests
+    repositoryAuthorizedDownloadsSupported:(BOOL)supported;
 - (const CydiaAPT::TransactionData &)transaction;
 - (const std::set<std::uint64_t> &)displayedActions;
 - (const std::set<std::string> &)displayedArchiveWarnings;

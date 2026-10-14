@@ -4,6 +4,7 @@
 #include "Cydia/SettingsStore.h"
 #include "Cydia/ProgressEvent.h"
 #include "Cydia/PrivilegedClient.h"
+#include "Cydia/DatabaseSnapshots.h"
 #include "CyteKit/Localize.h"
 
 namespace {
@@ -144,14 +145,48 @@ NSError *Error(NSString *text) {
     const auto descriptor(CydiaAPT::ActiveRuntimeDescriptor());
     if (runtime_->remote() && !descriptor) return false;
     const auto origin(descriptor ? descriptor->origin : CydiaAPT::RuntimeDescriptorOrigin::Embedded);
+    std::vector<CydiaAPT::RepositoryArchiveAccessRequest> requests;
+    if (!runtime_->CaptureRepositoryAccessRequests(*apt_, &requests, &error)) {
+        [delegate_ addProgressEventOnMainThread:[CydiaProgressEvent eventWithMessage:CydiaRuntimeProviderLocalize(@"REVIEW_UNAVAILABLE")
+            ofType:@"Error"] forTask:UCLocalize("PREPARE_ARCHIVES")];
+        return false;
+    }
     CydiaTransactionReview *review([[CydiaTransactionReview alloc] initWithTransaction:transaction providerReview:runtime_->review()
-        runtimeOrigin:origin reviewedEffects:runtime_->reviewedEffects() reviewedDeconfiguration:runtime_->reviewedDeconfiguration()]);
+        runtimeOrigin:origin reviewedEffects:runtime_->reviewedEffects() reviewedDeconfiguration:runtime_->reviewedDeconfiguration()
+        repositoryAccessRequests:requests repositoryAuthorizedDownloadsSupported:runtime_->repositoryAuthorizedDownloadsSupported()]);
     @synchronized(runtimeStatusLock_) { confirmationReview_ = review; confirmationApproved_ = NO; }
     return review != nil;
 }
 - (NSNumber *)prepareForConfirmation { return @([self prepare]); }
 - (CydiaTransactionReview *)preparedConfirmationReview {
     @synchronized(runtimeStatusLock_) { return confirmationReview_; }
+}
+- (BOOL)isPreparedConfirmationReviewCurrent:(CydiaTransactionReview *)review {
+    if (![self beginSettingsChange]) return NO;
+    BOOL current(NO);
+    @try {
+        @synchronized(runtimeStatusLock_) {
+            const auto descriptor(CydiaAPT::ActiveRuntimeDescriptor());
+            const auto origin(descriptor ? descriptor->origin : CydiaAPT::RuntimeDescriptorOrigin::Embedded);
+            current = apt_ && runtime_ && runtime_->ready() && review && review == confirmationReview_ &&
+                !confirmationApproved_ && (!runtime_->remote() || descriptor) && review.runtimeOrigin == origin &&
+                runtime_->ReviewUnchanged(*apt_);
+        }
+    } @finally { [self endSettingsChange]; }
+    return current;
+}
+- (void)validatePreparedConfirmationReview:(CydiaTransactionReview *)review completion:(void (^)(BOOL))completion {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        BOOL current(NO);
+        if ([self beginSettingsChange]) @try {
+            current = [self isPreparedConfirmationReviewCurrent:review] && transactionSnapshot_ &&
+                [transactionSnapshot_ isEqualToString:CurrentTransactionSnapshot()] &&
+                (runtime_->remote() || [review matchesTransaction:apt_->transactionData()]);
+        } @finally { [self endSettingsChange]; }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completion) completion(current && [self isPreparedConfirmationReviewCurrent:review]);
+        });
+    });
 }
 - (BOOL)approveConfirmationReview:(CydiaTransactionReview *)review {
     if (![self beginSettingsChange]) return NO;

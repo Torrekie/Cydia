@@ -234,6 +234,44 @@ void AuthorizationBeforeDownload() {
     Require(publicSource->AuthorizationRequest(ordinary.review.execution.archives.front(), &request, &commercial, {}, &error) && !commercial,
         "ordinary package does not become commercial from a worker claim");
 }
+void RepositoryAccountPreparation() {
+    Fixture fixture;
+    auto &archive = fixture.review.execution.archives.front();
+    fixture.record.insert(fixture.record.size() - 1, "Tag: cydia::commercial\n");
+    archive.recordSize = fixture.record.size(); archive.sourceIndexIdentity = "SHA256:" + SHA256(fixture.record);
+    Write(archive.sourceIndexPath, fixture.record);
+    CydiaAPT::TransactionPackageData operation;
+    operation.identity = CydiaAPT::BuildPackageIdentity("sample", "amd64", "all", "amd64", CydiaAPT::MultiArchMode::None);
+    operation.version = "1"; operation.displayName = "Reviewed Sample";
+    fixture.review.transaction.packages.emplace("sample", operation);
+    fixture.review.transaction.installs.push_back("sample");
+    std::string error; auto snapshot = fixture.Capture(&error); Require(snapshot != nullptr, error.c_str());
+    std::vector<CydiaAPT::RepositoryArchiveAccessRequest> requests;
+    Require(snapshot->RepositoryAccessRequests(fixture.review, &requests, {}, &error) && requests.empty(),
+        "verified cached archive incorrectly requires a repository account");
+    Require(unlink(archive.path.c_str()) == 0, "remove cached account preparation fixture");
+    Require(snapshot->RepositoryAccessRequests(fixture.review, &requests, {}, &error) && requests.size() == 1 &&
+        requests.front().sourceURL == archive.sourceURI && requests.front().sourceName == "example.invalid" &&
+        requests.front().package == "sample" && requests.front().routingIdentity == "sample" &&
+        requests.front().version == "1" && requests.front().architecture == "all" &&
+        requests.front().displayName == "Reviewed Sample",
+        "account rows did not preserve parent-reviewed source and exact archive identity");
+    auto wrong = fixture.review; wrong.execution.archives.front().package.architecture = "amd64";
+    Require(!snapshot->RepositoryAccessRequests(wrong, &requests, {}, &error) && requests.empty(),
+        "account preparation accepted an unreviewed architecture");
+    Require(!snapshot->RepositoryAccessRequests(fixture.review, &requests, [] { return true; }, &error) && requests.empty(),
+        "cancelled account preparation published identity rows");
+    Write(archive.path, std::string(fixture.deb.size(), 'x'));
+    Require(snapshot->RepositoryAccessRequests(fixture.review, &requests, {}, &error) && requests.size() == 1,
+        "same-size corrupted cache was treated as proof that network/account access is unnecessary");
+    Write(archive.sourceIndexPath, fixture.record + "\n");
+    Require(!snapshot->RepositoryAccessRequests(fixture.review, &requests, {}, &error) && requests.empty(),
+        "changed index retained an old account preparation request");
+    Fixture ordinary; auto publicSource = ordinary.Capture(&error); Require(publicSource != nullptr, error.c_str());
+    unlink(ordinary.review.execution.archives.front().path.c_str());
+    Require(publicSource->RepositoryAccessRequests(ordinary.review, &requests, {}, &error) && requests.empty(),
+        "ordinary missing archive became an account requirement");
+}
 void AddIndexRecord(Fixture &fixture, bool separateIndex = false) {
     auto second = fixture.review.execution.archives.front();
     second.identifier = "another"; second.package.package = "another";
@@ -388,7 +426,7 @@ void SeparateAllArchitectureIndex() {
 } // namespace
 
 int main() {
-    ControlProof(); DistinctNativeControlOrder(); ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload();
+    ControlProof(); DistinctNativeControlOrder(); ValidAndChanged(false); ValidAndChanged(true); SourceAndIndexBinding(); SeparateAllArchitectureIndex(); AuthorizationBeforeDownload(); RepositoryAccountPreparation();
     BatchControlBeforeDownload(false); BatchControlBeforeDownload(true); BatchControlProvenance(); BatchControlBounds();
     std::cout << "[apt-provider-archive-evidence] PASS\n";
 }

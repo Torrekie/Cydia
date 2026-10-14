@@ -423,6 +423,28 @@ static void StoreAndServerValidationFailures(void) {
             storedTokens == 0 && !account.signedIn, "failed storage/server validation created signed-in account"); });
     }
 }
+static void SuccessfulHTTPInvalidationRefusesNewCredentials(void) {
+    Reset(); __block FixtureService *service; __block UIViewController *presenter;
+    Main(^{ service = [FixtureService new]; presenter = Presenter(); });
+    auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+    Main(^{ SeedToken(account, SyntheticToken, @"protected"); SeedSecret(account); });
+    __block NSUInteger completed = 0; __block NSError *failure;
+    auto validation = BeginValidation(service, account, presenter, SyntheticSecondToken,
+        ^(NSError *error) { failure = error; ++completed; }, @"fixture-new-purchase-secret-dddddddd");
+    Respond(validation, @{@"user": @{@"name": @"Fixture replacement user"}, @"invalidate": @YES}, 200);
+    Await(^BOOL { return completed == 1; }, "successful HTTP invalidation did not settle login refusal");
+    Main(^{
+        Require(failure.code == CydiaAccountErrorAuthentication && storedTokens == 0 && storedSecrets == 0 &&
+            deletedTokens == 0 && deletedSecrets == 0 && [StoredToken(account) isEqual:SyntheticToken] &&
+            service.requests.count == 0 && secretReads == 0,
+            "HTTP 200 invalidate stored new credentials or purged a different previously valid token");
+        @synchronized (credentialData) {
+            NSData *secret = credentialData[[AccountKey(account) stringByAppendingString:@".purchase"]];
+            Require([[[NSString alloc] initWithData:secret encoding:NSUTF8StringEncoding] isEqual:SyntheticSecret],
+                "invalid replacement login changed earlier purchase authority");
+        }
+    });
+}
 static void InvalidationScope(void) {
     Reset(); __block FixtureService *service; Main(^{ service = [FixtureService new]; });
     auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
@@ -588,10 +610,12 @@ static NSDictionary *Offer(BOOL purchased, NSString *price = @"$1.99") {
     return @{@"available": @YES, @"purchased": @(purchased), @"price": price};
 }
 static FixturePurchase *BeginPurchase(FixtureService *service, CydiaRepositoryAccount *account,
-    NSString *price = @"$1.99", BOOL (^selectionIsCurrent)(void) = nil) {
+    NSString *price = @"$1.99", BOOL (^selectionIsCurrent)(void) = nil,
+    void (^prepareSelection)(void (^)(BOOL)) = nil) {
     FixturePurchase *run = [FixturePurchase new];
     Main(^{ [service purchasePackage:@"fixture.package" version:@"2:1.4-1" architecture:@"iphoneos-arm64e"
-        price:price account:account presenter:Presenter() selectionIsCurrent:selectionIsCurrent completion:^(CydiaRepositoryPurchaseResult *result) {
+        price:price account:account presenter:Presenter() selectionIsCurrent:selectionIsCurrent
+        prepareSelection:prepareSelection completion:^(CydiaRepositoryPurchaseResult *result) {
             Require(NSThread.isMainThread, "purchase completion escaped main queue");
             run.result = result; ++run.completions;
         }]; });
@@ -616,6 +640,10 @@ static FixtureRequest *Submit(FixtureService *service, CydiaRepositoryAccount *a
     Require(sourceEndpoint.body == nil && [sourceEndpoint.URL isEqual:[account.sourceURL URLByAppendingPathComponent:@"payment_endpoint"]],
         "final provider binding recheck disclosed credentials or consulted another source");
     RespondData(sourceEndpoint, [account.providerURL.absoluteString dataUsingEncoding:NSUTF8StringEncoding], 200);
+    auto finalOffer = Take(service, @"/package/fixture.package/info");
+    Require([finalOffer.body[@"token"] isEqual:SyntheticToken] && finalOffer.body[@"payment_secret"] == nil,
+        "final offer recheck lost account binding or disclosed purchase authority");
+    Respond(finalOffer, Offer(NO));
     auto charge = Take(service, @"/package/fixture.package/purchase");
     Require([charge.body[@"token"] isEqual:SyntheticToken] && [charge.body[@"udid"] isEqual:SyntheticDevice] &&
         [charge.body[@"device"] isEqual:SyntheticModel], "purchase lost confirmed provider/account device binding");
@@ -1029,16 +1057,347 @@ static void MalformedProviderFlagsDoNotAuthorize(void) {
             "malformed ownership metadata erased uncertain charge or reported receipt"); });
     }
 }
+@interface FixtureAccess : NSObject
+@property(nonatomic, strong) CydiaRepositoryAccessResult *result;
+@property(nonatomic) NSUInteger completions;
+@end
+@implementation FixtureAccess
+@end
+static FixtureAccess *BeginAccess(FixtureService *service, NSURL *source,
+    NSString *package = @"fixture.package", NSString *version = @"2:1.4-1", NSString *architecture = @"iphoneos-arm64e") {
+    FixtureAccess *run = [FixtureAccess new];
+    Main(^{ [service preflightPackage:package version:version architecture:architecture source:source name:@"Fixture source"
+        completion:^(CydiaRepositoryAccessResult *result) {
+            Require(NSThread.isMainThread, "access preparation completion escaped main queue");
+            run.result = result; ++run.completions;
+        }]; });
+    return run;
+}
+static FixtureRequest *AccessDiscovery(FixtureService *service, NSString *provider) {
+    auto endpoint = Take(service, @"/payment_endpoint");
+    Require(endpoint.body == nil, "access preparation discovery sent device/account data");
+    RespondData(endpoint, [provider dataUsingEncoding:NSUTF8StringEncoding], 200);
+    auto info = Take(service, @"/info"); Require(info.body == nil, "access provider metadata contained credentials");
+    Respond(info, @{@"name": @"Fixture vendor"});
+    auto anonymous = Take(service, @"/package/fixture.package/info");
+    Require(anonymous.body == nil, "access preparation did not inspect public offer without credentials");
+    return anonymous;
+}
+static void AwaitAccess(FixtureAccess *run) {
+    Await(^BOOL { return run.completions != 0; }, "access preparation did not settle");
+    Main(^{ Require(run.completions == 1 && run.result != nil &&
+        [run.result.package isEqual:@"fixture.package"] && [run.result.version isEqual:@"2:1.4-1"] &&
+        [run.result.architecture isEqual:@"iphoneos-arm64e"] && ![run.result respondsToSelector:@selector(transportURL)],
+        "license preparation lost selected identity or returned an archive capability"); });
+}
+static void ReadOnlyAccessPreparation(void) {
+    Reset(); __block FixtureService *service;
+    Main(^{ service = [FixtureService new]; });
+    NSURL *source = [NSURL URLWithString:@"https://source.example.invalid/"];
+    auto legacy = BeginAccess(service, source);
+    Respond(Take(service, @"/payment_endpoint"), nil, 404); AwaitAccess(legacy);
+    Main(^{ Require(legacy.result.state == CydiaRepositoryAccessStateNotRequired && legacy.result.error == nil &&
+        service.requests.count == 0 && deviceCalls == 0, "legacy repository was forced into account/download authorization"); });
+    for (NSDictionary *offer in @[@{@"available": @YES, @"free": @YES}, @{@"available": @YES, @"price": @0}]) {
+        Reset(); Main(^{ service = [FixtureService new]; });
+        auto free = BeginAccess(service, source);
+        Respond(AccessDiscovery(service, @"https://vendor.example.invalid/"), offer); AwaitAccess(free);
+        Main(^{ Require(free.result.state == CydiaRepositoryAccessStateNotRequired && free.result.error == nil &&
+            [free.result.sourceURL isEqual:source] && service.requests.count == 0 && deviceCalls == 0 && secretReads == 0,
+            "free package preparation fetched a grant, account identity, or purchase secret"); });
+    }
+    for (BOOL purchased : {NO, YES}) {
+        Reset(); Main(^{ service = [FixtureService new]; });
+        auto account = Discover(service, source.absoluteString, @"https://vendor.example.invalid/");
+        Main(^{ SeedToken(account, SyntheticToken); });
+        auto run = BeginAccess(service, source);
+        Respond(AccessDiscovery(service, @"https://vendor.example.invalid/"), Offer(NO));
+        auto entitlement = Take(service, @"/package/fixture.package/info");
+        Require([entitlement.body[@"token"] isEqual:SyntheticToken] && entitlement.body[@"payment_secret"] == nil,
+            "access preparation queried ownership with purchase authority or another token");
+        Respond(entitlement, Offer(purchased)); AwaitAccess(run);
+        Main(^{ Require(run.result.state == (purchased ? CydiaRepositoryAccessStateReady : CydiaRepositoryAccessStatePurchaseRequired) &&
+            run.result.error == nil && [run.result.sourceURL isEqual:source] && service.requests.count == 0 &&
+            secretReads == 0 && browserSessions.count == 0 && ![service hasUnresolvedPurchase:@"fixture.package" account:run.result.account],
+            "license preparation charged, authenticated, acquired an archive, or confused ownership"); });
+    }
+    Reset(); Main(^{ service = [FixtureService new]; });
+    auto signIn = BeginAccess(service, source);
+    Respond(AccessDiscovery(service, @"https://vendor.example.invalid/"), Offer(NO)); AwaitAccess(signIn);
+    Main(^{ Require(signIn.result.state == CydiaRepositoryAccessStateSignIn && deviceCalls == 0 &&
+        browserSessions.count == 0 && service.requests.count == 0, "read-only license preparation initiated login automatically"); });
+    Reset(); Main(^{ service = [FixtureService new]; });
+    auto unsupported = BeginAccess(service, [NSURL URLWithString:@"https://havoc.app/"]);
+    Respond(AccessDiscovery(service, @"https://havoc.app/api/sileo/"), Offer(NO)); AwaitAccess(unsupported);
+    Main(^{ Require(unsupported.result.state == CydiaRepositoryAccessStateUnsupported &&
+        unsupported.result.error.code == CydiaAccountErrorClientPolicy && deviceCalls == 0 && service.requests.count == 0,
+        "known unsupported vendor preparation advertised paid delivery or prompted for login"); });
+    for (NSDictionary *offer in @[@{@"available": @NO}, @{@"available": @1}, @{@"available": @YES, @"error": @YES}]) {
+        Reset(); Main(^{ service = [FixtureService new]; });
+        auto run = BeginAccess(service, source);
+        Respond(AccessDiscovery(service, @"https://vendor.example.invalid/"), offer); AwaitAccess(run);
+        BOOL unavailable = [offer[@"available"] isEqual:@NO];
+        Main(^{ Require(run.result.state == (unavailable ? CydiaRepositoryAccessStateUnavailable : CydiaRepositoryAccessStateFailed) &&
+            run.result.error != nil && service.requests.count == 0 && deviceCalls == 0,
+            "malformed/unavailable license preparation implied a download grant or silently bypassed account policy"); });
+    }
+}
+static void AccessPreparationRetainsMutableIdentity(void) {
+    Reset(); __block FixtureService *service;
+    Main(^{ service = [FixtureService new]; });
+    NSMutableString *package = [@"fixture.package" mutableCopy], *version = [@"2:1.4-1" mutableCopy];
+    NSMutableString *architecture = [@"iphoneos-arm64e" mutableCopy];
+    auto run = BeginAccess(service, [NSURL URLWithString:@"https://source.example.invalid/"], package, version, architecture);
+    Main(^{ [package setString:@"different.package"]; [version setString:@"9:9.9"]; [architecture setString:@"iphoneos-arm"]; });
+    Respond(AccessDiscovery(service, @"https://vendor.example.invalid/"), @{@"available": @YES, @"free": @YES});
+    AwaitAccess(run);
+    Main(^{ Require(run.result.state == CydiaRepositoryAccessStateNotRequired && service.requests.count == 0,
+        "mutable caller selection altered in-flight read-only preparation identity"); });
+}
+static void RecoveryURLsStayPublicAndScoped(void) {
+    Reset(); __block FixtureService *service;
+    Main(^{ service = [FixtureService new]; });
+    auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+    Main(^{ SeedToken(account, SyntheticToken); });
+    NSArray *valid = @[@"https://vendor.example.invalid/help", @"https://source.example.invalid/help"];
+    NSArray *invalid = @[@"http://vendor.example.invalid/help", @"https://other.example.invalid/help",
+        @"https://user:pass@vendor.example.invalid/help", @"https://vendor.example.invalid/help?public=1",
+        @"https://vendor.example.invalid/help#fragment", @"https://vendor.example.invalid/help%0aextra",
+        @"https://vendor.example.invalid/help%5cextra", @"cydia://package/fixture.package",
+        [NSString stringWithFormat:@"https://vendor.example.invalid/help/%@", SyntheticToken],
+        @"https://vendor.example.invalid/help/fixture%2Daccount%2Dtoken%2Daaaaaaaa",
+        @"https://docs.chariz.com/help/faq", @"https://docs.havoc.app/docs/help/contact_us/"];
+    for (NSString *URL in [valid arrayByAddingObjectsFromArray:invalid]) {
+        __block NSError *failure; __block NSUInteger completed = 0;
+        Main(^{ [service packageInfo:@"fixture.package" account:account completion:^(NSDictionary *info, NSError *error) {
+            Require(info == nil && error != nil, "provider failure was mistaken for ownership"); failure = error; ++completed;
+        }]; });
+        Respond(Take(service, @"/info"), @{@"error": @"Fixture account recovery", @"recovery_url": URL});
+        Main(^{
+            NSURL *recovery = failure.userInfo[CydiaAccountRecoveryURLKey];
+            BOOL allowed = [valid containsObject:URL];
+            Require(completed == 1 && (recovery != nil) == allowed && (!allowed || [recovery.absoluteString isEqual:URL]) &&
+                service.requests.count == 0 && browserSessions.count == 0,
+                "unsafe/cross-provider recovery link was accepted or opened without user action");
+        });
+    }
+    for (NSString *vendor in @[@"chariz", @"havoc"]) {
+        NSString *source = [vendor isEqual:@"chariz"] ? @"https://repo.chariz.com/" : @"https://havoc.app/";
+        NSString *provider = [vendor isEqual:@"chariz"] ? @"https://chariz.com/api/sileo/" : @"https://havoc.app/api/sileo/";
+        NSString *help = [vendor isEqual:@"chariz"] ? @"https://docs.chariz.com/help/faq" : @"https://docs.havoc.app/docs/help/contact_us/";
+        auto known = Discover(service, source, provider);
+        Main(^{ SeedToken(known, SyntheticToken); });
+        __block NSError *failure;
+        Main(^{ [service userInfo:known completion:^(NSDictionary *info, NSError *error) { failure = error; }]; });
+        Respond(Take(service, @"/user_info"), @{@"error": @"Fixture provider support", @"recovery_url": help});
+        Main(^{ Require([failure.userInfo[CydiaAccountRecoveryURLKey] isKindOfClass:NSURL.class] &&
+            [((NSURL *)failure.userInfo[CydiaAccountRecoveryURLKey]).absoluteString isEqual:help],
+            "documented provider help origin was rejected"); });
+    }
+    auto changed = Discover(service, @"https://source.example.invalid/", @"https://replacement-vendor.example.invalid/");
+    Main(^{ SeedToken(changed, SyntheticSecondToken); });
+    __block NSError *oldFailure;
+    Main(^{ [service packageInfo:@"fixture.package" account:account completion:^(NSDictionary *info, NSError *error) { oldFailure = error; }]; });
+    Respond(Take(service, @"/info"), @{@"error": @"Fixture old provider", @"recovery_url": @"https://replacement-vendor.example.invalid/help"});
+    Main(^{ Require(oldFailure != nil && oldFailure.userInfo[CydiaAccountRecoveryURLKey] == nil && service.requests.count == 0,
+        "old provider error inherited newly discovered provider recovery authority"); });
+}
+static void PurchaseRecoveryPreservesUncertainty(void) {
+    for (BOOL leaksSecret : {NO, YES}) {
+        Reset(); __block FixtureService *service;
+        Main(^{ service = [FixtureService new]; });
+        auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+        Main(^{ SeedToken(account, SyntheticToken, @"protected"); SeedSecret(account); });
+        auto run = BeginPurchase(service, account); auto charge = Submit(service, account);
+        NSString *URL = leaksSecret ? [NSString stringWithFormat:@"https://vendor.example.invalid/help/%@", SyntheticSecret] :
+            @"https://vendor.example.invalid/help";
+        Respond(charge, @{@"status": @0, @"error": @"Fixture payment uncertainty", @"recovery_url": URL});
+        Respond(Take(service, @"/info"), Offer(NO)); AwaitPurchase(run);
+        Main(^{ Require(run.result.state == CydiaRepositoryPurchaseStateUnknown &&
+            (run.result.error.userInfo[CydiaAccountRecoveryURLKey] != nil) != leaksSecret &&
+            [service hasUnresolvedPurchase:@"fixture.package" account:account] && service.requests.count == 0 && browserSessions.count == 0,
+            "purchase recovery leaked secret, erased uncertainty, opened browser, or repeated charge"); });
+    }
+    Reset(); __block FixtureService *service;
+    Main(^{ service = [FixtureService new]; });
+    auto account = Discover(service, @"https://repo.chariz.com/", @"https://chariz.com/api/sileo/");
+    Main(^{ SeedToken(account, SyntheticToken, @"hosted"); });
+    auto run = BeginPurchase(service, account); auto charge = Submit(service, account);
+    Respond(charge, @{@"status": @0}); Respond(Take(service, @"/info"), Offer(NO)); AwaitPurchase(run);
+    Main(^{ NSURL *help = run.result.error.userInfo[CydiaAccountRecoveryURLKey];
+        Require(run.result.state == CydiaRepositoryPurchaseStatePending &&
+            [help.absoluteString isEqual:@"https://docs.chariz.com/help/payment-pending"] &&
+            [service hasUnresolvedPurchase:@"fixture.package" account:account] && service.requests.count == 0,
+            "pending purchase lacked safe documented support or was resubmitted"); });
+}
+static void AsynchronousFinalSelectionCannotReplayCharge(void) {
+    for (NSUInteger outcome : {0U, 1U, 2U}) {
+        Reset(); __block FixtureService *service;
+        Main(^{ service = [FixtureService new]; });
+        auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+        Main(^{ SeedToken(account, SyntheticToken, @"hosted"); });
+        __block void (^prepared)(BOOL) = nil;
+        auto run = BeginPurchase(service, account, @"$1.99", ^BOOL { return YES; }, ^(void (^completion)(BOOL)) {
+            Require(NSThread.isMainThread, "final selection preparation escaped UI queue"); prepared = [completion copy];
+        });
+        Respond(Take(service, @"/info"), Offer(NO));
+        RespondData(Take(service, @"/payment_endpoint"), [account.providerURL.absoluteString dataUsingEncoding:NSUTF8StringEncoding], 200);
+        Await(^BOOL { return prepared != nil; }, "asynchronous final preparation was not requested");
+        Main(^{ Require(run.completions == 0 && service.requests.count == 0 &&
+            ![service hasUnresolvedPurchase:@"fixture.package" account:account],
+            "charge submitted or recorded while final selection verification was outstanding"); });
+        if (outcome == 2) {
+            Main(^{ [service cancelPurchaseForAccount:account]; }); AwaitPurchase(run);
+            Main(^{ prepared(YES); });
+        } else Main(^{ prepared(outcome == 1); prepared(YES); prepared(NO); });
+        if (outcome == 1) {
+            Respond(Take(service, @"/info"), Offer(NO));
+            auto charge = Take(service, @"/purchase");
+            Main(^{ Require(service.requests.count == 0 && [service hasUnresolvedPurchase:@"fixture.package" account:account],
+                "replayed final selection callback submitted a duplicate charge"); prepared(YES); });
+            Respond(charge, @{@"status": @0}); Respond(Take(service, @"/info"), Offer(YES)); AwaitPurchase(run);
+            Main(^{ Require(run.result.state == CydiaRepositoryPurchaseStateOwned, "approved final selection did not complete one verified purchase"); });
+        } else {
+            AwaitPurchase(run);
+            Main(^{ Require(run.result.state == (outcome == 2 ? CydiaRepositoryPurchaseStateCancelled : CydiaRepositoryPurchaseStateRejected) &&
+                service.requests.count == 0 && ![service hasUnresolvedPurchase:@"fixture.package" account:account],
+                "failed/canceled final selection was charged by a late or repeated callback"); });
+        }
+        Main(^{ prepared(YES); });
+        Main(^{ Require(run.completions == 1 && service.requests.count == 0,
+            "settled final selection replay resumed financial operation"); });
+    }
+}
+static void FinalFreshOfferAfterAsynchronousPreparation(void) {
+    for (NSDictionary *updated in @[Offer(NO, @"$2.99"), Offer(YES), @{@"available": @NO, @"purchased": @NO, @"price": @"$1.99"}]) {
+        Reset(); __block FixtureService *service;
+        Main(^{ service = [FixtureService new]; });
+        auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+        Main(^{ SeedToken(account, SyntheticToken, @"hosted"); });
+        __block void (^prepared)(BOOL) = nil;
+        auto run = BeginPurchase(service, account, @"$1.99", ^BOOL { return YES; }, ^(void (^completion)(BOOL)) {
+            prepared = [completion copy];
+        });
+        Respond(Take(service, @"/info"), Offer(NO));
+        RespondData(Take(service, @"/payment_endpoint"), [account.providerURL.absoluteString dataUsingEncoding:NSUTF8StringEncoding], 200);
+        Await(^BOOL { return prepared != nil; }, "final preparation did not expose asynchronous completion");
+        Main(^{ prepared(YES); });
+        auto finalOffer = Take(service, @"/info");
+        Require([finalOffer.body[@"token"] isEqual:SyntheticToken] && finalOffer.body[@"payment_secret"] == nil,
+            "price/ownership was not rechecked after asynchronous selection preparation");
+        Respond(finalOffer, updated); AwaitPurchase(run);
+        Main(^{ BOOL owned = [updated[@"purchased"] isEqual:@YES];
+            Require(run.result.state == (owned ? CydiaRepositoryPurchaseStateOwned : CydiaRepositoryPurchaseStateRejected) &&
+                (owned || run.result.error.code == ([updated[@"available"] isEqual:@YES] ? CydiaAccountErrorOfferChanged : CydiaAccountErrorUnavailable)) &&
+                service.requests.count == 0 && ![service hasUnresolvedPurchase:@"fixture.package" account:account],
+                "stale offer was charged after asynchronous final preparation"); });
+    }
+    Reset(); __block FixtureService *service;
+    Main(^{ service = [FixtureService new]; });
+    auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+    Main(^{ SeedToken(account, SyntheticToken, @"hosted"); });
+    __block void (^prepared)(BOOL) = nil;
+    auto run = BeginPurchase(service, account, @"$1.99", ^BOOL { return YES; }, ^(void (^completion)(BOOL)) { prepared = [completion copy]; });
+    Respond(Take(service, @"/info"), Offer(NO));
+    RespondData(Take(service, @"/payment_endpoint"), [account.providerURL.absoluteString dataUsingEncoding:NSUTF8StringEncoding], 200);
+    Await(^BOOL { return prepared != nil; }, "cancel case final preparation did not complete");
+    Main(^{ prepared(YES); });
+    auto finalOffer = Take(service, @"/info");
+    Main(^{ [service cancelPurchaseForAccount:account]; }); AwaitPurchase(run);
+    Respond(finalOffer, Offer(NO));
+    Main(^{ Require(run.result.state == CydiaRepositoryPurchaseStateCancelled && run.completions == 1 &&
+        service.requests.count == 0 && ![service hasUnresolvedPurchase:@"fixture.package" account:account],
+        "late final offer reply resumed canceled purchase"); });
+}
+static void MalformedOwnershipNeverCharges(void) {
+    NSArray *offers = @[@{@"available": @YES, @"price": @"$1.99"},
+        @{@"available": @YES, @"purchased": @"false", @"price": @"$1.99"},
+        @{@"available": @YES, @"purchased": @0, @"price": @"$1.99"},
+        @{@"available": @YES, @"purchased": NSNull.null, @"price": @"$1.99"}];
+    for (NSUInteger boundary : {0U, 1U, 2U}) {
+        for (NSDictionary *malformed in offers) {
+            Reset(); __block FixtureService *service;
+            Main(^{ service = [FixtureService new]; });
+            auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+            Main(^{ SeedToken(account, SyntheticToken, boundary == 1 ? @"protected" : @"hosted");
+                if (boundary == 1) SeedSecret(account); });
+            auto run = BeginPurchase(service, account);
+            auto info = Take(service, @"/info");
+            if (boundary != 0) {
+                Respond(info, Offer(NO));
+                if (boundary == 2) RespondData(Take(service, @"/payment_endpoint"),
+                    [account.providerURL.absoluteString dataUsingEncoding:NSUTF8StringEncoding], 200);
+                info = Take(service, @"/info");
+            }
+            Respond(info, malformed); AwaitPurchase(run);
+            Main(^{ Require(run.result.state == CydiaRepositoryPurchaseStateRejected &&
+                run.result.error.code == CydiaAccountErrorInvalidResponse && service.requests.count == 0 &&
+                ![service hasUnresolvedPurchase:@"fixture.package" account:account],
+                "missing/non-boolean ownership authorized charge at financial preflight boundary"); });
+        }
+    }
+}
+static void FreeConversionNeverChargesOrResolvesPayment(void) {
+    NSArray *freeOffers = @[@{@"available": @YES, @"purchased": @NO, @"free": @YES, @"price": @"$1.99"},
+        @{@"available": @YES, @"purchased": @NO, @"price": @0}];
+    for (NSUInteger boundary : {0U, 1U, 2U}) {
+        for (NSDictionary *freeOffer in freeOffers) {
+            Reset(); __block FixtureService *service;
+            Main(^{ service = [FixtureService new]; });
+            auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+            Main(^{ SeedToken(account, SyntheticToken, boundary == 1 ? @"protected" : @"hosted");
+                if (boundary == 1) SeedSecret(account); });
+            auto run = BeginPurchase(service, account); auto info = Take(service, @"/info");
+            if (boundary != 0) {
+                Respond(info, Offer(NO));
+                if (boundary == 2) RespondData(Take(service, @"/payment_endpoint"),
+                    [account.providerURL.absoluteString dataUsingEncoding:NSUTF8StringEncoding], 200);
+                info = Take(service, @"/info");
+            }
+            Respond(info, freeOffer); AwaitPurchase(run);
+            Main(^{ Require(run.result.state == CydiaRepositoryPurchaseStateRejected &&
+                run.result.error.code == CydiaAccountErrorOfferChanged && service.requests.count == 0 &&
+                ![service hasUnresolvedPurchase:@"fixture.package" account:account],
+                "newly free package still submitted a purchase at financial preflight boundary"); });
+        }
+    }
+    for (BOOL unknown : {NO, YES}) {
+        Reset(); __block FixtureService *service;
+        Main(^{ service = [FixtureService new]; });
+        auto account = Discover(service, @"https://source.example.invalid/", @"https://vendor.example.invalid/");
+        Main(^{ SeedToken(account, SyntheticToken, @"hosted"); });
+        auto run = BeginPurchase(service, account); auto charge = Submit(service, account);
+        Respond(charge, @{@"status": unknown ? @2 : @0});
+        NSDictionary *nowFree = @{@"available": @YES, @"purchased": @YES, @"free": @YES, @"price": @0};
+        Respond(Take(service, @"/info"), nowFree); AwaitPurchase(run);
+        Main(^{ Require(run.result.state == (unknown ? CydiaRepositoryPurchaseStateUnknown : CydiaRepositoryPurchaseStatePending) &&
+            [service hasUnresolvedPurchase:@"fixture.package" account:account] && service.requests.count == 0,
+            "free availability was mistaken for proof that an earlier charge settled"); });
+        __block NSUInteger refreshed = 0;
+        Main(^{ [service packageInfo:@"fixture.package" account:account completion:^(NSDictionary *info, NSError *error) {
+            Require(error == nil && [info[@"free"] isEqual:@YES], "newly free package status lookup failed"); ++refreshed;
+        }]; });
+        Respond(Take(service, @"/info"), nowFree);
+        Main(^{ Require(refreshed == 1 && [service hasUnresolvedPurchase:@"fixture.package" account:account],
+            "ordinary free-package refresh erased unresolved paid purchase marker"); });
+    }
+}
 static void Run(void) {
     DiscoveryAndEndpointScope(); ValidAuthenticationAndReplay(); InvalidAuthenticationCallbacks();
     BrowserFailureAndCancellation(); LogoutAndNewLoginRaces(); LogoutBeforeBrowserCallback();
-    StoreAndServerValidationFailures(); InvalidationScope(); ExactGrantAndFailures(); MutableGrantSelectionSnapshot(); RedirectAndResponseBounds();
+    StoreAndServerValidationFailures(); SuccessfulHTTPInvalidationRefusesNewCredentials();
+    InvalidationScope(); ExactGrantAndFailures(); MutableGrantSelectionSnapshot(); RedirectAndResponseBounds();
     UnsupportedIntegrationAndInvalidDiscovery(); AnonymousGETFallback(); ProtectedSecretAuthentication();
     PurchaseOwnershipAndOffer(); PurchaseCredentialRefusals(); PendingAndUnknownNeverRecharge();
     HostedCheckoutAndStrictCallbacks(); RejectedAndMalformedPurchases();
     OfferChangedDuringOwnerAuthentication(); PurchaseCancellationBoundaries();
     InvalidPackageIdentifiers(); ProviderChangeBeforeCharge(); ChangedArchiveSelectionRefusesCharge();
     AnotherAccountCannotResolveUncertainCharge(); MalformedProviderFlagsDoNotAuthorize();
+    ReadOnlyAccessPreparation(); AccessPreparationRetainsMutableIdentity(); RecoveryURLsStayPublicAndScoped();
+    PurchaseRecoveryPreservesUncertainty();
+    AsynchronousFinalSelectionCannotReplayCharge();
+    FinalFreshOfferAfterAsynchronousPreparation();
+    MalformedOwnershipNeverCharges(); FreeConversionNeverChargesOrResolvesPayment();
     Reset();
     std::puts("[repository-account] actual service lifecycle and refusal boundaries passed");
 }

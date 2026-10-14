@@ -140,6 +140,11 @@ typedef std::map<unsigned long, _H<Source> > SourceMap;
 - (bool) prepare;
 - (NSNumber *)prepareForConfirmation;
 - (CydiaTransactionReview *)preparedConfirmationReview;
+- (BOOL)isPreparedConfirmationReviewCurrent:(CydiaTransactionReview *)review;
+- (BOOL)repositoryAuthorizedDownloadsSupported;
+// Full source/index/dpkg revalidation runs off-main; no APT lock is retained
+// through authentication or checkout. The same review is required on return.
+- (void)validatePreparedConfirmationReview:(CydiaTransactionReview *)review completion:(void (^)(BOOL))completion;
 - (BOOL)approveConfirmationReview:(CydiaTransactionReview *)review;
 - (bool) perform;
 - (CydiaRuntime::TransactionResult) lastTransactionResult;

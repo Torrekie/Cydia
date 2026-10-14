@@ -64,6 +64,12 @@ bool AptBackend::prepareArchives() {
     return implementation_->prepareArchives();
 }
 
+bool AptBackend::preparedRepositoryAccessRequests(std::vector<RepositoryArchiveAccessRequest> *requests) {
+    return implementation_->preparedRepositoryAccessRequests(requests);
+}
+
+void AptBackend::releasePreparedArchiveLock() { implementation_->releasePreparedArchiveLock(); }
+
 SourceListData AptBackend::sourceList() {
     return implementation_->sourceList();
 }

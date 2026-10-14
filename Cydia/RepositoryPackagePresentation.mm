@@ -42,6 +42,17 @@ NSArray<NSString *> *CydiaRepositoryPurchasedPackageIdentifiers(NSDictionary *in
 }
 
 NSURL *CydiaRepositoryPublicWebsite(NSURL *URL) { return PublicPurchaseURL(URL); }
+NSString *CydiaRepositorySourceDisplayURL(NSURL *URL) {
+    if (![URL isKindOfClass:NSURL.class] || !URL.scheme.length || URL.absoluteString.length > 8192) return nil;
+    NSURLComponents *parts = [NSURLComponents componentsWithURL:URL resolvingAgainstBaseURL:NO];
+    parts.user = nil; parts.password = nil; parts.query = nil; parts.fragment = nil;
+    NSString *text = parts.string;
+    NSString *decoded = text.stringByRemovingPercentEncoding;
+    if (!text.length || decoded == nil ||
+        [text rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound ||
+        [decoded rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound) return nil;
+    return text;
+}
 NSURL *CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL *packageWebsite) {
     NSURL *website = PublicPurchaseURL(packageWebsite);
     NSURL *source = PublicPurchaseURL(sourceURL);
@@ -87,10 +98,23 @@ NSURL *CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL *packageWebsite) {
         if ([price isKindOfClass:NSString.class] && [price length] > 0 && [price length] <= 128 &&
             [price rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location == NSNotFound)
             _price = [price copy];
+        bool freeValue(false);
+        id numericPrice = info[@"price"];
+        _free = (JSONBoolean(info[@"free"], &freeValue) && freeValue) ||
+            ([numericPrice isKindOfClass:NSNumber.class] &&
+                CFGetTypeID((__bridge CFTypeRef)numericPrice) != CFBooleanGetTypeID() &&
+                [numericPrice doubleValue] == 0.0);
         if (!available) {
             if (signedIn && JSONBoolean(info[@"purchased"], &purchased) && purchased) {
                 _purchased = YES; _state = CydiaRepositoryPackageStateOwnedUnavailable;
             } else _state = CydiaRepositoryPackageStateUnavailable;
+            return self;
+        }
+        if (_free) {
+            /* Public availability needs no account entitlement or signed
+             * one-use grant. Free is never proof of a completed purchase. */
+            if (signedIn && JSONBoolean(info[@"purchased"], &purchased)) _purchased = purchased;
+            _state = downloadAvailable ? CydiaRepositoryPackageStateDownload : CydiaRepositoryPackageStateFree;
             return self;
         }
         if (!signedIn) { _state = CydiaRepositoryPackageStateSignIn; return self; }

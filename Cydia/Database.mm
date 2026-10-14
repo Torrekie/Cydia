@@ -420,6 +420,11 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
     return operation.held() && runtime_->ready() && runtime_->healthy() && CydiaAPT::MutationEnvironmentValid();
 }
 
+- (BOOL)repositoryAuthorizedDownloadsSupported {
+    DatabaseReadOperation operation(operationLock_);
+    return operation.held() && runtime_ && runtime_->ready() && runtime_->repositoryAuthorizedDownloadsSupported();
+}
+
 - (bool) hasPendingPackageChanges {
     DatabaseOperation operation(operationLock_);
     if (!runtime_->ready()) return false;
@@ -954,7 +959,9 @@ static void CYArrayInsertionSortValues(Type_ *values, size_t length, CFCompariso
         if (![self captureConfirmationReview]) return false;
     }
     if ([self popErrorWithTitle:title forOperation:apt_->prepareArchives()]) return false;
-    return runtime_->remote() || [self captureConfirmationReview];
+    const bool captured(runtime_->remote() || [self captureConfirmationReview]);
+    if (!runtime_->remote()) apt_->releasePreparedArchiveLock();
+    return captured;
 }
 
 - (bool) perform {

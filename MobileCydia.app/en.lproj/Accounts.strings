@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Sources";
 "ACCOUNT_LINKED_ACCOUNTS" = "Linked Accounts";
 "ACCOUNT_PROVIDER_CHANGED" = "This source now uses a different payment provider. Previous purchases and credentials remain with the original provider; they are not transferred.";
+"ACCOUNT_PROVIDER_HELP" = "Provider Help";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Open %@ for help with this account or purchase.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "An earlier purchase request is still unresolved. Check its status with the provider. Cydia will not send another purchase request.";
+"ACCOUNT_REVIEW_TITLE" = "Purchases and Account Access";
+"ACCOUNT_REVIEW_HELP" = "Check account access for the packages in this installation. Buying requires your confirmation and does not install packages automatically. Each source keeps its own purchases.";
+"ACCOUNT_ACCESS_READY" = "Ready to Download";
+"ACCOUNT_REVIEW_REQUIRED" = "Resolve account access for these packages before confirming installation.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Return to Installation Review";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "The selected package backend cannot download packages that require repository authorization. Choose a compatible backend in Settings before purchasing.";
+"ACCOUNT_FREE" = "Free";

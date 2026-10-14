@@ -6,6 +6,9 @@ NS_ASSUME_NONNULL_BEGIN
  * documented vendor buy page bound to that vendor's source is recognized. */
 NSURL * _Nullable CydiaRepositoryPurchaseWebsite(NSURL *sourceURL, NSURL * _Nullable packageWebsite);
 NSURL * _Nullable CydiaRepositoryPublicWebsite(NSURL * _Nullable URL);
+/* Display only: retain the source path that distinguishes repository scopes,
+ * while hiding credentials, queries and fragments. Never a checkout URL. */
+NSString * _Nullable CydiaRepositorySourceDisplayURL(NSURL * _Nullable URL);
 /* Provider-owned package IDs only. No local package lookup can confer an
  * entitlement from another repository with the same package name. */
 NSArray<NSString *> * _Nullable CydiaRepositoryPurchasedPackageIdentifiers(NSDictionary * _Nullable info);
@@ -18,6 +21,7 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPackageState) {
     CydiaRepositoryPackageStateOwned,
     CydiaRepositoryPackageStateNotPurchased,
     CydiaRepositoryPackageStateOwnedUnavailable,
+    CydiaRepositoryPackageStateFree,
 };
 
 /* Presentation only. No transport, credentials, archive grants or mutation
@@ -30,6 +34,7 @@ typedef NS_ENUM(NSUInteger, CydiaRepositoryPackageState) {
 @property(nonatomic, copy, readonly, nullable) NSString *price;
 @property(nonatomic, readonly) BOOL purchased;
 @property(nonatomic, readonly) BOOL available;
+@property(nonatomic, readonly, getter=isFree) BOOL free;
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithInfo:(nullable NSDictionary *)info
                     signedIn:(BOOL)signedIn

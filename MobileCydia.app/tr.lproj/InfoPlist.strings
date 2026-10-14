@@ -1,2 +1,3 @@
 "CFBundleTypeName" = "OpenPGP açık anahtarı";
 "OpenPGP Public Key" = "OpenPGP açık anahtarı";
+"NSFaceIDUsageDescription" = "Cydia, paket kaynaklarından yapılan satın almaları güvenli şekilde onaylamak için Face ID kullanır.";

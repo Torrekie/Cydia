@@ -208,7 +208,12 @@ bool AptBackend::lockForTransaction() {
 
 void AptBackend::unlockForTransaction() {
     if (_system != NULL && _system->IsLocked()) _system->UnLock();
+    // A confirmation preview must release the worker's archive-cache lock as
+    // well as the parent frontend lock before account or browser interaction.
+    releasePreparedArchiveLock();
 }
+
+void AptBackend::releasePreparedArchiveLock() { delete lock_; lock_ = NULL; }
 
 std::vector<AutoInstalledDelta> AptBackend::autoInstalledDeltas() {
     std::vector<AutoInstalledDelta> result;
@@ -340,6 +345,50 @@ bool AptBackend::prepareArchives() {
     preparedPlan_ = TransactionPlanIdentity(transactionData());
     preparedPrefix_ = PackageInstallPrefix();
     archivesPrepared_ = true;
+    return true;
+}
+
+bool AptBackend::preparedRepositoryAccessRequests(std::vector<RepositoryArchiveAccessRequest> *requests) {
+    if (!requests) return false;
+    requests->clear();
+    const TransactionData transaction(transactionData());
+    if (!archivesPrepared_ || fetcher_ == NULL || preparedPlan_ != TransactionPlanIdentity(transaction) ||
+        preparedPrefix_ != PackageInstallPrefix()) return false;
+    std::vector<RepositoryArchiveAccessRequest> result;
+    CydiaPackages::ArchiveLayout layout;
+    layout.prefix = preparedPrefix_;
+    if (layout.prefix != "/var/jb") layout.foreignPrefixes.push_back("/var/jb");
+    for (const auto &item : preparedArchives_) {
+        const auto *retained(dynamic_cast<const pkgAcqArchive *>(item.first));
+        if (!retained || !item.second.commercial) continue;
+        auto *archive(const_cast<pkgAcqArchive *>(retained));
+        const URI acquisition(archive->DescURI());
+        if (acquisition.Access == "file" || acquisition.Access == "copy" || acquisition.Access == "store") continue;
+        if (archive->Status == pkgAcquire::Item::StatDone && archive->Complete) {
+            _error->PushToStack();
+            const ArchiveIntegrity integrity(VerifyArchiveIntegrity(*archive));
+            const auto policy(CydiaPackages::InspectPackageArchive(archive->DestFile, item.second.identity, layout));
+            _error->RevertToStack();
+            using CydiaPackages::ArchivePolicyStatus;
+            if (integrity == ArchiveIntegrity::Verified &&
+                policy.identityVerified && policy.complete &&
+                (policy.status == ArchivePolicyStatus::Accepted || policy.status == ArchivePolicyStatus::Unverified)) continue;
+        }
+        const auto &expected(item.second);
+        const auto operation(transaction.packages.find(expected.package));
+        if (operation == transaction.packages.end() || operation->second.identity.baseName != expected.identity.package ||
+            operation->second.version != expected.identity.version ||
+            operation->second.identity.versionArchitecture != expected.identity.architecture) return false;
+        RepositoryArchiveAccessRequest request;
+        request.sourceURL = LookupTag(archive->Custom600Headers(), "Target-Repo-URI");
+        if (request.sourceURL.empty() || !expected.commercialSources.count(request.sourceURL)) return false;
+        request.sourceName = URI(request.sourceURL).Host;
+        request.package = expected.identity.package; request.routingIdentity = expected.package;
+        request.displayName = operation->second.displayName;
+        request.version = expected.identity.version; request.architecture = expected.identity.architecture;
+        result.push_back(std::move(request));
+    }
+    *requests = std::move(result);
     return true;
 }
 

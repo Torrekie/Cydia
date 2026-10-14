@@ -12,9 +12,11 @@
 #include <apt-pkg/progress.h>
 #include <apt-pkg/strutl.h>
 #include <cstdlib>
+#include <cerrno>
 #include <fcntl.h>
 #include <fstream>
 #include <iostream>
+#include <sys/wait.h>
 #include <unistd.h>
 
 /* APT indexes include armhf, but dpkg registers only amd64 and i386. This
@@ -510,12 +512,42 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
     Require(package.valid() && backend.installPackage(package) && backend.resolveDependencies() &&
         backend.transactionData().installs.size() == 1 && backend.prepareArchives(),
         "authorized acquisition fixture could not prepare its exact independent package");
+    std::vector<RepositoryArchiveAccessRequest> accessRequests;
+    Require(backend.preparedRepositoryAccessRequests(&accessRequests) && accessRequests.size() == 1 &&
+        accessRequests.front().sourceURL == sources.uris.front() && accessRequests.front().package == "archive-authorized" &&
+        accessRequests.front().routingIdentity == "archive-authorized" && accessRequests.front().version == "1" &&
+        accessRequests.front().architecture == "all" && authorizations == 0,
+        "account preparation guessed a candidate, changed exact source/version/architecture or requested credentials");
+    auto cacheUnlocked = [] {
+        const pid_t competitor(fork());
+        Require(competitor >= 0, "archive preview lock fixture could not fork");
+        if (competitor == 0) {
+            const std::string path(_config->FindDir("Dir::Cache::Archives") + "lock");
+            const int descriptor(open(path.c_str(), O_RDWR | O_CLOEXEC));
+            struct flock lock = {}; lock.l_type = F_WRLCK; lock.l_whence = SEEK_SET;
+            const bool unlocked(descriptor >= 0 && fcntl(descriptor, F_SETLK, &lock) == 0);
+            if (descriptor >= 0) close(descriptor);
+            _exit(unlocked ? 0 : 1);
+        }
+        int childStatus = 0; pid_t waited;
+        do { waited = waitpid(competitor, &childStatus, 0); } while (waited < 0 && errno == EINTR);
+        Require(waited == competitor && WIFEXITED(childStatus), "archive cache competitor did not settle");
+        return WEXITSTATUS(childStatus) == 0;
+    };
+    backend.releasePreparedArchiveLock();
+    Require(cacheUnlocked(),
+        "account preview retained the archive-cache lock through user interaction");
+    Require(backend.prepareArchives() && backend.preparedRepositoryAccessRequests(&accessRequests) && accessRequests.size() == 1,
+        "archive preparation did not reacquire/reconstruct the exact selection after preview");
+    Require(!cacheUnlocked(), "archive acquisition did not reacquire the preview's released cache lock");
     const FetchResultData staged(backend.runFetcher(1000));
     Require(staged.completed && staged.failures.empty() && staged.warnings.empty() && authorizations == 1 &&
         access(cache.c_str(), F_OK) == 0,
         "authorized archive did not survive staging, GetArchives reconstruction and hash/layout validation");
 
     Require(backend.prepareArchives(), "authorized cache could not be reconstructed a second time");
+    Require(backend.preparedRepositoryAccessRequests(&accessRequests) && accessRequests.empty(),
+        "verified cached commercial archive unnecessarily requested account preparation");
     const FetchResultData cached(backend.runFetcher(1000));
     Require(cached.completed && cached.failures.empty() && cached.warnings.empty() && authorizations == 1,
         "verified authorized cache was downloaded or authorized again");
@@ -561,6 +593,8 @@ void CheckAuthorizedArchiveDownload(CydiaAPT::Internal::AptBackend &backend) {
     }
     unsetenv("CYDIA_APT_AUTHORIZED_FAILURE");
     backend.clearSelections();
+    Require(!backend.preparedRepositoryAccessRequests(&accessRequests) && accessRequests.empty(),
+        "changed package selection retained old paid archive preparation requests");
     fixtureInstallPrefix = "/";
     fixtureSecurityMode = RepositorySecurityMode::Warning;
     _config->Set("Dir::Bin::Methods::https", previousMethod);

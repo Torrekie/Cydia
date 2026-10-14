@@ -40,6 +40,9 @@ public:
     // Captures before presenting the confirmation sheet. Confirm only approves
     // this retained value; a later worker reply cannot renew user approval.
     bool CaptureReview(AptBackend &backend, TransactionData *transaction, std::string *error);
+    bool CaptureRepositoryAccessRequests(AptBackend &backend,
+        std::vector<RepositoryArchiveAccessRequest> *requests, std::string *error);
+    bool repositoryAuthorizedDownloadsSupported() const;
     bool ApproveReview(AptBackend &backend, const std::set<std::uint64_t> &shownActions,
         const std::set<std::string> &shownArchiveWarnings, std::string *error,
         const std::string &shownEffectsIdentity = {}, const std::string &shownDeconfigurationIdentity = {});

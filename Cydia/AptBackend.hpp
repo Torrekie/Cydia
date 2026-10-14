@@ -20,6 +20,13 @@ struct AutoInstalledDelta {
     bool automatic;
 };
 
+/* Parent-local account preparation, never a provider's credential request.
+ * These owning values describe the actual reviewed acquisition, not a policy
+ * candidate. Only commercial archives needing network access are included. */
+struct RepositoryArchiveAccessRequest {
+    std::string sourceURL, sourceName, package, routingIdentity, displayName, version, architecture;
+};
+
 class AcquireStatus;
 struct SourcePreflightRequest;
 struct SourcePreflightResult;
@@ -93,6 +100,10 @@ class AptBackend {
     bool minimizeUpgrade();
     bool cleanArchives();
     bool prepareArchives();
+    bool preparedRepositoryAccessRequests(std::vector<RepositoryArchiveAccessRequest> *requests);
+    // Release only the preview's archive-cache lock; retain its immutable
+    // selection. prepareArchives reacquires and rebuilds it before acquisition.
+    void releasePreparedArchiveLock();
     SourceListData sourceList();
     FetchResultData runFetcher(int pulseInterval);
     PackageManagerResult runPackageManager(int statusFd, FetchResultData *archiveValidation = NULL,

@@ -1,2 +1,3 @@
 "CFBundleTypeName" = "Chave pública OpenPGP";
 "OpenPGP Public Key" = "Chave pública OpenPGP";
+"NSFaceIDUsageDescription" = "O Cydia utiliza o Face ID para autorizar compras em fontes de pacotes em segurança.";

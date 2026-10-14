@@ -1,2 +1,3 @@
 "CFBundleTypeName" = "Δημόσιο κλειδί OpenPGP";
 "OpenPGP Public Key" = "Δημόσιο κλειδί OpenPGP";
+"NSFaceIDUsageDescription" = "Το Cydia χρησιμοποιεί το Face ID για την ασφαλή εξουσιοδότηση αγορών από πηγές πακέτων.";

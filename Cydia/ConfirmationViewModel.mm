@@ -157,6 +157,10 @@ CydiaConfirmationClauseStatus ClauseStatus(NSString *identifier) {
     return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindConditionalChanges
         issue:nil changeGroups:@[] rowCount:count + 1];
 }
++ (instancetype)repositoryAccountsWithCount:(NSUInteger)count {
+    return [[self alloc] initWithKind:CydiaConfirmationTableSectionKindRepositoryAccounts
+        issue:nil changeGroups:@[] rowCount:count + 1];
+}
 
 - (instancetype) initWithKind:(CydiaConfirmationTableSectionKind)kind
                          issue:(CydiaConfirmationIssue *)issue

@@ -27,6 +27,11 @@ public:
     virtual bool minimizeUpgrade() = 0;
     virtual bool cleanArchives() = 0;
     virtual bool prepareArchives() = 0;
+    virtual bool preparedRepositoryAccessRequests(std::vector<RepositoryArchiveAccessRequest> *requests) {
+        if (requests) requests->clear();
+        return false;
+    }
+    virtual void releasePreparedArchiveLock() {}
     virtual SourceListData sourceList() = 0;
     virtual FetchResultData runFetcher(int pulseInterval) = 0;
     virtual PackageManagerResult runPackageManager(int statusFd, FetchResultData *archiveValidation,

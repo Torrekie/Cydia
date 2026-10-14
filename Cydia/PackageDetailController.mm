@@ -1138,7 +1138,9 @@ dispatch:
             PackageDetailController *self = weakSelf;
             if (!self || self.viewModel != selection ||
                 ![self.navigationController.viewControllers containsObject:self]) return NO;
-            Package *package = [[Database sharedInstance] packageWithName:selection.identity];
+            Database *database = [Database sharedInstance];
+            if (!database.repositoryAuthorizedDownloadsSupported) return NO;
+            Package *package = [database packageWithName:selection.identity];
             if (!package) return NO;
             CydiaPackageDetailViewModel *current = [[CydiaPackageDetailViewModel alloc]
                 initWithPackage:package registeredArchitectures:package.registeredArchitectures
@@ -1152,14 +1154,17 @@ dispatch:
             [self.navigationController popToViewController:self animated:YES];
             [self selectModifyAction:download];
         };
-        [self.navigationController pushViewController:[[RepositoryAccountsController alloc]
+        BOOL engineSupported = [Database sharedInstance].repositoryAuthorizedDownloadsSupported;
+        RepositoryAccountsController *controller = [[RepositoryAccountsController alloc]
             initWithSourceURL:[NSURL URLWithString:_viewModel.source.repositoryURLString]
             name:_viewModel.source.name package:_viewModel.baseIdentity ?: _viewModel.identity
             packageName:selection.displayName version:selection.fullVersion architecture:selection.architecture
             downloadAction:downloadAction purchaseURL:CydiaRepositoryPurchaseWebsite(
                 [NSURL URLWithString:selection.source.repositoryURLString],
                 selection.homepageURLString ? [NSURL URLWithString:selection.homepageURLString] : nil)
-            selectionIsCurrent:selectionIsCurrent] animated:YES];
+            selectionIsCurrent:selectionIsCurrent];
+        controller.downloadEngineUnsupported = !engineSupported;
+        [self.navigationController pushViewController:controller animated:YES];
         return;
     }
     if ([action kind] != CydiaPackageDetailModifyActionKindVersions) {

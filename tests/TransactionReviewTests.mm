@@ -126,6 +126,68 @@ void ChangesInvalidateTheSnapshot() {
     }
 }
 
+void ImmutableRepositoryAccessRequests() {
+    Fixture fixture;
+    CydiaAPT::RepositoryArchiveAccessRequest request;
+    request.sourceURL = "https://reviewed.invalid/"; request.sourceName = "reviewed.invalid";
+    request.package = "native-package"; request.routingIdentity = "native-package";
+    request.displayName = "Reviewed Package"; request.version = "1.0"; request.architecture = "iphoneos-arm64";
+    std::vector<CydiaAPT::RepositoryArchiveAccessRequest> requests{request};
+    BOOL supported = YES;
+    auto make = [&]() {
+        return [[CydiaTransactionReview alloc] initWithTransaction:fixture.transaction providerReview:&fixture.provider
+            runtimeOrigin:CydiaAPT::RuntimeDescriptorOrigin::External reviewedEffects:nullptr
+            reviewedDeconfiguration:std::shared_ptr<const P::EffectReviewBundle>() repositoryAccessRequests:requests
+            repositoryAuthorizedDownloadsSupported:supported];
+    };
+    CydiaTransactionReview *review(make());
+    Require(review && review.repositoryAccessRequests.count == 1 && review.repositoryAuthorizedDownloadsSupported,
+        "exact repository request or admitted download capability was not captured");
+    supported = NO;
+    CydiaTransactionReview *unsupported(make());
+    Require(unsupported && !unsupported.repositoryAuthorizedDownloadsSupported &&
+        unsupported.repositoryAccessRequests.count == 1 && review.repositoryAuthorizedDownloadsSupported,
+        "unsupported engine lost account rows or changed the original immutable capability");
+    supported = YES;
+    NSDictionary *row(review.repositoryAccessRequests.firstObject);
+    Text(row[@"sourceURL"], @"https://reviewed.invalid/", "review substituted a policy-candidate source");
+    Text(row[@"package"], @"native-package", "review changed repository product identity");
+    Text(row[@"routingIdentity"], @"native-package", "review changed the architecture-aware UI route");
+    Text(row[@"version"], @"1.0", "review changed planned archive version");
+    Text(row[@"architecture"], @"iphoneos-arm64", "review changed archive architecture");
+    requests[0].sourceURL = "https://replacement.invalid/";
+    Text(row[@"sourceURL"], @"https://reviewed.invalid/", "review borrowed mutable account preparation input");
+    Require(![review.repositoryAccessRequests isKindOfClass:NSMutableArray.class] &&
+        ![row isKindOfClass:NSMutableDictionary.class], "published repository requests remain mutable");
+    requests[0].version = "2.0";
+    Require(make() == nil, "repository request with a different planned version was accepted");
+    requests[0] = request; requests[0].architecture = "all";
+    Require(make() == nil, "repository request replaced native architecture with all");
+    requests = {request, request};
+    Require(make() == nil, "duplicate exact repository request was accepted");
+    requests = {request};
+    fixture.transaction.installs.erase(fixture.transaction.installs.begin());
+    fixture.transaction.removes.push_back("native-package");
+    Require(make() == nil, "removal-only package unexpectedly solicited purchase preparation");
+    fixture.transaction.removes.clear();
+    fixture.transaction.registeredArchitectures.push_back("iphoneos-arm");
+    CydiaAPT::TransactionPackageData foreign;
+    foreign.identity = CydiaAPT::BuildPackageIdentity("native-package", "iphoneos-arm", "iphoneos-arm", "iphoneos-arm64", CydiaAPT::MultiArchMode::None);
+    foreign.version = "0.5"; foreign.displayName = "Foreign Package";
+    fixture.transaction.packages.emplace("native-package:iphoneos-arm", foreign);
+    fixture.transaction.downgrades.push_back("native-package:iphoneos-arm");
+    request.routingIdentity = "native-package:iphoneos-arm"; request.version = "0.5";
+    request.architecture = "iphoneos-arm"; request.displayName = "Foreign Package";
+    requests = {request};
+    CydiaTransactionReview *downgrade(make());
+    Require(downgrade && downgrade.repositoryAccessRequests.count == 1, "foreign downgrade lost its exact account request");
+    row = downgrade.repositoryAccessRequests.firstObject;
+    Text(row[@"package"], @"native-package", "foreign UI route was sent as a different repository product");
+    Text(row[@"routingIdentity"], @"native-package:iphoneos-arm", "foreign package aliased the native UI row");
+    Text(row[@"version"], @"0.5", "downgrade used a later candidate version");
+    Text(row[@"architecture"], @"iphoneos-arm", "foreign downgrade changed archive architecture");
+}
+
 void ExactRowsAndSingleArchitecture() {
     Fixture fixture;
     CydiaTransactionReview *review(fixture.Make());
@@ -324,7 +386,7 @@ void ExistingRemovalEndpointsAndSiblingCause() {
 
 int main() {
     @autoreleasepool {
-        ImmutableOwnedSnapshot(); ChangesInvalidateTheSnapshot(); ExactRowsAndSingleArchitecture();
+        ImmutableOwnedSnapshot(); ChangesInvalidateTheSnapshot(); ImmutableRepositoryAccessRequests(); ExactRowsAndSingleArchitecture();
         DistinctForeignArchitecture(); EveryKnownActionIsVisibleAndUnknownRejected(); EmbeddedRecoveryNotice();
         ImmutableProcessingPool(); RecoveryWorkerNotice();
         ExactConditionalRowsAndImmutableIdentity(); ExistingRemovalEndpointsAndSiblingCause();

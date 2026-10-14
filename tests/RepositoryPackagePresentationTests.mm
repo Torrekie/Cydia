@@ -19,6 +19,12 @@ static CydiaRepositoryPackagePresentation *NativePresent(NSDictionary *info, BOO
 int main() {
     @autoreleasepool {
         NSURL *source = [NSURL URLWithString:@"https://repo.chariz.com/"];
+        Require([CydiaRepositorySourceDisplayURL([NSURL URLWithString:@"https://user:password@repo.example/suite/rootless/?token=secret#private"])
+            isEqual:@"https://repo.example/suite/rootless/"], "source display lost repository scope or exposed credentials");
+        Require([CydiaRepositorySourceDisplayURL([NSURL URLWithString:@"http://repo.example/rooted/"])
+            isEqual:@"http://repo.example/rooted/"], "legacy source scope hidden by HTTPS display policy");
+        Require(CydiaRepositorySourceDisplayURL([NSURL URLWithString:@"https://repo.example/%0asource"]) == nil,
+            "source display accepted a newline-bearing path");
         NSURL *buy = [NSURL URLWithString:@"https://chariz.com/buy/example-product"];
         Require([CydiaRepositoryPurchaseWebsite(source, buy) isEqual:buy], "explicit vendor product page refused");
         for (NSString *URL in @[@"https://chariz.com/", @"https://chariz.com/buy", @"https://chariz.com/buy/..",
@@ -88,6 +94,29 @@ int main() {
             "owned but unavailable product disappeared from ownership presentation");
         Require(NativePresent(@{@"available": @NO, @"purchased": @YES}).purchased,
             "ownership of an unavailable product was lost");
+        NSDictionary *publicFree = @{@"available": @YES, @"free": @YES};
+        auto freeSignedOut = Present(publicFree, NO, YES, YES);
+        Require(freeSignedOut.state == CydiaRepositoryPackageStateDownload && freeSignedOut.isFree && !freeSignedOut.purchased,
+            "public free package required an account or became synthetic ownership");
+        Require(NativePresent(publicFree, NO).state == CydiaRepositoryPackageStateDownload,
+            "public free install incorrectly required repository-grant engine support");
+        Require(Present(publicFree, NO, YES, NO).state == CydiaRepositoryPackageStateFree,
+            "nonactionable free product represented as owned or purchasable");
+        Require(NativePresent(@{@"available": @YES, @"price": @0}, NO).isFree,
+            "explicit numeric zero price not recognized as public free evidence");
+        auto freeOwned = NativePresent(@{@"available": @YES, @"free": @YES, @"purchased": @YES}, NO);
+        Require(freeOwned.isFree && freeOwned.purchased,
+            "independent vendor ownership field erased by public free presentation");
+        auto unavailableFree = NativePresent(@{@"available": @NO, @"free": @YES, @"purchased": @YES});
+        Require(unavailableFree.state == CydiaRepositoryPackageStateOwnedUnavailable && unavailableFree.isFree,
+            "unavailable free metadata could settle old charge status or enable installation");
+        for (NSDictionary *notFree in @[
+            @{@"available": @YES, @"purchased": @NO, @"free": @NO},
+            @{@"available": @YES, @"purchased": @NO, @"free": @0},
+            @{@"available": @YES, @"purchased": @NO, @"price": @NO},
+            @{@"available": @YES, @"purchased": @NO, @"price": @"Free"},
+            @{@"available": @YES, @"purchased": @NO, @"price": @"$0.00"}])
+            Require(!NativePresent(notFree).isFree, "untrusted display text or false boolean became free-install authority");
         for (id price in @[@1, @YES, NSNull.null, @[], @{}, @"", @"$2\ncheckout"]) {
             Require(NativePresent(@{@"available": @YES, @"purchased": @NO, @"price": price}).state == CydiaRepositoryPackageStateNotPurchased,
                 "invalid native price was offered for financial confirmation");

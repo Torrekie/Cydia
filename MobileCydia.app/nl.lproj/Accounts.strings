@@ -46,3 +46,13 @@
 "ACCOUNT_SOURCES" = "Bronnen";
 "ACCOUNT_LINKED_ACCOUNTS" = "Gekoppelde accounts";
 "ACCOUNT_PROVIDER_CHANGED" = "Deze bron gebruikt nu een andere betalingsaanbieder. Eerdere aankopen en inloggegevens blijven bij de oorspronkelijke aanbieder en worden niet overgedragen.";
+"ACCOUNT_PROVIDER_HELP" = "Hulp van de aanbieder";
+"ACCOUNT_PROVIDER_HELP_DETAIL" = "Open %@ voor hulp bij dit account of deze aankoop.";
+"ACCOUNT_EARLIER_PURCHASE_UNRESOLVED" = "Een eerder aankoopverzoek is nog niet opgelost. Controleer de status bij de aanbieder. Cydia verzendt geen nieuw aankoopverzoek.";
+"ACCOUNT_REVIEW_TITLE" = "Aankopen en accounttoegang";
+"ACCOUNT_REVIEW_HELP" = "Controleer de accounttoegang voor de pakketten in deze installatie. Aankopen vereisen je bevestiging en installeren pakketten niet automatisch. Elke bron houdt eigen aankopen bij.";
+"ACCOUNT_ACCESS_READY" = "Klaar om te downloaden";
+"ACCOUNT_REVIEW_REQUIRED" = "Los de accounttoegang voor deze pakketten op voordat je de installatie bevestigt.";
+"ACCOUNT_RETURN_TO_REVIEW" = "Terug naar installatieoverzicht";
+"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED" = "De gekozen pakketbackend kan geen pakketten downloaden waarvoor toestemming van de bron nodig is. Kies vóór aankoop een compatibele backend in Instellingen.";
+"ACCOUNT_FREE" = "Gratis";

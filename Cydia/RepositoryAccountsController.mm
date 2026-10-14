@@ -20,7 +20,9 @@
 @property(nonatomic, copy) NSString *status, *userName, *purchaseStatus;
 @property(nonatomic, copy) void (^downloadAction)(void);
 @property(nonatomic, copy) BOOL (^selectionValidation)(void);
+@property(nonatomic, copy) void (^prepareSelection)(void (^)(BOOL));
 @property(nonatomic, copy) NSURL *purchaseURL;
+@property(nonatomic, copy) NSURL *recoveryURL;
 @property(nonatomic, strong) CydiaRepositoryPackagePresentation *packagePresentation;
 @property(nonatomic, copy) NSArray<NSString *> *purchasedItems;
 @property(nonatomic, copy) NSDictionary<NSString *, NSString *> *localItems;
@@ -56,11 +58,21 @@
                       packageName:(NSString *)packageName version:(NSString *)version architecture:(NSString *)architecture
                    downloadAction:(void (^)(void))downloadAction purchaseURL:(NSURL *)purchaseURL
                selectionIsCurrent:(BOOL (^)(void))selectionIsCurrent {
+    return [self initWithSourceURL:sourceURL name:name package:package packageName:packageName version:version
+        architecture:architecture downloadAction:downloadAction purchaseURL:purchaseURL
+        selectionIsCurrent:selectionIsCurrent prepareSelection:nil];
+}
+- (instancetype)initWithSourceURL:(NSURL *)sourceURL name:(NSString *)name package:(NSString *)package
+                      packageName:(NSString *)packageName version:(NSString *)version architecture:(NSString *)architecture
+                   downloadAction:(void (^)(void))downloadAction purchaseURL:(NSURL *)purchaseURL
+               selectionIsCurrent:(BOOL (^)(void))selectionIsCurrent
+                 prepareSelection:(void (^)(void (^)(BOOL)))prepareSelection {
     if ((self = [super init])) {
         _sourceURL = [sourceURL copy]; _sourceName = [name copy]; _package = [package copy];
         _packageName = [packageName copy]; _version = [version copy]; _architecture = [architecture copy];
         _downloadAction = [downloadAction copy];
         _selectionValidation = [selectionIsCurrent copy];
+        _prepareSelection = [prepareSelection copy];
         _purchaseURL = CydiaRepositoryPurchaseWebsite(sourceURL, purchaseURL);
         self.title = packageName.length ? packageName : name.length ? name : CydiaAccountLocalize(@"ACCOUNTS");
     }
@@ -110,6 +122,16 @@
 - (void)beginLoading {
     _busy = YES; _status = nil; ++_requestGeneration; [_table reloadData];
 }
+- (BOOL)hasUnresolvedPurchase {
+    return _package.length && _account != nil &&
+        [[CydiaRepositoryAccountService sharedService] hasUnresolvedPurchase:_package account:_account];
+}
+- (void)updateRecoveryFromError:(NSError *)error {
+    NSURL *URL = [error.domain isEqual:@"CydiaRepositoryAccount"] ?
+        CydiaRepositoryPublicWebsite(error.userInfo[CydiaAccountRecoveryURLKey]) : nil;
+    if (URL) _recoveryURL = URL;
+    else if (!error && ![self hasUnresolvedPurchase]) _recoveryURL = nil;
+}
 - (void)loadAccount {
     if (_busy || !_sourceURL) return;
     _providerCurrent = NO; _packagePresentation = nil; [self beginLoading];
@@ -119,14 +141,16 @@
         completion:^(CydiaRepositoryAccount *account, NSError *error) {
         RepositoryAccountsController *self = weakSelf; if (!self || self.requestGeneration != generation) return;
         BOOL changedProvider = self.account != nil && account != nil && ![self.account.providerURL isEqual:account.providerURL];
-        if (changedProvider) { self.purchasedItems = nil; self.lastChecked = nil; self.purchaseStatus = nil; }
+        if (changedProvider) { self.purchasedItems = nil; self.lastChecked = nil; self.purchaseStatus = nil; self.recoveryURL = nil; }
         self.busy = NO; self.loaded = YES; self.providerCurrent = account != nil && error == nil;
         self.rememberedProviderChanged = account != nil && self.rememberedMetadata != nil &&
             ![self.rememberedMetadata[@"provider"] isEqual:account.providerURL.absoluteString];
         if (account != nil) self.account = account;
         if (!self.providerCurrent) self.libraryStale = YES;
         self.status = error.localizedDescription ?: (account && !account.supportsAccountIntegration ? CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED") : nil);
-        self.signedIn = self.account.signedIn; [self.table reloadData];
+        self.signedIn = self.account.signedIn;
+        [self updateRecoveryFromError:error];
+        [self.table reloadData];
         if (self.providerCurrent && self.signedIn) [self refreshAccount];
         else if (self.providerCurrent && self.package.length && account.supportsAccountIntegration) [self refreshPackage];
     }];
@@ -164,6 +188,7 @@
             else { self.libraryStale = YES; self.status = CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED"); }
         } else self.libraryStale = YES;
         if (!self.signedIn) { self.purchasedItems = nil; self.lastChecked = nil; self.userName = nil; }
+        [self updateRecoveryFromError:error];
         [self.table reloadData];
         if (self.package.length && !error) [self refreshPackage];
     }];
@@ -173,7 +198,7 @@
     BOOL selectedArchiveAction = _downloadAction != nil && _version.length && _architecture.length;
     return [[CydiaRepositoryPackagePresentation alloc] initWithInfo:info
         signedIn:_account.signedIn && !_authenticationFailed supported:_account.supportsAccountIntegration
-        downloadAvailable:_downloadAction != nil downloadSupported:(capabilities & CydiaRepositoryCapabilityDownload) != 0
+        downloadAvailable:_downloadAction != nil downloadSupported:!_downloadEngineUnsupported && (capabilities & CydiaRepositoryCapabilityDownload) != 0
         purchaseAvailable:(capabilities & (CydiaRepositoryCapabilityDirectPurchase | CydiaRepositoryCapabilityHostedCheckout)) != 0 &&
             selectedArchiveAction purchaseURL:selectedArchiveAction ? _purchaseURL : nil];
 }
@@ -194,7 +219,8 @@
             localPackage.versionAvailable && localPackage.architectureSupported ? localPackage.id : nil;
         self.status = error.localizedDescription ?: (self.packagePresentation.state == CydiaRepositoryPackageStateUnknown ?
             CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED") : nil);
-        if (self.packagePresentation.purchased) self.purchaseStatus = nil;
+        if (self.packagePresentation.purchased && !self.packagePresentation.isFree) self.purchaseStatus = nil;
+        [self updateRecoveryFromError:error];
         [self.table reloadData];
     };
     if (authenticated) [[CydiaRepositoryAccountService sharedService] packageInfo:_package account:_account completion:completion];
@@ -208,6 +234,8 @@
     if (_account.supportsAccountIntegration && _authenticationFailed && _signedIn) [rows addObject:@"logout"];
     if (_loaded && !_busy) [rows addObject:@"refresh"];
     if (_rememberedMetadata && !_busy) [rows addObject:@"forget"];
+    if (_recoveryURL && !_busy) [rows addObject:@"help"];
+    if ([self hasUnresolvedPurchase] && !_busy) [rows addObject:@"purchase-check"];
     return rows;
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
@@ -228,6 +256,7 @@
     if (!_sourceURL) return CydiaAccountLocalize(@"ACCOUNT_SOURCE_HELP");
     if (section == 0) {
         NSMutableArray *messages = [NSMutableArray array];
+        if (_downloadEngineUnsupported && !_packagePresentation.isFree) [messages addObject:CydiaAccountLocalize(@"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED")];
         if (_rememberedProviderChanged || _providerChangedDuringPurchase) [messages addObject:CydiaAccountLocalize(@"ACCOUNT_PROVIDER_CHANGED")];
         if (_account.compatibilityNotice.length) [messages addObject:_account.compatibilityNotice];
         if (!_busy && _status.length) [messages addObject:_status];
@@ -261,7 +290,7 @@
     if (!_sourceURL) {
         NSDictionary *source = path.section == 0 ? _sources[path.row] : _rememberedSources[path.row]; cell.textLabel.text = source[@"name"];
         NSURL *URL = [NSURL URLWithString:source[@"url"]];
-        NSMutableArray *details = [NSMutableArray arrayWithObject:CydiaAccountOrigin(URL)];
+        NSMutableArray *details = [NSMutableArray arrayWithObject:CydiaRepositorySourceDisplayURL(URL) ?: CydiaAccountOrigin(URL)];
         if (source[@"metadata"][@"provider"]) [details addObject:CydiaAccountOrigin([NSURL URLWithString:source[@"metadata"][@"provider"]])];
         if (![source[@"installed"] boolValue]) [details addObject:CydiaAccountLocalize(@"ACCOUNT_SOURCE_REMOVED")];
         cell.detailTextLabel.text = [details componentsJoinedByString:@"\n"];
@@ -269,7 +298,8 @@
     } else if (path.section == 0) {
         NSString *row = self.accountRows[path.row];
         if ([row isEqual:@"source"]) {
-            cell.textLabel.text = _sourceName ?: _sourceURL.host; cell.detailTextLabel.text = CydiaAccountOrigin(_sourceURL);
+            cell.textLabel.text = _sourceName ?: _sourceURL.host;
+            cell.detailTextLabel.text = CydiaRepositorySourceDisplayURL(_sourceURL) ?: CydiaAccountOrigin(_sourceURL);
         } else if ([row isEqual:@"provider"]) {
             cell.textLabel.text = _account.name; cell.detailTextLabel.text = CydiaAccountOrigin(_account.providerURL);
         } else if ([row isEqual:@"loading"]) {
@@ -284,6 +314,14 @@
         } else if ([row isEqual:@"forget"]) {
             cell.textLabel.text = CydiaAccountLocalize(@"ACCOUNT_FORGET"); cell.selectionStyle = UITableViewCellSelectionStyleDefault;
             cell.detailTextLabel.text = CydiaAccountOrigin([NSURL URLWithString:_rememberedMetadata[@"provider"]]);
+        } else if ([row isEqual:@"help"]) {
+            cell.textLabel.text = CydiaAccountLocalize(@"ACCOUNT_PROVIDER_HELP");
+            cell.detailTextLabel.text = [NSString stringWithFormat:CydiaAccountLocalize(@"ACCOUNT_PROVIDER_HELP_DETAIL"),
+                CydiaAccountOrigin(_recoveryURL)];
+            cell.selectionStyle = UITableViewCellSelectionStyleDefault; cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        } else if ([row isEqual:@"purchase-check"]) {
+            cell.textLabel.text = CydiaAccountLocalize(@"ACCOUNT_CHECK_PURCHASE");
+            cell.detailTextLabel.text = _packageName ?: _package; cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         } else {
             cell.textLabel.text = CydiaAccountLocalize(@"ACCOUNT_CHECK_AGAIN"); cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         }
@@ -297,16 +335,16 @@
         switch (_packagePresentation.state) {
             case CydiaRepositoryPackageStateSignIn: key = @"ACCOUNT_SIGN_IN"; actionable = YES; break;
             case CydiaRepositoryPackageStateBuy: key = @"ACCOUNT_PURCHASE"; actionable = YES; break;
-            case CydiaRepositoryPackageStateDownload: key = @"ACCOUNT_INSTALL"; actionable = YES; break;
+            case CydiaRepositoryPackageStateDownload: key = _returnsToTransactionReview ? @"ACCOUNT_RETURN_TO_REVIEW" : @"ACCOUNT_INSTALL"; actionable = YES; break;
             case CydiaRepositoryPackageStateOwned: key = @"ACCOUNT_OWNED"; break;
             case CydiaRepositoryPackageStateOwnedUnavailable: key = @"ACCOUNT_OWNED_UNAVAILABLE"; break;
+            case CydiaRepositoryPackageStateFree: key = @"ACCOUNT_FREE"; break;
             case CydiaRepositoryPackageStateNotPurchased: key = @"ACCOUNT_NOT_PURCHASED"; break;
             case CydiaRepositoryPackageStateUnknown: key = _busy ? @"LOADING" : @"ACCOUNT_CHECK_AGAIN"; actionable = !_busy; break;
             default: break;
         }
         if (!_packagePresentation) { key = _busy ? @"LOADING" : @"ACCOUNT_CHECK_AGAIN"; actionable = !_busy; }
-        if (_packagePresentation.state == CydiaRepositoryPackageStateBuy &&
-            [[CydiaRepositoryAccountService sharedService] hasUnresolvedPurchase:_package account:_account]) {
+        if (!_busy && !_packagePresentation.isFree && [self hasUnresolvedPurchase]) {
             key = @"ACCOUNT_CHECK_PURCHASE"; actionable = YES;
         }
         cell.textLabel.text = [key isEqual:@"LOADING"] ? UCLocalize("LOADING") : CydiaAccountLocalize(key);
@@ -331,7 +369,7 @@
 - (void)signIn {
     if (!_providerCurrent || !_account) return;
     NSString *message = [NSString stringWithFormat:CydiaAccountLocalize(@"ACCOUNT_LINK_CONSENT"),
-        CydiaAccountOrigin(_sourceURL), CydiaAccountOrigin(_account.providerURL)];
+        CydiaRepositorySourceDisplayURL(_sourceURL) ?: CydiaAccountOrigin(_sourceURL), CydiaAccountOrigin(_account.providerURL)];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:CydiaAccountLocalize(@"ACCOUNT_SIGN_IN")
         message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
@@ -342,8 +380,9 @@
             self.busy = NO; self.signedIn = self.account.signedIn; self.status = error.localizedDescription;
             if (!error) {
                 self.authenticationFailed = NO; self.purchasedItems = nil; self.lastChecked = nil;
-                self.userName = nil; self.localItems = nil;
+                self.userName = nil; self.localItems = nil; self.recoveryURL = nil;
             }
+            [self updateRecoveryFromError:error];
             [self.table reloadData]; if (!error) [self refreshAccount];
         }];
     }]];
@@ -367,7 +406,7 @@
     NSString *message = [NSString stringWithFormat:CydiaAccountLocalize(@"ACCOUNT_PURCHASE_CONFIRM"),
         _packageName ?: _package, price, account.name, CydiaAccountOrigin(account.providerURL)];
     message = [NSString stringWithFormat:@"%@\n\n%@ · %@\n%@", message, _version, _architecture,
-        CydiaAccountOrigin(_sourceURL)];
+        CydiaRepositorySourceDisplayURL(_sourceURL) ?: CydiaAccountOrigin(_sourceURL)];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:CydiaAccountLocalize(@"ACCOUNT_PURCHASE")
         message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
@@ -386,7 +425,8 @@
         self.previousPopGestureEnabled = self.navigationController.interactivePopGestureRecognizer.enabled;
         self.navigationController.interactivePopGestureRecognizer.enabled = NO;
         [[CydiaRepositoryAccountService sharedService] purchasePackage:self.package version:self.version architecture:self.architecture
-            price:price account:account presenter:self selectionIsCurrent:self.selectionValidation completion:^(CydiaRepositoryPurchaseResult *result) {
+            price:price account:account presenter:self selectionIsCurrent:self.selectionValidation
+            prepareSelection:self.prepareSelection completion:^(CydiaRepositoryPurchaseResult *result) {
             self.purchaseInProgress = NO; self.busy = NO;
             self.navigationItem.leftBarButtonItem = self.previousLeftBarButtonItem; self.previousLeftBarButtonItem = nil;
             [self.navigationItem setHidesBackButton:self.previousHidesBackButton animated:YES];
@@ -399,6 +439,7 @@
                 case CydiaRepositoryPurchaseStateUnknown: self.purchaseStatus = CydiaAccountLocalize(@"ACCOUNT_PURCHASE_UNKNOWN"); break;
             }
             if (result.error) self.status = result.error.localizedDescription;
+            [self updateRecoveryFromError:result.error];
             if ([result.error.domain isEqual:@"CydiaRepositoryAccount"] &&
                 (result.error.code == CydiaAccountErrorAuthentication || result.error.code == CydiaAccountErrorReauthentication))
                 self.authenticationFailed = YES;
@@ -434,7 +475,8 @@
     if (!metadata || _busy) return;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:CydiaAccountLocalize(@"ACCOUNT_FORGET")
         message:[NSString stringWithFormat:CydiaAccountLocalize(@"ACCOUNT_FORGET_CONFIRM"),
-            CydiaAccountOrigin([NSURL URLWithString:metadata[@"source"]]),
+            CydiaRepositorySourceDisplayURL([NSURL URLWithString:metadata[@"source"]]) ?:
+                CydiaAccountOrigin([NSURL URLWithString:metadata[@"source"]]),
             CydiaAccountOrigin([NSURL URLWithString:metadata[@"provider"]])]
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("CANCEL") style:UIAlertActionStyleCancel handler:nil]];
@@ -445,6 +487,7 @@
             if (!error) {
                 self.rememberedMetadata = nil; self.purchasedItems = nil; self.lastChecked = nil;
                 self.userName = nil; self.signedIn = NO; self.account = nil;
+                self.recoveryURL = nil;
             }
             [self.table reloadData];
         }];
@@ -472,6 +515,10 @@
                     forPackage:_localPackageIdentity withReferrer:nil];
                 [controller setDelegate:self.delegate];
                 [self.navigationController pushViewController:controller animated:YES];
+            } else if (!_packagePresentation.isFree && [self hasUnresolvedPurchase]) {
+                if (!_providerCurrent) [self loadAccount];
+                else if (!_account.signedIn) [self signIn];
+                else [self refreshPackage];
             } else if (!_packagePresentation || _packagePresentation.state == CydiaRepositoryPackageStateUnknown) {
                 if (_account && _providerCurrent) [self refreshPackage]; else [self loadAccount];
             }
@@ -487,6 +534,13 @@
     NSArray<NSString *> *rows = self.accountRows;
     if (path.row < 0 || (NSUInteger)path.row >= rows.count) return;
     NSString *row = rows[path.row];
+    if ([row isEqual:@"purchase-check"]) {
+        if (!_providerCurrent) [self loadAccount]; else if (!_account.signedIn) [self signIn]; else [self refreshPackage];
+        return;
+    }
+    if ([row isEqual:@"help"] && _recoveryURL) {
+        [self presentViewController:[[SFSafariViewController alloc] initWithURL:_recoveryURL] animated:YES completion:nil]; return;
+    }
     if ([row isEqual:@"forget"]) { [self forgetRememberedAccount]; return; }
     if ([row isEqual:@"refresh"]) { [self loadAccount]; return; }
     if ((![row isEqual:@"authentication"] && ![row isEqual:@"logout"]) || !_account.supportsAccountIntegration) return;
@@ -495,6 +549,7 @@
         [[CydiaRepositoryAccountService sharedService] signOut:_account completion:^(NSError *error) {
             self.busy = NO; self.signedIn = self.account.signedIn; self.userName = nil; self.packagePresentation = nil;
             self.purchasedItems = nil; self.lastChecked = nil; self.purchaseStatus = nil;
+            self.recoveryURL = nil;
             if (!error) self.authenticationFailed = NO;
             self.status = error.localizedDescription; [self.table reloadData];
             if (!error && self.package.length) [self refreshPackage];

@@ -503,6 +503,56 @@ bool ArchiveEvidenceSnapshot::AuthorizationRequest(const ArchiveManifest &reques
     return true;
 }
 
+bool ArchiveEvidenceSnapshot::RepositoryAccessRequests(const ReviewedTransaction &review,
+    std::vector<RepositoryArchiveAccessRequest> *requests,
+    const std::function<bool()> &cancelled, std::string *error) const {
+    if (!requests) return Fail(error, "provider_archive_evidence_missing");
+    requests->clear();
+    std::vector<ArchiveManifest> commercial;
+    for (const auto &archive : review.execution.archives) {
+        const auto retained = implementation_->archives.find(archive.identifier);
+        if (retained == implementation_->archives.end() || !SameArchive(archive, retained->second))
+            return Fail(error, "provider_archive_not_reviewed");
+        if (implementation_->commercial.count(archive.identifier)) commercial.push_back(archive);
+    }
+    std::vector<VerifiedIndexControlEvidence> indexes;
+    if (!ControlEvidence(commercial, &indexes, cancelled, error)) return false;
+    std::vector<RepositoryArchiveAccessRequest> result;
+    for (const auto &archive : commercial) {
+        if (Cancelled(cancelled, error)) return false;
+        const URI source(archive.sourceURI), filename(archive.filename);
+        if (source.Access == "file" || source.Access == "copy" ||
+            filename.Access == "file" || filename.Access == "copy") continue;
+        struct stat existing;
+        if (lstat(archive.path.c_str(), &existing) == 0) {
+            std::vector<VerifiedArchiveEvidence> cached; std::string ignored;
+            if (Verify({archive}, &cached, cancelled, &ignored)) continue;
+            if (Cancelled(cancelled, error)) return false;
+        }
+        const TransactionPackageData *operation = nullptr;
+        std::string routingIdentity;
+        for (const auto &entry : review.transaction.packages)
+            if (entry.second.identity.baseName == archive.package.package && entry.second.version == archive.package.version &&
+                entry.second.identity.versionArchitecture == archive.package.architecture) {
+                if (operation) return Fail(error, "provider_archive_not_reviewed");
+                operation = &entry.second; routingIdentity = entry.first;
+            }
+        if (!operation || archive.sourceURI.empty()) return Fail(error, "provider_archive_not_reviewed");
+        RepositoryArchiveAccessRequest request;
+        request.sourceURL = archive.sourceURI; request.sourceName = source.Host;
+        request.package = archive.package.package; request.version = archive.package.version;
+        request.architecture = archive.package.architecture; request.routingIdentity = routingIdentity;
+        request.displayName = operation->displayName;
+        result.push_back(std::move(request));
+    }
+    // Cached archive inspection can run decoders. Recheck source/index proof
+    // after that work before publishing any account preparation rows.
+    if (!ControlEvidence(commercial, &indexes, cancelled, error)) return false;
+    *requests = std::move(result);
+    if (error) error->clear();
+    return true;
+}
+
 bool ArchiveEvidenceSnapshot::ControlFields(const ArchiveManifest &requested,
     std::map<std::string, std::string> *controls, const std::function<bool()> &cancelled, std::string *error) const {
     if (!controls) return Fail(error, "provider_archive_evidence_missing");

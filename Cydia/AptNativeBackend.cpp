@@ -42,6 +42,11 @@ public:
 
     bool prepareArchives() override { return embedded_.prepareArchives(); }
 
+    bool preparedRepositoryAccessRequests(std::vector<RepositoryArchiveAccessRequest> *requests) override {
+        return embedded_.preparedRepositoryAccessRequests(requests);
+    }
+    void releasePreparedArchiveLock() override { embedded_.releasePreparedArchiveLock(); }
+
     SourceListData sourceList() override { return embedded_.sourceList(); }
 
     FetchResultData runFetcher(int pulseInterval) override { return embedded_.runFetcher(pulseInterval); }

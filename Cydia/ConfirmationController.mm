@@ -32,6 +32,9 @@
 #include "Cydia/RuntimeProviderStatus.h"
 #include "Cydia/Package.h"
 #include "Cydia/PackageArchitecturePresentation.h"
+#import "Cydia/RepositoryAccountService.h"
+#import "Cydia/RepositoryAccountsController.h"
+#import "Cydia/RepositoryPackagePresentation.h"
 #include "CyteKit/Localize.h"
 
 #include <dispatch/dispatch.h>
@@ -286,6 +289,13 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UIAlertController *essentialAlert;
 @property (nonatomic) BOOL processingExpanded;
+@property (nonatomic, copy) NSArray<NSDictionary *> *repositoryAccessRequests;
+@property (nonatomic, strong) NSMutableArray *repositoryAccessResults;
+@property (nonatomic) BOOL repositoryPreflightBusy, repositoryPreflightComplete, staleReviewPresented;
+@property (nonatomic) BOOL repositoryReviewStale;
+@property (nonatomic) BOOL repositoryConfirmValidationBusy, repositoryConfirmValidationComplete;
+@property (nonatomic) CydiaConfirmationUserAction repositoryValidatedAction;
+@property (nonatomic) NSUInteger repositoryPreflightGeneration;
 - (void) configureWithViewModel:(CydiaConfirmationViewModel *)viewModel;
 @end
 
@@ -353,6 +363,9 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             [sections addObject:[CydiaConfirmationTableSection processing]];
         if (_transactionReview.conditionalRows.count)
             [sections addObject:[CydiaConfirmationTableSection conditionalChangesWithCount:_transactionReview.conditionalRows.count]];
+        _repositoryAccessRequests = [_transactionReview.repositoryAccessRequests copy];
+        if (_repositoryAccessRequests.count && !viewModel.hasBlockingIssues)
+            [sections addObject:[CydiaConfirmationTableSection repositoryAccountsWithCount:_repositoryAccessRequests.count]];
         _sections = [sections copy];
     }
     return self;
@@ -437,15 +450,144 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
         self.navigationItem.rightBarButtonItem = [self navigationActionWithTitle:UCLocalize("CONFIRM")
             selector:@selector(confirmButtonClicked) identifier:@"cydia.confirmation.confirm"
             emphasized:YES];
+    [self updateConfirmAvailability];
 }
 
 - (void) viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self applyColorAppearance];
+    if (_repositoryAccessRequests.count && !_viewModel.hasBlockingIssues && !_repositoryPreflightBusy && !_actionState.terminal)
+        [self checkRepositoryAccess];
+}
+
+- (BOOL)repositoryReviewIsCurrent {
+    return !_repositoryReviewStale && (_database == nil || [_database isPreparedConfirmationReviewCurrent:_transactionReview]);
+}
+- (BOOL)repositoryAccessIsReady {
+    if (!_repositoryAccessRequests.count) return YES;
+    if (!_repositoryPreflightComplete || _repositoryPreflightBusy ||
+        _repositoryAccessResults.count != _repositoryAccessRequests.count) return NO;
+    for (id value in _repositoryAccessResults) {
+        if (![value isKindOfClass:CydiaRepositoryAccessResult.class]) return NO;
+        CydiaRepositoryAccessState state = ((CydiaRepositoryAccessResult *)value).state;
+        if (state != CydiaRepositoryAccessStateReady && state != CydiaRepositoryAccessStateNotRequired) return NO;
+        if (state != CydiaRepositoryAccessStateNotRequired && !_transactionReview.repositoryAuthorizedDownloadsSupported) return NO;
+    }
+    return YES;
+}
+- (void)updateConfirmAvailability {
+    BOOL enabled = _viewModel.showsConfirmAction && [self repositoryAccessIsReady] && !_repositoryConfirmValidationBusy && !_actionState.terminal;
+    self.navigationItem.rightBarButtonItem.enabled = enabled;
+    UIView *button = self.navigationItem.rightBarButtonItem.customView;
+    if ([button isKindOfClass:UIControl.class]) ((UIControl *)button).enabled = enabled;
+}
+- (void)markRepositoryReviewStale {
+    _repositoryReviewStale = YES; _repositoryConfirmValidationComplete = NO;
+    _repositoryPreflightBusy = NO; _repositoryPreflightComplete = NO; ++_repositoryPreflightGeneration;
+    [self updateConfirmAvailability]; [_tableView reloadData];
+    if (_staleReviewPresented || self.navigationController.topViewController != self || !self.view.window) return;
+    _staleReviewPresented = YES;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:UCLocalize("CONFIRM")
+        message:[[NSBundle mainBundle] localizedStringForKey:@"TRANSACTION_STALE" value:nil table:@"Settings"]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:UCLocalize("OK") style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *) { [self handleUserAction:CydiaConfirmationUserActionContinueQueuing]; }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+- (void)checkRepositoryAccess {
+    if (_repositoryPreflightBusy || _actionState.terminal || !_repositoryAccessRequests.count || _viewModel.hasBlockingIssues) return;
+    if (![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+    _repositoryPreflightBusy = YES; _repositoryPreflightComplete = NO;
+    _repositoryConfirmValidationComplete = NO;
+    _repositoryAccessResults = [NSMutableArray arrayWithCapacity:_repositoryAccessRequests.count];
+    for (NSUInteger index = 0; index < _repositoryAccessRequests.count; ++index) [_repositoryAccessResults addObject:NSNull.null];
+    NSUInteger generation = ++_repositoryPreflightGeneration;
+    [self updateConfirmAvailability]; [_tableView reloadData];
+    __weak ConfirmationController *weakSelf = self;
+    [_database validatePreparedConfirmationReview:_transactionReview completion:^(BOOL valid) {
+        ConfirmationController *self = weakSelf;
+        if (!self || generation != self.repositoryPreflightGeneration || self.actionState.terminal) return;
+        if (!valid || ![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+        [self checkRepositoryAccessAtIndex:0 generation:generation];
+    }];
+}
+- (void)checkRepositoryAccessAtIndex:(NSUInteger)index generation:(NSUInteger)generation {
+    if (generation != _repositoryPreflightGeneration || _actionState.terminal) return;
+    if (![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+    if (index >= _repositoryAccessRequests.count) {
+        _repositoryPreflightBusy = NO; _repositoryPreflightComplete = YES;
+        [self updateConfirmAvailability]; [_tableView reloadData]; return;
+    }
+    NSDictionary *request = _repositoryAccessRequests[index];
+    __weak ConfirmationController *weakSelf = self;
+    [[CydiaRepositoryAccountService sharedService] preflightPackage:request[@"package"] version:request[@"version"]
+        architecture:request[@"architecture"] source:[NSURL URLWithString:request[@"sourceURL"]]
+        name:request[@"sourceName"] completion:^(CydiaRepositoryAccessResult *result) {
+        ConfirmationController *self = weakSelf;
+        if (!self || generation != self.repositoryPreflightGeneration || self.actionState.terminal) return;
+        if (![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+        BOOL matches = [result.sourceURL isEqual:[NSURL URLWithString:request[@"sourceURL"]]] &&
+            [result.package isEqual:request[@"package"]] && [result.version isEqual:request[@"version"]] &&
+            [result.architecture isEqual:request[@"architecture"]];
+        self.repositoryAccessResults[index] = matches ? result : (id)NSNull.null;
+        [self.tableView reloadData];
+        /* Serial reads avoid overwhelming one provider. No one-use URL is
+         * acquired while the user is reviewing dependencies or purchasing. */
+        [self checkRepositoryAccessAtIndex:index + 1 generation:generation];
+    }];
+}
+- (NSString *)repositoryAccessDescription:(CydiaRepositoryAccessResult *)result {
+    if (!result) return _repositoryPreflightBusy ? UCLocalize("LOADING") : CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED");
+    if (result.state != CydiaRepositoryAccessStateNotRequired && !_transactionReview.repositoryAuthorizedDownloadsSupported)
+        return CydiaAccountLocalize(@"ACCOUNT_DOWNLOAD_ENGINE_UNSUPPORTED");
+    switch (result.state) {
+        case CydiaRepositoryAccessStateReady:
+        case CydiaRepositoryAccessStateNotRequired: return CydiaAccountLocalize(@"ACCOUNT_ACCESS_READY");
+        case CydiaRepositoryAccessStateSignIn: return CydiaAccountLocalize(@"ACCOUNT_SIGN_IN_REQUIRED");
+        case CydiaRepositoryAccessStatePurchaseRequired: return CydiaAccountLocalize(@"ACCOUNT_NOT_PURCHASED");
+        case CydiaRepositoryAccessStateUnsupported: return result.account.compatibilityNotice ?: CydiaAccountLocalize(@"ACCOUNT_UNSUPPORTED");
+        case CydiaRepositoryAccessStateUnavailable: return CydiaAccountLocalize(@"ACCOUNT_UNAVAILABLE");
+        case CydiaRepositoryAccessStateFailed: return result.error.localizedDescription ?: CydiaAccountLocalize(@"ACCOUNT_REQUEST_FAILED");
+    }
+}
+- (void)showRepositoryAccountForRequest:(NSDictionary *)request {
+    if (_repositoryPreflightBusy) return;
+    if (![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+    __weak ConfirmationController *weakSelf = self;
+    BOOL (^selectionIsCurrent)(void) = ^BOOL {
+        ConfirmationController *self = weakSelf;
+        return self != nil && self.transactionReview.repositoryAuthorizedDownloadsSupported &&
+            !self.actionState.terminal && [self repositoryReviewIsCurrent];
+    };
+    void (^prepareSelection)(void (^)(BOOL)) = ^(void (^completion)(BOOL)) {
+        ConfirmationController *self = weakSelf;
+        if (!self || self.actionState.terminal || ![self repositoryReviewIsCurrent]) { completion(NO); return; }
+        [self.database validatePreparedConfirmationReview:self.transactionReview completion:^(BOOL valid) {
+            ConfirmationController *self = weakSelf;
+            completion(valid && self != nil && !self.actionState.terminal && [self repositoryReviewIsCurrent]);
+        }];
+    };
+    void (^returnToReview)(void) = ^{
+        ConfirmationController *self = weakSelf;
+        if (!self || ![self.navigationController.viewControllers containsObject:self]) return;
+        [self.navigationController popToViewController:self animated:YES];
+        /* viewWillAppear performs fresh entitlement reads. Returning here
+         * never approves, installs or purchases the remaining dependencies. */
+    };
+    RepositoryAccountsController *controller = [[RepositoryAccountsController alloc]
+        initWithSourceURL:[NSURL URLWithString:request[@"sourceURL"]] name:request[@"sourceName"] package:request[@"package"]
+        packageName:request[@"displayName"] version:request[@"version"] architecture:request[@"architecture"]
+        downloadAction:returnToReview
+        purchaseURL:nil selectionIsCurrent:selectionIsCurrent prepareSelection:prepareSelection];
+    controller.returnsToTransactionReview = YES;
+    controller.downloadEngineUnsupported = !_transactionReview.repositoryAuthorizedDownloadsSupported;
+    [controller setDelegate:self.delegate];
+    [self.navigationController pushViewController:controller animated:YES];
 }
 
 - (void) viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    if (_repositoryReviewStale) [self markRepositoryReviewStale];
     CydiaCaptureNativeAccessibility(self, @"confirmation");
     /* UIKit may retain the presenter's focused row when VoiceOver enters this
      * controller.  That leaves the destructive-side Confirm action as the
@@ -498,7 +640,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
         layout = CydiaConfirmationCellLayoutMessage;
     else if (sectionKind == CydiaConfirmationTableSectionKindQueue)
         layout = CydiaConfirmationCellLayoutAction;
-    else if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges)
+    else if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges ||
+        sectionKind == CydiaConfirmationTableSectionKindRepositoryAccounts)
         layout = CydiaConfirmationCellLayoutStacked;
     [confirmationCell setConfirmationLayout:layout traitCollection:traits];
     if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges) {
@@ -511,7 +654,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
         titleStyle = UIFontTextStyleSubheadline;
     else if (sectionKind == CydiaConfirmationTableSectionKindIssueNotice)
         titleStyle = detailStyle = UIFontTextStyleFootnote;
-    else if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges)
+    else if (sectionKind == CydiaConfirmationTableSectionKindConditionalChanges ||
+        sectionKind == CydiaConfirmationTableSectionKindRepositoryAccounts)
         detailStyle = UIFontTextStyleFootnote;
     [[confirmationCell confirmationTitleLabel]
         setFont:[UIFont preferredFontForTextStyle:titleStyle
@@ -521,7 +665,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
                              compatibleWithTraitCollection:traits]];
     [[confirmationCell confirmationTitleLabel]
         setTextColor:[UIColor cydiaColorForRole:
-            sectionKind == CydiaConfirmationTableSectionKindQueue ?
+            sectionKind == CydiaConfirmationTableSectionKindQueue ||
+                (sectionKind == CydiaConfirmationTableSectionKindRepositoryAccounts && cell.selectionStyle != UITableViewCellSelectionStyleNone) ?
                 CydiaColorRoleAccent : CydiaColorRoleLabel
                                 traitCollection:traits]];
     [[confirmationCell confirmationDetailLabel]
@@ -623,8 +768,14 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
 - (CGFloat) tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
     (void) tableView;
-    (void) section;
+    if (_sections[section].kind == CydiaConfirmationTableSectionKindRepositoryAccounts)
+        return UITableViewAutomaticDimension;
     return CGFLOAT_MIN;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    return _sections[section].kind == CydiaConfirmationTableSectionKindRepositoryAccounts ?
+        CydiaAccountLocalize(@"ACCOUNT_REVIEW_HELP") : nil;
 }
 
 - (NSString *) tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -643,6 +794,8 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
             return CydiaRuntimeProviderLocalize(@"REVIEW_PROCESSING");
         case CydiaConfirmationTableSectionKindConditionalChanges:
             return CydiaDeconfigurationReviewLocalize(@"PACKAGE_TEMPORARY_CHANGES");
+        case CydiaConfirmationTableSectionKindRepositoryAccounts:
+            return CydiaAccountLocalize(@"ACCOUNT_REVIEW_TITLE");
         case CydiaConfirmationTableSectionKindSizes:
             return UCLocalize("STATISTICS");
         case CydiaConfirmationTableSectionKindModifications:
@@ -664,6 +817,7 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
     [cell setSelectionStyle:UITableViewCellSelectionStyleNone];
     [cell setAccessoryType:UITableViewCellAccessoryNone];
+    cell.accessoryView = nil;
     UILabel *titleLabel([cell confirmationTitleLabel]);
     UILabel *detailLabel([cell confirmationDetailLabel]);
     [titleLabel setText:nil];
@@ -676,6 +830,37 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
     switch ([section kind]) {
+        case CydiaConfirmationTableSectionKindRepositoryAccounts:
+            if (indexPath.row == 0) {
+                titleLabel.text = _repositoryPreflightBusy ? UCLocalize("LOADING") : CydiaAccountLocalize(@"ACCOUNT_CHECK_AGAIN");
+                detailLabel.text = [self repositoryAccessIsReady] ? CydiaAccountLocalize(@"ACCOUNT_ACCESS_READY") :
+                    CydiaAccountLocalize(@"ACCOUNT_REVIEW_REQUIRED");
+                cell.accessibilityIdentifier = @"cydia.confirmation.repository-access.check";
+                if (_repositoryPreflightBusy) {
+                    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+                    spinner.color = [UIColor cydiaColorForRole:CydiaColorRoleLabel traitCollection:self.traitCollection];
+                    [spinner startAnimating]; cell.accessoryView = spinner;
+                } else { cell.selectionStyle = UITableViewCellSelectionStyleDefault; cell.accessibilityTraits = UIAccessibilityTraitButton; }
+            } else {
+                NSUInteger index = indexPath.row - 1;
+                NSDictionary *request = _repositoryAccessRequests[index];
+                id value = index < _repositoryAccessResults.count ? _repositoryAccessResults[index] : nil;
+                CydiaRepositoryAccessResult *result = [value isKindOfClass:CydiaRepositoryAccessResult.class] ? value : nil;
+                NSString *caption = CydiaPackageArchitectureCaption(request[@"architecture"],
+                    CydiaPackageRegisteredArchitectureNames(_transactionReview.transaction.registeredArchitectures));
+                titleLabel.text = CydiaPackageNameWithArchitectureCaption(request[@"displayName"] ?: request[@"package"], caption);
+                detailLabel.text = [NSString stringWithFormat:@"%@ · %@\n%@", request[@"version"],
+                    CydiaRepositorySourceDisplayURL([NSURL URLWithString:request[@"sourceURL"]]) ?:
+                        CydiaAccountOrigin([NSURL URLWithString:request[@"sourceURL"]]), [self repositoryAccessDescription:result]];
+                cell.accessibilityIdentifier = [NSString stringWithFormat:@"cydia.confirmation.repository-access.%lu", (unsigned long)index];
+                if (!_repositoryPreflightBusy && result && result.state != CydiaRepositoryAccessStateNotRequired &&
+                    (result.state != CydiaRepositoryAccessStateReady || !_transactionReview.repositoryAuthorizedDownloadsSupported)) {
+                    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+                    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.accessibilityTraits = UIAccessibilityTraitButton;
+                }
+            }
+            cell.accessibilityLabel = [NSString stringWithFormat:UCLocalize("COLON_DELIMITED"), titleLabel.text, detailLabel.text];
+            break;
         case CydiaConfirmationTableSectionKindConditionalChanges:
             if (indexPath.row == 0) {
                 titleLabel.text = CydiaDeconfigurationReviewLocalize(@"PACKAGE_TEMPORARY_CHANGES_HELP");
@@ -818,7 +1003,18 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     CydiaConfirmationTableSection *section([_sections objectAtIndex:[indexPath section]]);
-    if ([section kind] == CydiaConfirmationTableSectionKindQueue)
+    if (section.kind == CydiaConfirmationTableSectionKindRepositoryAccounts) {
+        if (indexPath.row == 0) [self checkRepositoryAccess];
+        else if (!_repositoryPreflightBusy) {
+            NSUInteger index = indexPath.row - 1;
+            id value = index < _repositoryAccessResults.count ? _repositoryAccessResults[index] : nil;
+            if ([value isKindOfClass:CydiaRepositoryAccessResult.class] &&
+                ((CydiaRepositoryAccessResult *)value).state != CydiaRepositoryAccessStateNotRequired &&
+                (((CydiaRepositoryAccessResult *)value).state != CydiaRepositoryAccessStateReady ||
+                    !_transactionReview.repositoryAuthorizedDownloadsSupported))
+                [self showRepositoryAccountForRequest:_repositoryAccessRequests[index]];
+        }
+    } else if ([section kind] == CydiaConfirmationTableSectionKindQueue)
         [self continueQueuingButtonClicked];
     else if ([section kind] == CydiaConfirmationTableSectionKindProcessing && indexPath.row == 0) {
         NSMutableArray<NSIndexPath *> *rows([NSMutableArray arrayWithCapacity:_transactionReview.processingRows.count]);
@@ -921,6 +1117,27 @@ typedef NS_ENUM(NSUInteger, CydiaConfirmationCellLayout) {
 }
 
 - (void) handleUserAction:(CydiaConfirmationUserAction)userAction {
+    if (_repositoryAccessRequests.count && (userAction == CydiaConfirmationUserActionConfirm ||
+        userAction == CydiaConfirmationUserActionForceRemovalConfirmed)) {
+        if (![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+        if (![self repositoryAccessIsReady]) { _repositoryConfirmValidationComplete = NO; return; }
+        if (!_repositoryConfirmValidationComplete || _repositoryValidatedAction != userAction) {
+            if (_repositoryConfirmValidationBusy) return;
+            _repositoryConfirmValidationBusy = YES; [self updateConfirmAvailability];
+            __weak ConfirmationController *weakSelf = self;
+            [_database validatePreparedConfirmationReview:_transactionReview completion:^(BOOL valid) {
+                ConfirmationController *self = weakSelf;
+                if (!self) return;
+                self.repositoryConfirmValidationBusy = NO;
+                if (self.actionState.terminal) return;
+                if (!valid || ![self repositoryReviewIsCurrent]) { [self markRepositoryReviewStale]; return; }
+                self.repositoryConfirmValidationComplete = YES; self.repositoryValidatedAction = userAction;
+                [self updateConfirmAvailability]; [self handleUserAction:userAction];
+            }];
+            return;
+        }
+        _repositoryConfirmValidationComplete = NO;
+    }
     CydiaConfirmationActionEffect effect([_actionState effectForUserAction:userAction]);
     id<ConfirmationControllerDelegate> delegate((id<ConfirmationControllerDelegate>) [self delegate]);
     switch (effect) {
